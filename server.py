@@ -139,8 +139,13 @@ class ConnectionManager:
         logger.info("前端可视化 WebSocket 客户端已断开。")
 
     async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+        # Create a copy of the list to iterate over, since we might remove items
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                logger.warning(f"Failed to send to a client, removing from pool: {e}")
+                self.disconnect(connection)
 
 manager = ConnectionManager()
 

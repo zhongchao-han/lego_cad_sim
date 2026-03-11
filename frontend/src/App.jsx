@@ -2,8 +2,6 @@ import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useStore } from './store';
 import Scene from './Scene';
-import { Play } from 'lucide-react';
-
 function UIOverlay() {
   const mode = useStore((state) => state.mode);
   const toggleMode = useStore((state) => state.toggleMode);
@@ -52,25 +50,36 @@ function App() {
 
   // 建立并监听只读的 WebSocket 流
   useEffect(() => {
-    let ws;
-    let reconnectTimer;
+    let ws = null;
+    let reconnectTimer = null;
+    let isMounted = true; // Use a mount flag to stop reconnecting if unmounted
 
     const connect = () => {
+      if (!isMounted) return;
+        
       ws = new WebSocket('ws://127.0.0.1:8000/ws/physics_stream');
 
       ws.onopen = () => {
+        if (!isMounted) {
+            ws.close();
+            return;
+        }
         console.log('WebSocket connected to Engine.');
         setWsConnected(true);
       };
 
       ws.onmessage = (event) => {
+        if (!isMounted) return;
         try {
-          const payload = JSON.parse(event.data);
-          if (payload && payload.state) {
-            // 解析来自后台的高频下发的 physics state
-            Object.entries(payload.state).forEach(([partId, data]) => {
-              updatePartState(partId, data);
-            });
+          // 确保有数据才解析
+          if (event.data) {
+              const payload = JSON.parse(event.data);
+              if (payload && payload.state) {
+                // 解析来自后台的高频下发的 physics state
+                Object.entries(payload.state).forEach(([partId, data]) => {
+                  updatePartState(partId, data);
+                });
+              }
           }
         } catch (err) {
           console.error('Frame Parse Error:', err);
@@ -78,23 +87,33 @@ function App() {
       };
 
       ws.onclose = () => {
+        if (!isMounted) return;
         console.warn('WebSocket closed, scheduling reconnect...');
         setWsConnected(false);
         // 断线自愈
         reconnectTimer = setTimeout(connect, 2000);
       };
 
-      ws.onerror = (e) => {
-        console.error("WS Engine error", e);
-        ws.close();
+      ws.onerror = () => {
+        console.warn("WS Engine: transient connection error (will auto-reconnect)");
+        // Error will automatically trigger onclose, so we just log it and close
+        // Only call close if readyState is not closed/closing
+        if (ws && ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
+            ws.close();
+        }
       };
     };
 
     connect();
 
     return () => {
+      isMounted = false;
       clearTimeout(reconnectTimer);
-      if (ws) ws.close();
+      if (ws) {
+          // Temporarily disable the onclose handler so it doesn't try to reconnect when we unmount
+          ws.onclose = null;
+          ws.close();
+      }
     };
   }, [setWsConnected, updatePartState]);
 
@@ -104,7 +123,7 @@ function App() {
 
       {/* 3D 渲染区域 */}
       <Canvas
-        camera={{ position: [0, 0.2, 0.4], fov: 45 }}
+        camera={{ position: [0.05, 0.08, 0.12], fov: 45, near: 0.001, far: 10 }}
         shadows
         className="w-full h-full"
       >

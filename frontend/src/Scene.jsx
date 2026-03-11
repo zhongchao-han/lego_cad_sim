@@ -1,8 +1,94 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Sphere, TransformControls } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { OrbitControls, Html, Sphere } from '@react-three/drei';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useStore } from './store';
-import { Vector3, Matrix4 } from 'three';
+import { Vector3 } from 'three';
+import * as THREE from 'three';
+
+// ============= Lego Technic 梁 (Beam) 几何体生成器 =============
+// 生成一个带有圆孔阵列的 Technic 梁形状
+function createBeamGeometry(holes = 5) {
+    const LDU = 0.0004; // 1 LDU = 0.4mm
+    const pitch = 20 * LDU; // 孔间距 8mm
+    const width = pitch * holes;
+    const height = 20 * LDU; // 8mm
+    const depth = 20 * LDU; // 8mm
+    const holeRadius = 6 * LDU; // 2.4mm 半径
+
+    const shape = new THREE.Shape();
+    const r = 4 * LDU; // 圆角半径
+    const hw = width / 2;
+    const hh = height / 2;
+
+    // 带圆角的矩形外轮廓
+    shape.moveTo(-hw + r, -hh);
+    shape.lineTo(hw - r, -hh);
+    shape.quadraticCurveTo(hw, -hh, hw, -hh + r);
+    shape.lineTo(hw, hh - r);
+    shape.quadraticCurveTo(hw, hh, hw - r, hh);
+    shape.lineTo(-hw + r, hh);
+    shape.quadraticCurveTo(-hw, hh, -hw, hh - r);
+    shape.lineTo(-hw, -hh + r);
+    shape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+
+    // 在每个孔位处掏出圆形孔洞
+    for (let i = 0; i < holes; i++) {
+        const cx = -hw + pitch / 2 + i * pitch;
+        const holePath = new THREE.Path();
+        holePath.absarc(cx, 0, holeRadius, 0, Math.PI * 2, true);
+        shape.holes.push(holePath);
+    }
+
+    const extrudeSettings = {
+        steps: 1,
+        depth: depth,
+        bevelEnabled: true,
+        bevelThickness: 1.5 * LDU,
+        bevelSize: 1.5 * LDU,
+        bevelSegments: 2,
+    };
+
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    // 居中
+    geometry.translate(0, 0, -depth / 2);
+    // 旋转使其水平放置 (Z轴朝上变成Y轴朝上)
+    geometry.rotateX(Math.PI / 2);
+
+    return geometry;
+}
+
+// ============= Lego Technic 销钉 (Pin) 几何体 =============
+function createPinGeometry() {
+    const LDU = 0.0004;
+    const pinRadius = 6 * LDU; // 2.4mm 半径
+    const pinLength = 32 * LDU; // 12.8mm 总长 (大约两个板厚)
+    const grooveDepth = 1 * LDU;
+    const grooveWidth = 2 * LDU;
+
+    const group = new THREE.Group();
+
+    // 主体圆柱
+    const bodyGeo = new THREE.CylinderGeometry(pinRadius, pinRadius, pinLength, 16);
+    bodyGeo.rotateZ(Math.PI / 2); // 使其横向
+
+    // 中间凸缘
+    const flangeGeo = new THREE.CylinderGeometry(pinRadius + 2 * LDU, pinRadius + 2 * LDU, 3 * LDU, 16);
+    flangeGeo.rotateZ(Math.PI / 2);
+
+    return { bodyGeo, flangeGeo };
+}
+
+// ============= Lego 基板 (Plate / Base Link) =============
+function createPlateGeometry() {
+    const LDU = 0.0004;
+    const width = 80 * LDU; // 32mm
+    const height = 8 * LDU; // 3.2mm (一个薄板)
+    const depth = 80 * LDU; // 32mm
+
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    // 顶部加些圆形凸起当作 Stud
+    return geometry;
+}
 
 // --- Smart Snapping UI ---
 const SnappingHighlight = ({ position }) => {
@@ -20,16 +106,14 @@ const SnappingHighlight = ({ position }) => {
 
 // --- Camera Anchor Lock ---
 const CameraController = () => {
-    const { camera } = useThree();
     const controlsRef = useRef();
     const selectedPort = useStore((state) => state.selectedPort);
 
     useEffect(() => {
         if (selectedPort && controlsRef.current) {
-            // 当选择了特定的孔洞后，缓动相机锁定并以此孔位作为 Orbit 中心
             const targetPos = new Vector3(...selectedPort.globalPos);
             controlsRef.current.target.copy(targetPos);
-            controlsRef.current.minDistance = 0.05; // 允许推进更深聚焦细节
+            controlsRef.current.minDistance = 0.02;
             controlsRef.current.maxDistance = 0.5;
         }
     }, [selectedPort]);
@@ -39,80 +123,187 @@ const CameraController = () => {
 
 // --- 独立乐高零件呈现 ---
 const LegoPart = ({ id }) => {
-    const meshRef = useRef();
+    const groupRef = useRef();
     const state = useStore((state) => state.parts[id]);
     const mode = useStore((state) => state.mode);
     const snapParts = useStore((state) => state.snapParts);
     const [hovered, setHover] = useState(false);
 
-    // 假想这个件有两个备用的装配端口
-    const dummyPorts = useMemo(() => [
-        { type: 'peghole', localPos: [0.015, 0, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-        { type: 'axlehole', localPos: [-0.015, 0, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }
-    ], []);
+    const LDU = 0.0004;
+    const pitch = 20 * LDU;
+
+    // 确定零件类型和参数
+    const partConfig = useMemo(() => {
+        if (id.includes('beam')) {
+            const holes = 5;
+            return {
+                type: 'beam',
+                holes,
+                geometry: createBeamGeometry(holes),
+                color: '#e53935', // 乐高经典红
+                hoverColor: '#ff9800',
+                ports: Array.from({ length: holes }, (_, i) => ({
+                    type: 'peghole',
+                    localPos: [(-holes / 2 + 0.5 + i) * pitch, 6 * LDU, 0], // Y偏移：浮在梁上方
+                    rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                })),
+            };
+        } else if (id.includes('pin')) {
+            return {
+                type: 'pin',
+                geometry: null, // 使用内联几何体
+                color: '#212121', // 黑色销钉
+                hoverColor: '#ff9800',
+                ports: [
+                    { type: 'peg', localPos: [8 * LDU, 0, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peg', localPos: [-8 * LDU, 0, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                ],
+            };
+        } else {
+            return {
+                type: 'plate',
+                geometry: createPlateGeometry(),
+                color: '#b0bec5', // 浅灰色底座
+                hoverColor: '#ff9800',
+                ports: [
+                    { type: 'peghole', localPos: [pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peghole', localPos: [-pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peghole', localPos: [0, 8 * LDU, pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peghole', localPos: [0, 8 * LDU, -pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                ],
+            };
+        }
+    }, [id]);
 
     useFrame(() => {
-        // 无论是仿真推流过来的位置，还是在组装时拖拽的局部参数，都一并在每帧向 Mesh 对齐
-        if (meshRef.current && state) {
-            meshRef.current.position.set(...state.position);
-            meshRef.current.quaternion.set(...state.quaternion);
+        if (groupRef.current && state) {
+            groupRef.current.position.set(...state.position);
+            groupRef.current.quaternion.set(...state.quaternion);
         }
     });
 
     const handlePortClick = (e, port) => {
         e.stopPropagation();
-        if (mode === 'SIMULATION') return; // 在仿真态不让编辑
+        if (mode === 'SIMULATION') return;
 
         const currentSelection = useStore.getState().selectedPort;
 
-        // 计算此端口在此刻组件朝向下的绝对世界位置（用于连线和聚焦）
-        const worldPos = new Vector3(...port.localPos)
-            .applyQuaternion(meshRef.current.quaternion)
-            .add(meshRef.current.position);
+        const worldPos = new Vector3(...port.localPos);
+        if (groupRef.current) {
+            worldPos.applyQuaternion(groupRef.current.quaternion);
+            worldPos.add(groupRef.current.position);
+        }
 
         const portInfo = {
             partId: id,
             portType: port.type,
             position: port.localPos,
             rotation: port.rot,
-            globalPos: [worldPos.x, worldPos.y, worldPos.z]
+            globalPos: [worldPos.x, worldPos.y, worldPos.z],
         };
 
         if (currentSelection && currentSelection.partId !== id) {
-            // 存在其它件的待吸附端点了，尝试合拢并发送到后端建立边
-            console.log(`Snapping ${currentSelection.partId} to ${id}...`);
+            console.log(`🔗 Snapping ${currentSelection.partId} → ${id}...`);
             snapParts(currentSelection, portInfo);
         } else {
-            // 作为发起端被选中
+            console.log(`🎯 已选中端口: ${id} [${port.type}] @ [${worldPos.x.toFixed(4)}, ${worldPos.y.toFixed(4)}, ${worldPos.z.toFixed(4)}]`);
             useStore.getState().setSelectedPort(portInfo);
         }
     };
 
-    // 根据组件名称使用简单的颜色作为占位
-    const color = id === 'base_link' ? '#cfd8dc' : id.includes('pin') ? '#212121' : '#f44336';
+    const currentColor = hovered ? partConfig.hoverColor : partConfig.color;
 
     return (
-        <group>
-            <mesh ref={meshRef}
-                onPointerOver={() => setHover(true)}
-                onPointerOut={() => setHover(false)}>
-                {/* Placeholder Box Geometry matching SI units (eg: 0.05m = 5cm) */}
-                <boxGeometry args={[0.04, 0.008, 0.008]} />
-                <meshStandardMaterial color={hovered ? '#ff9800' : color} roughness={0.3} metalness={0.1} />
-            </mesh>
-
-            {/* 渲染依附在件上的虚拟端口，当且仅当 Assembly 模式 */}
-            {mode === 'ASSEMBLY' && dummyPorts.map((port, idx) => (
-                <Sphere
-                    key={idx}
-                    position={port.localPos}
-                    args={[0.002, 8, 8]}
-                    onClick={(e) => handlePortClick(e, port)}
-                    onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }}
-                    onPointerOut={() => document.body.style.cursor = 'auto'}
+        <group ref={groupRef}>
+            {/* 主体几何体 */}
+            {partConfig.type === 'beam' && (
+                <mesh
+                    geometry={partConfig.geometry}
+                    onPointerOver={() => setHover(true)}
+                    onPointerOut={() => setHover(false)}
                 >
-                    <meshBasicMaterial color={port.type === 'peghole' ? '#2196f3' : '#9c27b0'} />
-                </Sphere>
+                    <meshStandardMaterial
+                        color={currentColor}
+                        roughness={0.35}
+                        metalness={0.05}
+                    />
+                </mesh>
+            )}
+
+            {partConfig.type === 'pin' && (
+                <group
+                    onPointerOver={() => setHover(true)}
+                    onPointerOut={() => setHover(false)}
+                >
+                    {/* 销钉主体 */}
+                    <mesh>
+                        <cylinderGeometry args={[6 * LDU, 6 * LDU, 32 * LDU, 16]} />
+                        <meshStandardMaterial color={currentColor} roughness={0.5} />
+                    </mesh>
+                    {/* 中部凸缘 */}
+                    <mesh>
+                        <cylinderGeometry args={[8 * LDU, 8 * LDU, 3 * LDU, 16]} />
+                        <meshStandardMaterial color={currentColor} roughness={0.5} />
+                    </mesh>
+                </group>
+            )}
+
+            {partConfig.type === 'plate' && (
+                <group
+                    onPointerOver={() => setHover(true)}
+                    onPointerOut={() => setHover(false)}
+                >
+                    <mesh geometry={partConfig.geometry}>
+                        <meshStandardMaterial
+                            color={currentColor}
+                            roughness={0.3}
+                            metalness={0.05}
+                        />
+                    </mesh>
+                    {/* Studs 凸起矩阵 */}
+                    {[-3, -2, -1, 0, 1, 2, 3].map(col =>
+                        [-3, -2, -1, 0, 1, 2, 3].map(row => (
+                            <mesh
+                                key={`stud-${col}-${row}`}
+                                position={[col * pitch, 4 * LDU + 1 * LDU, row * pitch]}
+                            >
+                                <cylinderGeometry args={[3 * LDU, 3 * LDU, 2 * LDU, 12]} />
+                                <meshStandardMaterial color={currentColor} roughness={0.3} />
+                            </mesh>
+                        ))
+                    )}
+                </group>
+            )}
+
+            {/* 渲染可交互端口 - 蓝色=销孔(peghole)，品红=销钉端(peg) */}
+            {/* 每个端口由一个可见的小球 + 一个更大的透明命中区域组成 */}
+            {mode === 'ASSEMBLY' && partConfig.ports.map((port, idx) => (
+                <group key={idx} position={port.localPos}>
+                    {/* 可见的端口指示球 */}
+                    <mesh>
+                        <sphereGeometry args={[4 * LDU, 16, 16]} />
+                        <meshBasicMaterial
+                            color={port.type === 'peghole' ? '#2196f3' : '#e040fb'}
+                            transparent
+                            opacity={0.85}
+                            depthTest={false}
+                        />
+                    </mesh>
+                    {/* 更大的透明点击热区 (半径 = 12 LDU ≈ 5mm，屏幕上约 15-20px) */}
+                    <mesh
+                        onClick={(e) => handlePortClick(e, port)}
+                        onPointerOver={(e) => {
+                            e.stopPropagation();
+                            document.body.style.cursor = 'pointer';
+                        }}
+                        onPointerOut={() => {
+                            document.body.style.cursor = 'auto';
+                        }}
+                    >
+                        <sphereGeometry args={[12 * LDU, 8, 8]} />
+                        <meshBasicMaterial transparent opacity={0} depthTest={false} />
+                    </mesh>
+                </group>
             ))}
         </group>
     );
@@ -124,23 +315,21 @@ export default function Scene() {
 
     return (
         <>
-            <ambientLight intensity={0.5} />
+            <ambientLight intensity={0.6} />
             <directionalLight position={[1, 2, 3]} intensity={1.5} castShadow />
+            <directionalLight position={[-2, 1, -1]} intensity={0.4} />
 
             <CameraController />
 
-            {/* 渲染所有存在的乐高件及其内置端口 */}
             {Object.keys(parts).map(id => (
                 <LegoPart key={id} id={id} />
             ))}
 
-            {/* 跨部件全局显示拖拽的落点射线/高亮 */}
             {selectedPort && (
                 <SnappingHighlight position={selectedPort.globalPos} />
             )}
 
-            {/* 基础网格地皮 */}
-            <gridHelper args={[1, 20]} position={[0, -0.01, 0]} />
+            <gridHelper args={[0.5, 30, '#999', '#ddd']} position={[0, -0.01, 0]} />
         </>
     );
 }

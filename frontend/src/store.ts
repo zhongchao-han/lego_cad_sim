@@ -23,18 +23,18 @@ interface StoreState {
 export interface SelectedPortInfo {
   partId: string;
   portType: string;
-  position: [number, number, number];
+  position: [number, number, number]; // 端口在零件本地坐标系中的坐标
   rotation: number[][];
-  globalPos: [number, number, number]; // 用于吸附展示辅助线的位置
+  globalPos: [number, number, number]; // 端口在世界坐标系中的位置
 }
 
 export const useStore = create<StoreState>((set, get) => ({
   mode: 'ASSEMBLY',
   parts: {
     // 放入初始测试用的两个方块件及一根轴
-    "base_link": { position: [0, 0, 0.5], quaternion: [0, 0, 0, 1] },
-    "beam_1x5": { position: [0.05, 0, 0.5], quaternion: [0, 0, 0, 1] },
-    "friction_pin": { position: [0.025, 0.05, 0.5], quaternion: [0, 0, 0, 1] },
+    "base_link": { position: [0, 0.005, 0], quaternion: [0, 0, 0, 1] },
+    "beam_1x5": { position: [0.06, 0.005, 0], quaternion: [0, 0, 0, 1] },
+    "friction_pin": { position: [0.03, 0.03, 0], quaternion: [0, 0, 0, 1] },
   },
   wsConnected: false,
   selectedPort: null,
@@ -59,6 +59,40 @@ export const useStore = create<StoreState>((set, get) => ({
   setSelectedPort: (port) => set({ selectedPort: port }),
 
   snapParts: async (source, target) => {
+    // 即时视觉吸附：把 source 零件移动到使其端口对齐 target 端口的位置
+    const parts = get().parts;
+    const sourcePart = parts[source.partId];
+
+    if (sourcePart) {
+      // 计算 source 端口的世界坐标与 target 端口世界坐标之间的偏移
+      // delta = target.globalPos - source.globalPos
+      // 新位置 = sourcePart.position + delta
+      const dx = target.globalPos[0] - source.globalPos[0];
+      const dy = target.globalPos[1] - source.globalPos[1];
+      const dz = target.globalPos[2] - source.globalPos[2];
+
+      const newPos: [number, number, number] = [
+        sourcePart.position[0] + dx,
+        sourcePart.position[1] + dy,
+        sourcePart.position[2] + dz,
+      ];
+
+      // 立即更新前端位置
+      set((prev) => ({
+        parts: {
+          ...prev.parts,
+          [source.partId]: {
+            ...prev.parts[source.partId],
+            position: newPos,
+          },
+        },
+        selectedPort: null,
+      }));
+
+      console.log(`✅ 已吸附: ${source.partId} → ${target.partId}，位移 [${dx.toFixed(4)}, ${dy.toFixed(4)}, ${dz.toFixed(4)}]`);
+    }
+
+    // 同时通知后端建立拓扑边
     try {
       await axios.post(`${API_URL}/snap_parts`, {
         parent_id: target.partId,
@@ -66,12 +100,10 @@ export const useStore = create<StoreState>((set, get) => ({
         port_type_p: target.portType,
         port_type_c: source.portType,
         parent_origin: target.position,
-        parent_rot: target.rotation.flat(), // Flat to 9-element array
+        parent_rot: target.rotation.flat(),
         child_origin: source.position,
         child_rot: source.rotation.flat(),
       });
-      // 成功吸附后解除选中
-      set({ selectedPort: null });
       return true;
     } catch (e) {
       console.error("Snapping failed:", e);
