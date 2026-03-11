@@ -155,8 +155,8 @@ const LegoPart = ({ id }) => {
                 color: '#212121', // 黑色销钉
                 hoverColor: '#ff9800',
                 ports: [
-                    { type: 'peg', localPos: [8 * LDU, 0, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                    { type: 'peg', localPos: [-8 * LDU, 0, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peg', localPos: [0, 16 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peg', localPos: [0, -16 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
                 ],
             };
         } else {
@@ -260,18 +260,13 @@ const LegoPart = ({ id }) => {
                             metalness={0.05}
                         />
                     </mesh>
-                    {/* Studs 凸起矩阵 */}
-                    {[-3, -2, -1, 0, 1, 2, 3].map(col =>
-                        [-3, -2, -1, 0, 1, 2, 3].map(row => (
-                            <mesh
-                                key={`stud-${col}-${row}`}
-                                position={[col * pitch, 4 * LDU + 1 * LDU, row * pitch]}
-                            >
-                                <cylinderGeometry args={[3 * LDU, 3 * LDU, 2 * LDU, 12]} />
-                                <meshStandardMaterial color={currentColor} roughness={0.3} />
-                            </mesh>
-                        ))
-                    )}
+                    {/* Technic 底板上的 4 个螺纹孔标记（浅色凹陷） */}
+                    {partConfig.ports.map((port, i) => (
+                        <mesh key={`hole-${i}`} position={[port.localPos[0], 4 * LDU + 0.5 * LDU, port.localPos[2]]}>
+                            <cylinderGeometry args={[5 * LDU, 5 * LDU, 1 * LDU, 16]} />
+                            <meshStandardMaterial color="#90a4ae" roughness={0.5} />
+                        </mesh>
+                    ))}
                 </group>
             )}
 
@@ -291,7 +286,11 @@ const LegoPart = ({ id }) => {
                     </mesh>
                     {/* 更大的透明点击热区 (半径 = 12 LDU ≈ 5mm，屏幕上约 15-20px) */}
                     <mesh
-                        onClick={(e) => handlePortClick(e, port)}
+                        renderOrder={999}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handlePortClick(e, port);
+                        }}
                         onPointerOver={(e) => {
                             e.stopPropagation();
                             document.body.style.cursor = 'pointer';
