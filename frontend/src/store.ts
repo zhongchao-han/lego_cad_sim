@@ -11,17 +11,28 @@ interface PartState {
 // 连接图：记录哪些零件已互相连接（邻接表）
 type ConnectionGraph = Record<string, Set<string>>;
 
+type FocusMode = 'part' | 'port' | null;
+
 interface StoreState {
   mode: 'ASSEMBLY' | 'SIMULATION';
   parts: Record<string, PartState>;
   connections: ConnectionGraph; // 零件连接图
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
+  useLDraw: boolean;
+  focusedPartId: string | null;
+  focusMode: FocusMode;
+  showPortGizmos: boolean;
+  enableFocusAnimation: boolean;
   toggleMode: () => Promise<void>;
   updatePartState: (partId: string, state: PartState) => void;
   setWsConnected: (status: boolean) => void;
   setSelectedPort: (port: SelectedPortInfo | null) => void;
   snapParts: (source: SelectedPortInfo, target: SelectedPortInfo) => Promise<boolean>;
+  setUseLDraw: (value: boolean) => void;
+  setFocus: (payload: { partId: string | null; mode: FocusMode }) => void;
+  setShowPortGizmos: (value: boolean) => void;
+  setEnableFocusAnimation: (value: boolean) => void;
 }
 
 export interface SelectedPortInfo {
@@ -67,6 +78,14 @@ export const useStore = create<StoreState>((set, get) => ({
   connections: {}, // 初始无连接
   wsConnected: false,
   selectedPort: null,
+  // 是否在前端启用基于 LDraw 语义的渲染/端口数据
+  useLDraw: false,
+  // 相机聚焦状态
+  focusedPartId: null,
+  focusMode: null,
+  // 调试与可视化开关
+  showPortGizmos: true,
+  enableFocusAnimation: true,
 
   toggleMode: async () => {
     const currentMode = get().mode;
@@ -86,6 +105,17 @@ export const useStore = create<StoreState>((set, get) => ({
   setWsConnected: (status) => set({ wsConnected: status }),
 
   setSelectedPort: (port) => set({ selectedPort: port }),
+
+  setUseLDraw: (value) => set({ useLDraw: value }),
+
+  setFocus: ({ partId, mode }) => set({
+    focusedPartId: partId,
+    focusMode: mode,
+  }),
+
+  setShowPortGizmos: (value) => set({ showPortGizmos: value }),
+
+  setEnableFocusAnimation: (value) => set({ enableFocusAnimation: value }),
 
   snapParts: async (source, target) => {
     const parts = get().parts;

@@ -6,10 +6,16 @@ function UIOverlay() {
   const mode = useStore((state) => state.mode);
   const toggleMode = useStore((state) => state.toggleMode);
   const wsConnected = useStore((state) => state.wsConnected);
+  const useLDraw = useStore((state) => state.useLDraw);
+  const setUseLDraw = useStore((state) => state.setUseLDraw);
+  const showPortGizmos = useStore((state) => state.showPortGizmos);
+  const setShowPortGizmos = useStore((state) => state.setShowPortGizmos);
+  const enableFocusAnimation = useStore((state) => state.enableFocusAnimation);
+  const setEnableFocusAnimation = useStore((state) => state.setEnableFocusAnimation);
 
   return (
-    <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none">
-      <div className="flex flex-col gap-2 pointer-events-auto">
+    <div className="absolute top-0 left-0 w-full h-full p-4 flex justify-between items-start pointer-events-none z-50">
+      <div className="flex flex-col gap-2 pointer-events-auto bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-white/20 shadow-sm">
         <h1 className="text-2xl font-bold text-gray-800 drop-shadow-md">
           LEGO Editor
         </h1>
@@ -18,9 +24,12 @@ function UIOverlay() {
         </div>
       </div>
 
-      <div className="pointer-events-auto">
+      <div className="flex flex-col gap-3 items-end pointer-events-auto z-50">
         <button
-          onClick={toggleMode}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleMode();
+          }}
           className={`flex items-center px-6 py-3 rounded-lg font-bold shadow-lg transition-all ${mode === 'ASSEMBLY'
             ? 'bg-blue-600 hover:bg-blue-700 text-white'
             : 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
@@ -32,6 +41,40 @@ function UIOverlay() {
             <>STOP SIMULATION</>
           )}
         </button>
+
+        {/* 调试与渲染控制面板 */}
+        <div className="bg-white/85 backdrop-blur-sm rounded-lg shadow px-4 py-3 text-xs space-y-2 border">
+          <div className="font-semibold text-gray-700 mb-1">
+            Render Controls
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={useLDraw}
+              onChange={(e) => setUseLDraw(e.target.checked)}
+            />
+            <span>Use LDraw ports</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={showPortGizmos}
+              onChange={(e) => setShowPortGizmos(e.target.checked)}
+            />
+            <span>Show port gizmos</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={enableFocusAnimation}
+              onChange={(e) => setEnableFocusAnimation(e.target.checked)}
+            />
+            <span>Enable focus animation</span>
+          </label>
+        </div>
       </div>
 
       {/* 底部引导栏 */}

@@ -1,9 +1,10 @@
-import { useFrame } from '@react-three/fiber';
-import { OrbitControls, Html, Sphere } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Html, Sphere, Environment, ContactShadows } from '@react-three/drei';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useStore } from './store';
 import { Vector3 } from 'three';
 import * as THREE from 'three';
+import { useLDrawPart } from './useLDrawPart';
 
 // ============= Lego Technic 梁 (Beam) 几何体生成器 =============
 // 生成一个带有圆孔阵列的 Technic 梁形状
@@ -90,6 +91,20 @@ function createPlateGeometry() {
     return geometry;
 }
 
+// --- 通用乐高塑料材质 ---
+const LegoPlasticMaterial = ({ color }) => {
+    return (
+        <meshPhysicalMaterial
+            color={color}
+            roughness={0.28}
+            metalness={0.02}
+            clearcoat={0.7}
+            clearcoatRoughness={0.25}
+            envMapIntensity={0.9}
+        />
+    );
+};
+
 // --- Smart Snapping UI ---
 const SnappingHighlight = ({ position }) => {
     return (
@@ -104,19 +119,64 @@ const SnappingHighlight = ({ position }) => {
     );
 };
 
-// --- Camera Anchor Lock ---
+// --- Camera Anchor Lock + 聚焦模式 ---
 const CameraController = () => {
     const controlsRef = useRef();
+    const { camera } = useThree();
     const selectedPort = useStore((state) => state.selectedPort);
+    const focusedPartId = useStore((state) => state.focusedPartId);
+    const focusMode = useStore((state) => state.focusMode);
+    const enableFocusAnimation = useStore((state) => state.enableFocusAnimation);
+    const parts = useStore((state) => state.parts);
+
+    const targetRef = useRef(new Vector3());
+    const hasTargetRef = useRef(false);
 
     useEffect(() => {
-        if (selectedPort && controlsRef.current) {
-            const targetPos = new Vector3(...selectedPort.globalPos);
-            controlsRef.current.target.copy(targetPos);
-            controlsRef.current.minDistance = 0.02;
-            controlsRef.current.maxDistance = 0.5;
-        }
+        if (!selectedPort || !controlsRef.current) return;
+        // 端口聚焦：把目标设置为端口世界坐标
+        const targetPos = new Vector3(...selectedPort.globalPos);
+        targetRef.current.copy(targetPos);
+        hasTargetRef.current = true;
     }, [selectedPort]);
+
+    useEffect(() => {
+        if (!focusedPartId || !controlsRef.current) return;
+        const partState = parts[focusedPartId];
+        if (!partState) return;
+        // 零件聚焦：简单使用刚体位置作为聚焦中心
+        const targetPos = new Vector3(...partState.position);
+        targetRef.current.copy(targetPos);
+        hasTargetRef.current = true;
+    }, [focusedPartId, parts]);
+
+    useFrame(() => {
+        const controls = controlsRef.current;
+        if (!controls || !hasTargetRef.current) return;
+
+        const currentTarget = controls.target;
+        const desired = targetRef.current;
+
+        // 记录当前视距与方向
+        const offset = new Vector3().subVectors(camera.position, currentTarget);
+        const distance = offset.length();
+        if (distance === 0) return;
+        const dir = offset.normalize();
+
+        if (!enableFocusAnimation) {
+            // 无动画：直接跳转
+            currentTarget.copy(desired);
+        } else {
+            // 带动画：缓动插值
+            currentTarget.lerp(desired, 0.12);
+        }
+
+        const newPos = new Vector3().addVectors(currentTarget, dir.multiplyScalar(distance));
+        camera.position.copy(newPos);
+        controls.minDistance = 0.02;
+        controls.maxDistance = 0.5;
+        controls.update();
+    });
 
     return <OrbitControls ref={controlsRef} makeDefault />;
 };
@@ -127,6 +187,9 @@ const LegoPart = ({ id }) => {
     const state = useStore((state) => state.parts[id]);
     const mode = useStore((state) => state.mode);
     const snapParts = useStore((state) => state.snapParts);
+    const useLDraw = useStore((state) => state.useLDraw);
+    const showPortGizmos = useStore((state) => state.showPortGizmos);
+    const setFocus = useStore((state) => state.setFocus);
     const [hovered, setHover] = useState(false);
 
     const LDU = 0.0004;
@@ -175,6 +238,20 @@ const LegoPart = ({ id }) => {
         }
     }, [id]);
 
+    // LDraw 端口语义（当 useLDraw 为 true 时尝试从后端获取）
+    const ldrawPart = useLDrawPart(useLDraw ? id : null);
+
+    const effectivePorts = useMemo(() => {
+        if (useLDraw && ldrawPart.ports && ldrawPart.ports.length > 0) {
+            return ldrawPart.ports.map((p) => ({
+                type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
+                localPos: p.position,
+                rot: p.rotation,
+            }));
+        }
+        return partConfig.ports;
+    }, [useLDraw, ldrawPart.ports, partConfig.ports]);
+
     useFrame(() => {
         if (groupRef.current && state) {
             groupRef.current.position.set(...state.position);
@@ -221,12 +298,9 @@ const LegoPart = ({ id }) => {
                     geometry={partConfig.geometry}
                     onPointerOver={() => setHover(true)}
                     onPointerOut={() => setHover(false)}
+                    onDoubleClick={() => setFocus({ partId: id, mode: 'part' })}
                 >
-                    <meshStandardMaterial
-                        color={currentColor}
-                        roughness={0.35}
-                        metalness={0.05}
-                    />
+                    <LegoPlasticMaterial color={currentColor} />
                 </mesh>
             )}
 
@@ -234,16 +308,17 @@ const LegoPart = ({ id }) => {
                 <group
                     onPointerOver={() => setHover(true)}
                     onPointerOut={() => setHover(false)}
+                    onDoubleClick={() => setFocus({ partId: id, mode: 'part' })}
                 >
                     {/* 销钉主体 */}
                     <mesh>
                         <cylinderGeometry args={[6 * LDU, 6 * LDU, 32 * LDU, 16]} />
-                        <meshStandardMaterial color={currentColor} roughness={0.5} />
+                        <LegoPlasticMaterial color={currentColor} />
                     </mesh>
                     {/* 中部凸缘 */}
                     <mesh>
                         <cylinderGeometry args={[8 * LDU, 8 * LDU, 3 * LDU, 16]} />
-                        <meshStandardMaterial color={currentColor} roughness={0.5} />
+                        <LegoPlasticMaterial color={currentColor} />
                     </mesh>
                 </group>
             )}
@@ -252,15 +327,12 @@ const LegoPart = ({ id }) => {
                 <group
                     onPointerOver={() => setHover(true)}
                     onPointerOut={() => setHover(false)}
+                    onDoubleClick={() => setFocus({ partId: id, mode: 'part' })}
                 >
                     <mesh geometry={partConfig.geometry}>
-                        <meshStandardMaterial
-                            color={currentColor}
-                            roughness={0.3}
-                            metalness={0.05}
-                        />
+                        <LegoPlasticMaterial color={currentColor} />
                     </mesh>
-                    {/* Technic 底板上的 4 个螺纹孔标记（浅色凹陷） */}
+            {/* Technic 底板上的 4 个螺纹孔标记（浅色凹陷） */}
                     {partConfig.ports.map((port, i) => (
                         <mesh key={`hole-${i}`} position={[port.localPos[0], 4 * LDU + 0.5 * LDU, port.localPos[2]]}>
                             <cylinderGeometry args={[5 * LDU, 5 * LDU, 1 * LDU, 16]} />
@@ -272,7 +344,7 @@ const LegoPart = ({ id }) => {
 
             {/* 渲染可交互端口 - 蓝色=销孔(peghole)，品红=销钉端(peg) */}
             {/* 每个端口由一个可见的小球 + 一个更大的透明命中区域组成 */}
-            {mode === 'ASSEMBLY' && partConfig.ports.map((port, idx) => (
+            {mode === 'ASSEMBLY' && showPortGizmos && effectivePorts.map((port, idx) => (
                 <group key={idx} position={port.localPos}>
                     {/* 可见的端口指示球 */}
                     <mesh>
@@ -314,9 +386,20 @@ export default function Scene() {
 
     return (
         <>
-            <ambientLight intensity={0.6} />
-            <directionalLight position={[1, 2, 3]} intensity={1.5} castShadow />
-            <directionalLight position={[-2, 1, -1]} intensity={0.4} />
+            {/* 环境光与环境贴图 */}
+            <ambientLight intensity={0.5} />
+            <Environment preset="studio" background={false} />
+
+            {/* 主光与辅光 */}
+            <directionalLight
+                position={[1, 2, 3]}
+                intensity={1.6}
+                castShadow
+                shadow-mapSize-width={2048}
+                shadow-mapSize-height={2048}
+                shadow-bias={-0.0005}
+            />
+            <directionalLight position={[-2, 1, -1]} intensity={0.5} />
 
             <CameraController />
 
@@ -328,6 +411,14 @@ export default function Scene() {
                 <SnappingHighlight position={selectedPort.globalPos} />
             )}
 
+            <ContactShadows
+                position={[0, -0.01, 0]}
+                opacity={0.4}
+                width={0.4}
+                height={0.4}
+                blur={2.5}
+                far={0.3}
+            />
             <gridHelper args={[0.5, 30, '#999', '#ddd']} position={[0, -0.01, 0]} />
         </>
     );

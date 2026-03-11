@@ -1,7 +1,8 @@
 import asyncio
 import json
 import logging
-from typing import Dict, Any, Optional
+import os
+from typing import Dict, Any, Optional, List
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,9 @@ from pydantic import BaseModel
 # 我们假设在前期已建立前述各底层引擎
 from physics_engine import PhysicsEngine
 from topology_manager import TopologyManager, PartNode, ConnectionEdge
+from ldraw_parser import LDrawParser
+from geometry_processor import GeometryProcessor
+from fastapi.staticfiles import StaticFiles
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,12 +32,20 @@ app.add_middleware(
 )
 
 # 后端单例驱动装载体
-engine = PhysicsEngine(mode="DIRECT") # Web 模式下我们关闭本地 UI 避免卡死，纯靠 Three.js 渲染
+engine = PhysicsEngine(mode="DIRECT")  # Web 模式下我们关闭本地 UI 避免卡死，纯靠 Three.js 渲染
 topo_manager = TopologyManager()
 
 # 系统模式状态："ASSEMBLY" (零重力组装拓扑) OR "SIMULATION" (有重力实时物理计算)
 system_mode = "ASSEMBLY"
 engine.toggle_gravity(False)  # 开箱即为组装漂浮状态
+
+# LDraw 几何与端口数据根目录（由用户在本地配置真实 LDraw 库）
+LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
+MESH_CACHE_ROOT = os.path.join(os.getcwd(), "ldraw_meshes")
+
+# 挂载静态文件服务供前端访问 GLB
+os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
+app.mount("/ldraw_meshes", StaticFiles(directory=MESH_CACHE_ROOT), name="ldraw_meshes")
 
 # --- API 数据模型定义 ---
 
@@ -52,6 +64,18 @@ class ForceRequest(BaseModel):
     link_name: str
     force: list # [Fx, Fy, Fz]
     position: list = [0, 0, 0]
+
+
+class LDrawPort(BaseModel):
+    type: str
+    position: list
+    rotation: list
+
+
+class LDrawPartResponse(BaseModel):
+    part_id: str
+    ports: List[LDrawPort]
+    mesh_url: Optional[str] = None
 
 # --- 核心业务 API (RESTful 端点) ---
 
@@ -93,6 +117,43 @@ async def toggle_mode(mode: str):
             return {"status": "success", "msg": "Returned to assembly editor."}
             
     return {"status": "ok", "msg": "No changes made."}
+
+
+@app.get("/api/ldraw_part/{part_id}", response_model=LDrawPartResponse)
+async def get_ldraw_part(part_id: str):
+    """
+    为前端提供指定 LDraw 部件的语义端口和网格引用。
+    """
+    # 简单的 part_id -> dat 文件映射规则
+    dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
+
+    parser = LDrawParser(ldraw_path=LDRAW_PARTS_ROOT)
+    geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
+
+    ports = []
+    # 使用增强后的解析器，支持递归搜索
+    parsed_ports = parser.parse_dat_file(dat_filename)
+    if parsed_ports:
+        ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
+    else:
+        logger.warning(f"LDraw 源文件未找到或未解析出端口: {dat_filename}")
+
+    # 处理几何转换
+    glb_filename = f"{part_id}.glb"
+    glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
+    
+    if not os.path.exists(glb_path):
+        logger.info(f"触发动态转换: {dat_filename} -> {glb_filename}")
+        geo_proc.convert_to_glb(dat_filename, glb_path)
+
+    # 约定 mesh_url：供前端使用 three.js / R3F 的 GLTF/GLB 加载器加载真实高模网格
+    mesh_url = f"/ldraw_meshes/{glb_filename}"
+
+    return LDrawPartResponse(
+        part_id=part_id,
+        ports=ports,
+        mesh_url=mesh_url,
+    )
 
 @app.post("/api/snap_parts")
 async def snap_parts(req: SnapRequest):

@@ -40,4 +40,12 @@ frontend/build/
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+# LDraw Data
+complete.zip
+complete_v2.zip
+ldraw_lib/
+ldraw_meshes/
+ldraw_temp/
+mock_part.dat
+fallback.json
+current_assembly.urdf
