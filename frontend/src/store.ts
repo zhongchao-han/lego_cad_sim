@@ -164,7 +164,7 @@ export const useStore = create<StoreState>((set, get) => ({
   connections: {},
   wsConnected: false,
   selectedPort: null,
-  useLDraw: true,
+  useLDraw: false,
   focusedPartId: null,
   focusMode: null,
   showPortGizmos: true,
@@ -246,30 +246,38 @@ export const useStore = create<StoreState>((set, get) => ({
       };
     }
 
-    // ---- Step 2: 计算几何中心 ----
-    // 去掉端口位置在本地轴方向上的分量，得到"穿过孔/穿过销"的中心线上的点
+    // ---- Step 2: 计算对齐目标点 ----
+    //
+    // target 是 peghole（孔）→ 去掉轴向分量得到孔的几何中心
+    //   例：梁端口 [X, 10*LDU, 0] → 孔中心 [X, 0, 0]
+    //
+    // target 是 peg（插销端面）→ 直接用端口位置（端面点）
+    //   例：插销端口 [0, -16*LDU, 0] → 就用这个点
+    //   这样第二根梁会对齐到插销的端面而不是中心，避免与第一根梁重合
 
-    // 孔几何中心（本地）
-    const tgtDot = vecDot(target.position, tgtAxisLocal);
-    const holeCenterLocal: Vec3 = vecSub(target.position, vecScale(tgtAxisLocal, tgtDot));
-    // 孔几何中心（世界）
-    const holeCenterWorld = vecAdd(
+    let targetAlignLocal: Vec3;
+    if (target.portType === 'peg') {
+      targetAlignLocal = target.position;
+    } else {
+      const tgtDot = vecDot(target.position, tgtAxisLocal);
+      targetAlignLocal = vecSub(target.position, vecScale(tgtAxisLocal, tgtDot));
+    }
+    const targetAlignWorld = vecAdd(
       targetPart.position,
-      quatApplyToVec3(targetPart.quaternion, holeCenterLocal),
+      quatApplyToVec3(targetPart.quaternion, targetAlignLocal),
     );
 
-    // 插销几何中心（本地）
+    // source 始终去掉轴向分量，得到零件几何中心
     const srcDot = vecDot(source.position, srcAxisLocal);
-    const pinCenterLocal: Vec3 = vecSub(source.position, vecScale(srcAxisLocal, srcDot));
-    // 插销几何中心（世界，用旋转后的姿态）
+    const sourceBodyLocal: Vec3 = vecSub(source.position, vecScale(srcAxisLocal, srcDot));
     const rotatedSource = updated[source.partId]!;
-    const pinCenterWorld = vecAdd(
+    const sourceBodyWorld = vecAdd(
       rotatedSource.position,
-      quatApplyToVec3(rotatedSource.quaternion, pinCenterLocal),
+      quatApplyToVec3(rotatedSource.quaternion, sourceBodyLocal),
     );
 
-    // ---- Step 3: 平移整组，使插销中心 → 孔中心 ----
-    const delta = vecSub(holeCenterWorld, pinCenterWorld);
+    // ---- Step 3: 平移整组 ----
+    const delta = vecSub(targetAlignWorld, sourceBodyWorld);
     for (const pid of group) {
       const part = updated[pid];
       if (!part) continue;

@@ -100,7 +100,8 @@ function App() {
     const connect = () => {
       if (!isMounted) return;
         
-      ws = new WebSocket('ws://127.0.0.1:8000/ws/physics_stream');
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000/ws/physics_stream';
+      ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         if (!isMounted) {
@@ -114,15 +115,14 @@ function App() {
       ws.onmessage = (event) => {
         if (!isMounted) return;
         try {
-          // 确保有数据才解析
-          if (event.data) {
-              const payload = JSON.parse(event.data);
-              if (payload && payload.state) {
-                // 解析来自后台的高频下发的 physics state
-                Object.entries(payload.state).forEach(([partId, data]) => {
-                  updatePartState(partId, data);
-                });
-              }
+          if (!event.data) return;
+          const payload = JSON.parse(event.data);
+
+          // 只有在物理仿真态才用后端状态覆盖前端
+          if (payload && payload.mode === 'SIMULATION' && payload.state) {
+            Object.entries(payload.state).forEach(([partId, data]) => {
+              updatePartState(partId, data);
+            });
           }
         } catch (err) {
           console.error('Frame Parse Error:', err);

@@ -275,8 +275,11 @@ const LegoPart = ({ id }) => {
     // LDraw 端口语义（当 useLDraw 为 true 时尝试从后端获取）
     const ldrawPart = useLDrawPart(useLDraw ? id : null);
 
+    // 只有当 LDraw 端口和网格都可用时才使用 LDraw，否则整个回退到 mock
+    const hasLDrawPorts = useLDraw && ldrawPart.ports && ldrawPart.ports.length > 0;
+
     const effectivePorts = useMemo(() => {
-        if (useLDraw && ldrawPart.ports && ldrawPart.ports.length > 0) {
+        if (hasLDrawPorts) {
             return ldrawPart.ports.map((p) => ({
                 type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
                 localPos: p.position,
@@ -284,9 +287,10 @@ const LegoPart = ({ id }) => {
             }));
         }
         return partConfig.ports;
-    }, [useLDraw, ldrawPart.ports, partConfig.ports]);
+    }, [hasLDrawPorts, ldrawPart.ports, partConfig.ports]);
 
-    const activeMeshUrl = useLDraw && ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
+    // 网格和端口必须配套：有 LDraw 端口才用 LDraw 网格，避免坐标系不匹配
+    const activeMeshUrl = hasLDrawPorts && ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
 
     useFrame(() => {
         if (groupRef.current && state) {

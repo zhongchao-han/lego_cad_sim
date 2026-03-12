@@ -97,22 +97,27 @@ class TopologyManager:
     def _calculate_relative_transform(self, parent_tr: np.ndarray, parent_rot: np.ndarray,
                                       child_tr: np.ndarray, child_rot: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
-        使用 scipy 计算 Child Link 究竟应该相对 Parent Link 置于什么样的 `origin xyz rpy`。
+        计算当子零件端口与父零件端口对齐时，子零件相对于父零件的位姿。
+        核心公式: T_child_origin = T_parent_port @ T_child_port.inv()
         """
-        # 将局部旋转转换为 scipy 的 Rotation 物件
-        r_p = R.from_matrix(parent_rot)
-        r_c = R.from_matrix(child_rot)
+        # 1. 构造父端口在父零件坐标系下的 4x4 变换矩阵
+        T_p_port = np.eye(4)
+        T_p_port[:3, :3] = parent_rot
+        T_p_port[:3, 3] = parent_tr
 
-        # 核心算理：将子链接通过对齐接口拉拢到父连接端口的变换。
-        rel_pos = parent_tr - child_tr # 简化模型：这里假设基于端口中心对齐，并未对齐轴向进行投影
-        
-        # 欧拉角转换用于 URDF rpy属性 (Roll, Pitch, Yaw), 使用外旋 xyz (即固定轴，等于内旋 zyx 取反)
-        # scipy euler 'xyz' 也就是相对于固定轴的 x, y, z 旋转，完美匹配 URDF roll pitch yaw
-        rpy_parent = r_p.as_euler('xyz')
-        rpy_child = r_c.as_euler('xyz')
-        
-        # 此处简略将欧拉坐标重置（在严谨 IK 对齐下需要 r_p * r_c.inv() 等转换，在此以端口正交并置对演示）
-        rel_rpy = r_p.as_euler('xyz') - r_c.as_euler('xyz')
+        # 2. 构造子端口在子零件坐标系下的 4x4 变换矩阵
+        T_c_port = np.eye(4)
+        T_c_port[:3, :3] = child_rot
+        T_c_port[:3, 3] = child_tr
+
+        # 3. 计算子零件原点相对于父零件原点的变换
+        # 由于我们希望端口面对面贴合，通常需要对子项旋转进行 180 度翻转（绕轴线）
+        # 这里的对齐逻辑取决于 LDraw 端口件（如 peghole.dat）的局部定义朝向。
+        T_rel = T_p_port @ np.linalg.inv(T_c_port)
+
+        rel_pos = T_rel[:3, 3]
+        # 使用 scipy 将旋转矩阵转换为 URDF 所需的 rpy (XYZ 固定轴欧拉角)
+        rel_rpy = R.from_matrix(T_rel[:3, :3]).as_euler('xyz')
         
         return rel_pos, rel_rpy
 

@@ -140,6 +140,11 @@ async def get_ldraw_part(part_id: str):
 async def snap_parts(req: SnapRequest):
     """只做拓扑记录。插入位姿完全由前端基于零件几何计算。"""
     import numpy as np
+
+    for pid in (req.parent_id, req.child_id):
+        if not topo_manager.graph.has_node(pid):
+            topo_manager.add_part(PartNode(part_id=pid, name=pid))
+
     p_rot = np.array(req.parent_rot).reshape(3, 3)
     c_rot = np.array(req.child_rot).reshape(3, 3)
 
