@@ -1,10 +1,13 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Sphere, Environment, ContactShadows } from '@react-three/drei';
+import { OrbitControls, Html, Sphere, Environment, ContactShadows, useGLTF } from '@react-three/drei';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useStore } from './store';
 import { Vector3 } from 'three';
 import * as THREE from 'three';
 import { useLDrawPart } from './useLDrawPart';
+import PropTypes from 'prop-types';
+
+const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
 // ============= Lego Technic 梁 (Beam) 几何体生成器 =============
 // 生成一个带有圆孔阵列的 Technic 梁形状
@@ -58,27 +61,6 @@ function createBeamGeometry(holes = 5) {
     return geometry;
 }
 
-// ============= Lego Technic 销钉 (Pin) 几何体 =============
-function createPinGeometry() {
-    const LDU = 0.0004;
-    const pinRadius = 6 * LDU; // 2.4mm 半径
-    const pinLength = 32 * LDU; // 12.8mm 总长 (大约两个板厚)
-    const grooveDepth = 1 * LDU;
-    const grooveWidth = 2 * LDU;
-
-    const group = new THREE.Group();
-
-    // 主体圆柱
-    const bodyGeo = new THREE.CylinderGeometry(pinRadius, pinRadius, pinLength, 16);
-    bodyGeo.rotateZ(Math.PI / 2); // 使其横向
-
-    // 中间凸缘
-    const flangeGeo = new THREE.CylinderGeometry(pinRadius + 2 * LDU, pinRadius + 2 * LDU, 3 * LDU, 16);
-    flangeGeo.rotateZ(Math.PI / 2);
-
-    return { bodyGeo, flangeGeo };
-}
-
 // ============= Lego 基板 (Plate / Base Link) =============
 function createPlateGeometry() {
     const LDU = 0.0004;
@@ -104,6 +86,9 @@ const LegoPlasticMaterial = ({ color }) => {
         />
     );
 };
+LegoPlasticMaterial.propTypes = {
+    color: PropTypes.string.isRequired,
+};
 
 // --- Smart Snapping UI ---
 const SnappingHighlight = ({ position }) => {
@@ -117,6 +102,51 @@ const SnappingHighlight = ({ position }) => {
             </Html>
         </Sphere>
     );
+};
+SnappingHighlight.propTypes = {
+    position: PropTypes.arrayOf(PropTypes.number).isRequired,
+};
+
+// --- LDraw 真实模型渲染组件 ---
+const LDrawMeshRenderer = ({ url, setHover, setFocus, id }) => {
+    const { scene } = useGLTF(url, true);
+    
+    // 遍历子节点设置材质和阴影
+    useEffect(() => {
+        if (scene) {
+            scene.traverse((child) => {
+                if (child.isMesh) {
+                    // 为 LDraw 转换的模型禁用背面剔除
+                    // 这样即使有少量法线不一致的面也不会不可见
+                    if (child.material) {
+                        child.material.side = THREE.DoubleSide;
+                    } else {
+                        child.material = new THREE.MeshStandardMaterial({
+                            color: 0x999999,
+                            side: THREE.DoubleSide,
+                        });
+                    }
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+        }
+    }, [scene]);
+
+    return (
+        <primitive 
+            object={scene.clone()}
+            onPointerOver={(e) => { e.stopPropagation(); setHover(true); }}
+            onPointerOut={() => setHover(false)}
+            onDoubleClick={(e) => { e.stopPropagation(); setFocus({ partId: id, mode: 'part' }); }}
+        />
+    );
+};
+LDrawMeshRenderer.propTypes = {
+    url: PropTypes.string.isRequired,
+    setHover: PropTypes.func.isRequired,
+    setFocus: PropTypes.func.isRequired,
+    id: PropTypes.string.isRequired,
 };
 
 // --- Camera Anchor Lock + 聚焦模式 ---
@@ -171,7 +201,7 @@ const CameraController = () => {
             currentTarget.lerp(desired, 0.12);
         }
 
-        const newPos = new Vector3().addVectors(currentTarget, dir.multiplyScalar(distance));
+        const newPos = new Vector3().addVectors(currentTarget, dir.clone().multiplyScalar(distance));
         camera.position.copy(newPos);
         controls.minDistance = 0.02;
         controls.maxDistance = 0.5;
@@ -197,29 +227,33 @@ const LegoPart = ({ id }) => {
 
     // 确定零件类型和参数
     const partConfig = useMemo(() => {
-        if (id.includes('beam')) {
-            const holes = 5;
+        if (['32524', '32523'].includes(id) || id.includes('beam')) {
+            const holes = id === '32523' ? 3 : (id === '32524' ? 7 : 5);
+            const beamHalfDepth = 10 * LDU; // 梁在 Y 方向的半厚度（孔方向）
             return {
                 type: 'beam',
                 holes,
                 geometry: createBeamGeometry(holes),
-                color: '#e53935', // 乐高经典红
+                color: '#e53935',
                 hoverColor: '#ff9800',
                 ports: Array.from({ length: holes }, (_, i) => ({
                     type: 'peghole',
-                    localPos: [(-holes / 2 + 0.5 + i) * pitch, 6 * LDU, 0], // Y偏移：浮在梁上方
+                    // 端口放在孔的上入口处（梁表面 Y=+10*LDU），让蓝点刚好在梁顶面可见
+                    localPos: [(-holes / 2 + 0.5 + i) * pitch, beamHalfDepth, 0],
                     rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
                 })),
             };
-        } else if (id.includes('pin')) {
+        } else if (id === '6558' || id.includes('pin')) {
+            const pinHalfLen = 16 * LDU; // 插销半长（端面到中心的距离）
             return {
                 type: 'pin',
-                geometry: null, // 使用内联几何体
-                color: '#212121', // 黑色销钉
+                geometry: null,
+                color: '#212121',
                 hoverColor: '#ff9800',
                 ports: [
-                    { type: 'peg', localPos: [0, 16 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                    { type: 'peg', localPos: [0, -16 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    // 端口在插销两端的端面中心
+                    { type: 'peg', localPos: [0, pinHalfLen, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+                    { type: 'peg', localPos: [0, -pinHalfLen, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
                 ],
             };
         } else {
@@ -251,6 +285,8 @@ const LegoPart = ({ id }) => {
         }
         return partConfig.ports;
     }, [useLDraw, ldrawPart.ports, partConfig.ports]);
+
+    const activeMeshUrl = useLDraw && ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
 
     useFrame(() => {
         if (groupRef.current && state) {
@@ -292,8 +328,18 @@ const LegoPart = ({ id }) => {
 
     return (
         <group ref={groupRef}>
-            {/* 主体几何体 */}
-            {partConfig.type === 'beam' && (
+            {/* 真实 LDraw 转换后的网格渲染 */}
+            {activeMeshUrl && (
+                <LDrawMeshRenderer 
+                    url={activeMeshUrl} 
+                    setHover={setHover} 
+                    setFocus={setFocus} 
+                    id={id} 
+                />
+            )}
+
+            {/* 当未使用 LDraw 或 GLB 模型未就绪时生成的 Mock 几何体 */}
+            {(!activeMeshUrl) && partConfig.type === 'beam' && (
                 <mesh
                     geometry={partConfig.geometry}
                     onPointerOver={() => setHover(true)}
@@ -304,7 +350,7 @@ const LegoPart = ({ id }) => {
                 </mesh>
             )}
 
-            {partConfig.type === 'pin' && (
+            {(!activeMeshUrl) && partConfig.type === 'pin' && (
                 <group
                     onPointerOver={() => setHover(true)}
                     onPointerOut={() => setHover(false)}
@@ -315,15 +361,15 @@ const LegoPart = ({ id }) => {
                         <cylinderGeometry args={[6 * LDU, 6 * LDU, 32 * LDU, 16]} />
                         <LegoPlasticMaterial color={currentColor} />
                     </mesh>
-                    {/* 中部凸缘 */}
-                    <mesh>
+                    {/* 中部凸缘，增加位置偏移以不完全重叠 */}
+                    <mesh position={[0, -8 * LDU, 0]}>
                         <cylinderGeometry args={[8 * LDU, 8 * LDU, 3 * LDU, 16]} />
                         <LegoPlasticMaterial color={currentColor} />
                     </mesh>
                 </group>
             )}
 
-            {partConfig.type === 'plate' && (
+            {(!activeMeshUrl) && partConfig.type === 'plate' && (
                 <group
                     onPointerOver={() => setHover(true)}
                     onPointerOut={() => setHover(false)}
@@ -378,6 +424,9 @@ const LegoPart = ({ id }) => {
             ))}
         </group>
     );
+};
+LegoPart.propTypes = {
+    id: PropTypes.string.isRequired,
 };
 
 export default function Scene() {
