@@ -22,7 +22,6 @@ interface StoreState {
   connections: ConnectionGraph;
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
-  useLDraw: boolean;
   focusedPartId: string | null;
   focusMode: FocusMode;
   showPortGizmos: boolean;
@@ -32,7 +31,6 @@ interface StoreState {
   setWsConnected: (status: boolean) => void;
   setSelectedPort: (port: SelectedPortInfo | null) => void;
   snapParts: (source: SelectedPortInfo, target: SelectedPortInfo) => Promise<boolean>;
-  setUseLDraw: (value: boolean) => void;
   setFocus: (payload: { partId: string | null; mode: FocusMode }) => void;
   setShowPortGizmos: (value: boolean) => void;
   setEnableFocusAnimation: (value: boolean) => void;
@@ -164,7 +162,6 @@ export const useStore = create<StoreState>((set, get) => ({
   connections: {},
   wsConnected: false,
   selectedPort: null,
-  useLDraw: false,
   focusedPartId: null,
   focusMode: null,
   showPortGizmos: true,
@@ -187,7 +184,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   setWsConnected: (status) => set({ wsConnected: status }),
   setSelectedPort: (port) => set({ selectedPort: port }),
-  setUseLDraw: (value) => set({ useLDraw: value }),
   setFocus: ({ partId, mode }) => set({ focusedPartId: partId, focusMode: mode }),
   setShowPortGizmos: (value) => set({ showPortGizmos: value }),
   setEnableFocusAnimation: (value) => set({ enableFocusAnimation: value }),
@@ -230,8 +226,20 @@ export const useStore = create<StoreState>((set, get) => ({
     const srcAxisWorld = vecNormalize(quatApplyToVec3(sourcePart.quaternion, srcAxisLocal));
     const tgtAxisWorld = vecNormalize(quatApplyToVec3(targetPart.quaternion, tgtAxisLocal));
 
-    // ---- Step 1: 旋转插销组，使插销轴对齐孔轴 ----
-    const qDelta = quatFromUnitVectors(srcAxisWorld, tgtAxisWorld);
+    // ---- Step 1: 旋转源零件组，使其轴对齐目标孔轴 ----
+    // LDraw 端口轴向约定：朝内（从端口位置指向零件中心）
+    //   插销 +X 端的轴向 = [-1,0,0]（指向中心）
+    //   梁上方孔的轴向   = [0,-1,0]（指向中心）
+    //
+    // 物理插入方向：点击的那端应该穿入孔中。
+    //   peg→peghole: 插销的 tip（外指 = -srcAxis）应对齐孔的 inward（tgtAxis）
+    //                → quatFromUnitVectors(-srcAxis, tgtAxis)
+    //   其他情况: 内指对齐内指 → quatFromUnitVectors(srcAxis, tgtAxis)
+    const isPegIntoHole = source.portType === 'peg' && target.portType === 'peghole';
+    const effectiveSrcAxis: Vec3 = isPegIntoHole
+      ? vecScale(srcAxisWorld, -1) as Vec3
+      : srcAxisWorld;
+    const qDelta = quatFromUnitVectors(effectiveSrcAxis, tgtAxisWorld);
     const pivot: Vec3 = sourcePart.position;
     const updated: Record<string, PartState> = { ...parts };
 
@@ -246,38 +254,59 @@ export const useStore = create<StoreState>((set, get) => ({
       };
     }
 
-    // ---- Step 2: 计算对齐目标点 ----
-    //
-    // target 是 peghole（孔）→ 去掉轴向分量得到孔的几何中心
-    //   例：梁端口 [X, 10*LDU, 0] → 孔中心 [X, 0, 0]
-    //
-    // target 是 peg（插销端面）→ 直接用端口位置（端面点）
-    //   例：插销端口 [0, -16*LDU, 0] → 就用这个点
-    //   这样第二根梁会对齐到插销的端面而不是中心，避免与第一根梁重合
+    // ---- Step 2: 物理插入检测 + 计算对齐点 ----
 
-    let targetAlignLocal: Vec3;
-    if (target.portType === 'peg') {
-      targetAlignLocal = target.position;
-    } else {
-      const tgtDot = vecDot(target.position, tgtAxisLocal);
-      targetAlignLocal = vecSub(target.position, vecScale(tgtAxisLocal, tgtDot));
+    const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
+      const d = vecDot(pos, axis);
+      return vecSub(pos, vecScale(axis, d));
+    };
+
+    // 如果是 peg → peghole 场景，调用后端物理检测确认是否可完全插入
+    if (source.portType === 'peg' && target.portType === 'peghole') {
+      try {
+        const res = await axios.get(`${API_URL}/insertion_check`, {
+          params: { peg_id: source.partId, hole_id: target.partId },
+        });
+        const d = res.data;
+        const fitLabels: Record<string, string> = {
+          clearance: '间隙配合', friction: '摩擦配合', interference: '过盈配合', blocked: '不可插入',
+        };
+        const fit = fitLabels[d.fit_type] || d.fit_type;
+        if (d.can_fully_insert) {
+          console.log(
+            `[physics] ✅ ${fit} | 过盈=${d.interference_mm}mm(${d.interference_pct}%) ` +
+            `| 插销=[${d.peg_min_radius*1000}, ${d.peg_max_radius*1000}]mm 孔径=${d.hole_radius*1000}mm`,
+          );
+        } else {
+          console.warn(`[physics] ❌ ${fit} | 不能完全插入 (${d.max_passable_length*1000}mm < 梁厚${d.beam_thickness*1000}mm)`);
+        }
+      } catch (e) {
+        console.warn('[physics] insertion_check failed:', e);
+      }
     }
+
+    // target 端: peghole 去掉轴分量 → 孔几何中心
+    const targetAlignLocal = target.portType === 'peg'
+      ? target.position
+      : stripAxis(target.position, tgtAxisLocal);
     const targetAlignWorld = vecAdd(
       targetPart.position,
       quatApplyToVec3(targetPart.quaternion, targetAlignLocal),
     );
 
-    // source 始终去掉轴向分量，得到零件几何中心
-    const srcDot = vecDot(source.position, srcAxisLocal);
-    const sourceBodyLocal: Vec3 = vecSub(source.position, vecScale(srcAxisLocal, srcDot));
+    // source 端: 独立 peg 用几何中心 [0,0,0]；已连接 peg 用端口位置
+    const srcConnected = connections[source.partId]?.size > 0;
+    const sourceAlignLocal = (source.portType === 'peg' && srcConnected)
+      ? source.position
+      : stripAxis(source.position, srcAxisLocal);
     const rotatedSource = updated[source.partId]!;
-    const sourceBodyWorld = vecAdd(
+    const sourceAlignWorld = vecAdd(
       rotatedSource.position,
-      quatApplyToVec3(rotatedSource.quaternion, sourceBodyLocal),
+      quatApplyToVec3(rotatedSource.quaternion, sourceAlignLocal),
     );
 
     // ---- Step 3: 平移整组 ----
-    const delta = vecSub(targetAlignWorld, sourceBodyWorld);
+    const delta = vecSub(targetAlignWorld, sourceAlignWorld);
     for (const pid of group) {
       const part = updated[pid];
       if (!part) continue;

@@ -1,13 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import { useStore } from './store';
 import Scene from './Scene';
 function UIOverlay() {
   const mode = useStore((state) => state.mode);
   const toggleMode = useStore((state) => state.toggleMode);
   const wsConnected = useStore((state) => state.wsConnected);
-  const useLDraw = useStore((state) => state.useLDraw);
-  const setUseLDraw = useStore((state) => state.setUseLDraw);
   const showPortGizmos = useStore((state) => state.showPortGizmos);
   const setShowPortGizmos = useStore((state) => state.setShowPortGizmos);
   const enableFocusAnimation = useStore((state) => state.enableFocusAnimation);
@@ -47,15 +46,6 @@ function UIOverlay() {
           <div className="font-semibold text-gray-700 mb-1">
             Render Controls
           </div>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              className="accent-blue-600"
-              checked={useLDraw}
-              onChange={(e) => setUseLDraw(e.target.checked)}
-            />
-            <span>Use LDraw ports</span>
-          </label>
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -170,7 +160,16 @@ function App() {
         shadows
         className="w-full h-full"
       >
-        <Scene />
+        <Suspense fallback={
+          <Html center>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-gray-500 font-medium">Loading models…</span>
+            </div>
+          </Html>
+        }>
+          <Scene />
+        </Suspense>
       </Canvas>
     </div>
   );

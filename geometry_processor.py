@@ -191,6 +191,77 @@ class GeometryProcessor:
             logger.error(f"构建或导出网格失败: {e}")
             return False
 
+    def get_cross_section_profile(self, dat_filename: str, axis: int = 0, num_slices: int = 30) -> Optional[dict]:
+        """
+        沿指定轴切片，计算零件在每个位置的截面半径（到轴心的最大距离）。
+        返回: { axis_positions: [...], radii: [...], bbox_min: [...], bbox_max: [...] }
+        单位: SI (meters)
+        :param axis: 0=X, 1=Y, 2=Z
+        """
+        LDU_TO_SI = 0.0004
+        vertices, faces = self.extract_geometry(dat_filename)
+        if not vertices:
+            return None
+        
+        verts = np.array(vertices) * LDU_TO_SI
+        
+        bbox_min = verts.min(axis=0)
+        bbox_max = verts.max(axis=0)
+        
+        axis_min = bbox_min[axis]
+        axis_max = bbox_max[axis]
+        
+        cross_axes = [i for i in range(3) if i != axis]
+        
+        positions = np.linspace(axis_min, axis_max, num_slices)
+        radii = []
+        slice_thickness = (axis_max - axis_min) / num_slices * 1.5
+        
+        for pos in positions:
+            mask = np.abs(verts[:, axis] - pos) < slice_thickness
+            nearby = verts[mask]
+            if len(nearby) == 0:
+                radii.append(0.0)
+                continue
+            dists = np.sqrt(nearby[:, cross_axes[0]]**2 + nearby[:, cross_axes[1]]**2)
+            radii.append(float(np.max(dists)))
+        
+        return {
+            "axis": axis,
+            "axis_positions": positions.tolist(),
+            "radii": radii,
+            "bbox_min": bbox_min.tolist(),
+            "bbox_max": bbox_max.tolist(),
+        }
+
+    def get_hole_radius(self, dat_filename: str, hole_axis: int = 1) -> Optional[float]:
+        """
+        估算梁孔的内径：在孔位处沿 hole_axis 的中心截面上，找最小内圈距离。
+        返回: 孔的半径 (SI)
+        """
+        LDU_TO_SI = 0.0004
+        vertices, faces = self.extract_geometry(dat_filename)
+        if not vertices:
+            return None
+        
+        verts = np.array(vertices) * LDU_TO_SI
+        
+        cross_axes = [i for i in range(3) if i != hole_axis]
+        
+        center_mask = np.abs(verts[:, hole_axis]) < 0.001
+        center_verts = verts[center_mask]
+        if len(center_verts) == 0:
+            return None
+        
+        dists = np.sqrt(center_verts[:, cross_axes[0]]**2 + center_verts[:, cross_axes[1]]**2)
+        inner_verts = center_verts[dists < np.median(dists)]
+        if len(inner_verts) == 0:
+            return None
+        
+        inner_dists = np.sqrt(inner_verts[:, cross_axes[0]]**2 + inner_verts[:, cross_axes[1]]**2)
+        return float(np.max(inner_dists))
+
+
 if __name__ == "__main__":
     # 小型本地测试
     proc = GeometryProcessor(ldraw_path="ldraw_lib")

@@ -22,6 +22,13 @@ SEMANTIC_PRIMITIVES = [
     "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat"
 ]
 
+# 连接摩擦件前缀 — 在插销类零件中定义摩擦连接段的几何原件
+# 它们的放置位置即为 peg 端口，其旋转矩阵编码了插入轴方向
+CONNECTOR_PREFIXES = ["confric"]
+
+# 位置去重容差 (SI 单位, 约 1 LDU)
+PORT_DEDUP_TOLERANCE = 0.0005
+
 class ConnectionPort:
     """定义并储存装配组件的端口对象及拓扑。"""
     
@@ -176,19 +183,22 @@ class LDrawParser:
                     # 累积全局变换
                     global_mat = transform @ local_mat
                     
-                    # 如果是语义端口，则记录
-                    if any(prim in child_file for prim in SEMANTIC_PRIMITIVES):
-                        # 提取世界坐标系的位移和旋转
+                    # 判断子文件是否为语义端口或连接器件
+                    is_semantic = any(prim in child_file for prim in SEMANTIC_PRIMITIVES)
+                    child_basename = os.path.basename(child_file).split('.')[0]
+                    is_connector = any(child_basename.startswith(pfx) for pfx in CONNECTOR_PREFIXES)
+
+                    if is_semantic or is_connector:
                         pos_ldu = global_mat[:3, 3]
                         rot_mat = global_mat[:3, :3]
+                        port_type = child_file if is_semantic else "peg"
                         
                         local_ports.append(ConnectionPort(
-                            port_type=child_file, 
+                            port_type=port_type, 
                             position=pos_ldu * LDU_TO_SI, 
                             rotation=rot_mat
                         ))
                     
-                    # 递归处理非语义原语的子部件
                     elif recursive:
                         local_ports.extend(self.parse_dat_file(child_file, recursive=True, transform=global_mat))
                         
@@ -201,15 +211,39 @@ class LDrawParser:
             manual_ports = self.fallback_data[part_name].get("ports", [])
             for mp in manual_ports:
                 pos_ldu = np.array(mp.get("position", [0.0, 0.0, 0.0]))
-                # 应用当前变换
                 pos_global = (transform @ np.append(pos_ldu, 1.0))[:3]
                 rot_local = np.array(mp.get("rotation", np.eye(3).tolist()))
                 rot_global = transform[:3, :3] @ rot_local
                 
                 p_type = mp.get("type", "manual_fallback.dat")
                 local_ports.append(ConnectionPort(port_type=p_type, position=pos_global * LDU_TO_SI, rotation=rot_global))
+
+        # 位置去重：同一位置的多个原件（如同一连接段的多个 confric）只保留一个端口
+        local_ports = self._deduplicate_ports(local_ports)
                 
         return local_ports
+
+    @staticmethod
+    def _deduplicate_ports(ports: List['ConnectionPort']) -> List['ConnectionPort']:
+        """按位置去重，同一位置（容差内）的多个端口只保留第一个。"""
+        if len(ports) <= 1:
+            return ports
+        
+        unique: List[ConnectionPort] = []
+        for port in ports:
+            is_dup = False
+            for existing in unique:
+                dist = np.linalg.norm(port.position - existing.position)
+                if dist < PORT_DEDUP_TOLERANCE:
+                    is_dup = True
+                    break
+            if not is_dup:
+                unique.append(port)
+        
+        if len(unique) < len(ports):
+            logger.info(f"端口去重: {len(ports)} -> {len(unique)}")
+        
+        return unique
 
     def compute_physics(self, mesh_filepath: str) -> Optional[PhysicsProperties]:
         """
