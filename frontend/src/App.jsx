@@ -1,15 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
+import * as THREE from 'three';
 import { useStore } from './store';
 import Scene from './Scene';
 function UIOverlay() {
   const mode = useStore((state) => state.mode);
   const toggleMode = useStore((state) => state.toggleMode);
   const wsConnected = useStore((state) => state.wsConnected);
+  const showPortGizmos = useStore((state) => state.showPortGizmos);
+  const setShowPortGizmos = useStore((state) => state.setShowPortGizmos);
+  const enableFocusAnimation = useStore((state) => state.enableFocusAnimation);
+  const setEnableFocusAnimation = useStore((state) => state.setEnableFocusAnimation);
+  const enableSSAO = useStore((state) => state.enableSSAO);
+  const setEnableSSAO = useStore((state) => state.setEnableSSAO);
+  const enableContactShadows = useStore((state) => state.enableContactShadows);
+  const setEnableContactShadows = useStore((state) => state.setEnableContactShadows);
 
   return (
-    <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none">
-      <div className="flex flex-col gap-2 pointer-events-auto">
+    <div className="absolute top-0 left-0 w-full h-full p-4 flex justify-between items-start pointer-events-none z-50">
+      <div className="flex flex-col gap-2 pointer-events-auto bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-white/20 shadow-sm">
         <h1 className="text-2xl font-bold text-gray-800 drop-shadow-md">
           LEGO Editor
         </h1>
@@ -18,9 +28,12 @@ function UIOverlay() {
         </div>
       </div>
 
-      <div className="pointer-events-auto">
+      <div className="flex flex-col gap-3 items-end pointer-events-auto z-50">
         <button
-          onClick={toggleMode}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleMode();
+          }}
           className={`flex items-center px-6 py-3 rounded-lg font-bold shadow-lg transition-all ${mode === 'ASSEMBLY'
             ? 'bg-blue-600 hover:bg-blue-700 text-white'
             : 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
@@ -32,6 +45,49 @@ function UIOverlay() {
             <>STOP SIMULATION</>
           )}
         </button>
+
+        {/* 调试与渲染控制面板 */}
+        <div className="bg-white/85 backdrop-blur-sm rounded-lg shadow px-4 py-3 text-xs space-y-2 border">
+          <div className="font-semibold text-gray-700 mb-1">
+            Render Controls
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={showPortGizmos}
+              onChange={(e) => setShowPortGizmos(e.target.checked)}
+            />
+            <span>Show port gizmos</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={enableFocusAnimation}
+              onChange={(e) => setEnableFocusAnimation(e.target.checked)}
+            />
+            <span>Enable focus animation</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={enableSSAO}
+              onChange={(e) => setEnableSSAO(e.target.checked)}
+            />
+            <span>SSAO (ambient occlusion)</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={enableContactShadows}
+              onChange={(e) => setEnableContactShadows(e.target.checked)}
+            />
+            <span>Contact shadows</span>
+          </label>
+        </div>
       </div>
 
       {/* 底部引导栏 */}
@@ -46,18 +102,29 @@ function UIOverlay() {
 
 function App() {
   const setWsConnected = useStore((state) => state.setWsConnected);
-  const updatePartState = useStore((state) => state.updatePartState);
+  const batchUpdatePartStates = useStore((state) => state.batchUpdatePartStates);
 
-  // 建立并监听只读的 WebSocket 流
   useEffect(() => {
     let ws = null;
     let reconnectTimer = null;
-    let isMounted = true; // Use a mount flag to stop reconnecting if unmounted
+    let isMounted = true;
+
+    let pendingUpdates = {};
+    let rafId = null;
+
+    const flushUpdates = () => {
+      rafId = null;
+      if (Object.keys(pendingUpdates).length > 0) {
+        batchUpdatePartStates(pendingUpdates);
+        pendingUpdates = {};
+      }
+    };
 
     const connect = () => {
       if (!isMounted) return;
         
-      ws = new WebSocket('ws://127.0.0.1:8000/ws/physics_stream');
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:8000/ws/physics_stream';
+      ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         if (!isMounted) {
@@ -71,15 +138,14 @@ function App() {
       ws.onmessage = (event) => {
         if (!isMounted) return;
         try {
-          // 确保有数据才解析
-          if (event.data) {
-              const payload = JSON.parse(event.data);
-              if (payload && payload.state) {
-                // 解析来自后台的高频下发的 physics state
-                Object.entries(payload.state).forEach(([partId, data]) => {
-                  updatePartState(partId, data);
-                });
-              }
+          if (!event.data) return;
+          const payload = JSON.parse(event.data);
+
+          if (payload && payload.mode === 'SIMULATION' && payload.state) {
+            Object.assign(pendingUpdates, payload.state);
+            if (rafId === null) {
+              rafId = requestAnimationFrame(flushUpdates);
+            }
           }
         } catch (err) {
           console.error('Frame Parse Error:', err);
@@ -90,14 +156,11 @@ function App() {
         if (!isMounted) return;
         console.warn('WebSocket closed, scheduling reconnect...');
         setWsConnected(false);
-        // 断线自愈
         reconnectTimer = setTimeout(connect, 2000);
       };
 
       ws.onerror = () => {
         console.warn("WS Engine: transient connection error (will auto-reconnect)");
-        // Error will automatically trigger onclose, so we just log it and close
-        // Only call close if readyState is not closed/closing
         if (ws && ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
             ws.close();
         }
@@ -108,14 +171,14 @@ function App() {
 
     return () => {
       isMounted = false;
+      if (rafId !== null) cancelAnimationFrame(rafId);
       clearTimeout(reconnectTimer);
       if (ws) {
-          // Temporarily disable the onclose handler so it doesn't try to reconnect when we unmount
           ws.onclose = null;
           ws.close();
       }
     };
-  }, [setWsConnected, updatePartState]);
+  }, [setWsConnected, batchUpdatePartStates]);
 
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">
@@ -125,9 +188,19 @@ function App() {
       <Canvas
         camera={{ position: [0.05, 0.08, 0.12], fov: 45, near: 0.001, far: 10 }}
         shadows
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
         className="w-full h-full"
       >
-        <Scene />
+        <Suspense fallback={
+          <Html center>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-gray-500 font-medium">Loading models…</span>
+            </div>
+          </Html>
+        }>
+          <Scene />
+        </Suspense>
       </Canvas>
     </div>
   );

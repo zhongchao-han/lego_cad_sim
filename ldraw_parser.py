@@ -22,6 +22,13 @@ SEMANTIC_PRIMITIVES = [
     "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat"
 ]
 
+# 连接摩擦件前缀 — 在插销类零件中定义摩擦连接段的几何原件
+# 它们的放置位置即为 peg 端口，其旋转矩阵编码了插入轴方向
+CONNECTOR_PREFIXES = ["confric"]
+
+# 位置去重容差 (SI 单位, 约 1 LDU)
+PORT_DEDUP_TOLERANCE = 0.0005
+
 class ConnectionPort:
     """定义并储存装配组件的端口对象及拓扑。"""
     
@@ -67,9 +74,48 @@ class LDrawParser:
     - 执行质量估算以及提取复杂的多块 V-HACD 碰撞体。
     """
     
-    def __init__(self):
+    def __init__(self, ldraw_path: str = "ldraw_lib"):
+        self.ldraw_path = ldraw_path
+        self.parts_path = os.path.join(ldraw_path, "parts")
+        self.p_path = os.path.join(ldraw_path, "p")
         self.ports: List[ConnectionPort] = []
         self.fallback_data: Dict[str, Any] = {}
+        
+        if not os.path.exists(ldraw_path):
+            logger.warning(f"LDraw 库路径不存在: {ldraw_path}，解析功能受限。")
+
+    def resolve_path(self, filename: str) -> Optional[str]:
+        """根据 LDraw 规则寻找文件的绝对路径。"""
+        # 统一使用正斜杠并规范化
+        filename = filename.lower().replace('\\', '/')
+        
+        # 1. 尝试直接作为相对路径拼接
+        full_path = os.path.normpath(os.path.join(self.ldraw_path, filename))
+        if os.path.exists(full_path):
+            return full_path
+
+        # 2. 如果文件名包含 s/ 或 48/，尝试在 parts 和 p 下查找
+        search_roots = [self.parts_path, self.p_path]
+        for root in search_roots:
+            full_path = os.path.normpath(os.path.join(root, filename))
+            if os.path.exists(full_path):
+                return full_path
+
+        # 3. 基础搜索路径 (针对不带子目录的文件)
+        search_dirs = [
+            self.parts_path,
+            self.p_path,
+            os.path.join(self.parts_path, "s"),
+            os.path.join(self.p_path, "48")
+        ]
+        
+        file_basename = os.path.basename(filename)
+        for d in search_dirs:
+            full_path = os.path.normpath(os.path.join(d, file_basename))
+            if os.path.exists(full_path):
+                return full_path
+            
+        return None
 
     def load_fallback_json(self, filepath: str) -> None:
         """为缺乏规则端口或结构受损的部件加载手工标记的连接拓扑 (JSON)"""
@@ -84,67 +130,120 @@ class LDrawParser:
         except Exception as e:
             logger.error(f"解析 JSON 出错 {filepath}: {e}")
 
-    def parse_dat_file(self, filepath: str) -> List[ConnectionPort]:
+    def parse_dat_file(self, filename: str, recursive: bool = True, transform: np.ndarray = np.eye(4)) -> List[ConnectionPort]:
         """
         检索 .dat 文本并抽取其中的指定孔/突起端口元件位置。
-        返回标准化 (SI 单位) 以及含有正确朝向矩阵的集合对象。
+        :param filename: 文件名或路径
+        :param recursive: 是否递归解析子部件
+        :param transform: 当前积累的变换矩阵 (4x4)
         """
-        self.ports.clear()
+        # 统一清理文件名
+        filename = filename.strip().lower().replace('\\', '/')
         
-        if not os.path.exists(filepath):
-            logger.error(f"未找到目标可读取的原型 .dat 数据文件: {filepath}")
+        # 路径解析
+        filepath = self.resolve_path(filename)
+
+        if not filepath:
+            # 只有当这不是常见的子原件时才发出警告，减少噪音
+            if not any(x in filename for x in ['stud', 'rect', 'edge']):
+                logger.warning(f"解析警告: 库中未找到 {filename}")
             return []
 
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
+        local_ports = []
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception as e:
+            logger.error(f"读取文件失败 {filepath}: {e}")
+            return []
 
         for line_num, line in enumerate(lines, 1):
             parts = line.strip().split()
             if not parts:
                 continue
 
-            # Type 1 指令格式为:
-            # 1 <colour> x y z a b c d e f g h i <file>
+            # Type 1 指令: 1 <colour> x y z a b c d e f g h i <file>
             if parts[0] == '1' and len(parts) >= 15:
                 child_file = parts[-1].lower()
                 
-                # Check for semantically meaningful pinholes and connectors
-                if any(prim in child_file for prim in SEMANTIC_PRIMITIVES):
-                    try:
-                        # 提炼平移向量并使用比例运算以完成从 LDU 转换至 SI 机制 (米)。
-                        x, y, z = map(float, parts[2:5])
-                        position = np.array([x, y, z]) * LDU_TO_SI
+                try:
+                    # 提炼局部变换
+                    x, y, z = map(float, parts[2:5])
+                    a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
+                    
+                    # 构造局部变换矩阵 (4x4)
+                    local_mat = np.array([
+                        [a, b, c, x],
+                        [d, e, f, y],
+                        [g, h, i, z],
+                        [0, 0, 0, 1]
+                    ])
+                    
+                    # 累积全局变换
+                    global_mat = transform @ local_mat
+                    
+                    # 判断子文件是否为语义端口或连接器件
+                    is_semantic = any(prim in child_file for prim in SEMANTIC_PRIMITIVES)
+                    child_basename = os.path.basename(child_file).split('.')[0]
+                    is_connector = any(child_basename.startswith(pfx) for pfx in CONNECTOR_PREFIXES)
+
+                    if is_semantic or is_connector:
+                        pos_ldu = global_mat[:3, 3]
+                        rot_mat = global_mat[:3, :3]
+                        port_type = child_file if is_semantic else "peg"
                         
-                        # 提炼旋转矩阵的参数
-                        a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
-                        # 按行组合构造 3x3 NumPy ndarray 对象:
-                        rotation = np.array([
-                            [a, b, c],
-                            [d, e, f],
-                            [g, h, i]
-                        ])
-                        
-                        self.ports.append(ConnectionPort(
-                            port_type=child_file, 
-                            position=position, 
-                            rotation=rotation
+                        local_ports.append(ConnectionPort(
+                            port_type=port_type, 
+                            position=pos_ldu * LDU_TO_SI, 
+                            rotation=rot_mat
                         ))
-                    except ValueError:
-                        logger.warning(f"丢弃第 {line_num} 行，内部坐标转换过程中失败...")
-        
-        # 覆写与扩展使用 Fallback 定向策略
+                    
+                    elif recursive:
+                        local_ports.extend(self.parse_dat_file(child_file, recursive=True, transform=global_mat))
+                        
+                except ValueError:
+                    logger.warning(f"丢弃 {filepath} 第 {line_num} 行，内部坐标转换失败。")
+
+        # 处理 Fallback 数据 (仅在根调用时或针对特定文件名)
         part_name = os.path.basename(filepath)
         if part_name in self.fallback_data:
             manual_ports = self.fallback_data[part_name].get("ports", [])
             for mp in manual_ports:
-                # 容许传入预先以 SI 给出的或未放缩过的坐标配置，此例默认转换。
-                pos = np.array(mp.get("position", [0.0, 0.0, 0.0])) * LDU_TO_SI
-                rot = np.array(mp.get("rotation", np.eye(3).tolist()))
-                p_type = mp.get("type", "manual_fallback.dat")
-                self.ports.append(ConnectionPort(port_type=p_type, position=pos, rotation=rot))
+                pos_ldu = np.array(mp.get("position", [0.0, 0.0, 0.0]))
+                pos_global = (transform @ np.append(pos_ldu, 1.0))[:3]
+                rot_local = np.array(mp.get("rotation", np.eye(3).tolist()))
+                rot_global = transform[:3, :3] @ rot_local
                 
-        logger.info(f"[LDraw 语义解析分析]: {filepath} 解析完毕，共寻找到 {len(self.ports)} 节点端口.")
-        return self.ports
+                p_type = mp.get("type", "manual_fallback.dat")
+                local_ports.append(ConnectionPort(port_type=p_type, position=pos_global * LDU_TO_SI, rotation=rot_global))
+
+        # 位置去重：同一位置的多个原件（如同一连接段的多个 confric）只保留一个端口
+        local_ports = self._deduplicate_ports(local_ports)
+                
+        return local_ports
+
+    @staticmethod
+    def _deduplicate_ports(ports: List['ConnectionPort']) -> List['ConnectionPort']:
+        """按位置去重，同一位置（容差内）的多个端口只保留第一个。"""
+        if len(ports) <= 1:
+            return ports
+        
+        unique: List[ConnectionPort] = []
+        for port in ports:
+            is_dup = False
+            for existing in unique:
+                dist = np.linalg.norm(port.position - existing.position)
+                if dist < PORT_DEDUP_TOLERANCE:
+                    is_dup = True
+                    break
+            if not is_dup:
+                unique.append(port)
+        
+        if len(unique) < len(ports):
+            logger.info(f"端口去重: {len(ports)} -> {len(unique)}")
+        
+        return unique
 
     def compute_physics(self, mesh_filepath: str) -> Optional[PhysicsProperties]:
         """
@@ -190,40 +289,25 @@ class LDrawParser:
 # =========================== Unit testing execution ============================
 if __name__ == "__main__":
     # --- 开发验证和测试桩环境设定 ---
-    # 用创建并测试基础虚拟 LDraw 格式来推行单位与数学行为的准确程度
-    test_dat_path = "mock_part.dat"
-    test_json_path = "fallback.json"
+    # 使用实际解压后的科技件库进行测试
+    parser = LDrawParser(ldraw_path="ldraw_lib")
     
-    with open(test_dat_path, "w", encoding='utf-8') as f:
-        f.write("0 Mock Technic Beam 1x3\n")
-        f.write("1 16 0 0 0 1 0 0 0 1 0 0 0 1 peghole.dat\n")
-        # 横坐标 20 等同于 20 * 0.0004 = 0.008M
-        f.write("1 16 20 0 0 1 0 0 0 1 0 0 0 1 peghole.dat\n")
-        f.write("1 16 -20 0 0 1 0 0 0 1 0 0 0 1 axlehole.dat\n")
-
-    fallback_payload = {
-        test_dat_path: {
-            "ports": [
-                {
-                    "type": "custom_pin.dat",
-                    "position": [40, 0, 0], 
-                    "rotation": [[1,0,0], [0,1,0], [0,0,1]]
-                }
-            ]
-        }
-    }
-    with open(test_json_path, "w", encoding='utf-8') as f:
-        json.dump(fallback_payload, f)
+    # 尝试查找一个常见的科技件，例如 32523.dat (Beam 1 x 3 Thick)
+    test_part = "32523.dat"
+    filepath = parser.resolve_path(test_part)
+    
+    if filepath:
+        print(f"\n--- 正在解析实际 LDraw 零件: {test_part} ---")
+        ports = parser.parse_dat_file(test_part)
+        print(f"找到 {len(ports)} 个语义端口:")
+        for i, p in enumerate(ports[:10]):  # 仅打印前 10 个
+            d = p.to_dict()
+            print(f"  [{i}] 类型: {d['type']}, 位置: {d['position']}")
         
-    parser = LDrawParser()
-    parser.load_fallback_json(test_json_path)
-    
-    print("\n--- LEGO 核心解析数据调试及正确度校验 ---")
-    ports = parser.parse_dat_file(test_dat_path)
-    for p in ports:
-        print(p.to_dict())
+        if len(ports) > 10:
+            print(f"  ... 以及其他 {len(ports) - 10} 个端口。")
+    else:
+        print(f"警告: 在 ldraw_lib 中未找到测试零件 {test_part}。")
+        print("请确保 ldraw_lib 目录存在且包含科技件。")
 
-    os.remove(test_dat_path)
-    os.remove(test_json_path)
-
-    print("\n[Phase 1 数据管线就绪，等待向外输出并联用。]")
+    print("\n[LDraw 增强版解析管线验证完毕。]")

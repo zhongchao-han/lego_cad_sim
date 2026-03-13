@@ -254,16 +254,16 @@ class GeometryProcessor:
         
         positions = np.linspace(axis_min, axis_max, num_slices)
         radii = []
-        half_step = (axis_max - axis_min) / max(num_slices - 1, 1) * 0.5
+        slice_thickness = (axis_max - axis_min) / num_slices * 1.5
         
         for pos in positions:
-            mask = np.abs(verts[:, axis] - pos) < half_step
+            mask = np.abs(verts[:, axis] - pos) < slice_thickness
             nearby = verts[mask]
             if len(nearby) == 0:
                 radii.append(0.0)
                 continue
             dists = np.sqrt(nearby[:, cross_axes[0]]**2 + nearby[:, cross_axes[1]]**2)
-            radii.append(float(np.percentile(dists, 95)))
+            radii.append(float(np.max(dists)))
         
         return {
             "axis": axis,

@@ -1,94 +1,14 @@
-import { useFrame } from '@react-three/fiber';
-import { OrbitControls, Html, Sphere } from '@react-three/drei';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Html, Sphere, Environment, ContactShadows, useGLTF, BakeShadows } from '@react-three/drei';
+import { EffectComposer, N8AO } from '@react-three/postprocessing';
+import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useStore } from './store';
-import { Vector3 } from 'three';
+import { Vector3, MathUtils } from 'three';
 import * as THREE from 'three';
+import { useLDrawPart } from './useLDrawPart';
+import PropTypes from 'prop-types';
 
-// ============= Lego Technic 梁 (Beam) 几何体生成器 =============
-// 生成一个带有圆孔阵列的 Technic 梁形状
-function createBeamGeometry(holes = 5) {
-    const LDU = 0.0004; // 1 LDU = 0.4mm
-    const pitch = 20 * LDU; // 孔间距 8mm
-    const width = pitch * holes;
-    const height = 20 * LDU; // 8mm
-    const depth = 20 * LDU; // 8mm
-    const holeRadius = 6 * LDU; // 2.4mm 半径
-
-    const shape = new THREE.Shape();
-    const r = 4 * LDU; // 圆角半径
-    const hw = width / 2;
-    const hh = height / 2;
-
-    // 带圆角的矩形外轮廓
-    shape.moveTo(-hw + r, -hh);
-    shape.lineTo(hw - r, -hh);
-    shape.quadraticCurveTo(hw, -hh, hw, -hh + r);
-    shape.lineTo(hw, hh - r);
-    shape.quadraticCurveTo(hw, hh, hw - r, hh);
-    shape.lineTo(-hw + r, hh);
-    shape.quadraticCurveTo(-hw, hh, -hw, hh - r);
-    shape.lineTo(-hw, -hh + r);
-    shape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
-
-    // 在每个孔位处掏出圆形孔洞
-    for (let i = 0; i < holes; i++) {
-        const cx = -hw + pitch / 2 + i * pitch;
-        const holePath = new THREE.Path();
-        holePath.absarc(cx, 0, holeRadius, 0, Math.PI * 2, true);
-        shape.holes.push(holePath);
-    }
-
-    const extrudeSettings = {
-        steps: 1,
-        depth: depth,
-        bevelEnabled: true,
-        bevelThickness: 1.5 * LDU,
-        bevelSize: 1.5 * LDU,
-        bevelSegments: 2,
-    };
-
-    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    // 居中
-    geometry.translate(0, 0, -depth / 2);
-    // 旋转使其水平放置 (Z轴朝上变成Y轴朝上)
-    geometry.rotateX(Math.PI / 2);
-
-    return geometry;
-}
-
-// ============= Lego Technic 销钉 (Pin) 几何体 =============
-function createPinGeometry() {
-    const LDU = 0.0004;
-    const pinRadius = 6 * LDU; // 2.4mm 半径
-    const pinLength = 32 * LDU; // 12.8mm 总长 (大约两个板厚)
-    const grooveDepth = 1 * LDU;
-    const grooveWidth = 2 * LDU;
-
-    const group = new THREE.Group();
-
-    // 主体圆柱
-    const bodyGeo = new THREE.CylinderGeometry(pinRadius, pinRadius, pinLength, 16);
-    bodyGeo.rotateZ(Math.PI / 2); // 使其横向
-
-    // 中间凸缘
-    const flangeGeo = new THREE.CylinderGeometry(pinRadius + 2 * LDU, pinRadius + 2 * LDU, 3 * LDU, 16);
-    flangeGeo.rotateZ(Math.PI / 2);
-
-    return { bodyGeo, flangeGeo };
-}
-
-// ============= Lego 基板 (Plate / Base Link) =============
-function createPlateGeometry() {
-    const LDU = 0.0004;
-    const width = 80 * LDU; // 32mm
-    const height = 8 * LDU; // 3.2mm (一个薄板)
-    const depth = 80 * LDU; // 32mm
-
-    const geometry = new THREE.BoxGeometry(width, height, depth);
-    // 顶部加些圆形凸起当作 Stud
-    return geometry;
-}
+const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
 // --- Smart Snapping UI ---
 const SnappingHighlight = ({ position }) => {
@@ -103,82 +23,215 @@ const SnappingHighlight = ({ position }) => {
         </Sphere>
     );
 };
-
-// --- Camera Anchor Lock ---
-const CameraController = () => {
-    const controlsRef = useRef();
-    const selectedPort = useStore((state) => state.selectedPort);
-
-    useEffect(() => {
-        if (selectedPort && controlsRef.current) {
-            const targetPos = new Vector3(...selectedPort.globalPos);
-            controlsRef.current.target.copy(targetPos);
-            controlsRef.current.minDistance = 0.02;
-            controlsRef.current.maxDistance = 0.5;
-        }
-    }, [selectedPort]);
-
-    return <OrbitControls ref={controlsRef} makeDefault />;
+SnappingHighlight.propTypes = {
+    position: PropTypes.arrayOf(PropTypes.number).isRequired,
 };
 
-// --- 独立乐高零件呈现 ---
-const LegoPart = ({ id }) => {
+const createABSPlasticMaterial = (sourceColor, hasVertexColors = false) => {
+    const color = hasVertexColors
+        ? new THREE.Color(1, 1, 1)
+        : (sourceColor instanceof THREE.Color ? sourceColor : new THREE.Color(0xaaaaaa));
+
+    return new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.3,
+        metalness: 0.0,
+        envMapIntensity: 0.8,
+        vertexColors: hasVertexColors,
+    });
+};
+
+// --- LDraw 真实模型渲染组件 ---
+const LDrawMeshRenderer = ({ url, setHover, setFocus, id }) => {
+    const { scene } = useGLTF(url, true);
+
+    const cloned = useMemo(() => {
+        const c = scene.clone(true);
+        c.traverse((child) => {
+            if (child.isMesh) {
+                const hasVC = !!child.geometry?.attributes?.color;
+                const origColor = child.material?.color;
+                child.material = createABSPlasticMaterial(origColor, hasVC);
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        return c;
+    }, [scene]);
+
+    return (
+        <primitive
+            object={cloned}
+            onPointerOver={(e) => { e.stopPropagation(); setHover(true); }}
+            onPointerOut={() => setHover(false)}
+            onDoubleClick={(e) => { e.stopPropagation(); setFocus({ partId: id, mode: 'part' }); }}
+        />
+    );
+};
+LDrawMeshRenderer.propTypes = {
+    url: PropTypes.string.isRequired,
+    setHover: PropTypes.func.isRequired,
+    setFocus: PropTypes.func.isRequired,
+    id: PropTypes.string.isRequired,
+};
+
+// --- Camera Controller: 平滑聚焦 + 自动推进 ---
+const FOCUS_DISTANCE = 0.05;
+const LERP_SPEED = 0.08;
+
+const CameraController = () => {
+    const controlsRef = useRef();
+    const { camera } = useThree();
+    const selectedPort = useStore((state) => state.selectedPort);
+    const focusedPartId = useStore((state) => state.focusedPartId);
+    const enableFocusAnimation = useStore((state) => state.enableFocusAnimation);
+    const parts = useStore((state) => state.parts);
+
+    const desiredTarget = useRef(new Vector3());
+    const desiredDistance = useRef(null);
+    const animating = useRef(false);
+
+    const startFocus = useCallback((pos, dist) => {
+        desiredTarget.current.copy(pos);
+        desiredDistance.current = dist ?? FOCUS_DISTANCE;
+        animating.current = true;
+    }, []);
+
+    useEffect(() => {
+        if (!selectedPort) return;
+        startFocus(new Vector3(...selectedPort.globalPos), FOCUS_DISTANCE);
+    }, [selectedPort, startFocus]);
+
+    useEffect(() => {
+        if (!focusedPartId) return;
+        const partState = parts[focusedPartId];
+        if (!partState) return;
+        startFocus(new Vector3(...partState.position), FOCUS_DISTANCE);
+    }, [focusedPartId, parts, startFocus]);
+
+    useFrame(() => {
+        const controls = controlsRef.current;
+        if (!controls || !animating.current) return;
+
+        const curTarget = controls.target;
+        const desired = desiredTarget.current;
+
+        if (!enableFocusAnimation) {
+            curTarget.copy(desired);
+            if (desiredDistance.current !== null) {
+                const dir = new Vector3().subVectors(camera.position, curTarget).normalize();
+                camera.position.copy(curTarget).addScaledVector(dir, desiredDistance.current);
+            }
+            animating.current = false;
+        } else {
+            curTarget.lerp(desired, LERP_SPEED);
+
+            if (desiredDistance.current !== null) {
+                const dir = new Vector3().subVectors(camera.position, curTarget);
+                const curDist = dir.length();
+                if (curDist > 0) {
+                    dir.normalize();
+                    const newDist = MathUtils.lerp(curDist, desiredDistance.current, LERP_SPEED);
+                    camera.position.copy(curTarget).addScaledVector(dir, newDist);
+                }
+            }
+
+            if (curTarget.distanceTo(desired) < 0.0001) {
+                animating.current = false;
+                desiredDistance.current = null;
+            }
+        }
+
+        controls.minDistance = 0.01;
+        controls.maxDistance = 0.5;
+        controls.update();
+    });
+
+    return (
+        <OrbitControls
+            ref={controlsRef}
+            makeDefault
+            enableDamping
+            dampingFactor={0.08}
+        />
+    );
+};
+
+const LegoPart = memo(({ id }) => {
     const groupRef = useRef();
-    const state = useStore((state) => state.parts[id]);
-    const mode = useStore((state) => state.mode);
-    const snapParts = useStore((state) => state.snapParts);
+    const state = useStore((s) => s.parts[id]);
+    const mode = useStore((s) => s.mode);
+    const snapParts = useStore((s) => s.snapParts);
+    const showPortGizmos = useStore((s) => s.showPortGizmos);
+    const setFocus = useStore((s) => s.setFocus);
     const [hovered, setHover] = useState(false);
+    const lastPosition = useRef(null);
+    const lastQuaternion = useRef(null);
 
     const LDU = 0.0004;
     const pitch = 20 * LDU;
 
-    // 确定零件类型和参数
-    const partConfig = useMemo(() => {
-        if (id.includes('beam')) {
-            const holes = 5;
-            return {
-                type: 'beam',
-                holes,
-                geometry: createBeamGeometry(holes),
-                color: '#e53935', // 乐高经典红
-                hoverColor: '#ff9800',
-                ports: Array.from({ length: holes }, (_, i) => ({
-                    type: 'peghole',
-                    localPos: [(-holes / 2 + 0.5 + i) * pitch, 6 * LDU, 0], // Y偏移：浮在梁上方
-                    rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                })),
-            };
-        } else if (id.includes('pin')) {
-            return {
-                type: 'pin',
-                geometry: null, // 使用内联几何体
-                color: '#212121', // 黑色销钉
-                hoverColor: '#ff9800',
-                ports: [
-                    { type: 'peg', localPos: [0, 16 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                    { type: 'peg', localPos: [0, -16 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                ],
-            };
-        } else {
-            return {
-                type: 'plate',
-                geometry: createPlateGeometry(),
-                color: '#b0bec5', // 浅灰色底座
-                hoverColor: '#ff9800',
-                ports: [
-                    { type: 'peghole', localPos: [pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                    { type: 'peghole', localPos: [-pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                    { type: 'peghole', localPos: [0, 8 * LDU, pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                    { type: 'peghole', localPos: [0, 8 * LDU, -pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-                ],
-            };
+    // fallback 端口定义（当 LDraw 未提供端口时使用）
+    const fallbackPorts = useMemo(() => {
+        if (['32524', '32523'].includes(id) || id.includes('beam')) {
+            const holes = id === '32523' ? 3 : (id === '32524' ? 7 : 5);
+            const beamHalfDepth = 10 * LDU;
+            return Array.from({ length: holes }, (_, i) => ({
+                type: 'peghole',
+                localPos: [(-holes / 2 + 0.5 + i) * pitch, beamHalfDepth, 0],
+                rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            }));
+        } else if (id === '6558' || id.includes('pin')) {
+            // LDraw 6558 网格沿 X 轴延伸 (-30 ~ +30 LDU)
+            // 端口放在两端尖端，旋转矩阵让 baseAxis [0,1,0] 映射到 X 轴方向
+            const pinTip = 30 * LDU; // 0.012m
+            return [
+                { type: 'peg', localPos: [pinTip, 0, 0],  rot: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] },
+                { type: 'peg', localPos: [-pinTip, 0, 0], rot: [[0, -1, 0], [1, 0, 0], [0, 0, 1]] },
+            ];
         }
+        return [
+            { type: 'peghole', localPos: [pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+            { type: 'peghole', localPos: [-pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+            { type: 'peghole', localPos: [0, 8 * LDU, pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+            { type: 'peghole', localPos: [0, 8 * LDU, -pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+        ];
     }, [id]);
 
+    const partColor = useMemo(() => {
+        if (['32524', '32523'].includes(id) || id.includes('beam')) return '#e53935';
+        if (id === '6558' || id.includes('pin')) return '#212121';
+        return '#b0bec5';
+    }, [id]);
+
+    const colorCode = state?.colorCode;
+    const ldrawPart = useLDrawPart(id, colorCode ?? 7);
+    const hasLDrawPorts = ldrawPart.ports && ldrawPart.ports.length > 0;
+
+    const effectivePorts = useMemo(() => {
+        if (hasLDrawPorts) {
+            return ldrawPart.ports.map((p) => ({
+                type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
+                localPos: p.position,
+                rot: p.rotation,
+            }));
+        }
+        return fallbackPorts;
+    }, [hasLDrawPorts, ldrawPart.ports, fallbackPorts]);
+
+    const activeMeshUrl = ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
+
     useFrame(() => {
-        if (groupRef.current && state) {
-            groupRef.current.position.set(...state.position);
-            groupRef.current.quaternion.set(...state.quaternion);
+        if (!groupRef.current || !state) return;
+        const pos = state.position;
+        const quat = state.quaternion;
+        if (lastPosition.current !== pos) {
+            groupRef.current.position.set(pos[0], pos[1], pos[2]);
+            lastPosition.current = pos;
+        }
+        if (lastQuaternion.current !== quat) {
+            groupRef.current.quaternion.set(quat[0], quat[1], quat[2], quat[3]);
+            lastQuaternion.current = quat;
         }
     });
 
@@ -211,72 +264,32 @@ const LegoPart = ({ id }) => {
         }
     };
 
-    const currentColor = hovered ? partConfig.hoverColor : partConfig.color;
+    if (ldrawPart.loading) return null;
 
     return (
         <group ref={groupRef}>
-            {/* 主体几何体 */}
-            {partConfig.type === 'beam' && (
+            {activeMeshUrl ? (
+                <LDrawMeshRenderer 
+                    url={activeMeshUrl} 
+                    setHover={setHover} 
+                    setFocus={setFocus} 
+                    id={id} 
+                />
+            ) : (
                 <mesh
-                    geometry={partConfig.geometry}
                     onPointerOver={() => setHover(true)}
                     onPointerOut={() => setHover(false)}
+                    onDoubleClick={() => setFocus({ partId: id, mode: 'part' })}
                 >
-                    <meshStandardMaterial
-                        color={currentColor}
-                        roughness={0.35}
-                        metalness={0.05}
-                    />
+                    <boxGeometry args={[0.005, 0.005, 0.005]} />
+                    <meshBasicMaterial color={hovered ? '#ff9800' : partColor} />
                 </mesh>
             )}
 
-            {partConfig.type === 'pin' && (
-                <group
-                    onPointerOver={() => setHover(true)}
-                    onPointerOut={() => setHover(false)}
-                >
-                    {/* 销钉主体 */}
-                    <mesh>
-                        <cylinderGeometry args={[6 * LDU, 6 * LDU, 32 * LDU, 16]} />
-                        <meshStandardMaterial color={currentColor} roughness={0.5} />
-                    </mesh>
-                    {/* 中部凸缘 */}
-                    <mesh>
-                        <cylinderGeometry args={[8 * LDU, 8 * LDU, 3 * LDU, 16]} />
-                        <meshStandardMaterial color={currentColor} roughness={0.5} />
-                    </mesh>
-                </group>
-            )}
-
-            {partConfig.type === 'plate' && (
-                <group
-                    onPointerOver={() => setHover(true)}
-                    onPointerOut={() => setHover(false)}
-                >
-                    <mesh geometry={partConfig.geometry}>
-                        <meshStandardMaterial
-                            color={currentColor}
-                            roughness={0.3}
-                            metalness={0.05}
-                        />
-                    </mesh>
-                    {/* Technic 底板上的 4 个螺纹孔标记（浅色凹陷） */}
-                    {partConfig.ports.map((port, i) => (
-                        <mesh key={`hole-${i}`} position={[port.localPos[0], 4 * LDU + 0.5 * LDU, port.localPos[2]]}>
-                            <cylinderGeometry args={[5 * LDU, 5 * LDU, 1 * LDU, 16]} />
-                            <meshStandardMaterial color="#90a4ae" roughness={0.5} />
-                        </mesh>
-                    ))}
-                </group>
-            )}
-
-            {/* 渲染可交互端口 - 蓝色=销孔(peghole)，品红=销钉端(peg) */}
-            {/* 每个端口由一个可见的小球 + 一个更大的透明命中区域组成 */}
-            {mode === 'ASSEMBLY' && partConfig.ports.map((port, idx) => (
+            {mode === 'ASSEMBLY' && showPortGizmos && effectivePorts.map((port, idx) => (
                 <group key={idx} position={port.localPos}>
-                    {/* 可见的端口指示球 */}
                     <mesh>
-                        <sphereGeometry args={[4 * LDU, 16, 16]} />
+                        <sphereGeometry args={[4 * LDU, 12, 12]} />
                         <meshBasicMaterial
                             color={port.type === 'peghole' ? '#2196f3' : '#e040fb'}
                             transparent
@@ -284,7 +297,6 @@ const LegoPart = ({ id }) => {
                             depthTest={false}
                         />
                     </mesh>
-                    {/* 更大的透明点击热区 (半径 = 12 LDU ≈ 5mm，屏幕上约 15-20px) */}
                     <mesh
                         renderOrder={999}
                         onClick={(e) => {
@@ -299,24 +311,64 @@ const LegoPart = ({ id }) => {
                             document.body.style.cursor = 'auto';
                         }}
                     >
-                        <sphereGeometry args={[12 * LDU, 8, 8]} />
+                        <sphereGeometry args={[12 * LDU, 6, 6]} />
                         <meshBasicMaterial transparent opacity={0} depthTest={false} />
                     </mesh>
                 </group>
             ))}
         </group>
     );
+});
+LegoPart.displayName = 'LegoPart';
+LegoPart.propTypes = {
+    id: PropTypes.string.isRequired,
+};
+
+const ConditionalSSAO = () => {
+    const enabled = useStore((s) => s.enableSSAO);
+    if (!enabled) return null;
+    return (
+        <EffectComposer>
+            <N8AO aoRadius={0.05} intensity={1.5} distanceFalloff={0.5} />
+        </EffectComposer>
+    );
+};
+
+const ConditionalContactShadows = () => {
+    const enabled = useStore((s) => s.enableContactShadows);
+    if (!enabled) return null;
+    return (
+        <ContactShadows
+            position={[0, -0.01, 0]}
+            opacity={0.5}
+            width={0.5}
+            height={0.5}
+            blur={2}
+            far={0.3}
+        />
+    );
 };
 
 export default function Scene() {
-    const parts = useStore((state) => state.parts);
-    const selectedPort = useStore((state) => state.selectedPort);
+    const parts = useStore((s) => s.parts);
+    const selectedPort = useStore((s) => s.selectedPort);
 
     return (
         <>
-            <ambientLight intensity={0.6} />
-            <directionalLight position={[1, 2, 3]} intensity={1.5} castShadow />
-            <directionalLight position={[-2, 1, -1]} intensity={0.4} />
+            <Environment preset="apartment" background={false} />
+
+            <ambientLight intensity={0.4} />
+
+            <directionalLight
+                position={[0.8, 1.5, 1.2]}
+                intensity={2.0}
+                castShadow
+                shadow-mapSize-width={1024}
+                shadow-mapSize-height={1024}
+                shadow-bias={-0.0003}
+            />
+
+            <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
 
             <CameraController />
 
@@ -328,7 +380,11 @@ export default function Scene() {
                 <SnappingHighlight position={selectedPort.globalPos} />
             )}
 
-            <gridHelper args={[0.5, 30, '#999', '#ddd']} position={[0, -0.01, 0]} />
+            <ConditionalContactShadows />
+            <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
+
+            <BakeShadows />
+            <ConditionalSSAO />
         </>
     );
 }
