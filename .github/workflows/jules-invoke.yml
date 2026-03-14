@@ -30,16 +30,15 @@ jobs:
         id: jules_run
         uses: BeksOmega/jules-action@v1.0.0 # 注意：这里填入截图里对应的真实 Action 路径
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          task_description: ${{ github.event.issue.body || github.event.comment.body }}
-          base_branch: 'main' # 假设你的主分支叫 main
+          prompt: ${{ github.event.issue.title }} - ${{ github.event.issue.body || github.event.comment.body }}
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
 
-      # 核心动作 2：干完活后，让 Jules 在新生成的 PR 里写中文总结
-      - name: Post Jules PR Comment
-        if: steps.jules_run.outputs.pr_url != '' # 只有成功创建了 PR 才发评论
-        uses: BeksOmega/jules-publish@v1.0.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_number: ${{ steps.jules_run.outputs.pr_number }}
-          message: "老板，任务已处理完毕！我已经梳理了相关的数据解析逻辑并提交了修改，请 Review。"
-          details: ${{ steps.jules_run.outputs.session_details }}
+      # 由于 jules-action 目前不返回 outputs (pr_url 等)，原有的发评论步骤无法获取数据，已被注释或移除。
+      # - name: Post Jules PR Comment
+      #   if: steps.jules_run.outputs.pr_url != '' # 只有成功创建了 PR 才发评论
+      #   uses: BeksOmega/jules-publish@v1.0.0
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     pr_number: ${{ steps.jules_run.outputs.pr_number }}
+      #     message: "老板，任务已处理完毕！我已经梳理了相关的数据解析逻辑并提交了修改，请 Review。"
+      #     details: ${{ steps.jules_run.outputs.session_details }}
