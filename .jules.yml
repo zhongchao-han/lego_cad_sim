@@ -1,0 +1,15 @@
+# # Jules Configuration for lego_cad_sim
+# # Focusing on data cleaning logic and potential memory leaks
+# 
+# review_focus:
+#   - area: "Data Cleaning and Geometry Purification"
+#     concern: "Memory Leaks"
+#     details: >-
+#       重点审查 `ldraw_parser.py` 和 `geometry_processor.py` 中的数据清洗逻辑。
+#       特别关注：
+#       1. 递归文件解析 (Recursive parsing) 是否存在未受控的资源消耗或循环。
+#       2. 大规模网格处理 (Trimesh operations) 时是否正确释放了临时内存空间。
+#       3. NumPy 数组和缓存对象的生命周期管理。
+#     files:
+#       - "ldraw_parser.py"
+#       - "geometry_processor.py"

@@ -1,0 +1,31 @@
+name: Jules Agent - PR Feedback Loop
+
+# 触发条件：在 PR 的代码行上留下 Review 评论
+on:
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  process_feedback:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 核心动作 3：校验身份并把你的修改意见塞给 Jules
+      - name: Send Feedback to Jules
+        uses: BeksOmega/jules-comms@v1.0.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 权限控制：防止别人在你的开源仓库里乱评论触发你的额度
+          allowed_users: 'zhongchao-han' # 【注意】把这里换成你自己的 GitHub 用户名
+          pr_number: ${{ github.event.pull_request.number }}
+          comment_body: ${{ github.event.comment.body }}
+          comment_id: ${{ github.event.comment.id }}
+          file_path: ${{ github.event.comment.path }} # 定位到你评论的具体文件（如 parser.py）
