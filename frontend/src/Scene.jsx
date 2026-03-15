@@ -228,7 +228,7 @@ const PortGlow = ({ type, rotation, hover, active }) => {
 
     return (
         <group matrixAutoUpdate={false} onUpdate={(self) => { self.matrix.copy(matrix); }}>
-            <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
+            <mesh ref={meshRef} rotation={[0, 0, 0]}>
                 {/* 
                  孔深 20 LDU (0.008m)，我们显示一半厚度的发光体 
                  孔径 6 LDU，稍微缩减一点点以防 Z-fighting

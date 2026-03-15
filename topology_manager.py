@@ -203,7 +203,7 @@ class TopologyManager:
         for node_id, data in self.graph.nodes(data=True):
             simple_graph.add_node(node_id, **data)
             
-        for u, v in self.graph.edges:
+        for u, v, _ in self.graph.edges(keys=True):
             edges_between_uv = self.graph.get_edge_data(u, v)
             if edges_between_uv:
                 edge_list = list(edges_between_uv.values())
@@ -261,9 +261,8 @@ class TopologyManager:
             current = queue.pop(0)
             if current not in visited:
                 visited.add(current)
-                # 复制节点
-                if not urdf_tree.has_node(current):
-                    urdf_tree.add_node(current, data=simple_graph.nodes[current]['data'])
+                # 复制节点并应用属性（即使已由 add_edge 自动创建）
+                urdf_tree.add_node(current, **simple_graph.nodes[current])
                 
                 # 漫游全部直系亲属
                 for neighbor in simple_graph.successors(current):
@@ -358,6 +357,8 @@ class TopologyManager:
             
             # 对簇内所有零件进行合并
             total_mass = 0.0
+            weighted_pos_sum = np.zeros(3)
+            
             for node in cluster:
                 part: PartNode = urdf_tree.nodes[node]['data']
                 pos, rpy = node_relative_to_cluster_root[node]
@@ -365,6 +366,7 @@ class TopologyManager:
                 rpy_str = " ".join(map(lambda x: f"{x:.5f}", rpy))
                 
                 total_mass += part.mass
+                weighted_pos_sum += pos * part.mass
                 
                 # Visual
                 visual = ET.SubElement(link, 'visual')
@@ -378,10 +380,14 @@ class TopologyManager:
                 c_geometry = ET.SubElement(collision, 'geometry')
                 ET.SubElement(c_geometry, 'mesh', filename=part.collision_mesh)
 
-            # 简化的惯性组件 (可以更精确地计算质心，这里暂时取簇根原点)
+            # 计算真实的相对质心位置
+            com_pos = weighted_pos_sum / total_mass if total_mass > 0 else np.zeros(3)
+            com_xyz_str = " ".join(map(lambda x: f"{x:.5f}", com_pos))
+
+            # 惯性组件
             inertial = ET.SubElement(link, 'inertial')
             ET.SubElement(inertial, 'mass', value=str(total_mass))
-            ET.SubElement(inertial, 'origin', xyz="0 0 0", rpy="0 0 0")
+            ET.SubElement(inertial, 'origin', xyz=com_xyz_str, rpy="0 0 0")
             ET.SubElement(inertial, 'inertia', ixx="1e-3", ixy="0", ixz="0", iyy="1e-3", iyz="0", izz="1e-3")
 
         # --- 步骤 3：建立簇间 Joints ---
@@ -475,57 +481,3 @@ class TopologyManager:
 
 
 
-# =========================== Unit testing execution ============================
-if __name__ == "__main__":
-    print("\n--- Phase 2: Topology Manager & URDF Export 单元防崩测试 ---")
-    
-    manager = TopologyManager()
-    
-    # 建立 3 个模拟的 LEGO 单元（比如为了构成闭环矩形，再随便找个节点收拢）
-    beam_a = PartNode("A", "3x3_beam_L")
-    beam_b = PartNode("B", "3x3_beam_R")
-    connector_c = PartNode("C", "pin_H")
-    
-    manager.add_part(beam_a)
-    manager.add_part(beam_b)
-    manager.add_part(connector_c)
-    
-    id_rot = np.eye(3)
-    
-    # 构建连接关系，展示多向多端口：
-    # A->B 有两条同样的联结作为过约束测试：会熔合产生 is_merged = True
-    e1 = ConnectionEdge("A", "B", "peghole", "pin", np.array([0.008, 0, 0]), id_rot, np.array([0,0,-0.004]), id_rot)
-    e1_dup = ConnectionEdge("A", "B", "peghole", "pin", np.array([-0.008, 0, 0]), id_rot, np.array([0,0,0.004]), id_rot)
-    manager.connect_ports(e1)
-    manager.connect_ports(e1_dup)
-    
-    # B->C 正常传递：
-    e2 = ConnectionEdge("B", "C", "axlehole", "axle", np.array([0,0,0]), id_rot, np.array([0,0,0]), id_rot)
-    manager.connect_ports(e2)
-    
-    # C->A 回归连接产生闭环测试：
-    e3 = ConnectionEdge("C", "A", "pin", "peghole", np.array([0, 0.004, 0]), id_rot, np.array([0, -0.004, 0]), id_rot)
-    manager.connect_ports(e3)
-    
-    # 解算跨越
-    tree = manager.build_spanning_tree()
-    
-    print("\n【URDF 转换树节点状态】")
-    print("总节点数:", tree.number_of_nodes())
-    print("总边数量:", tree.number_of_edges(), "(应只剩过滤和破环之后的边)")
-    print("受限打断环的数量:", len(manager.closed_loops))
-    
-    urdf_filename = "mock_output.urdf"
-    manager.export_urdf(tree, urdf_filename)
-    
-    # 回显下生成的 URDF 头片段
-    with open(urdf_filename, "r") as f:
-        print("\n【生成的一瞥 (前25行) URDF内容】")
-        for _ in range(25):
-            line = f.readline()
-            if not line: break
-            print(line.strip('\n'))
-
-    import os
-    os.remove(urdf_filename)
-    print("\n[Topology Manager URDF 装配组件输出核准完成]")

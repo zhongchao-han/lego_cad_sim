@@ -329,9 +329,3 @@ class GeometryProcessor:
         return float(np.max(inner_dists))
 
 
-if __name__ == "__main__":
-    # 小型本地测试
-    proc = GeometryProcessor(ldraw_path="ldraw_lib")
-    test_part = "32523.dat"
-    out_file = "ldraw_meshes/32523.glb"
-    proc.convert_to_glb(test_part, out_file)

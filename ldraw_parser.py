@@ -286,28 +286,3 @@ class LDrawParser:
             logger.error(f"处理 Trimesh 网格及其物理属性遇到了灾难级崩溃: {e}")
             return None
 
-# =========================== Unit testing execution ============================
-if __name__ == "__main__":
-    # --- 开发验证和测试桩环境设定 ---
-    # 使用实际解压后的科技件库进行测试
-    parser = LDrawParser(ldraw_path="ldraw_lib")
-    
-    # 尝试查找一个常见的科技件，例如 32523.dat (Beam 1 x 3 Thick)
-    test_part = "32523.dat"
-    filepath = parser.resolve_path(test_part)
-    
-    if filepath:
-        print(f"\n--- 正在解析实际 LDraw 零件: {test_part} ---")
-        ports = parser.parse_dat_file(test_part)
-        print(f"找到 {len(ports)} 个语义端口:")
-        for i, p in enumerate(ports[:10]):  # 仅打印前 10 个
-            d = p.to_dict()
-            print(f"  [{i}] 类型: {d['type']}, 位置: {d['position']}")
-        
-        if len(ports) > 10:
-            print(f"  ... 以及其他 {len(ports) - 10} 个端口。")
-    else:
-        print(f"警告: 在 ldraw_lib 中未找到测试零件 {test_part}。")
-        print("请确保 ldraw_lib 目录存在且包含科技件。")
-
-    print("\n[LDraw 增强版解析管线验证完毕。]")

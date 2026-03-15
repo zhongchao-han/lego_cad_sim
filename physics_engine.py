@@ -219,8 +219,3 @@ class PhysicsEngine:
     def disconnect(self):
         """释放后端资源"""
         p.disconnect(self.client_id)
-
-if __name__ == "__main__":
-    engine = PhysicsEngine(mode="DIRECT")
-    print("Physics Engine initial test pass.")
-    engine.disconnect()
