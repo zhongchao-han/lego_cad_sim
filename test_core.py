@@ -103,6 +103,61 @@ class TestLegoCore(unittest.TestCase):
             if os.path.exists(output):
                 os.remove(output)
 
+    def test_topology_overconstrained_fixed(self):
+        """测试多端非共轴连接的过约束判定 (应当被合并为同一个 Fixed 刚体簇)"""
+        manager = TopologyManager()
+        manager.add_part(PartNode("beam_1", "32524"))
+        manager.add_part(PartNode("beam_2", "32524"))
+        
+        # 旋转轴默认是 Y 轴 [0, 1, 0]。
+        # 如果第二个连接点在 X 轴上偏移 [0.008, 0, 0]，两点连线平行于 X 轴，
+        # 则它们不共轴，这会导致两根梁在物理上死锁 (Fixed)。
+        e1 = ConnectionEdge("beam_1", "beam_2", "peghole.dat", "pin.dat", 
+                            np.array([0, 0, 0]), np.eye(3), np.array([0, 0, 0]), np.eye(3))
+        e2 = ConnectionEdge("beam_1", "beam_2", "peghole.dat", "pin.dat", 
+                            np.array([0.008, 0, 0]), np.eye(3), np.array([0.008, 0, 0]), np.eye(3))
+        
+        manager.connect_ports(e1)
+        manager.connect_ports(e2)
+        tree = manager.build_spanning_tree()
+        
+        # 检查主约束是否被标记为 merged
+        edge_data = tree.get_edge_data("beam_1", "beam_2")['data']
+        self.assertTrue(edge_data.is_merged)
+        
+        # 导出的联合类型应由于 is_merged 而被判定为 fixed
+        j_type = manager._determine_joint_type(edge_data.port_type_p, edge_data.port_type_c, edge_data.is_merged)
+        self.assertEqual(j_type, "fixed")
+
+    def test_topology_coaxial_hinge(self):
+        """测试多端共轴连接的免除死锁判定 (应当被判定为铰链 Revolute 从而分为两个簇)"""
+        manager = TopologyManager()
+        manager.add_part(PartNode("beam_1", "32524"))
+        manager.add_part(PartNode("beam_2", "32524"))
+        
+        # 假设旋转轴为 Y 轴。我们在 Y=0 和 Y=1 的位置插入孔（它们处在同一条 Y 轴心线上）
+        # 连线向量 [0, 0.008, 0]，它平行于 Y 轴 [0, 1, 0]，所以属于共轴
+        e1 = ConnectionEdge("beam_1", "beam_2", "peghole.dat", "pin.dat", 
+                            np.array([0, 0, 0]), np.eye(3), np.array([0, 0, 0]), np.eye(3))
+        e2 = ConnectionEdge("beam_1", "beam_2", "peghole.dat", "pin.dat", 
+                            np.array([0, 0.008, 0]), np.eye(3), np.array([0, 0.008, 0]), np.eye(3))
+        
+        # 强制将第一根引脚的局部旋转方向对准 Y 轴
+        # 从而让 axis_world 能够对应这根轴
+        # 此时两个孔在同一直线上
+        
+        manager.connect_ports(e1)
+        manager.connect_ports(e2)
+        tree = manager.build_spanning_tree()
+        
+        # 检查主约束是否免于了被标记为 merged
+        edge_data = tree.get_edge_data("beam_1", "beam_2")['data']
+        self.assertFalse(edge_data.is_merged)
+        
+        # 依然保留转动自由度
+        j_type = manager._determine_joint_type(edge_data.port_type_p, edge_data.port_type_c, edge_data.is_merged)
+        self.assertEqual(j_type, "revolute")
+
     # --- PhysicsEngine 接口测试 ---
     def test_physics_engine_basic(self):
         """测试物理引擎基础初始化与断开"""
