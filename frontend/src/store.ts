@@ -49,6 +49,8 @@ export interface SelectedPortInfo {
   position: Vec3;
   rotation: Mat3;
   globalPos: Vec3;
+  baseOrigin?: Vec3;
+  insertionDepth?: number;
 }
 
 // ==================== 向量 / 四元数工具 ====================
@@ -277,16 +279,17 @@ export const useStore = create<StoreState>((set, get) => ({
       }
 
       // 平移：梁的端口（表面）对齐到插销的几何中心
-      const srcAlignLocal = stripAxis(source.position, srcAxisLocal);
+      const srcAlignLocal = source.baseOrigin ?? stripAxis(source.position, srcAxisLocal);
       const srcAlignWorld = vecAdd(
         sourcePart.position,
         quatApplyToVec3(sourcePart.quaternion, srcAlignLocal),
       );
 
       const rotatedTarget = updated[target.partId]!;
+      const tgtAlignLocal = target.baseOrigin ?? stripAxis(target.position, tgtAxisLocal);
       const tgtAlignWorld = vecAdd(
         rotatedTarget.position,
-        quatApplyToVec3(rotatedTarget.quaternion, target.position),
+        quatApplyToVec3(rotatedTarget.quaternion, tgtAlignLocal),
       );
 
       const delta = vecSub(srcAlignWorld, tgtAlignWorld);
@@ -317,15 +320,15 @@ export const useStore = create<StoreState>((set, get) => ({
         };
       }
 
-      const targetAlignLocal = target.portType === 'peg'
+      const targetAlignLocal = target.baseOrigin ?? (target.portType === 'peg'
         ? target.position
-        : stripAxis(target.position, tgtAxisLocal);
+        : stripAxis(target.position, tgtAxisLocal));
       const targetAlignWorld = vecAdd(
         targetPart.position,
         quatApplyToVec3(targetPart.quaternion, targetAlignLocal),
       );
 
-      const sourceAlignLocal = stripAxis(source.position, srcAxisLocal);
+      const sourceAlignLocal = source.baseOrigin ?? stripAxis(source.position, srcAxisLocal);
       const rotatedSource = updated[source.partId]!;
       const sourceAlignWorld = vecAdd(
         rotatedSource.position,
@@ -386,9 +389,9 @@ export const useStore = create<StoreState>((set, get) => ({
         child_id: source.partId,
         port_type_p: target.portType,
         port_type_c: source.portType,
-        parent_origin: target.position,
+        parent_origin: target.baseOrigin ?? target.position,
         parent_rot: flatRot(target.rotation),
-        child_origin: source.position,
+        child_origin: source.baseOrigin ?? source.position,
         child_rot: flatRot(source.rotation),
       });
     } catch (e) {

@@ -7,6 +7,8 @@ export interface LDrawPort {
   type: string;
   position: [number, number, number];
   rotation: number[][];
+  base_origin?: [number, number, number];
+  insertion_depth?: number;
 }
 
 export interface LDrawPartState {

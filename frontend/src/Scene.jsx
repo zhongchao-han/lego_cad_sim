@@ -189,14 +189,14 @@ const PortGlow = ({ type, rotation, hover, active }) => {
 
     // 取得 Cyber Cyan (孔) 或 Amber Gold (插销)
     const baseColor = type === 'peghole' ? '#00f2ff' : '#ffab00';
-    
+
     // 动态脉冲动画
     useFrame((state) => {
         if (!meshRef.current) return;
         const t = state.clock.getElapsedTime();
         const pulse = 0.8 + Math.sin(t * 4) * 0.2;
         meshRef.current.material.opacity = (hover || active ? 0.9 : 0.4) * pulse;
-        
+
         // 如果是选中状态，稍微放大一点
         const s = active ? 1.2 : 1.0;
         meshRef.current.scale.set(s, s, s);
@@ -230,14 +230,14 @@ const PortGlow = ({ type, rotation, hover, active }) => {
         <group matrixAutoUpdate={false} onUpdate={(self) => { self.matrix.copy(matrix); }}>
             <mesh ref={meshRef} rotation={[0, 0, 0]}>
                 {/* 
-                 孔深 20 LDU (0.008m)，我们显示一半厚度的发光体 
-                 孔径 6 LDU，稍微缩减一点点以防 Z-fighting
+                 孔深 20 LDU (0.008m)，改为全深度覆盖
+                 孔径 6 LDU，使用 5.95 以获得最佳视觉贴合且避免由于极小误差产生的重叠闪烁
                 */}
-                <cylinderGeometry args={[5.8 * LDU, 5.8 * LDU, 10 * LDU, 16]} />
-                <meshBasicMaterial 
-                    color={baseColor} 
-                    transparent 
-                    opacity={0.5} 
+                <cylinderGeometry args={[5.95 * LDU, 5.95 * LDU, 20 * LDU, 24]} />
+                <meshBasicMaterial
+                    color={baseColor}
+                    transparent
+                    opacity={0.5}
                     depthTest={false}
                     blending={THREE.AdditiveBlending}
                 />
@@ -279,9 +279,9 @@ const LegoPart = memo(({ id }) => {
                 rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
             }));
         } else if (id === '6558' || id.includes('pin')) {
-            const pinTip = 30 * LDU; 
+            const pinTip = 30 * LDU;
             return [
-                { type: 'peg', localPos: [pinTip, 0, 0],  rot: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] },
+                { type: 'peg', localPos: [pinTip, 0, 0], rot: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] },
                 { type: 'peg', localPos: [-pinTip, 0, 0], rot: [[0, -1, 0], [1, 0, 0], [0, 0, 1]] },
             ];
         }
@@ -306,10 +306,12 @@ const LegoPart = memo(({ id }) => {
             return ldrawPart.ports.map((p) => ({
                 type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
                 localPos: p.position,
+                baseOrigin: p.base_origin || p.position,
+                insertionDepth: p.insertion_depth || 0,
                 rot: p.rotation,
             }));
         }
-        return fallbackPorts;
+        return fallbackPorts.map(p => ({ ...p, baseOrigin: p.localPos, insertionDepth: 0 }));
     }, [hasLDrawPorts, ldrawPart.ports, fallbackPorts]);
 
     const activeMeshUrl = ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
@@ -344,6 +346,8 @@ const LegoPart = memo(({ id }) => {
             partId: id,
             portType: port.type,
             position: port.localPos,
+            baseOrigin: port.baseOrigin,
+            insertionDepth: port.insertionDepth,
             rotation: port.rot,
             globalPos: [worldPos.x, worldPos.y, worldPos.z],
         };
@@ -360,11 +364,11 @@ const LegoPart = memo(({ id }) => {
     return (
         <group ref={groupRef}>
             {activeMeshUrl ? (
-                <LDrawMeshRenderer 
-                    url={activeMeshUrl} 
-                    setHover={setHover} 
-                    setFocus={setFocus} 
-                    id={id} 
+                <LDrawMeshRenderer
+                    url={activeMeshUrl}
+                    setHover={setHover}
+                    setFocus={setFocus}
+                    id={id}
                     stress={state?.stress}
                 />
             ) : (
@@ -379,20 +383,20 @@ const LegoPart = memo(({ id }) => {
             )}
 
             {mode === 'ASSEMBLY' && showPortGizmos && effectivePorts.map((port, idx) => {
-                const isSelected = selectedPort?.partId === id && 
-                                   selectedPort?.position[0] === port.localPos[0] &&
-                                   selectedPort?.position[1] === port.localPos[1] &&
-                                   selectedPort?.position[2] === port.localPos[2];
+                const isSelected = selectedPort?.partId === id &&
+                    selectedPort?.position[0] === port.localPos[0] &&
+                    selectedPort?.position[1] === port.localPos[1] &&
+                    selectedPort?.position[2] === port.localPos[2];
 
                 return (
                     <group key={idx} position={port.localPos}>
-                        <PortGlow 
-                            type={port.type} 
-                            rotation={port.rot} 
+                        <PortGlow
+                            type={port.type}
+                            rotation={port.rot}
                             hover={hoveredPortIdx === idx}
                             active={isSelected}
                         />
-                        
+
                         {/* 隐形交互球，增大点击面积 */}
                         <mesh
                             renderOrder={999}

@@ -67,6 +67,8 @@ class LDrawPort(BaseModel):
     type: str
     position: list
     rotation: list
+    insertion_depth: float = 0.0
+    base_origin: list = [0, 0, 0]
 
 class LDrawPartResponse(BaseModel):
     part_id: str
@@ -125,10 +127,70 @@ async def get_ldraw_part(part_id: str, color: int = 7):
 
     ports = []
     parsed_ports = parser.parse_dat_file(dat_filename)
-    if parsed_ports:
-        ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
+    
+    final_ports = []
+    has_peg = any(p.port_type == 'peg' for p in parsed_ports)
+    if has_peg:
+        verts_ldu, _, _ = geo_proc.extract_geometry(dat_filename)
+        if verts_ldu:
+            verts_si = np.array(verts_ldu) * LDU
+            for p in parsed_ports:
+                if p.port_type == 'peg':
+                    rot = np.array(p.rotation)
+                    pos = np.array(p.position)
+                    
+                    # 假设插销沿着其局部的 Y 轴插入（LDraw 的圆柱特征通常沿 Y 轴）
+                    axis = rot @ np.array([0.0, 1.0, 0.0])
+                    
+                    # 将所有顶点投影到该轴线上
+                    projections = verts_si @ axis
+                    max_proj = float(np.max(projections))
+                    min_proj = float(np.min(projections))
+                    
+                    base_proj = float(np.dot(pos, axis))
+                    
+                    # 端点 A (正方向)
+                    pos_A = pos + axis * (max_proj - base_proj)
+                    depth_A = max_proj - base_proj
+                    
+                    # 端点 B (负方向)
+                    pos_B = pos + axis * (min_proj - base_proj)
+                    depth_B = abs(min_proj - base_proj)
+                    
+                    # 为了让短端(负方向)被点击时朝向孔内部，必须将其法线反转
+                    # 我们将其局部旋转矩阵绕 X 轴翻转 180 度 (Y 反向, Z 反向) 保证行列式依然为 1
+                    flip_mat = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])
+                    rot_B = rot @ flip_mat
+                    
+                    # 将两个端点作为新的可选交互点加入
+                    final_ports.append({
+                        "type": "peg",
+                        "position": pos_A.tolist(),
+                        "rotation": rot.tolist(),
+                        "insertion_depth": depth_A,
+                        "base_origin": pos.tolist()
+                    })
+                    final_ports.append({
+                        "type": "peg",
+                        "position": pos_B.tolist(),
+                        "rotation": rot_B.tolist(),
+                        "insertion_depth": depth_B,
+                        "base_origin": pos.tolist()
+                    })
+                else:
+                    final_ports.append({
+                        **p.to_dict(),
+                        "insertion_depth": 0.0,
+                        "base_origin": p.position.tolist()
+                    })
+        else:
+            final_ports = [{**p.to_dict(), "insertion_depth": 0.0, "base_origin": p.position.tolist()} for p in parsed_ports]
     else:
-        logger.warning(f"LDraw 源文件未找到或未解析出端口: {dat_filename}")
+        if parsed_ports:
+            final_ports = [{**p.to_dict(), "insertion_depth": 0.0, "base_origin": p.position.tolist()} for p in parsed_ports]
+
+    if final_ports:
+        ports = [LDrawPort(**d) for d in final_ports]
 
     glb_filename = f"{part_id}_c{color}.glb"
     glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
