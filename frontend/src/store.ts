@@ -247,7 +247,18 @@ export const useStore = create<StoreState>((set, get) => ({
     const tgtAxisWorld = vecNormalize(quatApplyToVec3(targetPart.quaternion, tgtAxisLocal));
 
     const isPegIntoHole = source.portType === 'peg' && target.portType === 'peghole';
-    const srcConnected = (connections[source.partId]?.size ?? 0) > 0;
+    
+    // 核心物理语义：
+    // 梁孔 (peghole) 的局部 Y 轴指向孔的内部 (INWARD)。
+    // 插销端点 (peg tip) 的局部 Y 轴指向插销的外部 (OUTWARD)。
+    // 所以当插销插入孔时，插销的 OUTWARD 必须顺着孔的 INWARD，即两者在世界坐标系下同向。
+    // 而同类相接（孔接孔、插销接插销）时，它们必须面对面，即反向。
+    const isOpposite = (source.portType === 'peg' && target.portType === 'peg') || 
+                       (source.portType === 'peghole' && target.portType === 'peghole');
+
+    const effectiveSrcAxis: Vec3 = isOpposite
+      ? vecScale(srcAxisWorld, -1) as Vec3
+      : srcAxisWorld;
 
     const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
       const d = vecDot(pos, axis);
@@ -263,8 +274,12 @@ export const useStore = create<StoreState>((set, get) => ({
       // ===== 第二次插入：移动目标梁到插销 =====
       const tgtGroup = getConnectedGroup(connections, target.partId, source.partId);
 
-      // 旋转梁使其孔轴与插销轴反向对齐（孔口朝向插销）
-      const qDelta = quatFromUnitVectors(tgtAxisWorld, vecScale(srcAxisWorld, -1) as Vec3);
+      // 旋转梁使其孔轴与插销轴对齐
+      // 根据语义：如果是插销进孔，它们应该同向；如果同类相接，应该反向
+      const effectiveTgtTarget: Vec3 = isOpposite 
+        ? vecScale(srcAxisWorld, -1) as Vec3 
+        : srcAxisWorld;
+      const qDelta = quatFromUnitVectors(tgtAxisWorld, effectiveTgtTarget);
       const pivot: Vec3 = targetPart.position;
 
       for (const pid of tgtGroup) {
