@@ -1,27 +1,27 @@
-name: Jules Agent - PR Feedback Loop
-
-# 触发条件：在 PR 上提交 Review 时
-on:
-  pull_request_review:
-    types: [submitted]
-
-jobs:
-  process_feedback:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: read # 需要读取 PR 和 Review 信息
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # 核心动作 3：校验身份并把你的修改意见塞给 Jules
-      - name: Send Feedback to Jules
-        uses: BeksOmega/jules-comms@v1.0.0
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          # 权限控制：防止别人在你的开源仓库里乱评论触发你的额度
-          feedback_users: 'zhongchao-han' # 【注意】把这里换成你自己的 GitHub 用户名
+# name: Jules Agent - PR Feedback Loop
+# 
+# # 触发条件：在 PR 上提交 Review 时
+# on:
+#   pull_request_review:
+#     types: [submitted]
+# 
+# jobs:
+#   process_feedback:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       pull-requests: read # 需要读取 PR 和 Review 信息
+# 
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+# 
+#       # 核心动作 3：校验身份并把你的修改意见塞给 Jules
+#       - name: Send Feedback to Jules
+#         uses: BeksOmega/jules-comms@v1.0.0
+#         with:
+#           jules_api_key: ${{ secrets.JULES_API_KEY }}
+#           # 权限控制：防止别人在你的开源仓库里乱评论触发你的额度
+#           feedback_users: 'zhongchao-han' # 【注意】把这里换成你自己的 GitHub 用户名

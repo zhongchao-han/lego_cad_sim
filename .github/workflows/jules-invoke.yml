@@ -1,44 +1,44 @@
-name: Jules Agent - Task Execution
-
-# 触发条件：新建 Issue，或者在 Issue/PR 中发表新评论
-on:
-  issues:
-    types: [opened, labeled]
-  issue_comment:
-    types: [created]
-
-jobs:
-  invoke_jules:
-    # 设定一个门槛：只有带有特定标签，或者评论里包含 @jules 时才触发，省得浪费额度
-    if: >
-      contains(github.event.issue.labels.*.name, 'jules-task') || 
-      contains(github.event.comment.body, '@jules')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # 完整拉取代码库，方便 Jules 理解整个 Python 项目上下文
-
-      # 核心动作 1：唤醒 Jules 引擎干活
-      - name: Invoke Jules Agent
-        id: jules_run
-        uses: BeksOmega/jules-action@v1.0.0 # 注意：这里填入截图里对应的真实 Action 路径
-        with:
-          prompt: ${{ github.event.issue.title }} - ${{ github.event.issue.body || github.event.comment.body }}
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-
-      # 由于 jules-action 目前不返回 outputs (pr_url 等)，原有的发评论步骤无法获取数据，已被注释或移除。
-      # - name: Post Jules PR Comment
-      #   if: steps.jules_run.outputs.pr_url != '' # 只有成功创建了 PR 才发评论
-      #   uses: BeksOmega/jules-publish@v1.0.0
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     pr_number: ${{ steps.jules_run.outputs.pr_number }}
-      #     message: "老板，任务已处理完毕！我已经梳理了相关的数据解析逻辑并提交了修改，请 Review。"
-      #     details: ${{ steps.jules_run.outputs.session_details }}
+# name: Jules Agent - Task Execution
+# 
+# # 触发条件：新建 Issue，或者在 Issue/PR 中发表新评论
+# on:
+#   issues:
+#     types: [opened, labeled]
+#   issue_comment:
+#     types: [created]
+# 
+# jobs:
+#   invoke_jules:
+#     # 设定一个门槛：只有带有特定标签，或者评论里包含 @jules 时才触发，省得浪费额度
+#     if: >
+#       contains(github.event.issue.labels.*.name, 'jules-task') || 
+#       contains(github.event.comment.body, '@jules')
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       pull-requests: write
+#       issues: write
+# 
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0 # 完整拉取代码库，方便 Jules 理解整个 Python 项目上下文
+# 
+#       # 核心动作 1：唤醒 Jules 引擎干活
+#       - name: Invoke Jules Agent
+#         id: jules_run
+#         uses: BeksOmega/jules-action@v1.0.0 # 注意：这里填入截图里对应的真实 Action 路径
+#         with:
+#           prompt: ${{ github.event.issue.title }} - ${{ github.event.issue.body || github.event.comment.body }}
+#           jules_api_key: ${{ secrets.JULES_API_KEY }}
+# 
+#       # 由于 jules-action 目前不返回 outputs (pr_url 等)，原有的发评论步骤无法获取数据，已被注释或移除。
+#       # - name: Post Jules PR Comment
+#       #   if: steps.jules_run.outputs.pr_url != '' # 只有成功创建了 PR 才发评论
+#       #   uses: BeksOmega/jules-publish@v1.0.0
+#       #   with:
+#       #     github_token: ${{ secrets.GITHUB_TOKEN }}
+#       #     pr_number: ${{ steps.jules_run.outputs.pr_number }}
+#       #     message: "老板，任务已处理完毕！我已经梳理了相关的数据解析逻辑并提交了修改，请 Review。"
+#       #     details: ${{ steps.jules_run.outputs.session_details }}
