@@ -193,9 +193,10 @@ const PortGlow = ({ type, rotation, hover, active }) => {
     // 动态脉冲动画
     useFrame((state) => {
         if (!meshRef.current) return;
+        if (!hover && !active) return; // 不显示时停止无意义的动画计算
         const t = state.clock.getElapsedTime();
         const pulse = 0.8 + Math.sin(t * 4) * 0.2;
-        meshRef.current.material.opacity = (hover || active ? 0.9 : 0.4) * pulse;
+        meshRef.current.material.opacity = 0.9 * pulse;
 
         // 如果是选中状态，稍微放大一点
         const s = active ? 1.2 : 1.0;
@@ -226,25 +227,27 @@ const PortGlow = ({ type, rotation, hover, active }) => {
         return m;
     }, [rotation]);
 
+    // 只有悬停或被选中时才使其可见
+    const isVisible = hover || active;
+
     return (
         <group matrixAutoUpdate={false} onUpdate={(self) => { self.matrix.copy(matrix); }}>
-            <mesh ref={meshRef} rotation={[0, 0, 0]}>
+            <mesh ref={meshRef} rotation={[0, 0, 0]} visible={isVisible}>
                 {/* 
                  孔深 20 LDU (0.008m)，改为全深度覆盖
                  孔径 6 LDU，使用 5.95 以获得最佳视觉贴合且避免由于极小误差产生的重叠闪烁
                 */}
                 <cylinderGeometry args={[5.95 * LDU, 5.95 * LDU, 20 * LDU, 24]} />
-                <meshBasicMaterial
-                    color={baseColor}
-                    transparent
-                    opacity={0.5}
+                <meshBasicMaterial 
+                    color={baseColor} 
+                    transparent 
+                    opacity={0.0} 
                     depthTest={false}
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
         </group>
-    );
-};
+    );};
 PortGlow.propTypes = {
     type: PropTypes.string.isRequired,
     rotation: PropTypes.oneOfType([PropTypes.array, PropTypes.object]).isRequired,

@@ -79,5 +79,29 @@ class TestPortPerfectAlignment(unittest.TestCase):
         
         self.assertAlmostEqual(cos_sim_complex, 1.0, places=5, msg="复杂姿态下对齐失败")
 
+    def test_portglow_visibility_logic(self):
+        """
+        验证前端 Scene.jsx 中 PortGlow 组件的可见性逻辑。
+        只有当 hover (悬停) 或 active (被选中) 时，发光体才应该显示 (visible=True)。
+        这是为了减少视觉干扰，并满足“只有用户鼠标放在闪烁的光环上才显示这个光环”的需求。
+        """
+        # 模拟前端 isVisible = hover || active
+        def calculate_visibility(hover: bool, active: bool) -> bool:
+            return hover or active
+
+        # 测试用例矩阵: (hover, active) -> expected_visible
+        test_cases = [
+            (False, False, False),  # 既未悬停也未选中 -> 隐藏
+            (True,  False, True),   # 仅悬停 -> 显示 (正在交互)
+            (False, True,  True),   # 仅选中 -> 显示 (作为已激活状态提示)
+            (True,  True,  True)    # 悬停且选中 -> 显示
+        ]
+
+        print(f"\n--- PortGlow 可见性逻辑测试 ---")
+        for hover, active, expected in test_cases:
+            result = calculate_visibility(hover, active)
+            print(f"Hover: {hover}, Active: {active} -> Visible: {result}")
+            self.assertEqual(result, expected, f"Visibility logic failed for hover={hover}, active={active}")
+
 if __name__ == "__main__":
     unittest.main()

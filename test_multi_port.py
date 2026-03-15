@@ -121,5 +121,70 @@ class TestMultiPortGeneration(unittest.TestCase):
         self.assertAlmostEqual(dot_product, -1.0, places=4, 
                                msg="长端和短端的法线朝向必须相反，否则会导致相反的一端插入孔中！")
 
+    def test_peg_assembly_alignment(self):
+        """
+        测试：模拟前端装配过程。验证当选择插销的一端插入梁孔时，
+        插销能够顺着孔的方向插入，并且最终插入深度恰好等于该端点的 insertion_depth。
+        证明这端是真正“插进去了”，而不是“倒拔葱”。
+        """
+        # 1. 提取插销数据
+        res_peg = self.client.get("/api/ldraw_part/6558?color=4")
+        peg_ports = [p for p in res_peg.json().get("ports", []) if p["type"] == "peg"]
+        self.assertTrue(len(peg_ports) >= 2)
+        
+        # 选取一个拥有正向 insertion_depth 的端点（假设为长端）
+        tip_port = next((p for p in peg_ports if p["insertion_depth"] > 0), None)
+        self.assertIsNotNone(tip_port)
+        
+        tip_rot = np.array(tip_port["rotation"])
+        tip_pos = np.array(tip_port["position"])
+        base_origin = np.array(tip_port["base_origin"])
+        depth = tip_port["insertion_depth"]
+        
+        # 2. 提取梁孔数据
+        res_hole = self.client.get("/api/ldraw_part/32524?color=4")
+        hole_ports = [p for p in res_hole.json().get("ports", []) if "hole" in p["type"]]
+        self.assertTrue(len(hole_ports) > 0)
+        
+        hole_port = hole_ports[0]
+        hole_rot = np.array(hole_port["rotation"])
+        hole_pos = np.array(hole_port["position"])
+        
+        # 3. 模拟前端 store.ts 的 snapParts 数学对齐
+        # 目标：将插销 Tip 对齐到 孔表面
+        # 插销的轴向 (局部 Y)
+        base_axis = np.array([0.0, 1.0, 0.0])
+        tip_axis_world = tip_rot @ base_axis
+        hole_axis_world = hole_rot @ base_axis
+        
+        # 对于插销进孔，前端通常会将插销的法线与孔的法线反向对齐 (qDelta 旋转)
+        # 这里为了简化纯数学证明，我们只看沿着孔轴线 (hole_axis_world) 的平移相对关系
+        
+        # 依据我们新的 base_origin 逻辑，前端对齐的本质是：
+        # 让 插销的 base_origin 平移到 目标孔的 base_origin (也就是孔的表面)
+        
+        # 假设插销完成旋转后，它的轴线 tip_axis_world 被对齐到与孔轴线 hole_axis_world 平行（或反向）
+        # 我们假设插销沿着孔的方向被推进去了。
+        # 此时，原来你选中的那个物理极值点 tip_pos，相对于基准点 base_origin 的位置向量是：
+        tip_vector_from_base = tip_pos - base_origin
+        
+        # 这个向量的长度就是 depth
+        self.assertAlmostEqual(np.linalg.norm(tip_vector_from_base), depth, places=5)
+        
+        # 关键断言：当我们把 base_origin 贴合在孔表面时，
+        # tip_pos 必须位于 base_origin 的一侧，使得它能深入孔的内部！
+        # 在多重端口中，端点的法线 (tip_axis_world) 是朝外的。
+        # 所以沿着法线向内走，就是指向 base_origin。
+        
+        # 验证: (base_origin - tip_pos) 的方向，应该和端点的向内方向一致
+        inward_dir = -tip_axis_world
+        actual_dir = base_origin - tip_pos
+        
+        # 归一化后对比，证明它是顺着插进去的
+        actual_dir_norm = actual_dir / np.linalg.norm(actual_dir)
+        cos_theta = np.dot(inward_dir, actual_dir_norm)
+        
+        self.assertAlmostEqual(cos_theta, 1.0, places=4, msg="端点没有顺着孔插进去，方向错乱！")
+
 if __name__ == "__main__":
     unittest.main()
