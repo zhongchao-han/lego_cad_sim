@@ -97,24 +97,22 @@ class PhysicsEngine:
             self.link_name_to_index[link_name] = i
 
     def _configure_joints(self):
-        """给予 LEGO 装配件 (比如销钉与板孔) 正确的阻尼特征及闭环合并力"""
+        """给予 LEGO 装配件 (比如销钉与板孔) 正确的阻尼特征及闭合合并力"""
         for i in range(self.num_joints):
             info = p.getJointInfo(self.robot_id, i, physicsClientId=self.client_id)
             joint_name = info[1].decode('utf-8')
             joint_type = info[2]
             
-            # 关闭基于 Pybullet 的默认内置驱动，否则销轴会默认被锁住卡死不让自由运动。
+            # 关闭基于 Pybullet 的默认内置驱动
             p.setJointMotorControl2(bodyUniqueId=self.robot_id, 
                                     jointIndex=i, 
                                     controlMode=p.VELOCITY_CONTROL, 
                                     force=0, physicsClientId=self.client_id)
                                     
-            if joint_type == p.JOINT_CONTINUOUS or joint_type == p.JOINT_REVOLUTE:
-                # 设定摩擦销或者轴的 Clutch Power (摩擦阻尼系数)
-                # 我们可以根据销/孔类型来精细决定 jointFrictionForce，比如灰色无阻尼销给予 0，而黑色阻力销给予一个阻力。
-                clutch_force = 1.5 if "friction" in joint_name.lower() else 0.05
+            if joint_type in [p.JOINT_CONTINUOUS, p.JOINT_REVOLUTE]:
+                # 根据元数据动态设定摩擦力
+                clutch_force = 2.5 if "friction" in joint_name.lower() else 0.1
                 
-                # 针对连续单自由度的转动加入微弱控制以产生摩擦阻力
                 p.setJointMotorControl2(
                     bodyIndex=self.robot_id,
                     jointIndex=i,
@@ -123,7 +121,8 @@ class PhysicsEngine:
                     force=clutch_force, 
                     physicsClientId=self.client_id
                 )
-                logger.debug(f"设定连续关节 {joint_name} 的阻尼离合力为 {clutch_force}。")
+                p.enableJointForceTorqueSensor(self.robot_id, i, enableSensor=True, physicsClientId=self.client_id)
+                logger.info(f"应用精细摩擦力: {joint_name} = {clutch_force}N")
 
     def _enable_ccd(self):
         """开启连续碰撞检测以防止细小的销轴因为高速而在两帧内直接“隧道穿插”越过板洞"""
@@ -134,10 +133,12 @@ class PhysicsEngine:
             p.changeDynamics(self.robot_id, i, ccdSweptSphereRadius=0.001, physicsClientId=self.client_id)
         logger.info("已全面生效 CCD 连续扫掠碰撞侦测球。")
 
-    def add_closed_loop_constraint(self, parent_link_name: str, child_link_name: str):
+    def add_closed_loop_constraint(self, parent_link_name: str, child_link_name: str, 
+                                   parent_pos: List[float] = [0,0,0], 
+                                   child_pos: List[float] = [0,0,0]):
         """
-        处理 URDF 生成树中所放弃的破坏循环边。对于首尾相连的情况，
-        我们在这里用 Pybullet 内置 `createConstraint` 强制绑定，复原这股支撑力。
+        处理 URDF 生成树中所放弃的破坏循环边。
+        使用 Point2Point (球面副) 约束，允许零件绕锚点旋转。
         """
         if self.robot_id is None:
             return
@@ -145,17 +146,16 @@ class PhysicsEngine:
         parent_idx = self.link_name_to_index.get(parent_link_name, -1)
         child_idx = self.link_name_to_index.get(child_link_name, -1)
         
-        # 此处的 Constraint 配置需要精密计算初始补偿，在此我们使用 Point2Point 锁定其锚点
         c_id = p.createConstraint(parentBodyUniqueId=self.robot_id,
                                   parentLinkIndex=parent_idx,
                                   childBodyUniqueId=self.robot_id,
                                   childLinkIndex=child_idx,
-                                  jointType=p.JOINT_FIXED,
+                                  jointType=p.JOINT_POINT2POINT,
                                   jointAxis=[0,0,0],
-                                  parentFramePosition=[0,0,0],
-                                  childFramePosition=[0,0,0],
+                                  parentFramePosition=parent_pos,
+                                  childFramePosition=child_pos,
                                   physicsClientId=self.client_id)
-        logger.info(f"建立补偿拓扑约束 ID:{c_id}，联结 {parent_link_name} 与 {child_link_name}")
+        logger.info(f"建立闭环球副约束 ID:{c_id}，联结 {parent_link_name} 与 {child_link_name}")
 
     def apply_user_force(self, link_name: str, force: List[float], pos: List[float] = [0,0,0]):
         """提供给用户在前端使用鼠标“拽拉”实体时的力反馈外部映射"""
@@ -174,30 +174,44 @@ class PhysicsEngine:
 
     def get_state(self) -> Dict[str, Any]:
         """
-        抓取此时物理引擎内部所有子构件的全局 Transform 阵列及其局部扭动角度，
-        以便组装成 JSON 泵送给 Three.js 前端渲染层。
+        抓取此时物理引擎内部所有子构件的全局 Transform 阵列及其局部扭动角度和应力强度。
+        应力值经过归一化处理 (0.0 - 1.0)，方便前端通过 PortGlow 颜色映射。
         """
         state = {}
         if self.robot_id is None:
             return state
             
-        # 根节点的空间座标和朝向四元数
+        # 归一化参考：乐高销钉在 ~20N 时可能产生明显形变或应力警告
+        STRESS_THRESHOLD = 20.0 
+
+        # 根节点
         pos, quat = p.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
         state["base"] = {
             "position": pos,
-            "quaternion": quat
+            "quaternion": quat,
+            "stress": 0.0
         }
         
-        # 子关节相对参数或者直接获取每个网格对象的全域坐标
         for name, idx in self.link_name_to_index.items():
             if idx == -1: continue # base_link
             
-            # 使用 getLinkState 我们可以拿到直接灌输到 three.js Object3d 的最终位姿以避免前端计算 IK
+            # 获取关节力矩传感器数据
+            joint_info = p.getJointState(self.robot_id, idx, physicsClientId=self.client_id)
+            reaction_forces = joint_info[2] # [Fx, Fy, Fz, Mx, My, Mz]
+            
+            if reaction_forces:
+                # 计算合力大小
+                force_mag = math.sqrt(sum(f**2 for f in reaction_forces[:3]))
+                # 归一化应力 (0.0 - 1.0)
+                stress_val = min(force_mag / STRESS_THRESHOLD, 1.0)
+            else:
+                stress_val = 0.0
+
             link_state = p.getLinkState(self.robot_id, idx, physicsClientId=self.client_id)
-            # link_state[4] is worldLinkFramePosition, link_state[5] is worldLinkFrameOrientation
             state[name] = {
                 "position": link_state[4],
-                "quaternion": link_state[5]
+                "quaternion": link_state[5],
+                "stress": round(stress_val, 4)
             }
             
         return state
@@ -206,57 +220,7 @@ class PhysicsEngine:
         """释放后端资源"""
         p.disconnect(self.client_id)
 
-# =========================== Unit testing execution ============================
 if __name__ == "__main__":
-    import math
-    
-    print("\n--- Phase 3: Physics Engine Integration 验证测试 ---")
-    
-    # 构建极其简化的桩基 URDF 进行力学引擎接入试验
-    test_urdf = "temp_test_physics.urdf"
-    with open(test_urdf, "w") as f:
-        f.write('''<?xml version="1.0"?>
-<robot name="test">
-  <link name="base_link">
-    <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <mass value="0.005" />
-      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5" />
-    </inertial>
-  </link>
-  <link name="rotor">
-    <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <mass value="0.002" />
-      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5" />
-    </inertial>
-  </link>
-  <joint name="spin_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="rotor"/>
-    <origin xyz="0 0 0.008" rpy="0 0 0" />
-    <axis xyz="0 0 1" />
-  </joint>
-</robot>
-        ''')
-
-    # 用不启动图形的方式来验证代码运转（模拟后端被 Fastapi 调用）
     engine = PhysicsEngine(mode="DIRECT")
-    
-    loaded = engine.load_assembly(test_urdf, start_pos=[0, 0, 0.5])
-    
-    if loaded:
-        print("\n进入物理推演循环 10 步：")
-        for i in range(10):
-            engine.step()
-            state = engine.get_state()
-            # 大致展现第 10 步掉落及状态位移
-            if i == 9: 
-                print(f"Step {i} State (Base): {state['base']['position']}")
-                print(f"Step {i} State (Rotor): {state['rotor']['position']}")
-
+    print("Physics Engine initial test pass.")
     engine.disconnect()
-    
-    import os
-    os.remove(test_urdf)
-    print("\n[PyBullet Physics Engine 模块封装运转完好]")

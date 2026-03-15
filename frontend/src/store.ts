@@ -11,6 +11,7 @@ interface PartState {
   position: [number, number, number];
   quaternion: [number, number, number, number];
   colorCode?: number;
+  stress?: number; // 物理应力
 }
 
 type ConnectionGraph = Record<string, Set<string>>;
@@ -190,9 +191,17 @@ export const useStore = create<StoreState>((set, get) => ({
     parts: { ...prev.parts, [partId]: state }
   })),
 
-  batchUpdatePartStates: (updates) => set((prev) => ({
-    parts: { ...prev.parts, ...updates }
-  })),
+  batchUpdatePartStates: (updates) => set((prev) => {
+    const newParts = { ...prev.parts };
+    for (const [id, newState] of Object.entries(updates)) {
+        if (newParts[id]) {
+            newParts[id] = { ...newParts[id], ...newState };
+        } else {
+            newParts[id] = newState as PartState;
+        }
+    }
+    return { parts: newParts };
+  }),
 
   setWsConnected: (status) => set({ wsConnected: status }),
   setSelectedPort: (port) => set({ selectedPort: port }),

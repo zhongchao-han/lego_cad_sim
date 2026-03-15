@@ -180,10 +180,16 @@ class GeometryProcessor:
 
         return vertices, faces, vertex_colors
 
-    def convert_to_glb(self, dat_filename: str, output_path: str, color_code: int = 7) -> bool:
+    def convert_to_glb(self, dat_filename: str, output_file: str, color_code: int = 7) -> bool:
         """
         核心转换函数: .dat -> .glb（带颜色）
-        color_code: LDraw 颜色代码，用作 color 16（主色）的实际颜色
+        """
+        success = self.convert_to_glb_internal(dat_filename, output_file, color_code)
+        return success
+
+    def convert_to_glb_internal(self, dat_filename: str, output_path: str, color_code: int = 7) -> bool:
+        """
+        内部转换函数，返回 trimesh 对象以便后续碰撞检测使用。
         """
         logger.info(f"正在转换几何体: {dat_filename} -> {output_path} (color={color_code})")
         
@@ -195,7 +201,7 @@ class GeometryProcessor:
         
         if not vertices or not faces:
             logger.warning(f"未能提取到有效几何数据: {dat_filename}")
-            return False
+            return None
 
         try:
             verts_arr = np.array(vertices) * LDU_TO_SI
@@ -216,19 +222,41 @@ class GeometryProcessor:
             
             mesh.fix_normals()
             
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            if output_path:
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                export_data = trimesh.exchange.gltf.export_glb(scene=trimesh.Scene(mesh))
+                with open(output_path, 'wb') as f:
+                    f.write(export_data)
+                logger.info(f"转换成功: {output_path}")
             
-            export_data = trimesh.exchange.gltf.export_glb(
-                scene=trimesh.Scene(mesh),
-            )
-            with open(output_path, 'wb') as f:
-                f.write(export_data)
-            
-            logger.info(f"转换成功: {output_path} (vertices={len(mesh.vertices)}, faces={len(mesh.faces)})")
-            return True
+            return mesh
         except Exception as e:
             logger.error(f"构建或导出网格失败: {e}")
+            return None
+
+    def create_collision_manager(self, part_data_list: List[dict]) -> trimesh.collision.CollisionManager:
+        """
+        创建一个碰撞管理器，并预加载所有已有的零件。
+        part_data_list: [{'name': '32523.dat', 'transform': 4x4_np_array}, ...]
+        """
+        cm = trimesh.collision.CollisionManager()
+        for i, item in enumerate(part_data_list):
+            mesh = self.convert_to_glb_internal(item['name'], None)
+            if mesh:
+                cm.add_object(f"part_{i}", mesh, transform=item['transform'])
+        return cm
+
+    def check_collision(self, cm: trimesh.collision.CollisionManager, 
+                        new_part_name: str, new_transform: np.ndarray) -> bool:
+        """
+        检测新零件在指定位姿下是否与现有零件发生静态碰撞。
+        """
+        new_mesh = self.convert_to_glb_internal(new_part_name, None)
+        if not new_mesh:
             return False
+        
+        # in_collision 返回布尔值
+        return cm.in_collision_single(new_mesh, transform=new_transform)
 
     def get_cross_section_profile(self, dat_filename: str, axis: int = 0, num_slices: int = 30) -> Optional[dict]:
         """

@@ -93,7 +93,12 @@ async def toggle_mode(mode: str):
             success = engine.load_assembly(urdf_path)
             if success:
                 for loop in topo_manager.closed_loops:
-                    engine.add_closed_loop_constraint(loop.parent_id, loop.child_id)
+                    engine.add_closed_loop_constraint(
+                        loop.parent_id, 
+                        loop.child_id,
+                        parent_pos=loop.parent_origin.tolist(),
+                        child_pos=loop.child_origin.tolist()
+                    )
                 engine.toggle_gravity(True)
                 system_mode = "SIMULATION"
                 return {"status": "success", "msg": "Simulation started."}
@@ -134,22 +139,13 @@ async def get_ldraw_part(part_id: str, color: int = 7):
 
     mesh_url = f"/ldraw_meshes/{glb_filename}"
 
-    peg_ports = [p for p in ports if not p.type.lower().endswith('hole.dat')]
-    if peg_ports:
-        verts_ldu, _, _ = geo_proc.extract_geometry(dat_filename)
-        if verts_ldu:
-            verts_si = np.array(verts_ldu) * LDU
-            for p in peg_ports:
-                rot = np.array(p.rotation)
-                pos = np.array(p.position)
-                inward_axis = rot @ np.array([0.0, 1.0, 0.0])
-                tip_dir = -inward_axis
-                tip_dir /= (np.linalg.norm(tip_dir) + 1e-12)
-                projections = verts_si @ tip_dir
-                max_proj = float(np.max(projections))
-                current_proj = float(np.dot(pos, tip_dir))
-                p.position = (pos + (max_proj - current_proj) * tip_dir).tolist()
-            logger.info(f"[{part_id}] peg 端口已投影到网格边界尖端")
+    # 移除或修复插销端口投射逻辑：
+    # 原始代码会将端口投影到网格尖端，这会破坏 LDraw 原件定义的插入深度。
+    # 我们应该信任 LDraw 原件定义的端口位置（如 friction ridge 位置）。
+    # if peg_ports:
+    #     ... 
+    
+    logger.info(f"[{part_id}] 加载完成，包含 {len(ports)} 个原始端口")
 
     return LDrawPartResponse(
         part_id=part_id,
@@ -181,6 +177,15 @@ async def snap_parts(req: SnapRequest):
     )
     topo_manager.connect_ports(edge)
     return {"status": "success", "msg": f"Connected {req.parent_id} to {req.child_id}"}
+    
+@app.post("/api/reset_assembly")
+async def reset_assembly():
+    global topo_manager, engine, system_mode
+    topo_manager = TopologyManager()
+    engine.disconnect()
+    engine = PhysicsEngine(mode="DIRECT")
+    system_mode = "ASSEMBLY"
+    return {"status": "success", "msg": "Assembly has been reset."}
 
 
 @app.get("/api/insertion_check")
@@ -288,7 +293,8 @@ async def insertion_check(peg_id: str, hole_id: str):
     
     slice_step = peg_length / max(len(peg_positions) - 1, 1)
     max_passable = max_run * slice_step
-    can_fully_insert = max_passable >= beam_thickness
+    # 增加一个小容差 (0.1mm) 应对浮点数计算误差
+    can_fully_insert = max_passable >= (beam_thickness - 0.0001)
     
     # 整体配合类型取最紧的那段
     overall_fit = "clearance"
