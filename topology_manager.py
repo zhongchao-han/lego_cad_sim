@@ -7,6 +7,8 @@ import logging
 from typing import Dict, List, Tuple, Any, Optional
 import uuid
 
+from port import Port
+
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -20,31 +22,26 @@ class PartNode:
         self.mass = mass
         self.inertia = inertia if inertia is not None else np.eye(3) * 1e-6
         # 该零件在装配整体坐标系下的绝对位姿，仅供参考或装配起始计算使用
-        self.global_transform = np.eye(4) 
+        self.global_transform = np.eye(4)
         # 引用的视觉或碰撞组件路径或生成名称
-        self.visual_mesh = f"{name}.obj" 
+        self.visual_mesh = f"{name}.obj"
         self.collision_mesh = f"{name}_vhacd.obj"
 
+
 class ConnectionEdge:
-    """描述两个零件端口之间的物理连接"""
-    def __init__(self, parent_id: str, child_id: str, port_type_p: str, port_type_c: str, 
-                 parent_origin: np.ndarray, parent_rot: np.ndarray,
-                 child_origin: np.ndarray, child_rot: np.ndarray):
-        
-        self.parent_id = parent_id
-        self.child_id = child_id
-        
-        # 记录端口种类，用于推断 Joint 类型
-        self.port_type_p = port_type_p 
-        self.port_type_c = port_type_c
-        
-        # 端口在其所属零件局部坐标系下的位姿
-        self.parent_origin = parent_origin  # [x,y,z]
-        self.parent_rot = parent_rot        # 3x3 矩阵
-        self.child_origin = child_origin    # [x,y,z]
-        self.child_rot = child_rot          # 3x3 矩阵
-        
-        # 如果两条边属于相同的父子对组合，用来标记合并过约束。
+    """
+    描述两个零件端口之间的物理连接。
+
+    持有 Port 对象而非裸字符串 + 向量，所有物理逻辑（关节类型推导、
+    相对变换计算）都委托给 Port 本身的方法，拓扑层无需再关心轴向约定。
+    """
+    def __init__(self, parent_id: str, child_id: str,
+                 port_parent: Port, port_child: Port):
+        self.parent_id  = parent_id
+        self.child_id   = child_id
+        self.port_parent = port_parent   # 父零件侧的端口
+        self.port_child  = port_child    # 子零件侧的端口
+        # 多重连接合并标记（过约束 → Fixed Joint）
         self.is_merged = False
 
 # --- 核心拓扑管理与 URDF 无环树生成器 ---
@@ -76,49 +73,26 @@ class TopologyManager:
             
         self.graph.add_edge(edge.parent_id, edge.child_id, key=uuid.uuid4().hex, data=edge)
 
-    def _determine_joint_type(self, type_p: str, type_c: str, is_overconstrained: bool) -> str:
+    def _derive_joint(self, edge: "ConnectionEdge") -> Tuple[str, float, float]:
         """
-        根据 LEGO 特定的孔洞关系及约束状态裁定物理引擎的关节点属性
+        由 edge 中的 Port 对象推导 URDF 关节类型及物理阻尼参数。
+        委托给 Port.derive_joint()，不再含有任何字符串猜测逻辑。
+
+        Returns:
+            (joint_type, damping, friction_torque)
         """
-        if is_overconstrained:
-            return "fixed"  # 检测到多重连接则为强制静止
+        return edge.port_parent.derive_joint(edge.port_child, edge.is_merged)
 
-        combined = f"{type_p}_{type_c}"
-        if "pin" in combined.lower() and "hole" in combined.lower():
-            # 圆柱销 + 圆孔 -> 允许一自由度的持续旋转
-            return "continuous" 
-        elif "axle" in combined.lower() and "hole" in combined.lower():
-            # 十字轴受物理锁止，通常无转动自由度也不能滑动(如果两头固定) -> 表现为 fixed
-            return "fixed"
-        else:
-            # 默认返回固定以保证不会莫名垮塌
-            return "fixed"
-
-    def _calculate_relative_transform(self, parent_tr: np.ndarray, parent_rot: np.ndarray,
-                                      child_tr: np.ndarray, child_rot: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _calc_rel_transform(self, edge: "ConnectionEdge") -> Tuple[np.ndarray, np.ndarray]:
         """
-        计算当子零件端口与父零件端口对齐时，子零件相对于父零件的位姿。
-        核心公式: T_child_origin = T_parent_port @ T_child_port.inv()
+        计算子零件原点相对于父零件坐标系的位姿（rel_pos, rel_rpy）。
+
+        因 Port 已将 Z 轴统一为插入方向，Port.calculate_relative_transform()
+        内含正确的 180° 翻转（Z 反向对扣），此处直接委托即可，无需手动猜测轴向。
         """
-        # 1. 构造父端口在父零件坐标系下的 4x4 变换矩阵
-        T_p_port = np.eye(4)
-        T_p_port[:3, :3] = parent_rot
-        T_p_port[:3, 3] = parent_tr
-
-        # 2. 构造子端口在子零件坐标系下的 4x4 变换矩阵
-        T_c_port = np.eye(4)
-        T_c_port[:3, :3] = child_rot
-        T_c_port[:3, 3] = child_tr
-
-        # 3. 计算子零件原点相对于父零件原点的变换
-        # 由于我们希望端口面对面贴合，通常需要对子项旋转进行 180 度翻转（绕轴线）
-        # 这里的对齐逻辑取决于 LDraw 端口件（如 peghole.dat）的局部定义朝向。
-        T_rel = T_p_port @ np.linalg.inv(T_c_port)
-
+        T_rel   = edge.port_parent.calculate_relative_transform(edge.port_child)
         rel_pos = T_rel[:3, 3]
-        # 使用 scipy 将旋转矩阵转换为 URDF 所需的 rpy (XYZ 固定轴欧拉角)
         rel_rpy = R.from_matrix(T_rel[:3, :3]).as_euler('xyz')
-        
         return rel_pos, rel_rpy
 
     def build_spanning_tree(self) -> nx.DiGraph:
@@ -225,28 +199,26 @@ class TopologyManager:
         for u, v, params in urdf_tree.edges(data=True):
             edge: ConnectionEdge = params['data']
             
-            # 计算究竟用何种类型的联合及转速 TF
-            j_type = self._determine_joint_type(edge.port_type_p, edge.port_type_c, edge.is_merged)
-            
-            rel_pos, rel_rpy = self._calculate_relative_transform(
-                edge.parent_origin, edge.parent_rot, 
-                edge.child_origin, edge.child_rot
-            )
+            # 由 Port 对象推导关节类型及物理参数（无字符串猜测）
+            j_type, damping, friction = self._derive_joint(edge)
+            rel_pos, rel_rpy = self._calc_rel_transform(edge)
 
             joint_name = f"joint_{u}_to_{v}"
             joint = ET.SubElement(robot, 'joint', name=joint_name, type=j_type)
-            
+
             ET.SubElement(joint, 'parent', link=u)
             ET.SubElement(joint, 'child', link=v)
-            
+
             xyz_str = " ".join(map(lambda x: f"{x:.5f}", rel_pos))
             rpy_str = " ".join(map(lambda x: f"{x:.5f}", rel_rpy))
             ET.SubElement(joint, 'origin', xyz=xyz_str, rpy=rpy_str)
-            
-            # 如果是摩擦销，可以对 friction / damping 开出配置给动力学引擎。
+
+            # 非 Fixed 关节：插入 Z 轴旋转轴，并注入由配合类型推导出的阻尼参数
             if j_type != "fixed":
-                ET.SubElement(joint, 'axis', xyz="0 0 1") # 根据引脚旋转轴进行
-                ET.SubElement(joint, 'dynamics', damping="0.1", friction="0.05")
+                ET.SubElement(joint, 'axis', xyz="0 0 1")
+                ET.SubElement(joint, 'dynamics',
+                              damping=f"{damping:.4f}",
+                              friction=f"{friction:.4f}")
 
         # 3. 产生额外约束以处理闭环结构 (供给 Gazebo 等)
         for loop_edge in self.closed_loops:
@@ -281,20 +253,24 @@ if __name__ == "__main__":
     manager.add_part(connector_c)
     
     id_rot = np.eye(3)
-    
+
+    # 辅助：用 Port.from_ldraw_or_fallback 构建测试端口
+    def mk(name, ldraw_type, pos):
+        return Port.from_ldraw_or_fallback(name, ldraw_type, np.array(pos), id_rot)
+
     # 构建连接关系，展示多向多端口：
     # A->B 有两条同样的联结作为过约束测试：会熔合产生 is_merged = True
-    e1 = ConnectionEdge("A", "B", "peghole", "pin", np.array([0.008, 0, 0]), id_rot, np.array([0,0,-0.004]), id_rot)
-    e1_dup = ConnectionEdge("A", "B", "peghole", "pin", np.array([-0.008, 0, 0]), id_rot, np.array([0,0,0.004]), id_rot)
+    e1 = ConnectionEdge("A", "B", mk("p", "peghole", [0.008, 0, 0]),     mk("c", "pin", [0,0,-0.004]))
+    e1_dup = ConnectionEdge("A", "B", mk("p", "peghole", [-0.008, 0, 0]), mk("c", "pin", [0,0,0.004]))
     manager.connect_ports(e1)
     manager.connect_ports(e1_dup)
-    
+
     # B->C 正常传递：
-    e2 = ConnectionEdge("B", "C", "axlehole", "axle", np.array([0,0,0]), id_rot, np.array([0,0,0]), id_rot)
+    e2 = ConnectionEdge("B", "C", mk("p", "axlehole", [0,0,0]), mk("c", "axle", [0,0,0]))
     manager.connect_ports(e2)
-    
+
     # C->A 回归连接产生闭环测试：
-    e3 = ConnectionEdge("C", "A", "pin", "peghole", np.array([0, 0.004, 0]), id_rot, np.array([0, -0.004, 0]), id_rot)
+    e3 = ConnectionEdge("C", "A", mk("p", "pin", [0, 0.004, 0]), mk("c", "peghole", [0, -0.004, 0]))
     manager.connect_ports(e3)
     
     # 解算跨越

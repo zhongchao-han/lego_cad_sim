@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Any
 import numpy as np
 import trimesh
 
+from port import Port
+
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -29,9 +31,14 @@ CONNECTOR_PREFIXES = ["confric"]
 # 位置去重容差 (SI 单位, 约 1 LDU)
 PORT_DEDUP_TOLERANCE = 0.0005
 
+# ConnectionPort 保留为向后兼容的别名（旧代码可能引用此名）。
+# 新代码请直接使用 port.Port。
 class ConnectionPort:
-    """定义并储存装配组件的端口对象及拓扑。"""
-    
+    """
+    已弃用：请使用 port.Port 代替。
+    保留此类仅为向后兼容，其 to_dict() 输出格式与 Port.to_dict() 相同。
+    """
+
     def __init__(self, port_type: str, position: np.ndarray, rotation: np.ndarray):
         """
         :param port_type: 端口类型, 例如 'peghole.dat'
@@ -78,7 +85,7 @@ class LDrawParser:
         self.ldraw_path = ldraw_path
         self.parts_path = os.path.join(ldraw_path, "parts")
         self.p_path = os.path.join(ldraw_path, "p")
-        self.ports: List[ConnectionPort] = []
+        self.ports: List[Port] = []
         self.fallback_data: Dict[str, Any] = {}
         
         if not os.path.exists(ldraw_path):
@@ -130,27 +137,27 @@ class LDrawParser:
         except Exception as e:
             logger.error(f"解析 JSON 出错 {filepath}: {e}")
 
-    def parse_dat_file(self, filename: str, recursive: bool = True, transform: np.ndarray = np.eye(4)) -> List[ConnectionPort]:
+    def parse_dat_file(self, filename: str, recursive: bool = True, transform: np.ndarray = np.eye(4)) -> List[Port]:
         """
         检索 .dat 文本并抽取其中的指定孔/突起端口元件位置。
+
+        返回 Port 对象列表：每个 Port 的插入轴（Z 轴）已由工厂方法归一化，
+        上层逻辑无需再猜测轴向。
+
         :param filename: 文件名或路径
         :param recursive: 是否递归解析子部件
         :param transform: 当前积累的变换矩阵 (4x4)
         """
-        # 统一清理文件名
         filename = filename.strip().lower().replace('\\', '/')
-        
-        # 路径解析
         filepath = self.resolve_path(filename)
 
         if not filepath:
-            # 只有当这不是常见的子原件时才发出警告，减少噪音
             if not any(x in filename for x in ['stud', 'rect', 'edge']):
                 logger.warning(f"解析警告: 库中未找到 {filename}")
             return []
 
-        local_ports = []
-        
+        local_ports: List[Port] = []
+
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
@@ -166,70 +173,66 @@ class LDrawParser:
             # Type 1 指令: 1 <colour> x y z a b c d e f g h i <file>
             if parts[0] == '1' and len(parts) >= 15:
                 child_file = parts[-1].lower()
-                
+
                 try:
-                    # 提炼局部变换
                     x, y, z = map(float, parts[2:5])
                     a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
-                    
-                    # 构造局部变换矩阵 (4x4)
+
                     local_mat = np.array([
                         [a, b, c, x],
                         [d, e, f, y],
                         [g, h, i, z],
                         [0, 0, 0, 1]
                     ])
-                    
-                    # 累积全局变换
                     global_mat = transform @ local_mat
-                    
-                    # 判断子文件是否为语义端口或连接器件
+
                     is_semantic = any(prim in child_file for prim in SEMANTIC_PRIMITIVES)
                     child_basename = os.path.basename(child_file).split('.')[0]
                     is_connector = any(child_basename.startswith(pfx) for pfx in CONNECTOR_PREFIXES)
 
                     if is_semantic or is_connector:
-                        pos_ldu = global_mat[:3, 3]
+                        pos_si  = global_mat[:3, 3] * LDU_TO_SI
                         rot_mat = global_mat[:3, :3]
-                        port_type = child_file if is_semantic else "peg"
-                        
-                        local_ports.append(ConnectionPort(
-                            port_type=port_type, 
-                            position=pos_ldu * LDU_TO_SI, 
-                            rotation=rot_mat
-                        ))
-                    
+                        # connector confric 件视作 "peg" 类型
+                        ldraw_type = child_file if is_semantic else "peg"
+                        port_name  = f"port_{len(local_ports)}"
+
+                        # 工厂方法：统一归一化插入轴，未知类型降级
+                        port = Port.from_ldraw_or_fallback(port_name, ldraw_type, pos_si, rot_mat)
+                        local_ports.append(port)
+
                     elif recursive:
-                        local_ports.extend(self.parse_dat_file(child_file, recursive=True, transform=global_mat))
-                        
+                        local_ports.extend(
+                            self.parse_dat_file(child_file, recursive=True, transform=global_mat)
+                        )
+
                 except ValueError:
                     logger.warning(f"丢弃 {filepath} 第 {line_num} 行，内部坐标转换失败。")
 
-        # 处理 Fallback 数据 (仅在根调用时或针对特定文件名)
+        # Fallback JSON 手工标记的端口
         part_name = os.path.basename(filepath)
         if part_name in self.fallback_data:
-            manual_ports = self.fallback_data[part_name].get("ports", [])
-            for mp in manual_ports:
-                pos_ldu = np.array(mp.get("position", [0.0, 0.0, 0.0]))
+            for mp in self.fallback_data[part_name].get("ports", []):
+                pos_ldu    = np.array(mp.get("position", [0.0, 0.0, 0.0]))
                 pos_global = (transform @ np.append(pos_ldu, 1.0))[:3]
-                rot_local = np.array(mp.get("rotation", np.eye(3).tolist()))
+                rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
                 rot_global = transform[:3, :3] @ rot_local
-                
-                p_type = mp.get("type", "manual_fallback.dat")
-                local_ports.append(ConnectionPort(port_type=p_type, position=pos_global * LDU_TO_SI, rotation=rot_global))
+                p_type     = mp.get("type", "manual_fallback.dat")
+                port_name  = f"port_{len(local_ports)}"
+                port = Port.from_ldraw_or_fallback(port_name, p_type, pos_global * LDU_TO_SI, rot_global)
+                local_ports.append(port)
 
-        # 位置去重：同一位置的多个原件（如同一连接段的多个 confric）只保留一个端口
+        # 位置去重
         local_ports = self._deduplicate_ports(local_ports)
-                
         return local_ports
 
     @staticmethod
-    def _deduplicate_ports(ports: List['ConnectionPort']) -> List['ConnectionPort']:
+    def _deduplicate_ports(ports: List[Port]) -> List[Port]:
         """按位置去重，同一位置（容差内）的多个端口只保留第一个。"""
         if len(ports) <= 1:
             return ports
         
-        unique: List[ConnectionPort] = []
+        unique: List[Port] = []
         for port in ports:
             is_dup = False
             for existing in unique:

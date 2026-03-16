@@ -1,0 +1,30 @@
+# Large binary/archive files
+*.zip
+*.glb
+*.stl
+*.obj
+
+# LDraw Data (Too large for context, contains thousands of part files)
+ldraw_lib/
+ldraw_meshes/
+ldraw_temp/
+
+# Build artifacts and dependencies
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+__pycache__/
+*.pyc
+
+# Environment and IDE
+.venv/
+env/
+.idea/
+.vscode/
+.git/
+
+# Project specific temporary files
+current_assembly.urdf
+mock_part.dat
+fallback.json

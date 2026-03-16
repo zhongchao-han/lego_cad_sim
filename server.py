@@ -13,6 +13,8 @@ from topology_manager import TopologyManager, PartNode, ConnectionEdge
 from ldraw_parser import LDrawParser
 from geometry_processor import GeometryProcessor
 from fastapi.staticfiles import StaticFiles
+from connection_interface import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
+from port import Port
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -169,177 +171,180 @@ async def snap_parts(req: SnapRequest):
     p_rot = np.array(req.parent_rot).reshape(3, 3)
     c_rot = np.array(req.child_rot).reshape(3, 3)
 
+    # 用 Port 工厂方法构建强类型端口；未知类型自动降级，不阻断流程
+    port_p = Port.from_ldraw_or_fallback(
+        f"p_{req.parent_id}", req.port_type_p,
+        np.array(req.parent_origin), p_rot,
+    )
+    port_c = Port.from_ldraw_or_fallback(
+        f"c_{req.child_id}", req.port_type_c,
+        np.array(req.child_origin), c_rot,
+    )
+
     edge = ConnectionEdge(
         parent_id=req.parent_id,
         child_id=req.child_id,
-        port_type_p=req.port_type_p,
-        port_type_c=req.port_type_c,
-        parent_origin=np.array(req.parent_origin),
-        parent_rot=p_rot,
-        child_origin=np.array(req.child_origin),
-        child_rot=c_rot
+        port_parent=port_p,
+        port_child=port_c,
     )
     topo_manager.connect_ports(edge)
     return {"status": "success", "msg": f"Connected {req.parent_id} to {req.child_id}"}
 
 
 @app.get("/api/insertion_check")
-async def insertion_check(peg_id: str, hole_id: str):
+async def insertion_check(peg_id: str, hole_id: str,
+                          peg_type: Optional[str] = None,
+                          hole_type: Optional[str] = None):
     """
-    基于实际网格几何的物理插入检测。
-    沿插销轴切片测截面半径，对比梁孔实测内径，返回能否插到底。
+    物理插入检测。
+
+    优先路径（参数化查表，O(1)）：
+      若 peg_type / hole_type 已知，或 peg_id / hole_id 本身就是已注册的接口名称
+      （如 "pin.dat", "peghole.dat", "peg", "peghole"），则直接用参数化公差表判定。
+      无需加载任何网格，响应极快。
+
+    降级路径（网格切片，O(n)）：
+      仅当零件完全未知时才调用原来的几何处理逻辑，保证对非标准零件的兼容性。
     """
     import numpy as np
-    
-    geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
-    parser = LDrawParser(ldraw_path=LDRAW_PARTS_ROOT)
 
-    peg_dat = peg_id if peg_id.lower().endswith(".dat") else f"{peg_id}.dat"
+    fit_desc = {
+        "clearance":    "间隙配合(可自由滑入)",
+        "friction":     "摩擦配合(紧密贴合)",
+        "interference": "过盈配合(需压入)",
+        "blocked":      "不可插入(几何干涉)",
+        "incompatible": "接口不兼容",
+    }
+
+    # ---- 1) 参数化优先路径 ----------------------------------------
+    # 解析接口：优先使用显式传入的 peg_type / hole_type，
+    # 其次尝试用 peg_id / hole_id 直接查注册表（适用于直接传原件名的场景）
+    plug_iface   = get_interface(peg_type)  if peg_type  else get_interface(peg_id)
+    socket_iface = get_interface(hole_type) if hole_type else get_interface(hole_id)
+
+    if plug_iface is not None and socket_iface is not None:
+        result = build_fit_result(plug_iface, socket_iface, peg_id, hole_id)
+        logger.info(
+            f"[参数化] 插入检测: {peg_id}({peg_type or peg_id}) → "
+            f"{hole_id}({hole_type or hole_id})\n"
+            f"  配合类型: {fit_desc.get(result['fit_type'], result['fit_type'])}\n"
+            f"  过盈量:   {result['interference_mm']} mm ({result['interference_pct']}%)\n"
+            f"  可完全插入: {result['can_fully_insert']}"
+        )
+        return result
+
+    # ---- 2) 降级路径：网格切片（仅用于未注册的非标准零件）-----------
+    logger.info(f"[网格切片] {peg_id} / {hole_id} 未在接口注册表中，降级到几何处理")
+
+    geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
+    parser   = LDrawParser(ldraw_path=LDRAW_PARTS_ROOT)
+
+    peg_dat  = peg_id  if peg_id.lower().endswith(".dat")  else f"{peg_id}.dat"
     hole_dat = hole_id if hole_id.lower().endswith(".dat") else f"{hole_id}.dat"
-    
-    # ---- 1) 插销：确定主轴，获取截面轮廓 ----
+
+    # 插销：沿主轴切片
     peg_profile = geo_proc.get_cross_section_profile(peg_dat, axis=0, num_slices=40)
     if not peg_profile:
         return {"error": f"无法提取 {peg_id} 几何"}
-    
-    bbox_min = peg_profile["bbox_min"]
-    bbox_max = peg_profile["bbox_max"]
-    extents = [bbox_max[i] - bbox_min[i] for i in range(3)]
+
+    extents  = [peg_profile["bbox_max"][i] - peg_profile["bbox_min"][i] for i in range(3)]
     peg_axis = int(np.argmax(extents))
-    
     if peg_axis != 0:
         peg_profile = geo_proc.get_cross_section_profile(peg_dat, axis=peg_axis, num_slices=40)
-    
-    # ---- 2) 梁孔：从端口对推断孔轴和孔径 ----
-    hole_ports = parser.parse_dat_file(hole_dat)
+
+    # 梁孔：从端口的插入轴（Z 轴）推断孔深；不再硬编码 hole_axis = 1
+    hole_ports    = parser.parse_dat_file(hole_dat)
     peghole_ports = [p for p in hole_ports if 'hole' in p.port_type]
-    
-    hole_axis = 1  # 默认 Y
-    beam_thickness = 20 * LDU  # 默认 20 LDU
-    
+    beam_thickness = 20 * LDU
+
     if len(peghole_ports) >= 2:
-        # 同一孔的两个端口（位置最近的一对）沿孔轴方向分布
-        p0 = peghole_ports[0].position
-        p1 = peghole_ports[1].position
-        diff = np.abs(p0 - p1)
-        hole_axis = int(np.argmax(diff))
-        beam_thickness = float(diff[hole_axis])
-    
-    # 从 peghole.dat 原件几何直接提取精确孔内径
-    # peghole.dat 的顶点在 XZ 平面上有两个半径：内壁(6 LDU)和外壁(8 LDU)
-    hole_radius = None
+        # 两个端口沿孔轴分布；利用归一化后的插入轴（Z 轴）投影差值计算孔深
+        ins_axis = peghole_ports[0].insertion_axis
+        diff_vec = peghole_ports[0].position - peghole_ports[1].position
+        beam_thickness = abs(float(np.dot(diff_vec, ins_axis)))
+        if beam_thickness < 1e-6:
+            # 插入轴投影为零时降级：取欧式距离
+            beam_thickness = float(np.linalg.norm(diff_vec))
+
+    # hole_axis 仍保留在响应 dict 中供调试（现在用主插入轴最大分量推算）
+    hole_axis = int(np.argmax(np.abs(peghole_ports[0].insertion_axis))) if peghole_ports else 1
+
+    # 从 peghole.dat 提取精确孔内径
+    hole_radius  = None
     peghole_verts = geo_proc.extract_geometry("peghole.dat")
     if peghole_verts[0]:
-        pv = np.array(peghole_verts[0])
-        # peghole.dat 的孔轴沿 Y，XZ 平面的半径即为孔径
-        xz_dists = np.sqrt(pv[:, 0]**2 + pv[:, 2]**2)
+        pv           = np.array(peghole_verts[0])
+        xz_dists     = np.sqrt(pv[:, 0]**2 + pv[:, 2]**2)
         unique_radii = sorted(set(np.round(xz_dists, 1)))
         if unique_radii:
-            # 最小半径 = 孔内壁
             hole_radius = float(unique_radii[0]) * LDU
-    
     if not hole_radius:
         hole_radius = 6 * LDU
-    
-    # ---- 3) 物理可行性分析（含过盈配合模型）----
-    #
-    # 真实乐高 Technic 配合类型：
-    #   - 间隙配合 (clearance):  pin_r ≤ hole_r            → 可自由滑入
-    #   - 摩擦配合 (friction):   hole_r < pin_r ≤ 1.15×hole_r  → 塑料微变形，紧密贴合
-    #   - 过盈配合 (interference): 1.15×hole_r < pin_r ≤ 1.40×hole_r → 压入，仍可插入
-    #   - 不可插入 (blocked):     pin_r > 1.40×hole_r       → 几何上不可能
-    #
-    # 注: LDraw 模型中摩擦脊尺寸比实物夸大（视觉示意），实际 ABS 塑料
-    # 可承受约 0.1-0.3mm 径向变形。LDraw 6558 摩擦脊半径 8 LDU vs 孔 6 LDU
-    # (33% 过盈) 在真实乐高中是标准的摩擦配合。
-    
-    FRICTION_THRESHOLD = 1.15
-    INTERFERENCE_THRESHOLD = 1.40
-    
-    peg_radii = peg_profile["radii"]
+
+    # 逐切片判断配合（使用参数化公差代替旧的乘法阈值）
+    peg_radii     = peg_profile["radii"]
     peg_positions = peg_profile["axis_positions"]
-    peg_length = peg_positions[-1] - peg_positions[0] if peg_positions else 0
-    
-    # 逐切片判断配合类型
+    peg_length    = peg_positions[-1] - peg_positions[0] if peg_positions else 0
+
     fit_types = []
     for r in peg_radii:
-        ratio = r / hole_radius if hole_radius > 0 else float('inf')
-        if ratio <= 1.0:
+        delta = r - hole_radius
+        if delta <= 0.0:
             fit_types.append("clearance")
-        elif ratio <= FRICTION_THRESHOLD:
+        elif delta <= DELTA_FRICTION_MAX:
             fit_types.append("friction")
-        elif ratio <= INTERFERENCE_THRESHOLD:
-            fit_types.append("interference")
         else:
             fit_types.append("blocked")
-    
-    # 可插入 = clearance / friction / interference（blocked 不可通过）
-    can_pass = [ft != "blocked" for ft in fit_types]
-    
-    # 找最长连续可通过区间
-    max_run = 0
-    current_run = 0
+
+    can_pass    = [ft != "blocked" for ft in fit_types]
+    max_run     = current_run = 0
     for cp in can_pass:
-        if cp:
-            current_run += 1
-            max_run = max(max_run, current_run)
-        else:
-            current_run = 0
-    
-    slice_step = peg_length / max(len(peg_positions) - 1, 1)
-    max_passable = max_run * slice_step
+        current_run = current_run + 1 if cp else 0
+        max_run = max(max_run, current_run)
+
+    slice_step    = peg_length / max(len(peg_positions) - 1, 1)
+    max_passable  = max_run * slice_step
     can_fully_insert = max_passable >= beam_thickness
-    
-    # 整体配合类型取最紧的那段
+
     overall_fit = "clearance"
     for ft in fit_types:
         if ft == "blocked":
             overall_fit = "blocked"
             break
-        if ft == "interference":
-            overall_fit = "interference"
-        elif ft == "friction" and overall_fit == "clearance":
+        if ft == "friction" and overall_fit == "clearance":
             overall_fit = "friction"
-    
-    # 过盈量（正值=插销比孔大多少）
-    peg_max_r = max(peg_radii) if peg_radii else 0
-    interference = peg_max_r - hole_radius
+
+    peg_max_r       = max(peg_radii) if peg_radii else 0
+    interference    = peg_max_r - hole_radius
     interference_pct = (interference / hole_radius * 100) if hole_radius > 0 else 0
-    
+
     result = {
-        "peg_id": peg_id,
-        "hole_id": hole_id,
-        "peg_axis": peg_axis,
-        "hole_axis": hole_axis,
-        "peg_length": round(peg_length, 6),
-        "hole_radius": round(hole_radius, 6),
-        "peg_min_radius": round(min(peg_radii) if peg_radii else 0, 6),
-        "peg_max_radius": round(peg_max_r, 6),
-        "beam_thickness": round(beam_thickness, 6),
-        "max_passable_length": round(max_passable, 6),
-        "can_fully_insert": can_fully_insert,
-        "fit_type": overall_fit,
-        "interference_mm": round(interference * 1000, 3),
-        "interference_pct": round(interference_pct, 1),
+        "peg_id":               peg_id,
+        "hole_id":              hole_id,
+        "peg_axis":             peg_axis,
+        "hole_axis":            hole_axis,
+        "peg_length":           round(peg_length, 6),
+        "hole_radius":          round(hole_radius, 6),
+        "peg_min_radius":       round(min(peg_radii) if peg_radii else 0, 6),
+        "peg_max_radius":       round(peg_max_r, 6),
+        "beam_thickness":       round(beam_thickness, 6),
+        "max_passable_length":  round(max_passable, 6),
+        "can_fully_insert":     can_fully_insert,
+        "fit_type":             overall_fit,
+        "interference_mm":      round(interference * 1000, 3),
+        "interference_pct":     round(interference_pct, 1),
         "optimal_center_offset": 0.0,
+        "method":               "mesh_slice",
     }
-    
-    fit_desc = {
-        "clearance": "间隙配合(可自由滑入)",
-        "friction": "摩擦配合(紧密贴合)",
-        "interference": "过盈配合(需压入)",
-        "blocked": "不可插入(几何干涉)",
-    }
-    
+
     logger.info(
-        f"插入检测: {peg_id} → {hole_id}\n"
-        f"  配合类型: {fit_desc[overall_fit]}\n"
+        f"[网格切片] 插入检测: {peg_id} → {hole_id}\n"
+        f"  配合类型: {fit_desc.get(overall_fit, overall_fit)}\n"
         f"  插销半径: [{result['peg_min_radius']*1000:.2f}, {result['peg_max_radius']*1000:.2f}] mm\n"
         f"  孔    径: {hole_radius*1000:.2f} mm\n"
         f"  过 盈 量: {interference*1000:.3f} mm ({interference_pct:.1f}%)\n"
         f"  可完全插入: {can_fully_insert}"
     )
-    
     return result
 
 
