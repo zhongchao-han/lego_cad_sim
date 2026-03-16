@@ -1,15 +1,31 @@
 # 销钉插入梁孔的逻辑重构与优化设计
 
+> **To Claude Code CLI:**
+> Please read the following files into your context immediately. These files represent the core static knowledge and the existing codebase to be refactored. Reading them together now will help establish a stable context prefix for Prompt Caching, saving tokens in subsequent turns.
+> 
+> Required context files:
+> - `docs/pin_hole_connection_design.md`
+> - `docs/port_class_design.md`
+> - `docs/assembly_hierarchy_design.md`
+> - `connection_interface.py`
+> - `topology_manager.py`
+> - `server.py`
+> - `ldraw_parser.py`
+> - `port.py`
+
 ## 1. 当前逻辑的痛点分析
 
+<current_pain_points>
 目前的实现（分布在 `topology_manager.py` 和 `server.py` 中）分为两层，非常有创意但也存在一些局限性：
 1. **拓扑与语义（`topology_manager.py`）**：依赖字符串匹配（例如 `if "pin" in combined.lower() and "hole" in combined.lower()`）来决定是 `continuous` 旋转关节还是 `fixed` 固定关节。这种硬编码方式在遇到新命名的零件或特殊零件时容易失效，不够通用。
 2. **几何插入检测（`server.py` 的 `/api/insertion_check`）**：使用了一种“动态切片截面”法。它沿着插销的包围盒长轴切片，计算每个切片的半径，再与从孔的网格（`peghole.dat`）中提取的内径进行比对。通过 `1.15` 和 `1.40` 的比例阈值来判断是“间隙配合”、“摩擦配合”还是“不可插入”。这种做法物理意义直观，但**计算开销极大，容易受网格质量影响，且把“几何碰撞”和“连接语义”耦合在了一起**。
+</current_pain_points>
 
 ## 2. 更好的定义逻辑：更清晰、更通用、更直观
 
 在现代 CAD 和游戏引擎中，定义这种装配逻辑通常采用 **“标准化接口约束（Interface-Based Constraints）”**。以下是建议的重构方向：
 
+<core_design_rules>
 ### 2.1 采用“插头-插座（Plug-Socket）”的类型化系统
 放弃基于文件名的字符串猜测，将所有连接点抽象为标准化的接口对象。
 
@@ -44,14 +60,22 @@
 *   `CYLINDER` + `CYLINDER` -> 保留绕 Z 轴的旋转自由度 -> 生成 `Revolute Joint` (Continuous)。
 *   `CROSS` + `CROSS` -> 锁定所有旋转和平移自由度 -> 生成 `Fixed Joint`。
 *   **摩擦力注入**：如果在上一步的“查表法”中得出是“摩擦配合（Friction）”，则在创建 `Revolute Joint` 时，动态注入较高的 `jointDamping` 和 `jointFriction`，让销钉在物理引擎里具有真实的阻尼感，而不是像陀螺一样空转。
+</core_design_rules>
 
 ## 3. 总结比较
 
+<comparison_table>
 | 对比维度 | 当前的实现 | 建议的新逻辑 |
 | :--- | :--- | :--- |
 | **连接判定** | 依赖文件名/端口名包含 "pin" / "hole" | 强类型接口，匹配 `Profile` 和 `Gender` |
 | **空间对齐** | 复杂的 4x4 矩阵求逆及旋转翻转 | 强制 Z 轴对齐，化简为沿 Z 轴的一维平移 |
 | **干涉判断** | 提取 3D 网格进行逐层切片计算（慢，易错）| 参数化尺寸相减 + 标准化配合公差表（极快，稳健） |
 | **物理映射** | 代码中 if-else 硬编码映射关系 | 由截面形状直接推导自由度（圆柱=1自由度，十字=0自由度）|
+</comparison_table>
 
 这样的架构不仅代码量更少，而且当未来需要加入“齿轮啮合（Gear Mesh）”或者“球头万向节（Ball Joint）”时，只需要添加新的 `Profile` 类型即可，完全符合面向对象的开闭原则。
+
+<negative_constraints>
+- 不要因为精简 `insertion_check` 接口而破坏前端对配合类型（间隙/摩擦等）的可视化展示。
+- 不要在查表法完全跑通前彻底删除旧的网格切片几何验证逻辑，可以将其作为降级 (fallback) 备用选项保留。
+</negative_constraints>

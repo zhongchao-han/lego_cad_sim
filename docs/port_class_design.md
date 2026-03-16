@@ -1,16 +1,32 @@
 # 端口 (Port) 的面向对象重构与设计指南
 
+> **To Claude Code CLI:**
+> Please read the following files into your context immediately. These files represent the core static knowledge and the existing codebase to be refactored. Reading them together now will help establish a stable context prefix for Prompt Caching, saving tokens in subsequent turns.
+> 
+> Required context files:
+> - `docs/pin_hole_connection_design.md`
+> - `docs/port_class_design.md`
+> - `docs/assembly_hierarchy_design.md`
+> - `connection_interface.py`
+> - `topology_manager.py`
+> - `server.py`
+> - `ldraw_parser.py`
+> - `port.py`
+
 ## 涉及的相关文件与目录
 
+<architecture>
 此设计指南直接影响并指导以下代码的重构：
 - `ldraw_parser.py` (主要: `ConnectionPort` 类的重构与升维)
 - `connection_interface.py` (主要: 提供底层的 `ConnectionInterface` 数据结构与物理校验规则)
 - `topology_manager.py` (主要: 移除硬编码的字符串猜测，改为调用 `Port` 对象的内聚方法)
 - `server.py` (主要: 移除冗长的几何猜测如 `hole_axis = 1`，依赖 `Port` 的标准化坐标系)
 - `tests/` (未来: 基于纯粹 `Port` 对象的无渲染、无引擎依赖单元测试)
+</architecture>
 
 ---
 
+<core_design_rules>
 ## 1. 核心设计理念：让“物理语义”与“空间位姿”组合 (Composition)
 
 为了让端口的定义与 `pin_hole_connection_design.md` 中提出的“插头-插座（Plug-Socket）”理念自然衔接，我们需要将端口从一个“只有坐标和文件名的哑数据结构”，升格为一个**包含几何变换和物理接口语义的强类型对象**。
@@ -75,6 +91,7 @@ class Port:
         # T_self * T_align = T_other * T_insert(depth)
         pass
 ```
+</core_design_rules>
 
 ## 3. 设计优势分析
 
@@ -85,6 +102,7 @@ class Port:
 * **严格遵循开闭原则 (OCP)**：
   如果未来需要添加“乐高齿轮（Gear）”或“万向节（Ball Joint）”的连接，只需扩展 `ConnectionInterface` 的注册表，而 `Port` 类本身的核心对齐与适配逻辑一行代码都不需要修改。
 
+<testing_strategy>
 ## 4. 易于单元测试（无依赖剥离）
 
 这种将“数据”与“渲染/引擎”完全解耦的设计，使得单元测试变得极其轻量和方便。开发者无需启动 Bullet 物理引擎或解析复杂的 LDraw 文件树，仅需 Mock 出两个 `Port` 即可验证数学和业务逻辑：
@@ -120,3 +138,9 @@ def test_insertion_axis_normalization():
     z_axis = port.rotation[:, 2] 
     # np.testing.assert_allclose(z_axis, [0, 0, 1], atol=1e-6)
 ```
+</testing_strategy>
+
+<negative_constraints>
+- 在修改 `ldraw_parser.py` 时，不要改变 `ConnectionPort` 向上游传递的基本字典格式（如 `to_dict()` 的结构），否则会导致前端依赖的解析失败。你可以新增功能，但要兼容旧有属性。
+- 绝不可以在 `Port` 类中引入任何网络库或前端 UI 代码。
+</negative_constraints>
