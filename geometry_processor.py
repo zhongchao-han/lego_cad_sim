@@ -79,14 +79,13 @@ class GeometryProcessor:
             return (51, 51, 51, 255)
         return (127, 127, 127, 255)
 
-    def extract_geometry(self, filename: str, transform: np.ndarray = np.eye(4), parent_color_code: int = 16) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple]]:
+    def extract_geometry(self, filename: str, transform: np.ndarray = np.eye(4), parent_color_code: int = 16, inverted: bool = False) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple]]:
         """
         递归提取 LDraw 文件中的几何顶点和每顶点颜色。
         返回: (vertices_list, faces_list, vertex_colors_list)
         
         法线翻转策略：
-        - 面片绕序翻转仅在叶子节点（Type 3/4）处根据全局变换行列式一次性决定
-        - Type 1 递归收集时不再额外翻转子文件返回的面片
+        - 面片绕序翻转根据全局变换行列式和 BFC 状态决定
         """
         filepath = self.resolve_path(filename)
         if not filepath:
@@ -104,13 +103,21 @@ class GeometryProcessor:
             return [], [], []
 
         det = np.linalg.det(transform[:3, :3])
-        is_mirrored = det < 0
+        # 当前文件的基础镜像状态：变换矩阵镜像状态 XOR 继承的倒置状态
+        is_mirrored = (det < 0) ^ inverted
+
+        bfc_invert_next = False
 
         for line in lines:
             parts = line.strip().split()
             if not parts: continue
 
             line_type = parts[0]
+
+            if line_type == '0':
+                if len(parts) >= 3 and parts[1] == 'BFC' and parts[2] == 'INVERTNEXT':
+                    bfc_invert_next = True
+                continue
 
             if line_type == '1' and len(parts) >= 15:
                 child_file = parts[-1].lower()
@@ -128,7 +135,11 @@ class GeometryProcessor:
                     ])
                     global_mat = transform @ local_mat
                     
-                    child_v, child_f, child_vc = self.extract_geometry(child_file, global_mat, effective_color)
+                    # 子文件继承当前的 inverted 状态，并加上 INVERTNEXT
+                    child_v, child_f, child_vc = self.extract_geometry(
+                        child_file, global_mat, effective_color, 
+                        inverted=bfc_invert_next
+                    )
                     
                     offset = len(vertices)
                     vertices.extend(child_v)
@@ -137,6 +148,8 @@ class GeometryProcessor:
                         f_arr = np.array(face) + offset
                         faces.append(f_arr)
                 except ValueError: pass
+                finally:
+                    bfc_invert_next = False
 
             elif line_type == '3' and len(parts) >= 11:
                 try:
@@ -156,6 +169,8 @@ class GeometryProcessor:
                     else:
                         faces.append(np.array([idx, idx+1, idx+2]))
                 except ValueError: pass
+                finally:
+                    bfc_invert_next = False
 
             elif line_type == '4' and len(parts) >= 14:
                 try:
@@ -177,6 +192,8 @@ class GeometryProcessor:
                         faces.append(np.array([idx, idx+1, idx+2]))
                         faces.append(np.array([idx, idx+2, idx+3]))
                 except ValueError: pass
+                finally:
+                    bfc_invert_next = False
 
         return vertices, faces, vertex_colors
 

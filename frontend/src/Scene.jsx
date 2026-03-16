@@ -38,6 +38,7 @@ const createABSPlasticMaterial = (sourceColor, hasVertexColors = false) => {
         metalness: 0.0,
         envMapIntensity: 0.8,
         vertexColors: hasVertexColors,
+        side: THREE.DoubleSide,
     });
 };
 
