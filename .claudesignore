@@ -28,3 +28,5 @@ env/
 current_assembly.urdf
 mock_part.dat
 fallback.json
+debug_archives/
+
