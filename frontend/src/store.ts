@@ -229,7 +229,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const targetPart = parts[target.partId];
     if (!sourcePart || !targetPart) return false;
 
-    const baseAxis: Vec3 = [0, 1, 0];
+    const baseAxis: Vec3 = [0, 0, 1];
     const srcAxisLocal = mat3MulVec3(source.rotation, baseAxis);
     const tgtAxisLocal = mat3MulVec3(target.rotation, baseAxis);
     const srcAxisWorld = vecNormalize(quatApplyToVec3(sourcePart.quaternion, srcAxisLocal));

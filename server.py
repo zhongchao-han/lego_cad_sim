@@ -144,7 +144,7 @@ async def get_ldraw_part(part_id: str, color: int = 7):
             for p in peg_ports:
                 rot = np.array(p.rotation)
                 pos = np.array(p.position)
-                inward_axis = rot @ np.array([0.0, 1.0, 0.0])
+                inward_axis = rot @ np.array([0.0, 0.0, 1.0])
                 tip_dir = -inward_axis
                 tip_dir /= (np.linalg.norm(tip_dir) + 1e-12)
                 projections = verts_si @ tip_dir
