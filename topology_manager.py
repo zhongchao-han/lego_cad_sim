@@ -1,5 +1,3 @@
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
 import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -8,6 +6,10 @@ from typing import Dict, List, Tuple, Any, Optional
 import uuid
 
 from port import Port
+
+# 从独立模块导入，保持向后兼容：外部代码 `from topology_manager import ConnectionEdge` 仍可用
+from connection_edge import ConnectionEdge, JointState  # noqa: F401
+from urdf_exporter import URDFExporter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -26,23 +28,6 @@ class PartNode:
         # 引用的视觉或碰撞组件路径或生成名称
         self.visual_mesh = f"{name}.obj"
         self.collision_mesh = f"{name}_vhacd.obj"
-
-
-class ConnectionEdge:
-    """
-    描述两个零件端口之间的物理连接。
-
-    持有 Port 对象而非裸字符串 + 向量，所有物理逻辑（关节类型推导、
-    相对变换计算）都委托给 Port 本身的方法，拓扑层无需再关心轴向约定。
-    """
-    def __init__(self, parent_id: str, child_id: str,
-                 port_parent: Port, port_child: Port):
-        self.parent_id  = parent_id
-        self.child_id   = child_id
-        self.port_parent = port_parent   # 父零件侧的端口
-        self.port_child  = port_child    # 子零件侧的端口
-        # 多重连接合并标记（过约束 → Fixed Joint）
-        self.is_merged = False
 
 # --- 核心拓扑管理与 URDF 无环树生成器 ---
 
@@ -108,7 +93,7 @@ class TopologyManager:
         for node_id, data in self.graph.nodes(data=True):
             simple_graph.add_node(node_id, **data)
             
-        for u, v in self.graph.edges:
+        for u, v in set((u, v) for u, v, _ in self.graph.edges):
             edges_between_uv = self.graph.get_edge_data(u, v)
             if edges_between_uv:
                 edge_list = list(edges_between_uv.values())
@@ -165,76 +150,9 @@ class TopologyManager:
     def export_urdf(self, urdf_tree: nx.DiGraph, output_file: str = "lego_assembly.urdf"):
         """
         接受无环化的 URDF 树，应用 TF 数据，并生成 xml 文档。
+        实际导出工作委托给 urdf_exporter.URDFExporter。
         """
-        robot = ET.Element('robot', name="lego_technic_assembly")
-
-        # 1. 建立所有的 Links (网格对象和物理对象)
-        for node_id, params in urdf_tree.nodes(data=True):
-            part: PartNode = params['data']
-            
-            link = ET.SubElement(robot, 'link', name=node_id)
-            
-            # Inetial 惯性描述
-            inertial = ET.SubElement(link, 'inertial')
-            mass = ET.SubElement(inertial, 'mass', value=str(part.mass))
-            # （这里默认置零以示例）
-            ET.SubElement(inertial, 'origin', xyz="0 0 0", rpy="0 0 0")
-            ET.SubElement(inertial, 'inertia', 
-                          ixx=str(part.inertia[0,0]), ixy=str(part.inertia[0,1]), ixz=str(part.inertia[0,2]),
-                          iyy=str(part.inertia[1,1]), iyz=str(part.inertia[1,2]), izz=str(part.inertia[2,2]))
-            
-            # Visual 组件
-            visual = ET.SubElement(link, 'visual')
-            ET.SubElement(visual, 'origin', xyz="0 0 0", rpy="0 0 0")
-            geometry = ET.SubElement(visual, 'geometry')
-            ET.SubElement(geometry, 'mesh', filename=part.visual_mesh)
-            
-            # Collision 碰撞模型 (指代 V-HACD 产生的复数凸壳)
-            collision = ET.SubElement(link, 'collision')
-            ET.SubElement(collision, 'origin', xyz="0 0 0", rpy="0 0 0")
-            c_geometry = ET.SubElement(collision, 'geometry')
-            ET.SubElement(c_geometry, 'mesh', filename=part.collision_mesh)
-
-        # 2. 建立接头 Joints
-        for u, v, params in urdf_tree.edges(data=True):
-            edge: ConnectionEdge = params['data']
-            
-            # 由 Port 对象推导关节类型及物理参数（无字符串猜测）
-            j_type, damping, friction = self._derive_joint(edge)
-            rel_pos, rel_rpy = self._calc_rel_transform(edge)
-
-            joint_name = f"joint_{u}_to_{v}"
-            joint = ET.SubElement(robot, 'joint', name=joint_name, type=j_type)
-
-            ET.SubElement(joint, 'parent', link=u)
-            ET.SubElement(joint, 'child', link=v)
-
-            xyz_str = " ".join(map(lambda x: f"{x:.5f}", rel_pos))
-            rpy_str = " ".join(map(lambda x: f"{x:.5f}", rel_rpy))
-            ET.SubElement(joint, 'origin', xyz=xyz_str, rpy=rpy_str)
-
-            # 非 Fixed 关节：插入 Z 轴旋转轴，并注入由配合类型推导出的阻尼参数
-            if j_type != "fixed":
-                ET.SubElement(joint, 'axis', xyz="0 0 1")
-                ET.SubElement(joint, 'dynamics',
-                              damping=f"{damping:.4f}",
-                              friction=f"{friction:.4f}")
-
-        # 3. 产生额外约束以处理闭环结构 (供给 Gazebo 等)
-        for loop_edge in self.closed_loops:
-            gazebo_tag = ET.SubElement(robot, 'gazebo')
-            plugin = ET.SubElement(gazebo_tag, 'plugin', name=f"loop_joint_{loop_edge.parent_id}_{loop_edge.child_id}")
-            # 注：这里以注释或者扩展节点指代闭环在非传统树引擎(如 pybullet 也可以通过 createConstraint 模拟)的使用
-            ET.SubElement(plugin, 'parent').text = loop_edge.parent_id
-            ET.SubElement(plugin, 'child').text = loop_edge.child_id
-            ET.SubElement(plugin, 'anchor_type').text = "fixed"
-
-        # 美化并输出 XML
-        xml_str = minidom.parseString(ET.tostring(robot)).toprettyxml(indent="  ")
-        with open(output_file, "w", encoding='utf-8') as f:
-            f.write(xml_str)
-        
-        logger.info(f"成功输出装配形态 URDF 至 {output_file}")
+        URDFExporter().export(urdf_tree, self.closed_loops, output_file)
 
 
 # =========================== Unit testing execution ============================
