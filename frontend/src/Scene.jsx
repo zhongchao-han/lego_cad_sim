@@ -158,19 +158,19 @@ const CameraController = () => {
     );
 };
 
+const LDU = 0.0004;
+const pitch = 20 * LDU;
+
 const LegoPart = memo(({ id }) => {
     const groupRef = useRef();
     const state = useStore((s) => s.parts[id]);
     const mode = useStore((s) => s.mode);
-    const snapParts = useStore((s) => s.snapParts);
+    const handlePortClickStore = useStore((s) => s.handlePortClick);
     const showPortGizmos = useStore((s) => s.showPortGizmos);
     const setFocus = useStore((s) => s.setFocus);
     const [hovered, setHover] = useState(false);
     const lastPosition = useRef(null);
     const lastQuaternion = useRef(null);
-
-    const LDU = 0.0004;
-    const pitch = 20 * LDU;
 
     // fallback 端口定义（当 LDraw 未提供端口时使用）
     const fallbackPorts = useMemo(() => {
@@ -210,14 +210,28 @@ const LegoPart = memo(({ id }) => {
     const hasLDrawPorts = ldrawPart.ports && ldrawPart.ports.length > 0;
 
     const effectivePorts = useMemo(() => {
+        const computeQuaternion = (r) => {
+            const mat = new THREE.Matrix4().set(
+                r[0][0], r[0][1], r[0][2], 0,
+                r[1][0], r[1][1], r[1][2], 0,
+                r[2][0], r[2][1], r[2][2], 0,
+                0,       0,       0,       1
+            );
+            return new THREE.Quaternion().setFromRotationMatrix(mat);
+        };
+
         if (hasLDrawPorts) {
             return ldrawPart.ports.map((p) => ({
                 type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
                 localPos: p.position,
                 rot: p.rotation,
+                quaternion: computeQuaternion(p.rotation)
             }));
         }
-        return fallbackPorts;
+        return fallbackPorts.map(p => ({
+            ...p,
+            quaternion: computeQuaternion(p.rot)
+        }));
     }, [hasLDrawPorts, ldrawPart.ports, fallbackPorts]);
 
     const activeMeshUrl = ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
@@ -240,8 +254,6 @@ const LegoPart = memo(({ id }) => {
         e.stopPropagation();
         if (mode === 'SIMULATION') return;
 
-        const currentSelection = useStore.getState().selectedPort;
-
         const worldPos = new Vector3(...port.localPos);
         if (groupRef.current) {
             worldPos.applyQuaternion(groupRef.current.quaternion);
@@ -256,13 +268,7 @@ const LegoPart = memo(({ id }) => {
             globalPos: [worldPos.x, worldPos.y, worldPos.z],
         };
 
-        if (currentSelection && currentSelection.partId !== id) {
-            console.log(`🔗 Snapping ${currentSelection.partId} → ${id}...`);
-            snapParts(currentSelection, portInfo);
-        } else {
-            console.log(`🎯 已选中端口: ${id} [${port.type}] @ [${worldPos.x.toFixed(4)}, ${worldPos.y.toFixed(4)}, ${worldPos.z.toFixed(4)}]`);
-            useStore.getState().setSelectedPort(portInfo);
-        }
+        handlePortClickStore(portInfo);
     };
 
     if (ldrawPart.loading) return null;
@@ -287,17 +293,42 @@ const LegoPart = memo(({ id }) => {
                 </mesh>
             )}
 
-            {mode === 'ASSEMBLY' && showPortGizmos && effectivePorts.map((port, idx) => (
-                <group key={idx} position={port.localPos}>
+            {mode === 'ASSEMBLY' && showPortGizmos && effectivePorts.map((port, idx) => {
+                const isHole = port.type === 'peghole';
+                const color = isHole ? '#2196f3' : '#e040fb';
+
+                return (
+                <group key={idx} position={port.localPos} quaternion={port.quaternion}>
                     <mesh>
                         <sphereGeometry args={[4 * LDU, 12, 12]} />
                         <meshBasicMaterial
-                            color={port.type === 'peghole' ? '#2196f3' : '#e040fb'}
+                            color={color}
                             transparent
                             opacity={0.85}
                             depthTest={false}
                         />
                     </mesh>
+                    {/* 箭杆：指示插入方向 (局部 Z 轴) */}
+                    <mesh position={[0, 0, 3 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
+                        <cylinderGeometry args={[0.5 * LDU, 0.5 * LDU, 6 * LDU, 8]} />
+                        <meshBasicMaterial
+                            color={color}
+                            transparent
+                            opacity={0.85}
+                            depthTest={false}
+                        />
+                    </mesh>
+                    {/* 箭头 */}
+                    <mesh position={[0, 0, 8 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
+                        <coneGeometry args={[2 * LDU, 4 * LDU, 8]} />
+                        <meshBasicMaterial
+                            color={color}
+                            transparent
+                            opacity={0.85}
+                            depthTest={false}
+                        />
+                    </mesh>
+
                     <mesh
                         renderOrder={999}
                         onClick={(e) => {
@@ -316,7 +347,8 @@ const LegoPart = memo(({ id }) => {
                         <meshBasicMaterial transparent opacity={0} depthTest={false} />
                     </mesh>
                 </group>
-            ))}
+                );
+            })}
         </group>
     );
 });
