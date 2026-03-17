@@ -87,6 +87,15 @@ function UIOverlay() {
             />
             <span>Contact shadows</span>
           </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-blue-600"
+              checked={useStore((state) => state.debugMode)}
+              onChange={(e) => useStore.getState().setDebugMode(e.target.checked)}
+            />
+            <span>Debug mode (Axes)</span>
+          </label>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Sphere, Environment, ContactShadows, useGLTF, BakeShadows } from '@react-three/drei';
+import { OrbitControls, Html, Sphere, Environment, ContactShadows, useGLTF, BakeShadows, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { EffectComposer, N8AO } from '@react-three/postprocessing';
 import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useStore } from './store';
@@ -385,6 +385,7 @@ const ConditionalContactShadows = () => {
 export default function Scene() {
     const parts = useStore((s) => s.parts);
     const selectedPort = useStore((s) => s.selectedPort);
+    const debugMode = useStore((s) => s.debugMode);
 
     return (
         <>
@@ -415,6 +416,18 @@ export default function Scene() {
 
             <ConditionalContactShadows />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
+
+            {debugMode && (
+                <>
+                    <axesHelper args={[0.2]} />
+                    <GizmoHelper
+                        alignment="bottom-right"
+                        margin={[80, 80]}
+                    >
+                        <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="white" />
+                    </GizmoHelper>
+                </>
+            )}
 
             <BakeShadows />
             <ConditionalSSAO />

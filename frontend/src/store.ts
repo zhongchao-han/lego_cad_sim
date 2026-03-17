@@ -37,6 +37,7 @@ interface StoreState {
   enableFocusAnimation: boolean;
   enableSSAO: boolean;
   enableContactShadows: boolean;
+  debugMode: boolean;
 
   toggleMode: () => Promise<void>;
   updatePartState: (partId: string, state: Omit<PartState, 'zone'> & { zone?: ZoneType }) => void;
@@ -50,6 +51,7 @@ interface StoreState {
   setEnableFocusAnimation: (value: boolean) => void;
   setEnableSSAO: (value: boolean) => void;
   setEnableContactShadows: (value: boolean) => void;
+  setDebugMode: (value: boolean) => void;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -210,6 +212,7 @@ export const useStore = create<StoreState>((set, get) => ({
   enableFocusAnimation: true,
   enableSSAO: false,
   enableContactShadows: false,
+  debugMode: false,
   canUndo: false,
   canRedo: false,
   workbenchGrid: new WorkbenchGrid(),
@@ -242,6 +245,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setEnableFocusAnimation: (value) => set({ enableFocusAnimation: value }),
   setEnableSSAO: (value) => set({ enableSSAO: value }),
   setEnableContactShadows: (value) => set({ enableContactShadows: value }),
+  setDebugMode: (value) => set({ debugMode: value }),
 
   setPartZone: (partId, zone) => set((prev) => {
     const part = prev.parts[partId];
