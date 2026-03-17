@@ -1,16 +1,23 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
+import { InteractionPhase, InteractionEvents, isValidTransition } from './interactionFSM';
+import { HistoryStack, createSnapCommand, type SnapSnapshot } from './historyStack';
+import { ZoneType, WorkbenchGrid } from './workbench';
+
+export { InteractionPhase, ZoneType };
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 type Vec3 = [number, number, number];
 type Quat = [number, number, number, number]; // [x, y, z, w]
 type Mat3 = number[][] | number[];
 
-interface PartState {
+export interface PartState {
   position: [number, number, number];
   quaternion: [number, number, number, number];
   colorCode?: number;
+  zone: ZoneType;
 }
 
 type ConnectionGraph = Record<string, Set<string>>;
@@ -23,23 +30,32 @@ interface StoreState {
   connections: ConnectionGraph;
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
+  interactionPhase: InteractionPhase;
   focusedPartId: string | null;
   focusMode: FocusMode;
   showPortGizmos: boolean;
   enableFocusAnimation: boolean;
   enableSSAO: boolean;
   enableContactShadows: boolean;
+
   toggleMode: () => Promise<void>;
-  updatePartState: (partId: string, state: PartState) => void;
+  updatePartState: (partId: string, state: Omit<PartState, 'zone'> & { zone?: ZoneType }) => void;
   batchUpdatePartStates: (updates: Record<string, PartState>) => void;
   setWsConnected: (status: boolean) => void;
-  setSelectedPort: (port: SelectedPortInfo | null) => void;
+  /** 端口点击入口：由 FSM 统一管理 selectedPort 的生命周期。*/
+  handlePortClick: (port: SelectedPortInfo) => Promise<void>;
   snapParts: (source: SelectedPortInfo, target: SelectedPortInfo) => Promise<boolean>;
   setFocus: (payload: { partId: string | null; mode: FocusMode }) => void;
   setShowPortGizmos: (value: boolean) => void;
   setEnableFocusAnimation: (value: boolean) => void;
   setEnableSSAO: (value: boolean) => void;
   setEnableContactShadows: (value: boolean) => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  setPartZone: (partId: string, zone: ZoneType) => void;
+  workbenchGrid: WorkbenchGrid;
 }
 
 export interface SelectedPortInfo {
@@ -158,36 +174,62 @@ function getConnectedGroup(connections: ConnectionGraph, startId: string, exclud
   return Array.from(visited);
 }
 
+// ---------------------------------------------------------------------------
+// stripAxis：端口对齐核心投影
+// ---------------------------------------------------------------------------
+// 将端口局部坐标投影到零件几何中心轴线上（消除轴向分量）。
+// 规则：对 Source 和 Target 端口均无条件调用，不区分 peg / hole 类型。
+const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
+  const d = vecDot(pos, axis);
+  return vecSub(pos, vecScale(axis, d));
+};
+
+// ---------------------------------------------------------------------------
+// 模块级 HistoryStack（生命周期与 store 相同）
+// ---------------------------------------------------------------------------
+const _history = new HistoryStack(50);
+
+// ---------------------------------------------------------------------------
+// Zustand Store
+// ---------------------------------------------------------------------------
+
 export const useStore = create<StoreState>((set, get) => ({
   mode: 'ASSEMBLY',
   parts: {
-    "32524": { position: [0, 0.005, 0], quaternion: [0, 0, 0, 1], colorCode: 4 },
-    "32523": { position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1 },
-    "6558": { position: [-0.03, 0.03, 0], quaternion: [0, 0, 0, 1], colorCode: 0 },
+    "32524": { position: [0, 0.005, 0],       quaternion: [0, 0, 0, 1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
+    "32523": { position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+    "6558":  { position: [-0.03, 0.03, 0],    quaternion: [0, 0, 0, 1], colorCode: 0, zone: ZoneType.ACTIVE_ARENA },
   },
   connections: {},
   wsConnected: false,
   selectedPort: null,
+  interactionPhase: InteractionPhase.IDLE,
   focusedPartId: null,
   focusMode: null,
   showPortGizmos: true,
   enableFocusAnimation: true,
   enableSSAO: false,
   enableContactShadows: false,
+  canUndo: false,
+  canRedo: false,
+  workbenchGrid: new WorkbenchGrid(),
 
   toggleMode: async () => {
     const currentMode = get().mode;
     const nextMode = currentMode === 'ASSEMBLY' ? 'SIMULATION' : 'ASSEMBLY';
     try {
       await axios.post(`${API_URL}/toggle_mode?mode=${nextMode}`);
-      set({ mode: nextMode, selectedPort: null });
+      set({ mode: nextMode, selectedPort: null, interactionPhase: InteractionPhase.IDLE });
     } catch (e) {
       console.error("Failed to toggle mode:", e);
     }
   },
 
   updatePartState: (partId, state) => set((prev) => ({
-    parts: { ...prev.parts, [partId]: state }
+    parts: {
+      ...prev.parts,
+      [partId]: { zone: prev.parts[partId]?.zone ?? ZoneType.ACTIVE_ARENA, ...state },
+    }
   })),
 
   batchUpdatePartStates: (updates) => set((prev) => ({
@@ -195,30 +237,74 @@ export const useStore = create<StoreState>((set, get) => ({
   })),
 
   setWsConnected: (status) => set({ wsConnected: status }),
-  setSelectedPort: (port) => set({ selectedPort: port }),
   setFocus: ({ partId, mode }) => set({ focusedPartId: partId, focusMode: mode }),
   setShowPortGizmos: (value) => set({ showPortGizmos: value }),
   setEnableFocusAnimation: (value) => set({ enableFocusAnimation: value }),
   setEnableSSAO: (value) => set({ enableSSAO: value }),
   setEnableContactShadows: (value) => set({ enableContactShadows: value }),
 
+  setPartZone: (partId, zone) => set((prev) => {
+    const part = prev.parts[partId];
+    if (!part) return {};
+    return { parts: { ...prev.parts, [partId]: { ...part, zone } } };
+  }),
+
+  undo: () => {
+    _history.undo();
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+  },
+
+  redo: () => {
+    _history.redo();
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+  },
+
   // =================================================================
-  // snapParts — 完全基于零件几何形状的插入逻辑
+  // handlePortClick — FSM 驱动的端口点击入口
+  // =================================================================
+  handlePortClick: async (port: SelectedPortInfo) => {
+    const { interactionPhase, selectedPort, snapParts } = get();
+
+    if (interactionPhase === InteractionPhase.IDLE) {
+      // 第一次点击 → 锁定 Source
+      if (!isValidTransition(interactionPhase, InteractionPhase.SOURCE_LOCKED)) return;
+      set({ selectedPort: port, interactionPhase: InteractionPhase.SOURCE_LOCKED });
+      return;
+    }
+
+    if (interactionPhase === InteractionPhase.SOURCE_LOCKED) {
+      if (!selectedPort) {
+        // 状态异常修复
+        set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null });
+        return;
+      }
+      if (port.partId === selectedPort.partId) {
+        // 点击同一零件 → 取消
+        set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null });
+        return;
+      }
+      // 第二次点击 → 触发 Snap
+      set({ interactionPhase: InteractionPhase.ANIMATING_SNAP });
+      const ok = await snapParts(selectedPort, port);
+      set({
+        interactionPhase: InteractionPhase.IDLE,
+        selectedPort: null,
+        canUndo: _history.canUndo,
+        canRedo: _history.canRedo,
+      });
+      if (!ok) console.warn('[handlePortClick] snapParts returned false');
+      return;
+    }
+
+    // ANIMATING_SNAP — 忽略输入
+  },
+
+  // =================================================================
+  // snapParts — "先选即动"：Source 永远移动到 Target
   //
-  // 已知几何事实（来自 createBeamGeometry / cylinderGeometry）：
-  //   梁: 沿 X 展开，孔沿 Y 贯穿，梁厚 ±10*LDU(Y)，梁高 ±10*LDU(Z)
-  //        孔中心在本地 [X_i, 0, 0]
-  //        端口放在孔入口 [X_i, 10*LDU, 0]（梁顶面）
-  //
-  //   插销: 圆柱沿 Y，半长 16*LDU，中心在本地 [0, 0, 0]
-  //         端口放在端面 [0, ±16*LDU, 0]
-  //
-  // 插入 = 1) 旋转插销使其轴向对齐孔轴向
-  //         2) 平移使插销几何中心对齐孔几何中心
-  //
-  // "几何中心" = 端口位置去掉沿轴方向的分量
-  //   梁孔: [X_i, 10*LDU, 0] 去掉 Y 分量 → [X_i, 0, 0]  ✓
-  //   插销: [0, ±16*LDU, 0] 去掉 Y 分量 → [0, 0, 0]       ✓
+  // 核心修复（来自 docs/issue/pin_clipping_issue.md）：
+  //   1. 移除 moveTargetToSource 启发式判断 — Source 组始终移动
+  //   2. stripAxis 无条件应用于 source 和 target，不区分 peg/hole 类型
   // =================================================================
 
   snapParts: async (source, target) => {
@@ -229,106 +315,75 @@ export const useStore = create<StoreState>((set, get) => ({
     const targetPart = parts[target.partId];
     if (!sourcePart || !targetPart) return false;
 
-    const baseAxis: Vec3 = [0, 0, 1];
+    // 仅允许在 ACTIVE_ARENA 零件之间进行 Snap
+    if (sourcePart.zone !== ZoneType.ACTIVE_ARENA || targetPart.zone !== ZoneType.ACTIVE_ARENA) {
+      console.warn('[snapParts] 拒绝: 非 ACTIVE_ARENA 零件不参与 Snap');
+      return false;
+    }
+
+    const baseAxis: Vec3 = [0, 0, 1]; // Z 轴约定（不得使用 Y 轴）
     const srcAxisLocal = mat3MulVec3(source.rotation, baseAxis);
     const tgtAxisLocal = mat3MulVec3(target.rotation, baseAxis);
     const srcAxisWorld = vecNormalize(quatApplyToVec3(sourcePart.quaternion, srcAxisLocal));
     const tgtAxisWorld = vecNormalize(quatApplyToVec3(targetPart.quaternion, tgtAxisLocal));
 
     const isPegIntoHole = source.portType === 'peg' && target.portType === 'peghole';
-    const srcConnected = (connections[source.partId]?.size ?? 0) > 0;
 
-    const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
-      const d = vecDot(pos, axis);
-      return vecSub(pos, vecScale(axis, d));
-    };
+    // ──────────────────────────────────────────────────────────────────
+    // "先选即动"：Source 组始终移动，Target 始终是锚点。
+    // 禁止任何基于连接状态的"谁动"判断。
+    // ──────────────────────────────────────────────────────────────────
+    const srcGroup = getConnectedGroup(connections, source.partId, target.partId);
+
+    // 保存 Snap 前快照（用于 Undo）
+    const prevPositions: SnapSnapshot['prevPositions'] = {};
+    for (const pid of srcGroup) {
+      const p = parts[pid];
+      if (p) prevPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
+    }
 
     const updated: Record<string, PartState> = { ...parts };
 
-    // 当插销已有连接时，保持插销+已连接梁不动，移动新的梁到插销上
-    const moveTargetToSource = srcConnected && isPegIntoHole;
+    // 步骤 1：旋转 Source 组，使插入轴与 Target 对齐
+    const effectiveSrcAxis: Vec3 = isPegIntoHole
+      ? vecScale(srcAxisWorld, -1) as Vec3
+      : srcAxisWorld;
+    const qDelta = quatFromUnitVectors(effectiveSrcAxis, tgtAxisWorld);
+    const pivot: Vec3 = sourcePart.position;
 
-    if (moveTargetToSource) {
-      // ===== 第二次插入：移动目标梁到插销 =====
-      const tgtGroup = getConnectedGroup(connections, target.partId, source.partId);
+    for (const pid of srcGroup) {
+      const part = updated[pid];
+      if (!part) continue;
+      const rel = vecSub(part.position, pivot);
+      const relRot = quatApplyToVec3(qDelta, rel);
+      updated[pid] = {
+        ...part,
+        position: vecAdd(pivot, relRot),
+        quaternion: quatNormalize(quatMultiply(qDelta, part.quaternion)),
+      };
+    }
 
-      // 旋转梁使其孔轴与插销轴反向对齐（孔口朝向插销）
-      const qDelta = quatFromUnitVectors(tgtAxisWorld, vecScale(srcAxisWorld, -1) as Vec3);
-      const pivot: Vec3 = targetPart.position;
+    // 步骤 2：平移对齐 — stripAxis 无条件应用于 source 和 target
+    //   对 target：不论是 peg 还是 hole，都投影到几何中心轴
+    //   对 source：旋转后同样投影，再计算 delta
+    const targetAlignLocal = stripAxis(target.position, tgtAxisLocal);
+    const targetAlignWorld = vecAdd(
+      targetPart.position,
+      quatApplyToVec3(targetPart.quaternion, targetAlignLocal),
+    );
 
-      for (const pid of tgtGroup) {
-        const part = updated[pid];
-        if (!part) continue;
-        const rel = vecSub(part.position, pivot);
-        const relRot = quatApplyToVec3(qDelta, rel);
-        updated[pid] = {
-          position: vecAdd(pivot, relRot),
-          quaternion: quatNormalize(quatMultiply(qDelta, part.quaternion)),
-        };
-      }
+    const sourceAlignLocal = stripAxis(source.position, srcAxisLocal);
+    const rotatedSource = updated[source.partId]!;
+    const sourceAlignWorld = vecAdd(
+      rotatedSource.position,
+      quatApplyToVec3(rotatedSource.quaternion, sourceAlignLocal),
+    );
 
-      // 平移：梁的端口（表面）对齐到插销的几何中心
-      const srcAlignLocal = stripAxis(source.position, srcAxisLocal);
-      const srcAlignWorld = vecAdd(
-        sourcePart.position,
-        quatApplyToVec3(sourcePart.quaternion, srcAlignLocal),
-      );
-
-      const rotatedTarget = updated[target.partId]!;
-      const tgtAlignWorld = vecAdd(
-        rotatedTarget.position,
-        quatApplyToVec3(rotatedTarget.quaternion, target.position),
-      );
-
-      const delta = vecSub(srcAlignWorld, tgtAlignWorld);
-      for (const pid of tgtGroup) {
-        const part = updated[pid];
-        if (!part) continue;
-        updated[pid] = { ...part, position: vecAdd(part.position, delta) };
-      }
-
-    } else {
-      // ===== 首次插入：移动插销（源）到目标梁 =====
-      const srcGroup = getConnectedGroup(connections, source.partId, target.partId);
-
-      const effectiveSrcAxis: Vec3 = isPegIntoHole
-        ? vecScale(srcAxisWorld, -1) as Vec3
-        : srcAxisWorld;
-      const qDelta = quatFromUnitVectors(effectiveSrcAxis, tgtAxisWorld);
-      const pivot: Vec3 = sourcePart.position;
-
-      for (const pid of srcGroup) {
-        const part = updated[pid];
-        if (!part) continue;
-        const rel = vecSub(part.position, pivot);
-        const relRot = quatApplyToVec3(qDelta, rel);
-        updated[pid] = {
-          position: vecAdd(pivot, relRot),
-          quaternion: quatNormalize(quatMultiply(qDelta, part.quaternion)),
-        };
-      }
-
-      const targetAlignLocal = target.portType === 'peg'
-        ? target.position
-        : stripAxis(target.position, tgtAxisLocal);
-      const targetAlignWorld = vecAdd(
-        targetPart.position,
-        quatApplyToVec3(targetPart.quaternion, targetAlignLocal),
-      );
-
-      const sourceAlignLocal = stripAxis(source.position, srcAxisLocal);
-      const rotatedSource = updated[source.partId]!;
-      const sourceAlignWorld = vecAdd(
-        rotatedSource.position,
-        quatApplyToVec3(rotatedSource.quaternion, sourceAlignLocal),
-      );
-
-      const delta = vecSub(targetAlignWorld, sourceAlignWorld);
-      for (const pid of srcGroup) {
-        const part = updated[pid];
-        if (!part) continue;
-        updated[pid] = { ...part, position: vecAdd(part.position, delta) };
-      }
+    const delta = vecSub(targetAlignWorld, sourceAlignWorld);
+    for (const pid of srcGroup) {
+      const part = updated[pid];
+      if (!part) continue;
+      updated[pid] = { ...part, position: vecAdd(part.position, delta) };
     }
 
     // 物理插入检测（仅 peg→peghole）
@@ -355,21 +410,44 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     }
 
-    // 更新连接图和状态
+    // 更新连接图
     const newConnections = { ...connections };
     if (!newConnections[source.partId]) newConnections[source.partId] = new Set();
     if (!newConnections[target.partId]) newConnections[target.partId] = new Set();
     newConnections[source.partId] = new Set(newConnections[source.partId]).add(target.partId);
     newConnections[target.partId] = new Set(newConnections[target.partId]).add(source.partId);
 
-    set({
-      parts: updated,
-      connections: newConnections,
-      selectedPort: null,
-    });
+    // 构建 Undo 命令（diff snapshot）
+    const addedConnections = [{ from: source.partId, to: target.partId }];
+    const snapCmd = createSnapCommand(
+      { movedPartIds: srcGroup, prevPositions, addedConnections },
+      () => {/* redo: re-run snapParts — handled by re-push */},
+      (snap) => {
+        // undo: 恢复零件位置并删除连接
+        set((prev) => {
+          const revertedParts = { ...prev.parts };
+          for (const [pid, saved] of Object.entries(snap.prevPositions)) {
+            if (revertedParts[pid]) {
+              revertedParts[pid] = { ...revertedParts[pid], ...saved };
+            }
+          }
+          const revertedConn = { ...prev.connections };
+          for (const { from, to } of snap.addedConnections) {
+            const f = new Set(revertedConn[from]);
+            f.delete(to);
+            const t = new Set(revertedConn[to]);
+            t.delete(from);
+            revertedConn[from] = f;
+            revertedConn[to] = t;
+          }
+          return { parts: revertedParts, connections: revertedConn };
+        });
+      },
+    );
+    _history.push(snapCmd);
 
-    const label = moveTargetToSource ? '梁→插销' : '插销→梁';
-    console.log(`✅ Snap [${label}]: ${source.partId} ↔ ${target.partId}`);
+    set({ parts: updated, connections: newConnections, selectedPort: null });
+    console.log(`✅ Snap [源→目标]: ${source.partId} ↔ ${target.partId}`);
 
     try {
       await axios.post(`${API_URL}/snap_parts`, {

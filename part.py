@@ -8,11 +8,19 @@ Part — 代表一个独立的乐高零件实体。
   它不知道外界（Assembly）的存在，只对自身的几何变换负责。
 """
 
+from enum import Enum
 from typing import Dict, Optional
 
 import numpy as np
 
 from port import Port
+
+
+class PartZone(Enum):
+    """零件所属的三区空间状态，决定其是否参与物理仿真和 URDF 导出。"""
+    ACTIVE_ARENA = "ACTIVE_ARENA"  # 主画布：参与运动学、URDF 导出
+    WORKBENCH    = "WORKBENCH"     # 暂存区：冻结物理，不参与 URDF
+    PREVIEW      = "PREVIEW"       # 预览层：不参与任何计算
 
 
 class Part:
@@ -35,6 +43,7 @@ class Part:
 
         # 核心内聚：Part 拥有并管理自己的 Ports
         self.ports: Dict[str, Port] = {}
+        self.zone: PartZone = PartZone.ACTIVE_ARENA
 
     # ------------------------------------------------------------------ #
     # Port 管理
@@ -86,7 +95,7 @@ class Part:
     # ------------------------------------------------------------------ #
 
     def __repr__(self) -> str:
-        return f"Part({self.part_id!r}, {self.name!r}, ports={list(self.ports.keys())})"
+        return f"Part({self.part_id!r}, {self.name!r}, zone={self.zone.value}, ports={list(self.ports.keys())})"
 
 
 # ---------------------------------------------------------------------------

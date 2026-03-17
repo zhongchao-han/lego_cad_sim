@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 
 import networkx as nx
 
-from part import Part
+from part import Part, PartZone
 from connection_edge import ConnectionEdge
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,9 @@ class Assembly:
         # 被打断的闭环边（供 URDF 导出生成 Gazebo 约束标签）
         self.closed_loops: List[ConnectionEdge] = []
 
+        # 当前地基零件 ID（ROOT）— 由用户最后的 Snap 落点决定，Assembly 内唯一
+        self.root_part_id: Optional[str] = None
+
     # ------------------------------------------------------------------ #
     # 零件管理
     # ------------------------------------------------------------------ #
@@ -56,6 +59,28 @@ class Assembly:
     def get_part(self, part_id: str) -> Optional[Part]:
         """按 ID 取出零件；不存在则返回 None。"""
         return self.parts.get(part_id)
+
+    def set_root(self, part_id: str) -> None:
+        """
+        显式设置 ROOT 零件（地基）。
+
+        Raises:
+            ValueError: 零件不在装配体中。
+        """
+        if part_id not in self.parts:
+            raise ValueError(
+                f"Part {part_id!r} is not in assembly {self.assembly_id!r}. "
+                f"Call add_part() first."
+            )
+        self.root_part_id = part_id
+        logger.info(f"[{self.assembly_id}] ROOT 设置为: {part_id}")
+
+    def migrate_root(self, target_id: str) -> None:
+        """
+        Snap 完成后将 ROOT 迁移至 Target 零件（地基跟随用户落点）。
+        语义等同 set_root，但名称明确表达"迁移"语义，用于 Snap 后调用。
+        """
+        self.set_root(target_id)
 
     # ------------------------------------------------------------------ #
     # 连接管理
@@ -123,6 +148,81 @@ class Assembly:
             )
         return len(removed)
 
+    def scan_and_seal_loops(
+        self,
+        moved_part_ids: List[str],
+        distance_threshold_m: float = 0.001,
+    ) -> List[ConnectionEdge]:
+        """
+        Snap 完成后，扫描移动组内的所有未连接端口，自动闭合与锚定组距离
+        小于 distance_threshold_m 且物理兼容的端口对。
+
+        Args:
+            moved_part_ids: 刚刚被移动的零件 ID 列表（Snap 的 source 组）。
+            distance_threshold_m: 扫描距离阈值（米）。默认 1mm。
+
+        Returns:
+            已建立的新 ConnectionEdge 列表（也已加入装配体连接图）。
+        """
+        import numpy as np
+
+        # 已连接端口集：(part_id, port_name)
+        connected: set = set()
+        for edge in self.connections:
+            connected.add((edge.parent_id, edge.port_parent.name))
+            connected.add((edge.child_id, edge.port_child.name))
+
+        moved_set = set(moved_part_ids)
+
+        # 收集移动组空闲端口
+        moved_free: List[tuple] = []   # (part_id, port_name, global_pos, port_obj)
+        anchored_free: List[tuple] = []
+
+        for part_id, part in self.parts.items():
+            if part.zone != PartZone.ACTIVE_ARENA:
+                continue
+            for port_name, port in part.ports.items():
+                if (part_id, port_name) in connected:
+                    continue
+                gpos = part.get_port_global_position(port_name)
+                entry = (part_id, port_name, gpos, port)
+                if part_id in moved_set:
+                    moved_free.append(entry)
+                else:
+                    anchored_free.append(entry)
+
+        new_edges: List[ConnectionEdge] = []
+
+        for m_pid, m_pname, m_gpos, m_port in moved_free:
+            for a_pid, a_pname, a_gpos, a_port in anchored_free:
+                dist = float(np.linalg.norm(m_gpos - a_gpos))
+                if dist > distance_threshold_m:
+                    continue
+
+                # 物理兼容性检测
+                candidate = ConnectionEdge(m_pid, a_pid, m_port, a_port)
+                if not candidate.is_physically_compatible():
+                    # 尝试反向
+                    candidate = ConnectionEdge(a_pid, m_pid, a_port, m_port)
+                    if not candidate.is_physically_compatible():
+                        continue
+
+                try:
+                    self.connect_ports(candidate)
+                    new_edges.append(candidate)
+                    # 标记已用端口，防止同一端口重复匹配
+                    connected.add((m_pid, m_pname))
+                    connected.add((a_pid, a_pname))
+                    logger.info(
+                        f"[{self.assembly_id}] 自动闭环: {m_pid}.{m_pname} ↔ "
+                        f"{a_pid}.{a_pname} (dist={dist*1000:.2f}mm)"
+                    )
+                    break  # 一个移动端口只闭合一次
+                except ValueError:
+                    continue
+
+        return new_edges
+
     # ------------------------------------------------------------------ #
     # 运动学推导
     # ------------------------------------------------------------------ #
@@ -131,9 +231,12 @@ class Assembly:
         """
         从运动学多重有向图中提取无环生成树（Spanning Tree）。
 
+        仅包含 zone=ACTIVE_ARENA 的零件；WORKBENCH 零件不参与 URDF 导出。
+
         算法：
           1. 多重边 → 简单边：同一对零件间若有多条边，标记 is_merged=True（过约束→Fixed）
-          2. BFS 解环：跳过已访问节点，将跳过的边存入 self.closed_loops
+          2. 过滤 WORKBENCH 节点
+          3. BFS 解环：从 root_part_id 或入度=0 节点出发，跳过已访问节点
 
         Returns:
             无环有向图（DiGraph）；边 data 字段存放 ConnectionEdge。
@@ -158,7 +261,21 @@ class Assembly:
             if not simple.has_edge(u, v):
                 simple.add_edge(u, v, data=primary)
 
-        # ── 步骤 2：BFS 解环 ──────────────────────────────────────────────
+        # ── 步骤 2：过滤 WORKBENCH 零件 ──────────────────────────────────
+        active_nodes = {
+            nid for nid in simple.nodes
+            if self.parts.get(nid) is None
+            or self.parts[nid].zone == PartZone.ACTIVE_ARENA
+        }
+        workbench_removed = set(simple.nodes) - active_nodes
+        if workbench_removed:
+            logger.info(
+                f"[{self.assembly_id}] 过滤 WORKBENCH 零件，不参与运动学: "
+                f"{workbench_removed}"
+            )
+        simple = simple.subgraph(active_nodes).copy()
+
+        # ── 步骤 3：BFS 解环 ──────────────────────────────────────────────
         tree: nx.DiGraph = nx.DiGraph()
         visited: set = set()
 
@@ -166,8 +283,12 @@ class Assembly:
         if not in_degrees:
             return tree
 
-        root_candidates = [n for n, d in in_degrees.items() if d == 0]
-        root = root_candidates[0] if root_candidates else list(simple.nodes)[0]
+        # 优先使用显式设置的 root_part_id；退化到入度=0 推断
+        if self.root_part_id and self.root_part_id in simple.nodes:
+            root = self.root_part_id
+        else:
+            root_candidates = [n for n, d in in_degrees.items() if d == 0]
+            root = root_candidates[0] if root_candidates else list(simple.nodes)[0]
         logger.info(f"[{self.assembly_id}] URDF 树根节点: {root}")
 
         queue = [root]
