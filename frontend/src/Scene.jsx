@@ -172,38 +172,7 @@ const LegoPart = memo(({ id }) => {
     const lastPosition = useRef(null);
     const lastQuaternion = useRef(null);
 
-    // fallback 端口定义（当 LDraw 未提供端口时使用）
-    const fallbackPorts = useMemo(() => {
-        if (['32524', '32523'].includes(id) || id.includes('beam')) {
-            const holes = id === '32523' ? 3 : (id === '32524' ? 7 : 5);
-            const beamHalfDepth = 10 * LDU;
-            return Array.from({ length: holes }, (_, i) => ({
-                type: 'peghole',
-                localPos: [(-holes / 2 + 0.5 + i) * pitch, beamHalfDepth, 0],
-                rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-            }));
-        } else if (id === '6558' || id.includes('pin')) {
-            // LDraw 6558 网格沿 X 轴延伸 (-30 ~ +30 LDU)
-            // 端口放在两端尖端，旋转矩阵让 baseAxis [0,1,0] 映射到 X 轴方向
-            const pinTip = 30 * LDU; // 0.012m
-            return [
-                { type: 'peg', localPos: [pinTip, 0, 0],  rot: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]] },
-                { type: 'peg', localPos: [-pinTip, 0, 0], rot: [[0, -1, 0], [1, 0, 0], [0, 0, 1]] },
-            ];
-        }
-        return [
-            { type: 'peghole', localPos: [pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-            { type: 'peghole', localPos: [-pitch, 8 * LDU, 0], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-            { type: 'peghole', localPos: [0, 8 * LDU, pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-            { type: 'peghole', localPos: [0, 8 * LDU, -pitch], rot: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
-        ];
-    }, [id]);
-
-    const partColor = useMemo(() => {
-        if (['32524', '32523'].includes(id) || id.includes('beam')) return '#e53935';
-        if (id === '6558' || id.includes('pin')) return '#212121';
-        return '#b0bec5';
-    }, [id]);
+    const partColor = '#b0bec5'; // 默认底色，实际颜色由后端生成的 GLB 网格决定
 
     const colorCode = state?.colorCode;
     const ldrawPart = useLDrawPart(id, colorCode ?? 7);
@@ -228,11 +197,8 @@ const LegoPart = memo(({ id }) => {
                 quaternion: computeQuaternion(p.rotation)
             }));
         }
-        return fallbackPorts.map(p => ({
-            ...p,
-            quaternion: computeQuaternion(p.rot)
-        }));
-    }, [hasLDrawPorts, ldrawPart.ports, fallbackPorts]);
+        return [];
+    }, [hasLDrawPorts, ldrawPart.ports]);
 
     const activeMeshUrl = ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
 

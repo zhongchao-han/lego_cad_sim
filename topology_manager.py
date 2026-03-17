@@ -172,14 +172,17 @@ if __name__ == "__main__":
     
     id_rot = np.eye(3)
 
-    # 辅助：用 Port.from_ldraw_or_fallback 构建测试端口
+    # 辅助：用 Port.create_from_ldraw 构建测试端口（严谨模式）
     def mk(name, ldraw_type, pos):
-        return Port.from_ldraw_or_fallback(name, ldraw_type, np.array(pos), id_rot)
+        item = Port.create_from_ldraw(name, ldraw_type, np.array(pos), id_rot, part_context="TestPart")
+        if item is None:
+            raise ValueError(f"测试失败：无法创建类型为 {ldraw_type} 的测试端口。请在 connection_interface.py 中检查注册状况。")
+        return item
 
     # 构建连接关系，展示多向多端口：
     # A->B 有两条同样的联结作为过约束测试：会熔合产生 is_merged = True
-    e1 = ConnectionEdge("A", "B", mk("p", "peghole", [0.008, 0, 0]),     mk("c", "pin", [0,0,-0.004]))
-    e1_dup = ConnectionEdge("A", "B", mk("p", "peghole", [-0.008, 0, 0]), mk("c", "pin", [0,0,0.004]))
+    e1 = ConnectionEdge("A", "B", mk("p1", "peghole", [0.008, 0, 0]),     mk("c1", "pin", [0,0,-0.004]))
+    e1_dup = ConnectionEdge("A", "B", mk("p2", "peghole", [-0.008, 0, 0]), mk("c2", "pin", [0,0,0.004]))
     manager.connect_ports(e1)
     manager.connect_ports(e1_dup)
 

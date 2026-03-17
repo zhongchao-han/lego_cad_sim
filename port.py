@@ -12,6 +12,7 @@ Port — 具有物理语义的强类型端口对象。
 """
 
 import numpy as np
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
 
@@ -20,6 +21,9 @@ from connection_interface import (
     get_interface, check_fit, derive_joint_params,
     LDU,
 )
+
+# 配置日志
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 插入轴归一化矩阵
@@ -72,6 +76,7 @@ _NORMALIZER_MAP: Dict[str, np.ndarray] = {
     "pin":              _Rx_POS90,
     "pin.dat":          _Rx_POS90,
     "halfpin.dat":      _Rx_POS90,
+    "connect.dat":      _Rx_POS90,
     "fric_pin.dat":     _Rx_POS90,
     "axle":             _Rx_POS90,
     "axle.dat":         _Rx_POS90,
@@ -116,20 +121,31 @@ class Port:
         ldraw_type: str,
         pos:        np.ndarray,
         rot:        np.ndarray,
+        part_context: str = "Unknown Part"
     ) -> Optional["Port"]:
         """
-        主工厂方法：将 LDraw 原件类型映射为标准接口，并将插入轴归一化至 Z+。
+        严格工厂方法：将 LDraw 原件类型映射为标准接口。
 
-        所有 LDraw 原件的轴向怪癖都在此方法内被消化；进入系统的 Port
-        对象均保证 Z 轴正方向 = 插入方向，上层逻辑无需再猜测轴向。
-
-        Returns:
-            Port 对象，或 None（遇到无法识别的原件类型时）。
+        如果不匹配，将打印 CRITICAL 级别的日志并返回 None。
         """
         iface = get_interface(ldraw_type)
         if iface is None:
+            logger.critical(
+                f"\n{'!'*60}\n"
+                f"MISSING SEMANTIC DATA: 发现未解析的连接原件!\n"
+                f"零件: {part_context}\n"
+                f"原件: {ldraw_type}\n"
+                f"原因: 该 .dat 文件尚未在 connection_interface.py 中定义其物理特性(Gender/Fit/Radius)。\n"
+                f"结果: 该端口将被系统忽略，吸附功能可能无法正常工作。\n"
+                f"{'!'*60}\n"
+            )
             return None
+
         normalized_rot = cls._normalize_insertion_axis(ldraw_type, rot)
+        if normalized_rot is None:
+             logger.error(f"FAIL TO NORMALIZE: 原件 {ldraw_type} 缺少归一化矩阵映射。")
+             return None
+
         return cls(
             name=name,
             interface=iface,
@@ -137,36 +153,6 @@ class Port:
             rotation=normalized_rot,
             port_type=ldraw_type,
         )
-
-    @classmethod
-    def create_fallback(
-        cls,
-        name:       str,
-        ldraw_type: str,
-        pos:        np.ndarray,
-        rot:        np.ndarray,
-    ) -> "Port":
-        """
-        降级工厂方法：对无法识别的类型创建占位 Port，不阻断处理流程。
-        根据 ldraw_type 字符串中是否含有 "hole" 来推测 FEMALE / MALE。
-        旋转矩阵直接使用原始值（无归一化）。
-        """
-        iface = _DEFAULT_FEMALE if "hole" in ldraw_type.lower() else _DEFAULT_MALE
-        return cls(name=name, interface=iface, position=pos, rotation=rot, port_type=ldraw_type)
-
-    @classmethod
-    def from_ldraw_or_fallback(
-        cls,
-        name:       str,
-        ldraw_type: str,
-        pos:        np.ndarray,
-        rot:        np.ndarray,
-    ) -> "Port":
-        """
-        组合工厂：先尝试标准查表，失败则降级。保证总能返回 Port。
-        """
-        port = cls.create_from_ldraw(name, ldraw_type, pos, rot)
-        return port if port is not None else cls.create_fallback(name, ldraw_type, pos, rot)
 
     # ------------------------------------------------------------------ #
     # 内部辅助

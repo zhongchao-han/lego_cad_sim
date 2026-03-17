@@ -21,7 +21,8 @@ ABS_DENSITY = 1040.0  # kg/m^3
 
 # 要识别的语义原件后缀名，用于 LDraw 数据提取的语义约束建模
 SEMANTIC_PRIMITIVES = [
-    "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat"
+    "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat",
+    "connect.dat",
 ]
 
 # 连接摩擦件前缀 — 在插销类零件中定义摩擦连接段的几何原件
@@ -197,9 +198,13 @@ class LDrawParser:
                         ldraw_type = child_file if is_semantic else "peg"
                         port_name  = f"port_{len(local_ports)}"
 
-                        # 工厂方法：统一归一化插入轴，未知类型降级
-                        port = Port.from_ldraw_or_fallback(port_name, ldraw_type, pos_si, rot_mat)
-                        local_ports.append(port)
+                        # 严格解析：如果原件未定义，将打印 CRITICAL 日志并跳过该端口
+                        port = Port.create_from_ldraw(
+                            port_name, ldraw_type, pos_si, rot_mat,
+                            part_context=filename
+                        )
+                        if port:
+                            local_ports.append(port)
 
                     elif recursive:
                         local_ports.extend(
@@ -218,9 +223,12 @@ class LDrawParser:
                 rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
                 rot_global = transform[:3, :3] @ rot_local
                 p_type     = mp.get("type", "manual_fallback.dat")
-                port_name  = f"port_{len(local_ports)}"
-                port = Port.from_ldraw_or_fallback(port_name, p_type, pos_global * LDU_TO_SI, rot_global)
-                local_ports.append(port)
+                port = Port.create_from_ldraw(
+                    port_name, p_type, pos_global * LDU_TO_SI, rot_global,
+                    part_context=part_name
+                )
+                if port:
+                    local_ports.append(port)
 
         # 位置去重
         local_ports = self._deduplicate_ports(local_ports)

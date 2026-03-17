@@ -99,6 +99,9 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # 半销：长度为梁厚一半
     "halfpin.dat":  ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 20.0 * LDU),
 
+    # Technic 销连接原件（connect.dat）：4274/3673 等半销的核心语义原件
+    "connect.dat":  ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 20.0 * LDU),
+
     # 摩擦销（friction pin）：半径 6.2 LDU > 孔半径 6.0 LDU，形成摩擦配合
     # LDraw 中对应 6558.dat 等（摩擦脊在模型中被夸大，实际阻尼由物理引擎注入）
     "fric_pin.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),

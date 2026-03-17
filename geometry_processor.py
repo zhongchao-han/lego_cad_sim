@@ -49,7 +49,13 @@ class GeometryProcessor:
         colors = {}
         config_path = os.path.join(self.ldraw_path, "LDConfig.ldr")
         if not os.path.exists(config_path):
-            logger.warning("LDConfig.ldr not found, colors will fall back to gray")
+            logger.critical(
+                f"\n{'!'*60}\n"
+                f"MISSING COLOR CONFIG: 未找到 LDConfig.ldr!\n"
+                f"路径: {config_path}\n"
+                f"结果: 系统无法解析任何 LDraw 颜色，渲染将可能崩溃或显示异常。\n"
+                f"{'!'*60}\n"
+            )
             return colors
         try:
             with open(config_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -75,9 +81,14 @@ class GeometryProcessor:
         """Resolve an LDraw color code to (R, G, B, A)."""
         if color_code in self.color_table:
             return self.color_table[color_code]
-        if color_code == 24:
-            return (51, 51, 51, 255)
-        return (127, 127, 127, 255)
+        
+        # 严格模式：未定义颜色打印 CRITICAL 报错
+        logger.critical(
+            f"UNDEFINED COLOR CODE: 颜色代码 {color_code} 未在 LDConfig.ldr 中定义。\n"
+            f"请检查模型文件或更新配色表。"
+        )
+        # 返回一个极其显眼的“报错紫” (Magenta) 用于视觉反馈
+        return (255, 0, 255, 255)
 
     def extract_geometry(self, filename: str, transform: np.ndarray = np.eye(4), parent_color_code: int = 16, inverted: bool = False) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple]]:
         """
