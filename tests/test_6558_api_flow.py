@@ -52,6 +52,22 @@ def test_6558_port_flow():
         elif pos[0] < 0:
             assert z_axis[0] < -0.8, f"位于 -X 端的端口 {i}，其 Z 轴 {z_axis} 未指向外部 (-X)"
 
+        # 3. 核心物理校验：必须是合法的右手系旋转矩阵 (SO(3))
+        # 行列式必须为 1 (不能是 -1，否则镜像会导致渲染出错)
+        det = np.linalg.det(rot)
+        assert np.isclose(det, 1.0), f"端口 {i} 不是右手系！det={det}。这会导致前端渲染镜像翻转。"
+        
+        # 4. 正交性校验：R * R.T 应该等于单位阵
+        is_orthogonal = np.allclose(rot @ rot.T, np.eye(3), atol=1e-6)
+        assert is_orthogonal, f"端口 {i} 旋转矩阵不是正交的！\n{rot}"
+        
+        # 5. 确保 Z 轴没有被“修复”逻辑改动
+        # 在 6558 的例子中，Z 轴应该严格对应 X 方向
+        if pos[0] > 0:
+            assert np.allclose(z_axis, [1, 0, 0]), f"端口 {i} Z 轴偏移: {z_axis}"
+        else:
+            assert np.allclose(z_axis, [-1, 0, 0]), f"端口 {i} Z 轴偏移: {z_axis}"
+
     print("\n[SUCCESS] 6558 端口流验证通过：位置与方向符合物理逻辑。")
 
 if __name__ == "__main__":

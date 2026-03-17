@@ -146,11 +146,14 @@ class Port:
              logger.error(f"FAIL TO NORMALIZE: 原件 {ldraw_type} 缺少归一化矩阵映射。")
              return None
 
+        # 核心修复：强制转换为右手正交系，防止 LDraw 镜像导致前端/物理引擎崩溃
+        final_rot = cls._ensure_right_handed(normalized_rot)
+
         return cls(
             name=name,
             interface=iface,
             position=pos,
-            rotation=normalized_rot,
+            rotation=final_rot,
             port_type=ldraw_type,
         )
 
@@ -172,6 +175,39 @@ class Port:
         if normalizer is None:
             return rot.copy()
         return rot @ normalizer
+
+    @staticmethod
+    def _ensure_right_handed(rot: np.ndarray) -> np.ndarray:
+        """
+        强制将矩阵转换为标准右手正交矩阵 (SO(3))。
+        保持 Z 轴（插入方向）绝对不动，重新构建 X 和 Y。
+        """
+        # 1. 提取原始 Z 轴并归一化（这是我们的主轴）
+        z = rot[:, 2]
+        z = z / (np.linalg.norm(z) + 1e-12)
+
+        # 2. 尝试提取原始 Y 轴
+        y_orig = rot[:, 1]
+        
+        # 3. 如果 Y 与 Z 平行（极罕见），选择一个备用轴
+        if abs(np.dot(y_orig, z)) > 0.99:
+            y_orig = np.array([1.0, 0.0, 0.0]) if abs(z[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+
+        # 4. 构建相互垂直的 X, Y
+        # X = Y_orig cross Z
+        x = np.cross(y_orig, z)
+        x = x / (np.linalg.norm(x) + 1e-12)
+        
+        # Y = Z cross X (确保三者构成右手系)
+        y = np.cross(z, x)
+        
+        # 5. 组装新矩阵
+        new_rot = np.zeros((3, 3))
+        new_rot[:, 0] = x
+        new_rot[:, 1] = y
+        new_rot[:, 2] = z
+        
+        return new_rot
 
     # ------------------------------------------------------------------ #
     # 属性
