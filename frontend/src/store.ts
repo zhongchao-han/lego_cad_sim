@@ -24,8 +24,11 @@ type ConnectionGraph = Record<string, Set<string>>;
 
 type FocusMode = 'part' | 'port' | null;
 
+export type AppView = 'ASSEMBLY' | 'VERIFY';
+
 interface StoreState {
   mode: 'ASSEMBLY' | 'SIMULATION';
+  view: AppView;
   parts: Record<string, PartState>;
   connections: ConnectionGraph;
   wsConnected: boolean;
@@ -39,6 +42,7 @@ interface StoreState {
   enableContactShadows: boolean;
   debugMode: boolean;
 
+  setView: (view: AppView) => void;
   toggleMode: () => Promise<void>;
   updatePartState: (partId: string, state: Omit<PartState, 'zone'> & { zone?: ZoneType }) => void;
   batchUpdatePartStates: (updates: Record<string, PartState>) => void;
@@ -197,6 +201,7 @@ const _history = new HistoryStack(50);
 
 export const useStore = create<StoreState>((set, get) => ({
   mode: 'ASSEMBLY',
+  view: 'ASSEMBLY',
   parts: {
     "32524": { position: [0, 0.005, 0],       quaternion: [0, 0, 0, 1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
     "32523": { position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
@@ -216,6 +221,8 @@ export const useStore = create<StoreState>((set, get) => ({
   canUndo: false,
   canRedo: false,
   workbenchGrid: new WorkbenchGrid(),
+
+  setView: (view) => set({ view }),
 
   toggleMode: async () => {
     const currentMode = get().mode;
@@ -308,8 +315,7 @@ export const useStore = create<StoreState>((set, get) => ({
   //
   // 核心修复（来自 docs/issue/pin_clipping_issue.md）：
   //   1. 移除 moveTargetToSource 启发式判断 — Source 组始终移动
-  //   2. 废除 stripAxis 投影对齐，改用点对点对齐（Point-to-Point）
-  //      原因：stripAxis 会抹掉端口沿插入轴的位移（如 6558 长短端）
+  //   2. 废除 stripAxis 投影对齐，改用 point-to-point 对齐（见 docs/issue/6558_pin_flipping_analysis.md）
   // =================================================================
 
   snapParts: async (source, target) => {
@@ -326,7 +332,7 @@ export const useStore = create<StoreState>((set, get) => ({
       return false;
     }
 
-    const baseAxis: Vec3 = [0, 0, 1]; // Z 轴约定（不得使用 Y 轴）
+    const baseAxis: Vec3 = [0, 0, 1]; // Z 轴约定
     const srcAxisLocal = mat3MulVec3(source.rotation, baseAxis);
     const tgtAxisLocal = mat3MulVec3(target.rotation, baseAxis);
     const srcAxisWorld = vecNormalize(quatApplyToVec3(sourcePart.quaternion, srcAxisLocal));
@@ -334,13 +340,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const isPegIntoHole = source.portType === 'peg' && target.portType === 'peghole';
 
-    // ──────────────────────────────────────────────────────────────────
-    // "先选即动"：Source 组始终移动，Target 始终是锚点。
-    // 禁止任何基于连接状态的"谁动"判断。
-    // ──────────────────────────────────────────────────────────────────
     const srcGroup = getConnectedGroup(connections, source.partId, target.partId);
 
-    // 保存 Snap 前快照（用于 Undo）
+    // 保存 Snap 前快照
     const prevPositions: SnapSnapshot['prevPositions'] = {};
     for (const pid of srcGroup) {
       const p = parts[pid];
@@ -349,7 +351,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const updated: Record<string, PartState> = { ...parts };
 
-    // 步骤 1：旋转 Source 组，使插入轴与 Target 对齐
+    // 步骤 1：旋转 Source 组
     const effectiveSrcAxis: Vec3 = isPegIntoHole
       ? vecScale(srcAxisWorld, -1) as Vec3
       : srcAxisWorld;
@@ -368,11 +370,7 @@ export const useStore = create<StoreState>((set, get) => ({
       };
     }
 
-    // 步骤 2：平移对齐 — 点对点对齐 (Point-to-Point Alignment)
-    // ------------------------------------------------------------------
-    // 废除 stripAxis 投影对齐：它会抹掉端口沿插入轴的位移信息（如 6558 的长短端）。
-    // 直接对齐 Source 端口和 Target 端口的世界空间位置。
-    // ------------------------------------------------------------------
+    // 步骤 2：对齐
     const targetWorldPos = vecAdd(
       targetPart.position,
       quatApplyToVec3(targetPart.quaternion, target.position),
@@ -391,59 +389,37 @@ export const useStore = create<StoreState>((set, get) => ({
       updated[pid] = { ...part, position: vecAdd(part.position, delta) };
     }
 
-    // 物理插入检测（仅 peg→peghole）
+    // 物理检测
     if (isPegIntoHole) {
       try {
-        const res = await axios.get(`${API_URL}/insertion_check`, {
+        await axios.get(`${API_URL}/insertion_check`, {
           params: { peg_id: source.partId, hole_id: target.partId },
         });
-        const d = res.data;
-        const fitLabels: Record<string, string> = {
-          clearance: '间隙配合', friction: '摩擦配合', interference: '过盈配合', blocked: '不可插入',
-        };
-        const fit = fitLabels[d.fit_type] || d.fit_type;
-        if (d.can_fully_insert) {
-          console.log(
-            `[physics] ✅ ${fit} | 过盈=${d.interference_mm}mm(${d.interference_pct}%) ` +
-            `| 插销=[${d.peg_min_radius*1000}, ${d.peg_max_radius*1000}]mm 孔径=${d.hole_radius*1000}mm`,
-          );
-        } else {
-          console.warn(`[physics] ❌ ${fit} | 不能完全插入 (${d.max_passable_length*1000}mm < 梁厚${d.beam_thickness*1000}mm)`);
-        }
-      } catch (e) {
-        console.warn('[physics] insertion_check failed:', e);
-      }
+      } catch (e) {}
     }
 
-    // 更新连接图
+    // 连接图
     const newConnections = { ...connections };
     if (!newConnections[source.partId]) newConnections[source.partId] = new Set();
     if (!newConnections[target.partId]) newConnections[target.partId] = new Set();
     newConnections[source.partId] = new Set(newConnections[source.partId]).add(target.partId);
     newConnections[target.partId] = new Set(newConnections[target.partId]).add(source.partId);
 
-    // 构建 Undo 命令（diff snapshot）
-    const addedConnections = [{ from: source.partId, to: target.partId }];
+    // History
     const snapCmd = createSnapCommand(
-      { movedPartIds: srcGroup, prevPositions, addedConnections },
-      () => {/* redo: re-run snapParts — handled by re-push */},
+      { movedPartIds: srcGroup, prevPositions, addedConnections: [{ from: source.partId, to: target.partId }] },
+      () => {},
       (snap) => {
-        // undo: 恢复零件位置并删除连接
         set((prev) => {
           const revertedParts = { ...prev.parts };
           for (const [pid, saved] of Object.entries(snap.prevPositions)) {
-            if (revertedParts[pid]) {
-              revertedParts[pid] = { ...revertedParts[pid], ...saved };
-            }
+            if (revertedParts[pid]) revertedParts[pid] = { ...revertedParts[pid], ...saved };
           }
           const revertedConn = { ...prev.connections };
           for (const { from, to } of snap.addedConnections) {
-            const f = new Set(revertedConn[from]);
-            f.delete(to);
-            const t = new Set(revertedConn[to]);
-            t.delete(from);
-            revertedConn[from] = f;
-            revertedConn[to] = t;
+            const f = new Set(revertedConn[from]); f.delete(to);
+            const t = new Set(revertedConn[to]); t.delete(from);
+            revertedConn[from] = f; revertedConn[to] = t;
           }
           return { parts: revertedParts, connections: revertedConn };
         });
@@ -452,8 +428,7 @@ export const useStore = create<StoreState>((set, get) => ({
     _history.push(snapCmd);
 
     set({ parts: updated, connections: newConnections, selectedPort: null });
-    console.log(`✅ Snap [源→目标]: ${source.partId} ↔ ${target.partId}`);
-
+    
     try {
       await axios.post(`${API_URL}/snap_parts`, {
         parent_id: target.partId,
@@ -465,9 +440,7 @@ export const useStore = create<StoreState>((set, get) => ({
         child_origin: source.position,
         child_rot: flatRot(source.rotation),
       });
-    } catch (e) {
-      console.error("Snap topo sync failed:", e);
-    }
+    } catch (e) {}
 
     return true;
   }
