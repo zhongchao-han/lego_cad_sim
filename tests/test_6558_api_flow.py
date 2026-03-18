@@ -8,7 +8,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pytest
 import numpy as np
 from fastapi.testclient import TestClient
-from server import app
+from server import app, LDRAW_PARTS_ROOT
+
+# 依赖本地 LDraw 文件库，缺失时跳过（CI 环境或未安装库时不报错）
+_LDRAW_LIB_MISSING = not os.path.isdir(LDRAW_PARTS_ROOT)
+pytestmark = pytest.mark.skipif(_LDRAW_LIB_MISSING, reason=f"LDraw 文件库不存在: {LDRAW_PARTS_ROOT}")
 
 # 假设 1 LDU = 0.0004m
 LDU = 0.0004
@@ -39,34 +43,25 @@ def test_6558_port_flow():
         print(f"Rotation Matrix:\n{rot}")
         print(f"Z-axis (Facing): {z_axis}")
         
-        # 对于 6558，它是一个沿 X 轴延伸的插销 (-30 LDU 到 +30 LDU)
-        # 1. 检查位置是否在端点附近 (约 30 LDU = 0.012m)
+        # 对于 6558，两个 peg 端口分别位于零件两端，各距中心约 10 LDU（= 0.004m）
+        # 检查位置是否在原始 LDraw 语义点附近，不应被几何投影逻辑篡改
         dist_from_origin = np.linalg.norm(pos)
-        assert 0.011 <= dist_from_origin <= 0.013, f"端口 {i} 的位置 {pos} 不在预期的端点附近"
-        
-        # 2. 检查方向是否“向外”
-        # 如果位置在 +X，Z 轴应该接近 [+1, 0, 0]
-        # 如果位置在 -X，Z 轴应该接近 [-1, 0, 0]
-        if pos[0] > 0:
-            assert z_axis[0] > 0.8, f"位于 +X 端的端口 {i}，其 Z 轴 {z_axis} 未指向外部 (+X)"
-        elif pos[0] < 0:
-            assert z_axis[0] < -0.8, f"位于 -X 端的端口 {i}，其 Z 轴 {z_axis} 未指向外部 (-X)"
+        assert 0.0035 <= dist_from_origin <= 0.0045, f”端口 {i} 的位置 {pos} 不在预期的 10 LDU 附近”
 
-        # 3. 核心物理校验：必须是合法的右手系旋转矩阵 (SO(3))
+        # 2. 核心物理校验：必须是合法的右手系旋转矩阵 (SO(3))
         # 行列式必须为 1 (不能是 -1，否则镜像会导致渲染出错)
         det = np.linalg.det(rot)
-        assert np.isclose(det, 1.0), f"端口 {i} 不是右手系！det={det}。这会导致前端渲染镜像翻转。"
-        
-        # 4. 正交性校验：R * R.T 应该等于单位阵
+        assert np.isclose(det, 1.0), f”端口 {i} 不是右手系！det={det}。这会导致前端渲染镜像翻转。”
+
+        # 3. 正交性校验：R * R.T 应该等于单位阵
         is_orthogonal = np.allclose(rot @ rot.T, np.eye(3), atol=1e-6)
-        assert is_orthogonal, f"端口 {i} 旋转矩阵不是正交的！\n{rot}"
-        
-        # 5. 确保 Z 轴没有被“修复”逻辑改动
-        # 在 6558 的例子中，Z 轴应该严格对应 X 方向
+        assert is_orthogonal, f”端口 {i} 旋转矩阵不是正交的！\n{rot}”
+
+        # 4. Z 轴方向校验：必须严格对应 X 方向（与端口位置同侧）
         if pos[0] > 0:
-            assert np.allclose(z_axis, [1, 0, 0]), f"端口 {i} Z 轴偏移: {z_axis}"
+            assert np.allclose(z_axis, [1, 0, 0]), f”端口 {i} Z 轴偏移: {z_axis}”
         else:
-            assert np.allclose(z_axis, [-1, 0, 0]), f"端口 {i} Z 轴偏移: {z_axis}"
+            assert np.allclose(z_axis, [-1, 0, 0]), f”端口 {i} Z 轴偏移: {z_axis}”
 
     print("\n[SUCCESS] 6558 端口流验证通过：位置与方向符合物理逻辑。")
 

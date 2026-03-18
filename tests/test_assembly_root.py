@@ -30,11 +30,11 @@ from assembly import Assembly
 # ---------------------------------------------------------------------------
 
 def make_hole(name="h", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "peghole.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "peghole.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_pin(name="p", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "pin.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "pin.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_beam(part_id: str, *, hole_positions=None) -> Part:

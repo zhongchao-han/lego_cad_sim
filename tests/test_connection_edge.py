@@ -36,23 +36,23 @@ from connection_edge import ConnectionEdge, JointState
 # ---------------------------------------------------------------------------
 
 def make_hole(pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback("h", "peghole.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw("h", "peghole.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_pin(pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback("p", "pin.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw("p", "pin.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_fric_pin(pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback("fp", "fric_pin.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw("fp", "fric_pin.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_axle(pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback("ax", "axle.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw("ax", "axle.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_axlehole(pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback("ah", "axlehole.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw("ah", "axlehole.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_edge(parent_type="pin", child_type="peghole",

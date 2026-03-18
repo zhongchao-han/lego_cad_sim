@@ -344,7 +344,7 @@ if __name__ == "__main__":
     from connection_interface import LDU
 
     def mk_port(name, ldraw_type, pos=(0, 0, 0)):
-        return Port.from_ldraw_or_fallback(name, ldraw_type, np.array(pos, dtype=float), np.eye(3))
+        return Port.create_from_ldraw(name, ldraw_type, np.array(pos, dtype=float), np.eye(3))
 
     asm = Assembly("test_asm")
 

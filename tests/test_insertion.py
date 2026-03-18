@@ -40,23 +40,23 @@ from urdf_exporter import URDFExporter
 # ---------------------------------------------------------------------------
 
 def make_hole_port(name="h", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "peghole.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "peghole.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_pin_port(name="p", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "pin.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "pin.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_fric_pin_port(name="fp", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "fric_pin.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "fric_pin.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_axle_port(name="ax", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "axle.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "axle.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 def make_axlehole_port(name="ah", pos=(0.0, 0.0, 0.0)) -> Port:
-    return Port.from_ldraw_or_fallback(name, "axlehole.dat", np.array(pos, dtype=float), np.eye(3))
+    return Port.create_from_ldraw(name, "axlehole.dat", np.array(pos, dtype=float), np.eye(3))
 
 
 # ---------------------------------------------------------------------------
@@ -333,7 +333,7 @@ class TestPartGeometry:
     def test_insertion_axis_preserved_through_part(self):
         """端口的插入轴在全局坐标系下应由零件旋转矩阵正确变换。"""
         beam = Part("B", "beam")
-        beam.add_port(make_hole_port("h"))  # LDraw +Y → Z = [0, 1, 0]
+        beam.add_port(make_hole_port("h"))  # LDraw -Y → Z = [0, -1, 0]
 
         # 零件绕 Z 轴旋转 90°
         Rz90 = np.array([[0, -1, 0, 0],
@@ -342,8 +342,8 @@ class TestPartGeometry:
                          [0,  0, 0, 1]], dtype=float)
         beam.transform = Rz90
         axis = beam.get_port_global_insertion_axis("h")
-        # [0,1,0] 经 Rz90 → [-1,0,0]
-        np.testing.assert_allclose(axis, [-1, 0, 0], atol=1e-9)
+        # [0,-1,0] 经 Rz90 → [1,0,0]
+        np.testing.assert_allclose(axis, [1, 0, 0], atol=1e-9)
 
 
 # ---------------------------------------------------------------------------

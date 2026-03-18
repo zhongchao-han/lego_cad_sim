@@ -136,23 +136,6 @@ async def get_ldraw_part(part_id: str, color: int = 7):
 
     mesh_url = f"/ldraw_meshes/{glb_filename}"
 
-    peg_ports = [p for p in ports if not p.type.lower().endswith('hole.dat')]
-    if peg_ports:
-        verts_ldu, _, _ = geo_proc.extract_geometry(dat_filename)
-        if verts_ldu:
-            verts_si = np.array(verts_ldu) * LDU
-            for p in peg_ports:
-                rot = np.array(p.rotation)
-                pos = np.array(p.position)
-                protrusion_axis = rot @ np.array([0.0, 0.0, 1.0])
-                tip_dir = protrusion_axis
-                tip_dir = tip_dir / (np.linalg.norm(tip_dir) + 1e-12)
-                projections = verts_si @ tip_dir
-                max_proj = float(np.max(projections))
-                current_proj = float(np.dot(pos, tip_dir))
-                p.position = (pos + (max_proj - current_proj) * tip_dir).tolist()
-            logger.info(f"[{part_id}] peg 端口已投影到网格边界尖端")
-
     return LDrawPartResponse(
         part_id=part_id,
         ports=ports,

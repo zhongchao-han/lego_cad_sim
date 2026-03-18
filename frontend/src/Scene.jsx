@@ -77,7 +77,7 @@ LDrawMeshRenderer.propTypes = {
 };
 
 // --- Camera Controller: 平滑聚焦 + 自动推进 ---
-const FOCUS_DISTANCE = 0.05;
+const FOCUS_DISTANCE = 0.2;
 const LERP_SPEED = 0.08;
 
 const CameraController = () => {
@@ -184,7 +184,7 @@ const LegoPart = memo(({ id }) => {
                 r[0][0], r[0][1], r[0][2], 0,
                 r[1][0], r[1][1], r[1][2], 0,
                 r[2][0], r[2][1], r[2][2], 0,
-                0,       0,       0,       1
+                0, 0, 0, 1
             );
             return new THREE.Quaternion().setFromRotationMatrix(mat);
         };
@@ -242,11 +242,11 @@ const LegoPart = memo(({ id }) => {
     return (
         <group ref={groupRef}>
             {activeMeshUrl ? (
-                <LDrawMeshRenderer 
-                    url={activeMeshUrl} 
-                    setHover={setHover} 
-                    setFocus={setFocus} 
-                    id={id} 
+                <LDrawMeshRenderer
+                    url={activeMeshUrl}
+                    setHover={setHover}
+                    setFocus={setFocus}
+                    id={id}
                 />
             ) : (
                 <mesh
@@ -264,55 +264,55 @@ const LegoPart = memo(({ id }) => {
                 const color = isHole ? '#2196f3' : '#e040fb';
 
                 return (
-                <group key={idx} position={port.localPos} quaternion={port.quaternion}>
-                    <mesh>
-                        <sphereGeometry args={[4 * LDU, 12, 12]} />
-                        <meshBasicMaterial
-                            color={color}
-                            transparent
-                            opacity={0.85}
-                            depthTest={false}
-                        />
-                    </mesh>
-                    {/* 箭杆：指示插入方向 (局部 Z 轴) */}
-                    <mesh position={[0, 0, 3 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
-                        <cylinderGeometry args={[0.5 * LDU, 0.5 * LDU, 6 * LDU, 8]} />
-                        <meshBasicMaterial
-                            color={color}
-                            transparent
-                            opacity={0.85}
-                            depthTest={false}
-                        />
-                    </mesh>
-                    {/* 箭头 */}
-                    <mesh position={[0, 0, 8 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
-                        <coneGeometry args={[2 * LDU, 4 * LDU, 8]} />
-                        <meshBasicMaterial
-                            color={color}
-                            transparent
-                            opacity={0.85}
-                            depthTest={false}
-                        />
-                    </mesh>
+                    <group key={idx} position={port.localPos} quaternion={port.quaternion}>
+                        <mesh>
+                            <sphereGeometry args={[4 * LDU, 12, 12]} />
+                            <meshBasicMaterial
+                                color={color}
+                                transparent
+                                opacity={0.85}
+                                depthTest={false}
+                            />
+                        </mesh>
+                        {/* 箭杆：指示插入方向 (局部 Z 轴) */}
+                        <mesh position={[0, 0, 3 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
+                            <cylinderGeometry args={[0.5 * LDU, 0.5 * LDU, 6 * LDU, 8]} />
+                            <meshBasicMaterial
+                                color={color}
+                                transparent
+                                opacity={0.85}
+                                depthTest={false}
+                            />
+                        </mesh>
+                        {/* 箭头 */}
+                        <mesh position={[0, 0, 8 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
+                            <coneGeometry args={[2 * LDU, 4 * LDU, 8]} />
+                            <meshBasicMaterial
+                                color={color}
+                                transparent
+                                opacity={0.85}
+                                depthTest={false}
+                            />
+                        </mesh>
 
-                    <mesh
-                        renderOrder={999}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handlePortClick(e, port);
-                        }}
-                        onPointerOver={(e) => {
-                            e.stopPropagation();
-                            document.body.style.cursor = 'pointer';
-                        }}
-                        onPointerOut={() => {
-                            document.body.style.cursor = 'auto';
-                        }}
-                    >
-                        <sphereGeometry args={[12 * LDU, 6, 6]} />
-                        <meshBasicMaterial transparent opacity={0} depthTest={false} />
-                    </mesh>
-                </group>
+                        <mesh
+                            renderOrder={999}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handlePortClick(e, port);
+                            }}
+                            onPointerOver={(e) => {
+                                e.stopPropagation();
+                                document.body.style.cursor = 'pointer';
+                            }}
+                            onPointerOut={() => {
+                                document.body.style.cursor = 'auto';
+                            }}
+                        >
+                            <sphereGeometry args={[12 * LDU, 6, 6]} />
+                            <meshBasicMaterial transparent opacity={0} depthTest={false} />
+                        </mesh>
+                    </group>
                 );
             })}
         </group>

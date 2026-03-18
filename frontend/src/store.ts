@@ -308,7 +308,8 @@ export const useStore = create<StoreState>((set, get) => ({
   //
   // 核心修复（来自 docs/issue/pin_clipping_issue.md）：
   //   1. 移除 moveTargetToSource 启发式判断 — Source 组始终移动
-  //   2. stripAxis 无条件应用于 source 和 target，不区分 peg/hole 类型
+  //   2. 废除 stripAxis 投影对齐，改用点对点对齐（Point-to-Point）
+  //      原因：stripAxis 会抹掉端口沿插入轴的位移（如 6558 长短端）
   // =================================================================
 
   snapParts: async (source, target) => {
@@ -367,23 +368,23 @@ export const useStore = create<StoreState>((set, get) => ({
       };
     }
 
-    // 步骤 2：平移对齐 — stripAxis 无条件应用于 source 和 target
-    //   对 target：不论是 peg 还是 hole，都投影到几何中心轴
-    //   对 source：旋转后同样投影，再计算 delta
-    const targetAlignLocal = stripAxis(target.position, tgtAxisLocal);
-    const targetAlignWorld = vecAdd(
+    // 步骤 2：平移对齐 — 点对点对齐 (Point-to-Point Alignment)
+    // ------------------------------------------------------------------
+    // 废除 stripAxis 投影对齐：它会抹掉端口沿插入轴的位移信息（如 6558 的长短端）。
+    // 直接对齐 Source 端口和 Target 端口的世界空间位置。
+    // ------------------------------------------------------------------
+    const targetWorldPos = vecAdd(
       targetPart.position,
-      quatApplyToVec3(targetPart.quaternion, targetAlignLocal),
+      quatApplyToVec3(targetPart.quaternion, target.position),
     );
 
-    const sourceAlignLocal = stripAxis(source.position, srcAxisLocal);
     const rotatedSource = updated[source.partId]!;
-    const sourceAlignWorld = vecAdd(
+    const sourceWorldPos = vecAdd(
       rotatedSource.position,
-      quatApplyToVec3(rotatedSource.quaternion, sourceAlignLocal),
+      quatApplyToVec3(rotatedSource.quaternion, source.position),
     );
 
-    const delta = vecSub(targetAlignWorld, sourceAlignWorld);
+    const delta = vecSub(targetWorldPos, sourceWorldPos);
     for (const pid of srcGroup) {
       const part = updated[pid];
       if (!part) continue;
