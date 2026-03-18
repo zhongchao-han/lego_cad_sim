@@ -15,6 +15,7 @@ from geometry_processor import GeometryProcessor
 from fastapi.staticfiles import StaticFiles
 from connection_interface import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
 from port import Port
+from port_config_manager import PortConfigManager
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -24,6 +25,9 @@ LDU = 0.0004  # 1 LDraw Unit = 0.4mm
 # --- 服务实体与配置 ---
 
 app = FastAPI(title="LEGO Technic Simulation Backend", version="1.0.0")
+
+# 初始化端口配置管理器
+port_config_manager = PortConfigManager()
 
 allow_origins_str = os.environ.get("FASTAPI_ALLOW_ORIGINS", "*")
 allow_origins = [origin.strip() for origin in allow_origins_str.split(",")] if allow_origins_str else ["*"]
@@ -75,7 +79,38 @@ class LDrawPartResponse(BaseModel):
     ports: List[LDrawPort]
     mesh_url: Optional[str] = None
 
+class VerifySaveRequest(BaseModel):
+    part_id: str
+    ports: List[LDrawPort]
+
 # --- 核心业务 API ---
+
+@app.get("/api/verify/pending_list")
+async def get_pending_list():
+    """获取待复核零件列表，按自信度排序。"""
+    return port_config_manager.get_pending_parts()
+
+@app.post("/api/verify/save")
+async def save_verified_ports(req: VerifySaveRequest):
+    """保存人工复核后的端口数据，状态设为 verified。"""
+    try:
+        ports_dict = [p.dict() for p in req.ports]
+        # 注意：这里调用 update_part_config，将状态设为 verified
+        success = port_config_manager.update_part_config(
+            part_id=req.part_id,
+            ports=ports_dict,
+            status="verified",
+            confidence=1.0,
+            force=True  # 人工复核总是强制覆盖
+        )
+        if success:
+            port_config_manager.save()
+            return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
+        else:
+            return {"status": "error", "msg": f"Failed to update config for {req.part_id}."}
+    except Exception as e:
+        logger.error(f"保存复核数据失败: {req.part_id} - {e}", exc_info=True)
+        return {"status": "error", "msg": str(e)}
 
 @app.post("/api/toggle_mode")
 async def toggle_mode(mode: str):
