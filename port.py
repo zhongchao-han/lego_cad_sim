@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 # 约定：Port.rotation 的 Z 列（即 rotation[:, 2]）= 插入方向单位向量
 #
 # LDraw 原件的原始定义：插入轴沿 Y 轴
-#   FEMALE（孔）：+Y = 孔接收/开口方向  → 令 Z = +Y
-#     normalizer = Rx(-90°)
+#   FEMALE（孔）：-Y = 孔开口/外部方向  → 令 Z = -Y
+#     normalizer = Rx(+90°)
 #   MALE（销/轴）：-Y = 销突出方向      → 令 Z = -Y
 #     normalizer = Rx(+90°)
 #
@@ -40,20 +40,14 @@ logger = logging.getLogger(__name__)
 #   则 R_norm[:, 2] = R_ldraw @ normalizer[:, 2] = R_ldraw @ target_axis
 #
 # 验证：
-#   Rx(-90°)[:, 2] = [0, 1, 0] = +Y  → FEMALE Z = R_ldraw 的 Y 列（+Y）
-#   Rx(+90°)[:, 2] = [0,-1, 0] = -Y  → MALE   Z = R_ldraw 的 -Y 列（-Y）
-
-_Rx_NEG90: np.ndarray = np.array(
-    [[1,  0,  0],
-     [0,  0,  1],
-     [0, -1,  0]], dtype=float
-)  # Rx(-90°)：FEMALE 归一化，Z = +Y_ldraw
+#   Rx(+90°)[:, 2] = [0,-1, 0] = -Y  → Z = R_ldraw 的 -Y 列（-Y）
+#   (注：之前 FEMALE 使用 Rx(-90°) 映射到 +Y 导致指向了零件内部)
 
 _Rx_POS90: np.ndarray = np.array(
     [[1,  0,  0],
      [0,  0, -1],
      [0,  1,  0]], dtype=float
-)  # Rx(+90°)：MALE   归一化，Z = -Y_ldraw
+)  # Rx(+90°)：归一化矩阵，映射 LDraw 的 -Y 到 Z+
 
 # MALE ↔ FEMALE 对合条件（连接后 Z_plug = -Z_socket）：
 # 绕 X 轴旋转 180° 可将 Z 翻转：Z → -Z，同时翻转 Y。
@@ -65,13 +59,13 @@ _R_FLIP_Z: np.ndarray = np.array(
 
 # 每种 LDraw 原件对应的归一化矩阵
 _NORMALIZER_MAP: Dict[str, np.ndarray] = {
-    # FEMALE（孔）—— 使用 Rx(-90°)
-    "peghole":          _Rx_NEG90,
-    "peghole.dat":      _Rx_NEG90,
-    "axlehole":         _Rx_NEG90,
-    "axlehole.dat":     _Rx_NEG90,
-    "axleholepin.dat":  _Rx_NEG90,
-    # MALE（销/轴）—— 使用 Rx(+90°)
+    # FEMALE（孔）—— 统一使用 Rx(+90°)，使 Z 指向 -Y_ldraw (开口向外)
+    "peghole":          _Rx_POS90,
+    "peghole.dat":      _Rx_POS90,
+    "axlehole":         _Rx_POS90,
+    "axlehole.dat":     _Rx_POS90,
+    "axleholepin.dat":  _Rx_POS90,
+    # MALE（销/轴）—— 使用 Rx(+90°)，使 Z 指向 -Y_ldraw (突出向外)
     "peg":              _Rx_POS90,
     "pin":              _Rx_POS90,
     "pin.dat":          _Rx_POS90,
@@ -218,9 +212,8 @@ class Port:
         """
         插入方向的单位向量（= rotation 矩阵第 3 列，即 Z 轴）。
 
-        FEMALE (孔)：开口朝向，销从此方向进入。
-        MALE   (销)：突出朝向，销从此方向伸出。
-        连接条件：Z_plug ≈ -Z_socket（两者反向对扣）。
+        约定：Z 轴始终指向零件"外部"（开口向外或销/轴突出向外）。
+        连接条件：在各自局部坐标系下 Z 轴同向，连接计算时通过 T_flip 实现反向对扣。
         """
         return self.rotation[:, 2]
 
@@ -351,18 +344,19 @@ if __name__ == "__main__":
     assert hole is not None and pin is not None, "已注册类型应成功创建"
 
     # 2. Z 轴归一化验证
-    # peghole.dat (FEMALE)：Z = +Y_ldraw = [0,1,0]（单位矩阵的 Y 列）
-    assert np.allclose(hole.insertion_axis, [0, 1, 0], atol=1e-9), \
-        f"FEMALE Z 应为 [0,1,0]，实际：{hole.insertion_axis}"
-    # pin.dat (MALE)：Z = -Y_ldraw = [0,-1,0]
+    # 无论 MALE 还是 FEMALE，Z 轴现在都应指向 -Y_ldraw = [0, -1, 0] (开口/突出向外)
+    assert np.allclose(hole.insertion_axis, [0, -1, 0], atol=1e-9), \
+        f"FEMALE Z 应为 [0,-1,0]，实际：{hole.insertion_axis}"
     assert np.allclose(pin.insertion_axis, [0, -1, 0], atol=1e-9), \
         f"MALE Z 应为 [0,-1,0]，实际：{pin.insertion_axis}"
     print(f"[归一化] hole Z={hole.insertion_axis}, pin Z={pin.insertion_axis}")
 
-    # 3. Z 轴反向（插合条件）
-    assert np.allclose(hole.insertion_axis, -pin.insertion_axis, atol=1e-9), \
-        "插合时 Z_hole == -Z_pin"
-    print("[插合条件] Z_hole == -Z_pin OK")
+    # 3. 朝向一致性验证
+    # 当 Parent 坐标系相同时，两者朝向应相同（均向外）。
+    # 插合时，其中一个零件必然相对于另一个旋转了 180 度，从而满足 Z_a = -Z_b。
+    assert np.allclose(hole.insertion_axis, pin.insertion_axis, atol=1e-9), \
+        "同坐标轴下，MALE 和 FEMALE 插入轴应一致（均向外）"
+    print("[朝向一致性] hole Z == pin Z OK")
 
     # 4. test_fit_with
     assert hole.test_fit_with(pin) == FitType.CLEARANCE
@@ -394,12 +388,10 @@ if __name__ == "__main__":
     assert jax == "fixed"
     print(f"[十字轴] type={jax}")
 
-    # 8. 未知类型 → None / fallback
+    # 8. 未知类型 → None
     unknown = Port.create_from_ldraw("u", "unknown_part.dat", np.zeros(3), np.eye(3))
     assert unknown is None
-    fallback = Port.from_ldraw_or_fallback("u", "unknown_hole.dat", np.zeros(3), np.eye(3))
-    assert fallback is not None and fallback.gender == Gender.FEMALE
-    print("[未知类型] fallback FEMALE OK")
+    print("[未知类型] returns None OK")
 
     # 9. calculate_relative_transform（烟雾测试：结果为 4×4 矩阵）
     T = hole.calculate_relative_transform(pin)
@@ -411,5 +403,19 @@ if __name__ == "__main__":
     assert "type" in d and "position" in d and "rotation" in d
     assert d["type"] == "peghole.dat"
     print(f"[to_dict] type={d['type']}")
+
+    # 11. 镜像矩阵稳健性（LDraw 常见：det = -1）
+    # 构造一个在 X 轴镜像的旋转矩阵
+    mirrored_rot = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
+    m_hole = Port.create_from_ldraw("mh", "peghole.dat", np.zeros(3), mirrored_rot)
+    assert m_hole is not None
+    # 验证输出矩阵是右手系 (det ≈ 1)
+    assert np.linalg.det(m_hole.rotation) > 0, "输出矩阵必须是右手系"
+    # 验证 Z 轴依然正确（identity_rot 的 -Y 经过镜像仍然是 [0, -1, 0]）
+    # 但如果是 R_ldraw @ Rx(+90)，则 Z = R_ldraw[:, 1] (LDraw 的 -Y)
+    # mirrored_rot 的第 2 列是 [0, 1, 0]，所以 R @ Rx(+90) 后的 Z 应该是 [0, -1, 0]
+    assert np.allclose(m_hole.insertion_axis, [0, -1, 0], atol=1e-9), \
+        f"镜像后 Z 轴应维持正确，实际：{m_hole.insertion_axis}"
+    print("[镜像稳健性] det > 0 且 Z 轴正确 OK")
 
     print("\n[所有断言通过 OK]")

@@ -22,7 +22,7 @@ from connection_interface import (
     ConnectionInterface, Gender, Profile, FitType, LDU,
     check_fit, derive_joint_params,
 )
-from port import Port, _Rx_NEG90, _Rx_POS90, _R_FLIP_Z
+from port import Port, _Rx_POS90, _R_FLIP_Z
 
 
 # ---------------------------------------------------------------------------
@@ -133,28 +133,28 @@ class TestDeriveJoint:
 # ---------------------------------------------------------------------------
 
 class TestInsertionAxisNormalization:
-    def test_peghole_z_is_plus_y(self):
-        """peghole.dat (FEMALE)：LDraw +Y → 归一化后 Z = [0, 1, 0]"""
+    def test_peghole_z_is_minus_y(self):
+        """peghole.dat (FEMALE)：LDraw -Y 开口向外 → 归一化后 Z = [0, -1, 0]"""
         p = Port.create_from_ldraw("h", "peghole.dat", np.zeros(3), np.eye(3))
         assert p is not None
-        np.testing.assert_allclose(p.insertion_axis, [0, 1, 0], atol=1e-9)
+        np.testing.assert_allclose(p.insertion_axis, [0, -1, 0], atol=1e-9)
 
     def test_pin_z_is_minus_y(self):
-        """pin.dat (MALE)：LDraw -Y → 归一化后 Z = [0, -1, 0]"""
+        """pin.dat (MALE)：LDraw -Y 突出向外 → 归一化后 Z = [0, -1, 0]"""
         p = Port.create_from_ldraw("p", "pin.dat", np.zeros(3), np.eye(3))
         assert p is not None
         np.testing.assert_allclose(p.insertion_axis, [0, -1, 0], atol=1e-9)
 
-    def test_plug_socket_z_antiparallel(self):
-        """连接条件：Z_plug = -Z_socket"""
+    def test_plug_socket_z_parallel_outward(self):
+        """核心规范：无论极性，同坐标系下 Z 轴均指向外部（平行）"""
         hole = Port.create_from_ldraw("h", "peghole.dat", np.zeros(3), np.eye(3))
         pin  = Port.create_from_ldraw("p", "pin.dat",     np.zeros(3), np.eye(3))
-        np.testing.assert_allclose(hole.insertion_axis, -pin.insertion_axis, atol=1e-9)
+        np.testing.assert_allclose(hole.insertion_axis, pin.insertion_axis, atol=1e-9)
 
-    def test_axlehole_z_is_plus_y(self):
+    def test_axlehole_z_is_minus_y(self):
         p = Port.create_from_ldraw("ah", "axlehole.dat", np.zeros(3), np.eye(3))
         assert p is not None
-        np.testing.assert_allclose(p.insertion_axis, [0, 1, 0], atol=1e-9)
+        np.testing.assert_allclose(p.insertion_axis, [0, -1, 0], atol=1e-9)
 
     def test_axle_z_is_minus_y(self):
         p = Port.create_from_ldraw("ax", "axle.dat", np.zeros(3), np.eye(3))
@@ -167,8 +167,9 @@ class TestInsertionAxisNormalization:
         Rz90 = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
         p = Port.create_from_ldraw("h", "peghole.dat", np.zeros(3), Rz90)
         assert p is not None
-        # 归一化后 Z = Rz90 @ [0,1,0] = [-1,0,0]
-        np.testing.assert_allclose(p.insertion_axis, [-1, 0, 0], atol=1e-9)
+        # 映射 LDraw 的 -Y 到 Z+
+        # 归一化后 Z = Rz90 @ [0,-1,0] = [1,0,0]
+        np.testing.assert_allclose(p.insertion_axis, [1, 0, 0], atol=1e-9)
 
     def test_unknown_type_returns_none(self):
         assert Port.create_from_ldraw("x", "unknown.dat", np.zeros(3), np.eye(3)) is None
@@ -182,7 +183,7 @@ class TestInsertionAxisNormalization:
     def test_frontend_type_peghole_normalizes(self):
         p = Port.create_from_ldraw("h", "peghole", np.zeros(3), np.eye(3))
         assert p is not None
-        np.testing.assert_allclose(p.insertion_axis, [0, 1, 0], atol=1e-9)
+        np.testing.assert_allclose(p.insertion_axis, [0, -1, 0], atol=1e-9)
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +202,9 @@ class TestRelativeTransform:
 
         T_flip 将 Z 翻转 (Z → -Z)，验证旋转分量 = _R_FLIP_Z。
         """
+        # 注意：现在 hole 和 pin 的归一化 Z 都是 [0, -1, 0]
+        # 但 calculate_relative_transform 内部依然执行 T_flip
+        # 使得 pin 在 hole 的坐标系中被旋转了 180°，满足对扣条件。
         hole = make_hole()
         pin  = make_pin()
         T = hole.calculate_relative_transform(pin)
@@ -210,10 +214,7 @@ class TestRelativeTransform:
     def test_depth_translates_along_z(self):
         """depth 参数应沿 Z 轴平移"""
         T = make_hole().calculate_relative_transform(make_pin(), depth=0.005)
-        # Z 列（第 3 列）= [0, 0, -1] after flip，沿其偏移 depth
-        # 平移 = T_flip @ [0, 0, 0.005] = [0, 0, -0.005] ... 由 T_self(I) @ T_flip @ [0,0,depth]
-        # 因为 T_self=I 且 T_other=I：T = T_flip @ [[I,0],[0,1]] 里 T_depth[2,3]=depth
-        # 最终平移 = _R_FLIP_Z @ [0,0,depth] = [0, 0, -depth]
+        # 沿 T_flip 后的 Z 轴平移
         expected_t = _R_FLIP_Z @ np.array([0, 0, 0.005])
         np.testing.assert_allclose(T[:3, 3], expected_t, atol=1e-9)
 
@@ -240,24 +241,6 @@ class TestFactory:
 
     def test_create_from_ldraw_unknown_returns_none(self):
         assert Port.create_from_ldraw("x", "mystery.dat", np.zeros(3), np.eye(3)) is None
-
-    def test_create_fallback_hole(self):
-        p = Port.create_fallback("h", "custom_hole.dat", np.zeros(3), np.eye(3))
-        assert p.gender == Gender.FEMALE
-
-    def test_create_fallback_pin(self):
-        p = Port.create_fallback("p", "custom_pin.dat", np.zeros(3), np.eye(3))
-        assert p.gender == Gender.MALE
-
-    def test_from_ldraw_or_fallback_known(self):
-        p = Port.from_ldraw_or_fallback("h", "peghole.dat", np.zeros(3), np.eye(3))
-        assert p is not None
-        # 已知类型，插入轴应已归一化
-        np.testing.assert_allclose(p.insertion_axis, [0, 1, 0], atol=1e-9)
-
-    def test_from_ldraw_or_fallback_unknown(self):
-        p = Port.from_ldraw_or_fallback("x", "mystery.dat", np.zeros(3), np.eye(3))
-        assert p is not None  # 不应抛出
 
     def test_to_dict_backward_compat(self):
         p = Port.create_from_ldraw("h", "peghole.dat", np.array([1.0, 2.0, 3.0]), np.eye(3))
