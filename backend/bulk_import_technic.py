@@ -18,16 +18,20 @@ TECHNIC_PRIMITIVES = {
     "connect.dat", "bush.dat", "m-axle.dat", "peg.dat"
 }
 
-def is_technic_part(filepath: str) -> bool:
-    """通过扫描文件内容判断是否包含科技接口原语。"""
+def is_technic_part(filename: str, filepath: str) -> bool:
+    """综合通过文件名和文件内容判断是否包含科技接口。"""
+    fname = filename.lower()
+    # 极大放宽关键词
+    keywords = {"beam", "technic", "axle", "pin", "gear", "joint", "conn", "link", "peg", "hole", "liftarm", "panel"}
+    if any(k in fname for k in keywords):
+        return True
+
+    # 只要包含了核心机械孔位原部件就算
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
-                parts = line.strip().split()
-                if len(parts) > 14 and parts[0] == '1':
-                    child = parts[-1].lower()
-                    if any(p in child for p in TECHNIC_PRIMITIVES):
-                        return True
+                if 'peghole' in line or 'axlehole' in line or 'pin.dat' in line or 'axle.dat' in line:
+                    return True
     except:
         pass
     return False
@@ -40,32 +44,30 @@ def bulk_import_technic(ldraw_root: str):
 
     logger.info("正在扫描 LDraw 库以确定科技件列表...")
     technic_parts = []
-    all_files = [f for f in os.listdir(parts_dir) if f.lower().endswith('.dat')]
-    
-    for f in all_files:
-        if is_technic_part(os.path.join(parts_dir, f)):
-            technic_parts.append(f)
+    # 扫描 parts/ 和 parts/s/ (子原件)
+    for root, _, files in os.walk(parts_dir):
+        for f in files:
+            if f.lower().endswith('.dat'):
+                rel_path = os.path.relpath(os.path.join(root, f), parts_dir)
+                if is_technic_part(f, os.path.join(root, f)):
+                    technic_parts.append(rel_path)
     
     logger.info(f"扫描完成，找到 {len(technic_parts)} 个疑似科技件。")
     
-    # 获取当前已有的库，避免重复扫描已验证或已存在的
-    manager = PortLibraryManager()
-    existing_parts = set(manager._data.keys())
-    
-    # 过滤掉已经存在的（除非你想重新扫描，这里我们只补全缺失的）
-    to_scan = [p for p in technic_parts if p not in existing_parts]
-    logger.info(f"其中 {len(to_scan)} 个为新零件，准备执行自动识别...")
-
-    # 分批执行以避免单次运行过长
-    batch_size = 50
+    # 建立识别器
     discoverer = PortDiscoverer(ldraw_path=ldraw_root)
     
-    for i in range(0, len(to_scan), batch_size):
-        batch = to_scan[i:i+batch_size]
-        logger.info(f"正在处理批次 {i//batch_size + 1}/{(len(to_scan)-1)//batch_size + 1}...")
+    # 获取当前管理器（内部已有跳过 verified 的逻辑）
+    logger.info(f"正在对 {len(technic_parts)} 个零件执行自动识别与入库...")
+
+    # 分批执行
+    batch_size = 50
+    for i in range(0, len(technic_parts), batch_size):
+        batch = technic_parts[i:i+batch_size]
+        logger.info(f"正在处理批次 {i//batch_size + 1}/{(len(technic_parts)-1)//batch_size + 1}...")
         discoverer.run_on_parts(batch)
         
-    logger.info("全量科技件导入任务完成。")
+    logger.info("全量科技件入库同步完成。")
 
 if __name__ == "__main__":
     # 假设从项目根目录运行

@@ -162,25 +162,27 @@ class PortDiscoverer:
             logger.info(f"正在分析: {part}")
             ports = self.discover_ports(part)
             
+            # 简单位置去重
+            unique = []
             if ports:
-                # 简单位置去重
-                unique = []
                 for p in ports:
                     if not any(np.linalg.norm(np.array(p['position']) - np.array(u['position'])) < 0.5 for u in unique):
                         unique.append(p)
-                
-                confidence = self._calculate_confidence(unique)
-                success = self.manager.update_part_config(
-                    part_id=part,
-                    ports=unique,
-                    status="pending",
-                    confidence=confidence,
-                    force=force
-                )
-                if success:
-                    logger.info(f"  -> 识别到 {len(unique)} 个端口 (自信度: {confidence})。")
+            
+            # 自信度：如果完全没识别到端口，自信度设为极低（0.05），提醒用户手动添加
+            confidence = self._calculate_confidence(unique) if unique else 0.05
+            
+            success = self.manager.update_part_config(
+                part_id=part,
+                ports=unique,
+                status="pending",
+                confidence=confidence,
+                force=force
+            )
+            if success:
+                logger.info(f"  -> 已录入: {len(unique)} 个端口 (自信度: {confidence})。")
             else:
-                logger.error(f"  !! 未能自动识别端口: {part}")
+                logger.debug(f"  -> 跳过已复核/锁定零件: {part}")
 
         self.manager.save()
 
