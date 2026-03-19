@@ -7,10 +7,10 @@
 > - `docs/pin_hole_connection_design.md`
 > - `docs/port_class_design.md`
 > - `docs/assembly_hierarchy_design.md`
-> - `connection_interface.py`
+> - `port_semantics.py`
 > - `topology_manager.py`
 > - `server.py`
-> - `ldraw_parser.py`
+> - `port_library.py`
 > - `port.py`
 
 ## 1. 当前逻辑的痛点分析

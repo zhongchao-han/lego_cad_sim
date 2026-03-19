@@ -2,11 +2,11 @@
 
 > **To Claude Code CLI:**
 > Please read the following context files immediately:
-> - `connection_interface.py` (Interfaces & fit logic)
+> - `port_semantics.py` (Interfaces & fit logic)
 > - `port.py` (Port normalization & geometry)
 > - `connection_edge.py` (Edge & JointState)
-> - `part.py` (Part container)
-> - `assembly.py` (Kinematic tree)
+> - `topology_manager.py` (TopologyManager & PartNode)
+> - `port_library.py` (Semantic Library)
 > - `frontend/src/store.ts` (Frontend state machine)
 
 ---
@@ -33,13 +33,13 @@ const targetAlignLocal = target.portType === 'peg'
 ```
 **问题**：当 target 端口类型为 `peg` 时跳过 `stripAxis`，违反"所有 Snap 路径必须调用 stripAxis"规则，导致插销作为目标时产生深度偏置。
 
-### 1.3 `Assembly` 类缺少显式 ROOT 管理
+### 1.3 `TopologyManager` 类职责增强 (原 `Assembly` 类)
 
-**文件**：`assembly.py`
-**问题**：
-- 无 `root_part_id` 字段，ROOT 状态散落在 `resolve_kinematics()` 的入度推断中。
-- 无 `set_root(part_id)` / `migrate_root(target_id)` 方法。
-- Snap 完成后 ROOT 应自动迁移至 Target 零件，但此逻辑未在 Assembly 中实现。
+**文件**：`topology_manager.py`
+**当前状态**：
+- 已统一使用 `TopologyManager` 管理运动学树。
+- 移除了冗余的 `assembly.py` 和 `part.py`。
+- `PartNode` 承载了原 `Part` 的所有核心属性（ID, Name, Ports）。
 
 ### 1.4 缺少刚体孔距一致性校验
 
@@ -65,8 +65,8 @@ ConnectionInterface          — 物理接口描述符（不可变值对象）
     └── derive_joint_params()— 关节类型推导
 
 Port                         — 带物理语义的空间端口（Z轴=插入方向）
-    ├── create_from_ldraw()  — 主工厂（查表+归一化）
-    ├── create_fallback()    — 降级工厂
+    ├── from_raw()           — 主工厂（从LDraw原始矩阵加载，含归一化）
+    ├── from_config()        — 精准工厂（从 verified JSON 数据库直接加载）
     ├── insertion_axis       — 插入方向（rotation[:,2]）
     ├── test_fit_with()      — 配合检测（委托 check_fit）
     ├── derive_joint()       — 关节推导（委托 derive_joint_params）
@@ -84,26 +84,19 @@ ConnectionEdge               — 两零件端口间的物理连接
     ├── is_physically_compatible() — 物理校验
     └── get_relative_transform()   — 委托 port_parent
 
-Part                         — 乐高零件实体容器
-    ├── transform            — 全局 4×4 位姿矩阵
+PartNode                     — 乐高零件实体节点（原 Part 类）
+    ├── part_id              — 原始 ID (6558.dat)
+    ├── name                 — 实例 ID (p_6558_0)
     ├── ports                — Dict[str, Port]
-    ├── add_port() / get_port()
-    ├── get_port_global_transform()
-    ├── get_port_global_position()
-    └── get_port_global_insertion_axis()
+    └── [已聚合] transform / global pos 逻辑
 
-Assembly                     — 装配体（运动学树管理器）
-    ├── parts                — Dict[str, Part]
-    ├── connections          — List[ConnectionEdge]
-    ├── _kinematic_graph     — nx.MultiDiGraph
-    ├── root_part_id         — [待实现] 当前 ROOT 零件 ID
-    ├── closed_loops         — 被打断的闭环边
-    ├── add_part()
-    ├── connect_ports()      — 含物理校验
-    ├── disconnect_parts()
-    ├── set_root()           — [待实现] 设置 ROOT
-    ├── migrate_root()       — [待实现] Snap 后自动迁移
-    └── resolve_kinematics() — BFS 生成树 + 过约束合并 + 闭环打断
+TopologyManager              — 拓扑管理器（原 Assembly 类）
+    ├── graph                — nx.MultiDiGraph (存储全量拓扑)
+    ├── closed_loops         — 被打断的闭合回路边
+    ├── add_part()           — 注入零件节点
+    ├── connect_ports()      — 建立物理连接（含 Fit 校验）
+    ├── build_spanning_tree()— BFS 解算运动学生成树
+    └── export_urdf()        — 委托 URDFExporter 输出物理描述文件
 ```
 
 ---
@@ -274,22 +267,21 @@ const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
 
 ```
 D:\Users\hanerlv\Documents\workspace\lego_cad_sim\
-├── connection_interface.py  # ConnectionInterface, Gender, Profile, FitType
-│                            # get_interface(), check_fit(), derive_joint_params()
+├── port_semantics.py        # ConnectionInterface, Gender, Profile, FitType
 ├── port.py                  # Port, _NORMALIZER_MAP, _R_FLIP_Z
 ├── connection_edge.py       # ConnectionEdge, JointState
-├── part.py                  # Part
-├── assembly.py              # Assembly
-├── topology_manager.py      # TopologyManager, PartNode (URDF 导出适配层)
+├── topology_manager.py      # TopologyManager, PartNode
 ├── urdf_exporter.py         # URDFExporter
-├── server.py                # FastAPI 端点 + 端口投影
+├── port_library.py          # PortLibrary (Semantic Source)
+├── port_library_manager.py  # PortLibraryManager (Persistence)
+├── server.py                # FastAPI 端点
+├── core_constants.py        # Constants
 ├── frontend/src/
 │   ├── store.ts             # Zustand 状态机，snapParts, stripAxis
 │   ├── snapMath.test.ts     # 前端数学单元测试
 │   └── useLDrawPart.ts      # LDraw 解析 Hook
 └── tests/
     ├── test_port_connections.py   # Port 级测试
-    ├── test_insertion.py          # Assembly 级集成测试
-    ├── test_port_projection.py    # 端口投影测试
-    └── test_connection_edge.py    # ConnectionEdge 独立测试 [新增]
+    ├── test_6558_sampling.py      # 采样精度测试
+    └── test_connection_edge.py    # ConnectionEdge 独立测试
 ```

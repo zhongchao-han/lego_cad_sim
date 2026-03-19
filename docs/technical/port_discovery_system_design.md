@@ -19,9 +19,12 @@
    - **步长采样算法 (Pitch-based Sampling)**：自动将长插销 (2L, 3L) 或长轴 (Axle) 拆解为多个标准的 20 LDU (8mm) 采样点。
    - **严格校验**：仅当识别结果符合标准乐高网格步长时才写入配置；否则报错提示用户手动介入。
 
-3. **`ldraw_parser.py` (运行时加载器)**
+3. **`port_library.py` (运行时加载器)**
    - **轻量化逻辑**：不再进行深度递归解析。
-   - **配置加载**：仅负责读取 JSON 并将其转换为内存中的 `Port` 对象。
+   - **配置加载**：负责将 JSON 转换为内存中的 `Port` 对象。原 `ldraw_parser.py`。
+
+4. **`port_library_manager.py` (配置管理器)**
+   - **持久化层**：封装对 `ldraw_port_configs.json` 的线程安全读写、状态锁定（verified/pending）与保存逻辑。
 
 ## 3. 关键算法：步长采样 (Pitch-based Sampling)
 
@@ -42,7 +45,7 @@
    开发者检查 JSON 中的坐标。如发现特殊零件（如非标缩放零件）识别失败，可在 JSON 中手动补充。
 
 3. **运行阶段 (Runtime)**：
-   `ldraw_parser.py` 启动时载入 JSON。当请求零件端口时，直接从缓存读取，秒级响应。
+   `port_library.py` 启动时从真理数据库载入 JSON。当请求零件端口时，直接从内存缓存读取，秒级响应。
 
 ## 5. 数据结构示例 (`ldraw_port_configs.json`)
 ```json

@@ -7,18 +7,18 @@
 > - `docs/pin_hole_connection_design.md`
 > - `docs/port_class_design.md`
 > - `docs/assembly_hierarchy_design.md`
-> - `connection_interface.py`
+> - `port_semantics.py`
 > - `topology_manager.py`
 > - `server.py`
-> - `ldraw_parser.py`
+> - `port_library.py`
 > - `port.py`
 
 ## 涉及的相关文件与目录
 
 <architecture>
 此设计指南直接影响并指导以下代码的重构：
-- `ldraw_parser.py` (主要: `ConnectionPort` 类的重构与升维)
-- `connection_interface.py` (主要: 提供底层的 `ConnectionInterface` 数据结构与物理校验规则)
+- `port_library.py` (主要: `PortLibrary` 类用于从真理数据库加载端口)
+- `port_semantics.py` (主要: 提供底层的 `ConnectionInterface` 数据结构与物理校验规则)
 - `topology_manager.py` (主要: 移除硬编码的字符串猜测，改为调用 `Port` 对象的内聚方法)
 - `server.py` (主要: 移除冗长的几何猜测如 `hole_axis = 1`，依赖 `Port` 的标准化坐标系)
 - `tests/` (未来: 基于纯粹 `Port` 对象的无渲染、无引擎依赖单元测试)
@@ -39,27 +39,25 @@
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional
-from connection_interface import ConnectionInterface, get_interface, check_fit, FitType
+from port_semantics import ConnectionInterface, get_interface, check_fit, FitType
 
 @dataclass
 class Port:
     """代表乐高零件上一个具体的连接点"""
     name: str                           # 端口别名/编号 (如: "hole_0")
     interface: ConnectionInterface      # 物理接口属性 (极性、形状、半径等)
-    position: np.ndarray                # 局部坐标系下的位置 [x, y, z]
+    position: np.ndarray                # 局部坐标系下的位置 [x, y, z] (SI单位: m)
     rotation: np.ndarray                # 局部坐标系下的旋转矩阵 (3x3)
     
     @classmethod
-    def create_from_ldraw(cls, name: str, ldraw_type: str, pos: np.ndarray, rot: np.ndarray) -> Optional["Port"]:
-        """工厂方法：负责将 LDraw 的文件类型映射为标准接口，并对齐主轴"""
+    def from_raw(cls, name: str, ldraw_type: str, pos: np.ndarray, rot: np.ndarray, part_context: str = "") -> Optional["Port"]:
+        """工厂方法 (从 LDraw 加载)：负责将 LDraw 的文件类型映射为标准接口，并对齐主轴"""
         interface = get_interface(ldraw_type)
         if not interface:
-            return None # 无法识别的 LDraw 原件，忽略或抛给底层几何引擎处理
+            return None 
         
-        # 【核心规范】LDraw 的不同原件 (如 peghole.dat vs pin.dat) 默认朝向可能不同。
-        # 在此处统一对 rotation 进行基底变换，确保返回的 Port 的 Z 轴正方向必定是“插入方向”。
+        # 统一归一化：将主轴转换到标准的 +Z 方向
         normalized_rot = cls._normalize_insertion_axis(ldraw_type, rot)
-        
         return cls(name=name, interface=interface, position=pos, rotation=normalized_rot)
         
     @staticmethod
@@ -110,7 +108,7 @@ class Port:
 ```python
 # test_port_connections.py 示例
 import numpy as np
-from connection_interface import Gender, Profile, ConnectionInterface, FitType
+from port_semantics import Gender, Profile, ConnectionInterface, FitType
 # 假设 Port 类位于 topology_manager 或单独的 port.py 中
 from module_where_port_is import Port 
 

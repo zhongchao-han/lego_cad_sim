@@ -68,7 +68,7 @@
 
 #### 后端 (Python)
 - **`PortDiscoverer`**: 扩展 `_calculate_confidence()` 启发式算法。
-- **`PortConfigManager`**: 封装 JSON 读写，执行 `status` 校验逻辑。
+- **`PortLibraryManager`**: 封装 JSON 读写，执行 `status` 校验逻辑。
 
 #### 前端 (TypeScript/React)
 - **`VerificationWorkbench`**: 复核模式容器组件，管理待办队列。

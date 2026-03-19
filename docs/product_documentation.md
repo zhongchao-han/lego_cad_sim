@@ -29,6 +29,8 @@
 - **stripAxis 投影**: 强制将所有 Snap 路径投影至零件的几何中心轴，实现亚毫米级的对齐精度。
 
 ## 4. 模块职责划分
-- `topology_manager.py`: 拓扑解算。
-- `ldraw_parser.py`: 零件解析。
+- `topology_manager.py`: 负责装配拓扑解算、树/环关系维护。
+- `port_library.py`: 零件语义库加载器（原 `ldraw_parser.py`），系统唯一的端口真理来源。
+- `port_semantics.py`: 定义物理接口配合（Fit）、极性（Gender）与截面（Profile）语义。
+- `core_constants.py`: 统一定义 LDU (0.0004m) 等物理常数。
 - `frontend/`: 基于 React + Three.js 的交互环境。
