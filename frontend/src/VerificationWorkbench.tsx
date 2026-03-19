@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useVerificationStore } from './verificationStore';
 import { PortVisualizer } from './PortVisualizer.tsx';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Stage, useGLTF, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { CameraControls, Grid, Environment, useGLTF, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { useLDrawPart } from './useLDrawPart';
 
 /**
@@ -39,6 +39,25 @@ export const VerificationWorkbench: React.FC = () => {
 
   const { meshUrl } = useLDrawPart(currentPartId);
   const [selectedPortIndex, setSelectedPortIndex] = useState<number | null>(null);
+  const controlsRef = React.useRef<CameraControls>(null);
+
+  const LDU = 0.0004;
+
+  const currentTarget = useMemo(() => {
+    if (selectedPortIndex !== null && currentPorts[selectedPortIndex]) {
+      const p = currentPorts[selectedPortIndex].position;
+      return [p[0] * LDU, p[1] * LDU, p[2] * LDU] as [number, number, number];
+    }
+    return [0, 0, 0] as [number, number, number];
+  }, [selectedPortIndex, currentPorts]);
+
+  // 核心：当对焦点改变时，平滑驱动摄像机移动到目标点
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current.setTarget(currentTarget[0], currentTarget[1], currentTarget[2], true);
+    }
+  }, [currentTarget]);
+
 
   useEffect(() => {
     fetchPendingList();
@@ -97,26 +116,27 @@ export const VerificationWorkbench: React.FC = () => {
       </div>
 
       <div style={{ flex: 1, position: 'relative' }}>
-        <Canvas camera={{ position: [0.08, 0.08, 0.08], fov: 50, near: 0.0001, far: 10 }}>
+        <Canvas camera={{ position: [0.08, 0.08, 0.08], fov: 50, near: 0.0001, far: 10 }} onPointerMissed={() => setSelectedPortIndex(null)}>
           <Suspense fallback={null}>
-            {/* 核心修复：center={false} 确保模型不发生位移，旋转中心保持在 LDraw 原点 */}
-            <Stage intensity={0.5} environment="city" adjustCamera={false} center={false}>
-              {/* 原点坐标轴：X(红) Y(绿) Z(蓝) */}
-              <axesHelper args={[0.05]} />
+            <ambientLight intensity={1.5} />
+            <directionalLight position={[1, 1, 1]} intensity={0.8} />
+            <Environment preset="city" />
 
-              {/* 渲染零件主体 */}
-              {meshUrl && <PartModel url={meshUrl} />}
+            {/* 原点坐标轴：X(红) Y(绿) Z(蓝) */}
+            <axesHelper args={[0.05]} />
 
-              {/* 渲染端口 Gizmo */}
-              {currentPorts.map((port, idx) => (
-                <PortVisualizer 
-                  key={`${currentPartId}-${idx}`}
-                  {...port}
-                  isSelected={selectedPortIndex === idx}
-                  onSelect={() => setSelectedPortIndex(idx)}
-                />
-              ))}
-            </Stage>
+            {/* 渲染零件主体 */}
+            {meshUrl && <PartModel url={meshUrl} />}
+
+            {/* 渲染端口 Gizmo */}
+            {currentPorts.map((port, idx) => (
+              <PortVisualizer 
+                key={`${currentPartId}-${idx}`}
+                {...port}
+                isSelected={selectedPortIndex === idx}
+                onSelect={() => setSelectedPortIndex(idx)}
+              />
+            ))}
           </Suspense>
           <Grid infiniteGrid fadeDistance={0.5} cellColor="#333" sectionColor="#444" />
           
@@ -125,8 +145,15 @@ export const VerificationWorkbench: React.FC = () => {
             <GizmoViewport axisColors={['#ff3e3e', '#3fff3e', '#3e3eff']} labelColor="white" />
           </GizmoHelper>
 
-          {/* 核心修复：target 锁死在 [0,0,0]，enablePan=false 防止旋转中心漂移 */}
-          <OrbitControls makeDefault target={[0, 0, 0]} enablePan={false} minDistance={0.001} maxDistance={1} />
+          {/* 核心交互：CameraControls 提供顺滑过渡、缩放中心锁定和更精准的交互 */}
+          <CameraControls 
+            ref={controlsRef} 
+            makeDefault 
+            minDistance={0.001} 
+            maxDistance={1}
+            dollyToCursor={true} // 缩放时向鼠标指针靠拢（提升交互感）
+            mouseButtons={{ left: 1, middle: 0, right: 2, wheel: 8 }} // 允许右键平移以防万一
+          />
         </Canvas>
 
         {/* 修正工具箱 */}
