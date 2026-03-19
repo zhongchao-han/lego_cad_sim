@@ -33,12 +33,24 @@ const PartModel: React.FC<{ url: string }> = ({ url }) => {
 
 export const VerificationWorkbench: React.FC = () => {
   const { 
-    pendingList, currentPartId, currentPorts, fetchPendingList, 
+    pendingList, searchList, currentPartId, currentPorts, fetchPendingList, searchParts,
     selectPart, addPort, deletePort, movePort, flipPortZ, rotateX90, rotateY90, rotateZ90, 
     snapPortToGrid, saveVerification 
   } = useVerificationStore();
 
+  const [searchQuery, setSearchQuery] = useState('');
   const { meshUrl } = useLDrawPart(currentPartId);
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchParts(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchParts]);
+
+  const listData = searchQuery ? searchList : pendingList;
+
   const [selectedPortIndex, setSelectedPortIndex] = useState<number | null>(null);
   const controlsRef = React.useRef<CameraControls>(null);
 
@@ -59,7 +71,6 @@ export const VerificationWorkbench: React.FC = () => {
     }
   }, [currentTarget]);
 
-
   useEffect(() => {
     fetchPendingList();
   }, [fetchPendingList]);
@@ -72,10 +83,24 @@ export const VerificationWorkbench: React.FC = () => {
         borderRight: '1px solid #333', 
         overflowY: 'auto', 
         padding: '1rem',
-        paddingTop: '150px' 
+        paddingTop: '32px' 
       }}>
-        <h3 className="text-lg font-bold mb-4">待复核零件 ({pendingList.length})</h3>
-        {pendingList.map(part => (
+        <div className="mb-6 mt-20">
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">搜索零件</h3>
+          <input 
+            type="text" 
+            placeholder="零件 ID (如 6558)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+          />
+        </div>
+
+        <h3 className="text-lg font-bold mb-4">
+          {searchQuery ? '搜索结果' : '待复核清单'} ({listData.length})
+        </h3>
+        
+        {listData.map(part => (
           <div 
             key={part.part_id}
             onClick={() => {
@@ -87,10 +112,16 @@ export const VerificationWorkbench: React.FC = () => {
               background: currentPartId === part.part_id ? '#2563eb' : 'transparent',
               borderBottom: '1px solid #222',
               borderRadius: '4px',
-              marginBottom: '4px'
+              marginBottom: '4px',
+              opacity: (part as any).status === 'verified' ? 0.7 : 1
             }}
           >
-            <div className="font-medium">{part.part_id}</div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">{part.part_id}</span>
+              {(part as any).status === 'verified' && (
+                <span className="text-[10px] bg-green-900 text-green-200 px-1 rounded">已复核</span>
+              )}
+            </div>
             <div style={{ fontSize: '0.75rem', color: currentPartId === part.part_id ? '#bfdbfe' : '#888' }}>
               自信度: {part.confidence} | 端口: {part.port_count}
             </div>

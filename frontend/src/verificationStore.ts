@@ -14,12 +14,14 @@ export interface PendingPart {
 
 interface VerificationState {
   pendingList: PendingPart[];
+  searchList: PendingPart[]; // 目前共用相同结构
   currentPartId: string | null;
   currentPorts: PortData[];
   isLoading: boolean;
   
   // Actions
   fetchPendingList: () => Promise<void>;
+  searchParts: (query: string) => Promise<void>;
   selectPart: (partId: string) => Promise<void>;
   addPort: (type: 'peghole' | 'peg') => void;
   deletePort: (index: number) => void;
@@ -38,6 +40,7 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 
 export const useVerificationStore = create<VerificationState>((set, get) => ({
   pendingList: [],
+  searchList: [],
   currentPartId: null,
   currentPorts: [],
   isLoading: false,
@@ -48,6 +51,21 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
       const resp = await fetch(`${API_BASE}/verify/pending_list`);
       const data = await resp.json();
       set({ pendingList: data });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  searchParts: async (query: string) => {
+    if (!query) {
+      set({ searchList: [] });
+      return;
+    }
+    set({ isLoading: true });
+    try {
+      const resp = await fetch(`${API_BASE}/verify/search?q=${encodeURIComponent(query)}`);
+      const data = await resp.json();
+      set({ searchList: data });
     } finally {
       set({ isLoading: false });
     }

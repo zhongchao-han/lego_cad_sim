@@ -87,7 +87,23 @@ class VerifySaveRequest(BaseModel):
 @app.get("/api/verify/pending_list")
 async def get_pending_list():
     """获取待复核零件列表，按自信度排序。"""
-    return port_config_manager.get_pending_parts()
+    return port_lib_manager.get_pending_parts()
+
+@app.get("/api/verify/search")
+async def search_parts(q: str):
+    """在全文库中搜索零件（包括已复核和未复核）。"""
+    results = []
+    q = q.lower()
+    with port_lib_manager._lock:
+        for pid, cfg in port_lib_manager._data.items():
+            if q in pid.lower():
+                results.append({
+                    "part_id": pid,
+                    "status": cfg.get("status", "pending"),
+                    "confidence": cfg.get("confidence", 1.0),
+                    "port_count": len(cfg.get("ports", []))
+                })
+    return results[:50] # 限制返回数量防止 UI 爆炸
 
 @app.post("/api/verify/save")
 async def save_verified_ports(req: VerifySaveRequest):
