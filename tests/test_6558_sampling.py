@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from port_library import PortLibrary
+from core_constants import LDU
 
 class Test6558Sampling(unittest.TestCase):
     def setUp(self):
@@ -21,7 +22,7 @@ class Test6558Sampling(unittest.TestCase):
         # 将 SI 位置转回 LDU
         positions_ldu = []
         for p in ports:
-            pos_ldu = p.position / 0.0004
+            pos_ldu = p.position / LDU
             positions_ldu.append(pos_ldu)
         
         x_coords = sorted([round(p[0]) for p in positions_ldu])
@@ -44,7 +45,7 @@ class Test6558Sampling(unittest.TestCase):
         self.assertEqual(len(ports), 8, "6L Axle should have 8 ports (6 body + 2 ends)")
         
         # 检查 X 间距
-        x_coords = sorted([p.position[0] / 0.0004 for p in ports])
+        x_coords = sorted([p.position[0] / LDU for p in ports])
         # 排除两端的端部端口 (spacing 10)，只检查中间 5 个孔距 (spacing 20)
         for i in range(1, len(x_coords)-2):
             diff = x_coords[i+1] - x_coords[i]

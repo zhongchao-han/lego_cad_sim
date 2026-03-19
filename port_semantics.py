@@ -1,21 +1,14 @@
 """
-connection_interface.py
-=======================
+port_semantics.py
+=================
 基于"插头-插座（Plug-Socket）"类型化系统的连接接口定义与配合逻辑。
-
-设计原则（来自 docs/pin_hole_connection_design.md）：
-- 强类型接口：Gender + Profile + Dimensions，彻底消除字符串猜测
-- Z 轴正方向统一为插入方向（Insertion Vector）
-- 参数化查表法替代实时网格切片，仅对未知零件降级到几何碰撞检测
-- 由截面形状直接推导物理关节自由度（DoF）
 """
 
 from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-# 单位换算：1 LDraw Unit = 0.4mm = 0.0004m
-LDU = 0.0004
+from core_constants import LDU
 
 # 配合公差（SI 单位，米）
 # 真实 ABS 塑料可承受约 0.1-0.3mm 径向变形

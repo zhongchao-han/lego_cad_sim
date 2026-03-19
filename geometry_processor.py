@@ -4,6 +4,8 @@ import numpy as np
 import re
 import logging
 from typing import List, Tuple, Optional
+from port_library import PortLibrary
+from core_constants import LDU_TO_SI
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -16,33 +18,11 @@ class GeometryProcessor:
     
     def __init__(self, ldraw_path: str = "ldraw_lib"):
         self.ldraw_path = ldraw_path
-        self.parts_path = os.path.join(ldraw_path, "parts")
-        self.p_path = os.path.join(ldraw_path, "p")
         self.color_table = self._load_color_table()
         
     def resolve_path(self, filename: str) -> Optional[str]:
-        """根据 LDraw 规则寻找文件的绝对路径。"""
-        filename = filename.lower().replace('\\', '/')
-        
-        # 搜索逻辑与 PortLibrary 一致
-        full_path = os.path.normpath(os.path.join(self.ldraw_path, filename))
-        if os.path.exists(full_path): return full_path
-
-        search_roots = [self.parts_path, self.p_path]
-        for root in search_roots:
-            p = os.path.normpath(os.path.join(root, filename))
-            if os.path.exists(p): return p
-
-        search_dirs = [
-            self.parts_path, self.p_path,
-            os.path.join(self.parts_path, "s"),
-            os.path.join(self.p_path, "48")
-        ]
-        file_basename = os.path.basename(filename)
-        for d in search_dirs:
-            p = os.path.normpath(os.path.join(d, file_basename))
-            if os.path.exists(p): return p
-        return None
+        """[委托] 使用系统的标准文件定位规则。"""
+        return PortLibrary.resolve_path(self.ldraw_path, filename)
 
     def _load_color_table(self) -> dict:
         """Parse LDConfig.ldr to build {color_code: (R, G, B, A)} mapping."""

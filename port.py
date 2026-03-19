@@ -16,11 +16,11 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
 
-from connection_interface import (
+from port_semantics import (
     ConnectionInterface, Gender, Profile, FitType,
     get_interface, check_fit, derive_joint_params,
-    LDU,
 )
+from core_constants import LDU
 
 # 配置日志
 logger = logging.getLogger(__name__)

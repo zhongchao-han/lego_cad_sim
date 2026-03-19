@@ -13,7 +13,7 @@ from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-class PortConfigManager:
+class PortLibraryManager:
     """
     管理 ldraw_port_configs.json 的持久化层。
     

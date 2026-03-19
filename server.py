@@ -13,21 +13,20 @@ from topology_manager import TopologyManager, PartNode, ConnectionEdge
 from port_library import PortLibrary
 from geometry_processor import GeometryProcessor
 from fastapi.staticfiles import StaticFiles
-from connection_interface import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
+from port_library_manager import PortLibraryManager
+from port_semantics import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
 from port import Port
-from port_config_manager import PortConfigManager
+from core_constants import LDU
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
-
-LDU = 0.0004  # 1 LDraw Unit = 0.4mm
 
 # --- 服务实体与配置 ---
 
 app = FastAPI(title="LEGO Technic Simulation Backend", version="1.0.0")
 
-# 初始化端口配置管理器
-port_config_manager = PortConfigManager()
+# 初始化端口库管理器 (写入/复核用)
+port_lib_manager = PortLibraryManager()
 
 allow_origins_str = os.environ.get("FASTAPI_ALLOW_ORIGINS", "*")
 allow_origins = [origin.strip() for origin in allow_origins_str.split(",")] if allow_origins_str else ["*"]
@@ -128,7 +127,7 @@ async def save_verified_ports(req: VerifySaveRequest):
                 final_ports.append(p) # 兜底
 
         # 注意：这里调用 update_part_config，将状态设为 verified
-        success = port_config_manager.update_part_config(
+        success = port_lib_manager.update_part_config(
             part_id=req.part_id,
             ports=final_ports,
             status="verified",
@@ -136,7 +135,7 @@ async def save_verified_ports(req: VerifySaveRequest):
             force=True  # 人工复核总是强制覆盖
         )
         if success:
-            port_config_manager.save()
+            port_lib_manager.save()
             return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
         else:
             return {"status": "error", "msg": f"Failed to update config for {req.part_id}."}
@@ -303,7 +302,7 @@ async def insertion_check(peg_id: str, hole_id: str,
         f"STRICT INSERTION CHECK FAILED: 物理接口定义缺失!\n"
         f"尝试检测: {peg_id} ({peg_type})  VS  {hole_id} ({hole_type})\n"
         f"状态: 系统拒绝使用不可调教的几何切片进行模糊猜测。\n"
-        f"修复建议: 请在 connection_interface.py 的注册表中添加这些原件的参数化(Radius/Depth/Fit)。\n"
+        f"修复建议: 请在 port_semantics.py 的注册表中添加这些原件的参数化(Radius/Depth/Fit)。\n"
         f"{'!'*60}\n"
     )
     return {

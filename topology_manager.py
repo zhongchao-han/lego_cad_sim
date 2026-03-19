@@ -176,7 +176,7 @@ if __name__ == "__main__":
     def mk(name, ldraw_type, pos):
         item = Port.from_raw(name, ldraw_type, np.array(pos), id_rot, part_context="TestPart")
         if item is None:
-            raise ValueError(f"测试失败：无法创建类型为 {ldraw_type} 的测试端口。请在 connection_interface.py 中检查注册状况。")
+            raise ValueError(f"测试失败：无法创建类型为 {ldraw_type} 的测试端口。请在 port_semantics.py 中检查注册状况。")
         return item
 
     # 构建连接关系，展示多向多端口：

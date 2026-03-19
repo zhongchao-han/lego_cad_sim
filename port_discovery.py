@@ -2,8 +2,9 @@ import os
 import logging
 from typing import Dict, List, Optional, Any
 import numpy as np
-
-from port_config_manager import PortConfigManager
+from port_library import PortLibrary
+from port_library_manager import PortLibraryManager
+from core_constants import HALF_GRID_LDU, LDU_TO_SI
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -21,16 +22,11 @@ class PortDiscoverer:
     """
     def __init__(self, ldraw_path: str = "ldraw_lib"):
         self.ldraw_path = ldraw_path
-        self.manager = PortConfigManager()
+        self.manager = PortLibraryManager()
 
     def resolve_path(self, filename: str) -> Optional[str]:
-        """定位 LDraw 文件路径。"""
-        filename = filename.lower().replace('\\', '/')
-        search_dirs = ["parts", "p", "parts/s", "p/48"]
-        for d in search_dirs:
-            p = os.path.join(self.ldraw_path, d, os.path.basename(filename))
-            if os.path.exists(p): return p
-        return None
+        """[委托] 使用系统的标准文件定位规则。"""
+        return PortLibrary.resolve_path(self.ldraw_path, filename)
 
     def _calculate_confidence(self, ports: List[Dict]) -> float:
         """简单的自信度启发式算法 (0.0 - 1.0)"""
@@ -41,7 +37,7 @@ class PortDiscoverer:
             pos = np.array(p['position'])
             # 1. 格点校验：乐高通常在 20 LDU 格点或 10 LDU 半格点上
             # 允许 0.5 LDU 的误差 (0.2mm)
-            if any(abs(v % 10.0) > 0.5 and abs(v % 10.0) < 9.5 for v in pos):
+            if any(abs(v % HALF_GRID_LDU) > 0.5 and abs(v % HALF_GRID_LDU) < 9.5 for v in pos):
                 score *= 0.7
             
             # 2. 类型校验：如果是不常用的原件类型
