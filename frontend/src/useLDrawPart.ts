@@ -18,7 +18,20 @@ export interface LDrawPartState {
 
 const partCache = new Map<string, LDrawPartState>();
 
-export function useLDrawPart(partId: string | null | undefined, colorCode: number = 7): LDrawPartState {
+/** 手动清除特定零件的缓存（用于保存验证结果后） */
+export function clearPartCache(partId: string) {
+  for (const key of partCache.keys()) {
+    if (key.startsWith(partId)) {
+      partCache.delete(key);
+    }
+  }
+}
+
+export function useLDrawPart(
+  partId: string | null | undefined, 
+  colorCode: number = 7, 
+  includePending: boolean = false
+): LDrawPartState {
   const [state, setState] = useState<LDrawPartState>(() => ({
     loading: !!partId,
     error: null,
@@ -26,7 +39,7 @@ export function useLDrawPart(partId: string | null | undefined, colorCode: numbe
     meshUrl: undefined,
   }));
 
-  const cacheKey = partId ? `${partId}_c${colorCode}` : null;
+  const cacheKey = partId ? `${partId}_c${colorCode}_p${includePending}` : null;
 
   useEffect(() => {
     if (!partId || !cacheKey) {
@@ -57,7 +70,10 @@ export function useLDrawPart(partId: string | null | undefined, colorCode: numbe
 
       try {
         const res = await axios.get(`${API_URL}/ldraw_part/${encodeURIComponent(partId)}`, {
-          params: { color: colorCode },
+          params: { 
+            color: colorCode,
+            include_pending: includePending 
+          },
         });
         if (cancelled) return;
 
@@ -89,7 +105,7 @@ export function useLDrawPart(partId: string | null | undefined, colorCode: numbe
     return () => {
       cancelled = true;
     };
-  }, [partId, colorCode, cacheKey]);
+  }, [partId, colorCode, cacheKey, includePending]);
 
   return state;
 }

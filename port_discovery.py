@@ -111,43 +111,47 @@ class PortDiscoverer:
                             offset_vec = np.array([0, local_offset_y, 0, 1])
                             sampled_pos = (global_mat @ offset_vec)[:3]
                             
-                            # --- 精度修正：网格吸附 ---
-                            # 1. 位置吸附到 10 LDU 格点 (允许 0.5 LDU 误差)
-                            rounded_pos = []
-                            for v in sampled_pos:
-                                v_snapped = round(v / 10.0) * 10.0
-                                if abs(v - v_snapped) < 1.0: # 1 LDU 宽容度
-                                    rounded_pos.append(float(v_snapped))
-                                else:
-                                    rounded_pos.append(float(round(v, 4)))
-                            
-                            # 2. 旋转矩阵吸附：仅当非常接近轴对齐时才强转
-                            rot = global_mat[:3, :3]
-                            clean_rot = np.zeros((3, 3))
-                            for col in range(3):
-                                vec = rot[:, col]
-                                max_idx = np.argmax(np.abs(vec))
-                                if np.abs(vec[max_idx]) > 0.99: # 只有接近 1 的才吸附
-                                    clean_vec = np.zeros(3)
-                                    clean_vec[max_idx] = 1.0 if vec[max_idx] > 0 else -1.0
-                                    clean_rot[:, col] = clean_vec
-                                else:
-                                    clean_rot[:, col] = vec # 保持原始角度（斜向零件）
-                            
-                            discovered.append({
-                                "type": "peg" if is_connector else child_file,
-                                "position": rounded_pos,
-                                "rotation": clean_rot.tolist()
-                            })
+                            # --- 统一入库标准：执行轴向归一化 ---
+                            # 调用 Port.from_raw 会自动映射 LDraw 的 -Y 为 Z+
+                            from port import Port
+                            port_obj = Port.from_raw(
+                                name=f"{filename}_p", # 临时名，最终由 to_dict 格式化
+                                ldraw_type="peg" if is_connector else child_file,
+                                pos=np.array(sampled_pos),
+                                rot=global_mat[:3, :3], # 传入原始 LDraw 矩阵
+                                part_context=filename
+                            )
+
+                            if port_obj:
+                                p_data = port_obj.to_dict()
+                                # 再次应用智能格点吸附（基于 LDU 坐标）
+                                def smart_snap(v):
+                                    snapped = round(v / 10.0) * 10.0
+                                    return float(snapped) if abs(v - snapped) < 0.1 else float(round(v, 4))
+                                
+                                p_data["position"] = [smart_snap(x) for x in p_data["position"]]
+                                # 旋转矩阵部分已经由 Port.from_raw 处理归一化，此处仅需整理
+                                p_data["rotation"] = [[round(x, 4) for x in row] for row in p_data["rotation"]]
+                                discovered.append(p_data)
                     else:
                         # 兜底：处理 num_units=0 的零件（非常小的原件），默认在其中心创建一个端口
                         pos = global_mat[:3, 3]
-                        snapped_pos = [float(round(v / 10.0) * 10.0) if abs(v % 10.0) < 1.0 or abs(v % 10.0) > 9.0 else float(round(v, 4)) for v in pos]
-                        discovered.append({
-                            "type": "peg" if is_connector else child_file,
-                            "position": snapped_pos,
-                            "rotation": global_mat[:3, :3].tolist()
-                        })
+                        from port import Port
+                        port_obj = Port.from_raw(
+                            name=f"{filename}_p_center",
+                            ldraw_type="peg" if is_connector else child_file,
+                            pos=pos,
+                            rot=global_mat[:3, :3],
+                            part_context=filename
+                        )
+                        if port_obj:
+                            p_data = port_obj.to_dict()
+                            def smart_snap(v):
+                                snapped = round(v / 10.0) * 10.0
+                                return float(snapped) if abs(v - snapped) < 0.1 else float(round(v, 4))
+                            p_data["position"] = [smart_snap(x) for x in p_data["position"]]
+                            p_data["rotation"] = [[round(x, 4) for x in row] for row in p_data["rotation"]]
+                            discovered.append(p_data)
                 else:
                     # 递归寻找子部件
                     discovered.extend(self.discover_ports(child_file, transform=global_mat))

@@ -113,10 +113,24 @@ async def save_verified_ports(req: VerifySaveRequest):
             p_data["rotation"] = [[clean_value(x) for x in row] for row in p_data["rotation"]]
             ports_dict.append(p_data)
 
+        # 统一入库标准：在保存 verified 数据前，确保其轴向是归一化且规整的
+        # 这里多做一步由 Port 对象的 to_dict 完成的归一化，确保存进 JSON 的永远是成品
+        final_ports = []
+        for p in ports_dict:
+            # 这里的 p 已经是前端传来的带有 position/rotation 的字典
+            # 为了严谨，我们用 from_config 创建后再次导出的 clean 数据
+            obj = Port.from_config(
+                f"{req.part_id}_v", p['type'], np.array(p['position']), np.array(p['rotation'])
+            )
+            if obj:
+                final_ports.append(obj.to_dict())
+            else:
+                final_ports.append(p) # 兜底
+
         # 注意：这里调用 update_part_config，将状态设为 verified
         success = port_config_manager.update_part_config(
             part_id=req.part_id,
-            ports=ports_dict,
+            ports=final_ports,
             status="verified",
             confidence=1.0,
             force=True  # 人工复核总是强制覆盖
@@ -165,7 +179,15 @@ async def toggle_mode(mode: str):
 
 
 @app.get("/api/ldraw_part/{part_id}", response_model=LDrawPartResponse)
-async def get_ldraw_part(part_id: str, color: int = 7):
+async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = False):
+    """
+    获取 LDraw 零件及其端口数据。
+    
+    Args:
+        part_id: LDraw 零件 ID。
+        color: 颜色编号。
+        include_pending: 默认 False (严格模式)。只有库复核工具应设为 True。
+    """
     import numpy as np
 
     dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
@@ -174,7 +196,8 @@ async def get_ldraw_part(part_id: str, color: int = 7):
     geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
 
     ports = []
-    parsed_ports = parser.parse_dat_file(dat_filename)
+    # 严格模式过滤：只有当 include_pending 为 True 时，才返回未复核的端口
+    parsed_ports = parser.parse_dat_file(dat_filename, allow_pending=include_pending)
     if parsed_ports:
         ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
     else:
@@ -207,13 +230,13 @@ async def snap_parts(req: SnapRequest):
     p_rot = np.array(req.parent_rot).reshape(3, 3)
     c_rot = np.array(req.child_rot).reshape(3, 3)
 
-    # 用 Port 工厂方法构建强类型端口；未知类型会打印日志并报错
-    port_p = Port.create_from_ldraw(
+    # 用 Port 工厂方法构建强类型端口；从原始 LDraw 矩阵转换
+    port_p = Port.from_raw(
         f"p_{req.parent_id}", req.port_type_p,
         np.array(req.parent_origin), p_rot,
         part_context=req.parent_id
     )
-    port_c = Port.create_from_ldraw(
+    port_c = Port.from_raw(
         f"c_{req.child_id}", req.port_type_c,
         np.array(req.child_origin), c_rot,
         part_context=req.child_id

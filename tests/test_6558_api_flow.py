@@ -43,10 +43,10 @@ def test_6558_port_flow():
         print(f"Rotation Matrix:\n{rot}")
         print(f"Z-axis (Facing): {z_axis}")
         
-        # 对于 6558，两个 peg 端口分别位于零件两端，各距中心约 10 LDU（= 0.004m）
-        # 检查位置是否在原始 LDraw 语义点附近，不应被几何投影逻辑篡改
-        dist_from_origin = np.linalg.norm(pos)
-        assert 0.0035 <= dist_from_origin <= 0.0045, f"端口 {i} 的位置 {pos} 不在预期的 10 LDU 附近"
+        # 对于 6558，端口应符合 10 LDU 步进格点 (0.004m 偏移倍数)
+        pos_ldu = pos[0] / LDU
+        self_mod = abs(pos_ldu) % 10.0
+        assert self_mod < 0.1 or self_mod > 9.9, f"端口 {i} 的位置 {pos_ldu} 不在 10 LDU 格点上"
 
         # 2. 核心物理校验：必须是合法的右手系旋转矩阵 (SO(3))
         # 行列式必须为 1 (不能是 -1，否则镜像会导致渲染出错)

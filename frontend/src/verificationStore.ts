@@ -56,7 +56,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
   selectPart: async (partId: string) => {
     set({ isLoading: true, currentPartId: partId });
     try {
-      const resp = await fetch(`${API_BASE}/ldraw_part/${partId}`);
+      const resp = await fetch(`${API_BASE}/ldraw_part/${partId}?include_pending=true`);
       const data = await resp.json();
       set({ currentPorts: data.ports });
     } finally {
@@ -182,6 +182,10 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
         })
       });
       if (resp.ok) {
+        // 导入并清理缓存，防止装配页面继续显示旧数据
+        const { clearPartCache } = await import('./useLDrawPart');
+        clearPartCache(currentPartId);
+
         await get().fetchPendingList();
         set({ currentPartId: null, currentPorts: [] });
       }

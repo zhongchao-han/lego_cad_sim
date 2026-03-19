@@ -109,7 +109,7 @@ class Port:
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def create_from_ldraw(
+    def from_raw(
         cls,
         name:       str,
         ldraw_type: str,
@@ -118,9 +118,8 @@ class Port:
         part_context: str = "Unknown Part"
     ) -> Optional["Port"]:
         """
-        严格工厂方法：将 LDraw 原件类型映射为标准接口。
-
-        如果不匹配，将打印 CRITICAL 级别的日志并返回 None。
+        [数据入库端专用] 从 LDraw 原始数据创建端口，并执行轴向归一化。
+        该方法会将 LDraw 的 -Y 映射为 Z+ (插入方向)，并纠正镜像错误。
         """
         iface = get_interface(ldraw_type)
         if iface is None:
@@ -148,6 +147,30 @@ class Port:
             interface=iface,
             position=pos,
             rotation=final_rot,
+            port_type=ldraw_type,
+        )
+
+    @classmethod
+    def from_config(
+        cls,
+        name:       str,
+        ldraw_type: str,
+        pos:        np.ndarray,
+        rot:        np.ndarray,
+    ) -> Optional["Port"]:
+        """
+        [运行时专用] 从已经归一化好的 JSON 配置创建端口。
+        直接信任输入数据，不再进行二次轴向变换。
+        """
+        iface = get_interface(ldraw_type)
+        if iface is None:
+            return None # 运行时由于已经过验证，通常不会走到这里
+            
+        return cls(
+            name=name,
+            interface=iface,
+            position=pos,
+            rotation=rot,
             port_type=ldraw_type,
         )
 
@@ -339,8 +362,8 @@ if __name__ == "__main__":
     print("=== port.py 自测 ===\n")
 
     # 1. 工厂方法：已注册类型
-    hole = Port.create_from_ldraw("h0", "peghole.dat", np.zeros(3), np.eye(3))
-    pin  = Port.create_from_ldraw("p0", "pin.dat",     np.zeros(3), np.eye(3))
+    hole = Port.from_raw("h0", "peghole.dat", np.zeros(3), np.eye(3))
+    pin  = Port.from_raw("p0", "pin.dat",     np.zeros(3), np.eye(3))
     assert hole is not None and pin is not None, "已注册类型应成功创建"
 
     # 2. Z 轴归一化验证
@@ -349,16 +372,13 @@ if __name__ == "__main__":
         f"FEMALE Z 应为 [0,-1,0]，实际：{hole.insertion_axis}"
     assert np.allclose(pin.insertion_axis, [0, -1, 0], atol=1e-9), \
         f"MALE Z 应为 [0,-1,0]，实际：{pin.insertion_axis}"
-    print(f"[归一化] hole Z={hole.insertion_axis}, pin Z={pin.insertion_axis}")
 
-    # 3. 朝向一致性验证
-    # 当 Parent 坐标系相同时，两者朝向应相同（均向外）。
-    # 插合时，其中一个零件必然相对于另一个旋转了 180 度，从而满足 Z_a = -Z_b。
-    assert np.allclose(hole.insertion_axis, pin.insertion_axis, atol=1e-9), \
-        "同坐标轴下，MALE 和 FEMALE 插入轴应一致（均向外）"
-    print("[朝向一致性] hole Z == pin Z OK")
+    # 3. 极性与形状提取
+    assert hole.gender == Gender.FEMALE and hole.profile == Profile.CYLINDER
+    assert pin.gender == Gender.MALE and pin.profile == Profile.CYLINDER
+    print("[工厂方法与归一化] Z 轴对齐 OK")
 
-    # 4. test_fit_with
+    # 4. Fit Test
     assert hole.test_fit_with(pin) == FitType.CLEARANCE
     assert pin.test_fit_with(hole) == FitType.CLEARANCE  # 自动处理顺序
     assert hole.test_fit_with(hole) == FitType.INCOMPATIBLE
