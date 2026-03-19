@@ -172,9 +172,9 @@ if __name__ == "__main__":
     
     id_rot = np.eye(3)
 
-    # 辅助：用 Port.create_from_ldraw 构建测试端口（严谨模式）
+    # 辅助：用 Port.from_raw 构建测试端口（严谨模式）
     def mk(name, ldraw_type, pos):
-        item = Port.create_from_ldraw(name, ldraw_type, np.array(pos), id_rot, part_context="TestPart")
+        item = Port.from_raw(name, ldraw_type, np.array(pos), id_rot, part_context="TestPart")
         if item is None:
             raise ValueError(f"测试失败：无法创建类型为 {ldraw_type} 的测试端口。请在 connection_interface.py 中检查注册状况。")
         return item

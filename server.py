@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from physics_engine import PhysicsEngine
 from topology_manager import TopologyManager, PartNode, ConnectionEdge
-from ldraw_parser import LDrawParser
+from port_library import PortLibrary
 from geometry_processor import GeometryProcessor
 from fastapi.staticfiles import StaticFiles
 from connection_interface import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
@@ -192,12 +192,12 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
 
     dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
 
-    parser = LDrawParser(ldraw_path=LDRAW_PARTS_ROOT)
+    library = PortLibrary(ldraw_path=LDRAW_PARTS_ROOT)
     geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
 
     ports = []
     # 严格模式过滤：只有当 include_pending 为 True 时，才返回未复核的端口
-    parsed_ports = parser.parse_dat_file(dat_filename, allow_pending=include_pending)
+    parsed_ports = library.parse_dat_file(dat_filename, allow_pending=include_pending)
     if parsed_ports:
         ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
     else:

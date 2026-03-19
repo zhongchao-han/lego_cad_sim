@@ -24,7 +24,7 @@ class GeometryProcessor:
         """根据 LDraw 规则寻找文件的绝对路径。"""
         filename = filename.lower().replace('\\', '/')
         
-        # 搜索逻辑与 LDrawParser 一致
+        # 搜索逻辑与 PortLibrary 一致
         full_path = os.path.normpath(os.path.join(self.ldraw_path, filename))
         if os.path.exists(full_path): return full_path
 

@@ -12,32 +12,32 @@ logger = logging.getLogger(__name__)
 
 LDU_TO_SI = 0.0004
 
-class LDrawParser:
+class PortLibrary:
     """
-    精简版运行时解析器。
+    端口语义库加载器。
     
     原则：100% 配置文件驱动。
     - 仅从 ldraw_port_configs.json 读取端口定义。
-    - 不在运行时进行任何复杂的启发式识别，确保行为确定性。
+    - 该类作为系统唯一的“端口语义真理来源”，服务于仿真、渲染和复核。
     """
     
     def __init__(self, ldraw_path: str = "ldraw_lib"):
         self.ldraw_path = ldraw_path
         self.fallback_data: Dict[str, Any] = {}
         
-        # 强制加载手工配置/自动识别后的结果库
+        # 强制加载已校验的成品库
         config_path = os.path.join(os.path.dirname(__file__), "ldraw_port_configs.json")
         if os.path.exists(config_path):
             self.load_port_configs(config_path)
         else:
-            logger.warning(f"未找到端口配置文件: {config_path}。请运行 python port_discovery.py 生成配置。")
-
+            logger.warning(f"未找到端口配置文件: {config_path}。系统将无法识别任何连接点。")
+            
     def load_port_configs(self, filepath: str) -> None:
         """加载端口配置。"""
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 self.fallback_data = json.load(f)
-                logger.info(f"成功加载 {len(self.fallback_data)} 个零件的端口配置。")
+                logger.debug(f"成功加载 {len(self.fallback_data)} 个零件的端口配置。")
         except Exception as e:
             logger.error(f"解析 JSON 配置出错 {filepath}: {e}")
 
@@ -96,7 +96,7 @@ class LDrawParser:
         return None
 
 if __name__ == "__main__":
-    parser = LDrawParser()
+    library = PortLibrary()
     test_part = "6558.dat"
-    ports = parser.parse_dat_file(test_part)
+    ports = library.parse_dat_file(test_part)
     print(f"运行时：零件 {test_part} 载入 {len(ports)} 个端口。")

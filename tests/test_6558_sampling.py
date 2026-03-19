@@ -7,16 +7,16 @@ import sys
 # Add workspace to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from ldraw_parser import LDrawParser
+from port_library import PortLibrary
 
 class Test6558Sampling(unittest.TestCase):
     def setUp(self):
         # 假设 ldraw_lib 在项目根目录
-        self.parser = LDrawParser(ldraw_path="ldraw_lib")
+        self.library = PortLibrary(ldraw_path="ldraw_lib")
 
     def test_6558_port_positions(self):
         """验证 6558 插销的端口采样位置是否正确 (LDU: -10, 10, 30)"""
-        ports = self.parser.parse_dat_file("6558.dat", allow_pending=True)
+        ports = self.library.parse_dat_file("6558.dat", allow_pending=True)
         
         # 将 SI 位置转回 LDU
         positions_ldu = []
@@ -40,7 +40,7 @@ class Test6558Sampling(unittest.TestCase):
         """验证长轴 (如 3706.dat, 6L Axle) 的采样"""
         # 3706.dat 是 6L 的轴，沿 X 轴延伸。
         # 它应包含 6 个身部端口 + 2 个端部端口 = 8 个端口
-        ports = self.parser.parse_dat_file("3706.dat", allow_pending=True)
+        ports = self.library.parse_dat_file("3706.dat", allow_pending=True)
         self.assertEqual(len(ports), 8, "6L Axle should have 8 ports (6 body + 2 ends)")
         
         # 检查 X 间距

@@ -392,7 +392,7 @@ if __name__ == "__main__":
     print(f"[derive_joint] type={j}, damping={d}")
 
     # 6. 摩擦销
-    fpin = Port.create_from_ldraw("fp", "fric_pin.dat", np.zeros(3), np.eye(3))
+    fpin = Port.from_raw("fp", "fric_pin.dat", np.zeros(3), np.eye(3))
     assert fpin is not None
     assert fpin.test_fit_with(hole) == FitType.FRICTION
     jf, df, _ = fpin.derive_joint(hole)
@@ -400,8 +400,8 @@ if __name__ == "__main__":
     print(f"[摩擦销] type={jf}, damping={df}")
 
     # 7. 十字轴
-    axle     = Port.create_from_ldraw("ax", "axle.dat",     np.zeros(3), np.eye(3))
-    axlehole = Port.create_from_ldraw("ah", "axlehole.dat", np.zeros(3), np.eye(3))
+    axle     = Port.from_raw("ax", "axle.dat",     np.zeros(3), np.eye(3))
+    axlehole = Port.from_raw("ah", "axlehole.dat", np.zeros(3), np.eye(3))
     assert axle is not None and axlehole is not None
     assert axle.test_fit_with(axlehole) == FitType.CLEARANCE
     jax, _, _ = axle.derive_joint(axlehole)
@@ -409,7 +409,7 @@ if __name__ == "__main__":
     print(f"[十字轴] type={jax}")
 
     # 8. 未知类型 → None
-    unknown = Port.create_from_ldraw("u", "unknown_part.dat", np.zeros(3), np.eye(3))
+    unknown = Port.from_raw("u", "unknown_part.dat", np.zeros(3), np.eye(3))
     assert unknown is None
     print("[未知类型] returns None OK")
 
@@ -427,7 +427,7 @@ if __name__ == "__main__":
     # 11. 镜像矩阵稳健性（LDraw 常见：det = -1）
     # 构造一个在 X 轴镜像的旋转矩阵
     mirrored_rot = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
-    m_hole = Port.create_from_ldraw("mh", "peghole.dat", np.zeros(3), mirrored_rot)
+    m_hole = Port.from_raw("mh", "peghole.dat", np.zeros(3), mirrored_rot)
     assert m_hole is not None
     # 验证输出矩阵是右手系 (det ≈ 1)
     assert np.linalg.det(m_hole.rotation) > 0, "输出矩阵必须是右手系"
