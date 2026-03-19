@@ -46,22 +46,22 @@ def test_6558_port_flow():
         # 对于 6558，两个 peg 端口分别位于零件两端，各距中心约 10 LDU（= 0.004m）
         # 检查位置是否在原始 LDraw 语义点附近，不应被几何投影逻辑篡改
         dist_from_origin = np.linalg.norm(pos)
-        assert 0.0035 <= dist_from_origin <= 0.0045, f”端口 {i} 的位置 {pos} 不在预期的 10 LDU 附近”
+        assert 0.0035 <= dist_from_origin <= 0.0045, f"端口 {i} 的位置 {pos} 不在预期的 10 LDU 附近"
 
         # 2. 核心物理校验：必须是合法的右手系旋转矩阵 (SO(3))
         # 行列式必须为 1 (不能是 -1，否则镜像会导致渲染出错)
         det = np.linalg.det(rot)
-        assert np.isclose(det, 1.0), f”端口 {i} 不是右手系！det={det}。这会导致前端渲染镜像翻转。”
+        assert np.isclose(det, 1.0), f"端口 {i} 不是右手系！det={det}。这会导致前端渲染镜像翻转。"
 
         # 3. 正交性校验：R * R.T 应该等于单位阵
         is_orthogonal = np.allclose(rot @ rot.T, np.eye(3), atol=1e-6)
-        assert is_orthogonal, f”端口 {i} 旋转矩阵不是正交的！\n{rot}”
+        assert is_orthogonal, f"端口 {i} 旋转矩阵不是正交的！\n{rot}"
 
         # 4. Z 轴方向校验：必须严格对应 X 方向（与端口位置同侧）
         if pos[0] > 0:
-            assert np.allclose(z_axis, [1, 0, 0]), f”端口 {i} Z 轴偏移: {z_axis}”
+            assert np.allclose(z_axis, [1, 0, 0]), f"端口 {i} Z 轴偏移: {z_axis}"
         else:
-            assert np.allclose(z_axis, [-1, 0, 0]), f”端口 {i} Z 轴偏移: {z_axis}”
+            assert np.allclose(z_axis, [-1, 0, 0]), f"端口 {i} Z 轴偏移: {z_axis}"
 
     print("\n[SUCCESS] 6558 端口流验证通过：位置与方向符合物理逻辑。")
 

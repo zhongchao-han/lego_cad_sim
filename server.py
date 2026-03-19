@@ -94,7 +94,25 @@ async def get_pending_list():
 async def save_verified_ports(req: VerifySaveRequest):
     """保存人工复核后的端口数据，状态设为 verified。"""
     try:
-        ports_dict = [p.dict() for p in req.ports]
+        def clean_value(v):
+            import numpy as np
+            if isinstance(v, (float, np.floating)):
+                # 智能格点吸附：如果非常接近 10 LDU (乐高标准格点/半格点)，强制归零
+                # 容差设为 0.1 LDU
+                snapped = round(v / 10.0) * 10.0
+                if abs(v - snapped) < 0.1:
+                    return float(snapped)
+                return round(float(v), 4)
+            if isinstance(v, list): return [clean_value(i) for i in v]
+            return v
+
+        ports_dict = []
+        for p in req.ports:
+            p_data = p.dict()
+            p_data["position"] = [clean_value(x) for x in p_data["position"]]
+            p_data["rotation"] = [[clean_value(x) for x in row] for row in p_data["rotation"]]
+            ports_dict.append(p_data)
+
         # 注意：这里调用 update_part_config，将状态设为 verified
         success = port_config_manager.update_part_config(
             part_id=req.part_id,

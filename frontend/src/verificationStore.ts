@@ -80,14 +80,33 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
 
   updatePort: (index, newData) => {
     const newPorts = [...get().currentPorts];
-    newPorts[index] = { ...newPorts[index], ...newData };
+    const target = { ...newPorts[index], ...newData };
+    
+    // 递归进行智能吸附与数据清洗
+    const clean = (v: any): any => {
+      if (typeof v === 'number') {
+        const snapped = Math.round(v / 10) * 10;
+        // 如果误差在 0.1 LDU 以内，强制吸附回 10L 格点 (乐高标准半孔距精度)
+        if (Math.abs(v - snapped) < 0.1) return snapped;
+        return Math.round(v * 10000) / 10000;
+      }
+      if (Array.isArray(v)) return v.map(clean);
+      return v;
+    };
+
+    if (target.position) target.position = clean(target.position);
+    if (target.rotation) target.rotation = clean(target.rotation);
+
+    newPorts[index] = target;
     set({ currentPorts: newPorts });
   },
 
   movePort: (index, axis, delta) => {
     const port = get().currentPorts[index];
     const newPos = [...port.position] as [number, number, number];
-    newPos[axis] += delta;
+    const rawVal = newPos[axis] + delta;
+    // 使用高精度舍入（4位）消除 IEEE 754 噪音，同时保留可能的微小偏置
+    newPos[axis] = Math.round(rawVal * 10000) / 10000;
     get().updatePort(index, { position: newPos });
   },
 

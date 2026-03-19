@@ -89,29 +89,64 @@ class PortDiscoverer:
                     
                     # 严格校验：步长必须接近 20 LDU 的整数倍
                     num_units_float = length_ldu / 20.0
-                    if abs(num_units_float - round(num_units_float)) > 0.05:
+                    # 放宽公差到 0.25L，以兼容像 axlehol8.dat (115 LDU -> 5.75L) 这样的原件
+                    if abs(num_units_float - round(num_units_float)) > 0.25:
                         logger.warning(f"跳过不确定原件: {filename} -> {child_file} (长度 {num_units_float:.2f}L 非标)")
                         continue
                     
                     num_units = int(round(num_units_float))
-                    if num_units > 1:
+                    if num_units >= 1:
                         # 多单元采样（见 docs/issue/6558_insertion_depth_analysis.md）
+                        # 核心逻辑：中心对齐采样。
+                        # 对于 1 unit, start_phys_offset = 0 -> sampled_pos is origin.
+                        # 对于 2 units, start_phys_offset = -10 -> sampled_pos are -10, 10.
+                        # 对于 3 units, start_phys_offset = -20 -> sampled_pos are -20, 0, 20.
                         start_phys_offset = -(num_units - 1) * 10.0
                         for k in range(num_units):
                             phys_offset_y = start_phys_offset + k * 20.0
-                            local_offset_y = phys_offset_y / (y_scale * (base_unit_len if y_scale <= 10.0 else 1.0))
+                            
+                            # 修正采样间距逻辑：直接使用 LDU 物理偏移除以本地缩放
+                            # y_scale 已经包含了本地定义的缩放 (b, e, h 列的模)
+                            local_offset_y = phys_offset_y / y_scale
                             offset_vec = np.array([0, local_offset_y, 0, 1])
                             sampled_pos = (global_mat @ offset_vec)[:3]
+                            
+                            # --- 精度修正：网格吸附 ---
+                            # 1. 位置吸附到 10 LDU 格点 (允许 0.5 LDU 误差)
+                            rounded_pos = []
+                            for v in sampled_pos:
+                                v_snapped = round(v / 10.0) * 10.0
+                                if abs(v - v_snapped) < 1.0: # 1 LDU 宽容度
+                                    rounded_pos.append(float(v_snapped))
+                                else:
+                                    rounded_pos.append(float(round(v, 4)))
+                            
+                            # 2. 旋转矩阵吸附：仅当非常接近轴对齐时才强转
+                            rot = global_mat[:3, :3]
+                            clean_rot = np.zeros((3, 3))
+                            for col in range(3):
+                                vec = rot[:, col]
+                                max_idx = np.argmax(np.abs(vec))
+                                if np.abs(vec[max_idx]) > 0.99: # 只有接近 1 的才吸附
+                                    clean_vec = np.zeros(3)
+                                    clean_vec[max_idx] = 1.0 if vec[max_idx] > 0 else -1.0
+                                    clean_rot[:, col] = clean_vec
+                                else:
+                                    clean_rot[:, col] = vec # 保持原始角度（斜向零件）
+                            
                             discovered.append({
                                 "type": "peg" if is_connector else child_file,
-                                "position": [float(round(v, 4)) for v in sampled_pos],
-                                "rotation": [[float(round(v, 4)) for v in row] for row in global_mat[:3, :3].tolist()]
+                                "position": rounded_pos,
+                                "rotation": clean_rot.tolist()
                             })
                     else:
+                        # 兜底：处理 num_units=0 的零件（非常小的原件），默认在其中心创建一个端口
+                        pos = global_mat[:3, 3]
+                        snapped_pos = [float(round(v / 10.0) * 10.0) if abs(v % 10.0) < 1.0 or abs(v % 10.0) > 9.0 else float(round(v, 4)) for v in pos]
                         discovered.append({
                             "type": "peg" if is_connector else child_file,
-                            "position": [float(round(v, 4)) for v in global_mat[:3, 3]],
-                            "rotation": [[float(round(v, 4)) for v in row] for row in global_mat[:3, :3].tolist()]
+                            "position": snapped_pos,
+                            "rotation": global_mat[:3, :3].tolist()
                         })
                 else:
                     # 递归寻找子部件
@@ -150,9 +185,17 @@ class PortDiscoverer:
         self.manager.save()
 
 if __name__ == "__main__":
+    import argparse
     import sys
-    # 示例用法：python port_discovery.py 6558.dat 2780.dat
-    parts_to_scan = sys.argv[1:] if len(sys.argv) > 1 else ["6558.dat", "2780.dat", "3706.dat", "32523.dat"]
+
+    parser = argparse.ArgumentParser(description="LDraw 零件端口自动识别工具")
+    parser.add_argument("parts", nargs="*", help="要扫描的 .dat 零件列表 (例如: 6558.dat 2780.dat)")
+    parser.add_argument("--force", action="store_true", help="强制覆盖已人工验证 (verified) 的数据")
+    
+    args = parser.parse_args()
+
+    # 如果没传参数，使用默认测试集
+    parts_to_scan = args.parts if args.parts else ["6558.dat", "2780.dat", "3706.dat", "32523.dat"]
     
     discoverer = PortDiscoverer()
-    discoverer.run_on_parts(parts_to_scan)
+    discoverer.run_on_parts(parts_to_scan, force=args.force)
