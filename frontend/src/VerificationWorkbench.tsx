@@ -97,7 +97,7 @@ export const VerificationWorkbench: React.FC = () => {
       </div>
 
       <div style={{ flex: 1, position: 'relative' }}>
-        <Canvas camera={{ position: [0.08, 0.08, 0.08], fov: 50 }}>
+        <Canvas camera={{ position: [0.08, 0.08, 0.08], fov: 50, near: 0.0001, far: 10 }}>
           <Suspense fallback={null}>
             {/* 核心修复：center={false} 确保模型不发生位移，旋转中心保持在 LDraw 原点 */}
             <Stage intensity={0.5} environment="city" adjustCamera={false} center={false}>
@@ -126,7 +126,7 @@ export const VerificationWorkbench: React.FC = () => {
           </GizmoHelper>
 
           {/* 核心修复：target 锁死在 [0,0,0]，enablePan=false 防止旋转中心漂移 */}
-          <OrbitControls makeDefault target={[0, 0, 0]} enablePan={false} minDistance={0.01} maxDistance={1} />
+          <OrbitControls makeDefault target={[0, 0, 0]} enablePan={false} minDistance={0.001} maxDistance={1} />
         </Canvas>
 
         {/* 修正工具箱 */}
