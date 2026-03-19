@@ -83,9 +83,9 @@ export const VerificationWorkbench: React.FC = () => {
         borderRight: '1px solid #333', 
         overflowY: 'auto', 
         padding: '1rem',
-        paddingTop: '32px' 
+        paddingTop: '180px' 
       }}>
-        <div className="mb-6 mt-20">
+        <div className="mb-6">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">搜索零件</h3>
           <input 
             type="text" 
