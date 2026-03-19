@@ -22,6 +22,7 @@ const PartModel: React.FC<{ url: string }> = ({ url }) => {
         (mesh.material as any).transparent = true;
         (mesh.material as any).opacity = 0.4;
         (mesh.material as any).depthWrite = false;
+        mesh.raycast = () => null; // 绝对禁止模型阻挡射线检测
       }
     });
     return clone;
@@ -122,8 +123,8 @@ export const VerificationWorkbench: React.FC = () => {
             <directionalLight position={[1, 1, 1]} intensity={0.8} />
             <Environment preset="city" />
 
-            {/* 原点坐标轴：X(红) Y(绿) Z(蓝) */}
-            <axesHelper args={[0.05]} />
+            {/* 原点坐标轴：X(红) Y(绿) Z(蓝) - 禁用交互以防阻挡端口选择 */}
+            <axesHelper args={[0.05]} raycast={() => null} />
 
             {/* 渲染零件主体 */}
             {meshUrl && <PartModel url={meshUrl} />}
@@ -138,7 +139,7 @@ export const VerificationWorkbench: React.FC = () => {
               />
             ))}
           </Suspense>
-          <Grid infiniteGrid fadeDistance={0.5} cellColor="#333" sectionColor="#444" />
+          <Grid infiniteGrid fadeDistance={0.5} cellColor="#333" sectionColor="#444" raycast={() => null} />
           
           {/* 方向罗盘 */}
           <GizmoHelper alignment="bottom-right" margin={[100, 100]}>

@@ -49,7 +49,7 @@ export const PortVisualizer: React.FC<PortVisualizerProps> = ({
   }, [position]);
 
   return (
-    <group position={posVec} onClick={(e) => { e.stopPropagation(); onSelect?.(); }}>
+    <group position={posVec}>
       <arrowHelper 
         args={[direction, new THREE.Vector3(0, 0, 0), 0.015, color, 0.005, 0.003]} 
       />
@@ -63,6 +63,11 @@ export const PortVisualizer: React.FC<PortVisualizerProps> = ({
           <meshBasicMaterial color="white" wireframe />
         </mesh>
       )}
+      {/* 增大交互热区：一个透明的球体负责点击事件 */}
+      <mesh onClick={(e) => { e.stopPropagation(); onSelect?.(); }}>
+        <sphereGeometry args={[0.006, 16, 16]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
     </group>
   );
 };
