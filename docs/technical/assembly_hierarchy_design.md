@@ -267,21 +267,19 @@ const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
 
 ```
 D:\Users\hanerlv\Documents\workspace\lego_cad_sim\
-├── port_semantics.py        # ConnectionInterface, Gender, Profile, FitType
-├── port.py                  # Port, _NORMALIZER_MAP, _R_FLIP_Z
-├── connection_edge.py       # ConnectionEdge, JointState
-├── topology_manager.py      # TopologyManager, PartNode
-├── urdf_exporter.py         # URDFExporter
-├── port_library.py          # PortLibrary (Semantic Source)
-├── port_library_manager.py  # PortLibraryManager (Persistence)
-├── server.py                # FastAPI 端点
-├── core_constants.py        # Constants
-├── frontend/src/
-│   ├── store.ts             # Zustand 状态机，snapParts, stripAxis
-│   ├── snapMath.test.ts     # 前端数学单元测试
-│   └── useLDrawPart.ts      # LDraw 解析 Hook
-└── tests/
-    ├── test_port_connections.py   # Port 级测试
-    ├── test_6558_sampling.py      # 采样精度测试
-    └── test_connection_edge.py    # ConnectionEdge 独立测试
+├── backend/                 # 后端核心逻辑
+│   ├── server.py            # FastAPI 端点
+│   ├── port_library.py      # 语义库加载器
+│   ├── port_semantics.py    # 物理接口配合语义
+│   ├── port.py              # Port 实体
+│   ├── topology_manager.py  # 拓扑逻辑
+│   ├── urdf_exporter.py     # URDF 导出
+│   ├── ...                  # 其他 .py 模块
+│   └── tests/               # 后端测试
+├── data/                    # 动态数据
+│   └── ldraw_port_configs.json # 零件端口真理数据库
+├── docs/                    # 文档系统
+├── ldraw_lib/               # 静态资源库
+├── ldraw_meshes/            # 缓存网格
+└── core_constants.py        # [已移入 backend/]
 ```

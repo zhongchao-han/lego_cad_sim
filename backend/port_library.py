@@ -26,8 +26,8 @@ class PortLibrary:
         self.ldraw_path = ldraw_path
         self._data: Dict[str, Any] = {}
         
-        # 强制加载已校验的成品库
-        config_path = os.path.join(os.path.dirname(__file__), "ldraw_port_configs.json")
+        # 强制加载项目顶层 data/ 目录下的真理库
+        config_path = os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json")
         if os.path.exists(config_path):
             self.load_configs(config_path)
         else:

@@ -22,7 +22,10 @@ class PortLibraryManager:
     2. 提供线程安全的读写操作。
     """
     
-    def __init__(self, config_path: str = "ldraw_port_configs.json"):
+    def __init__(self, config_path: str = None):
+        if config_path is None:
+            # 默认指向项目顶层的 data/ 目录
+            config_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json"))
         self.config_path = config_path
         self._lock = threading.Lock()
         self._data: Dict[str, Any] = {}
