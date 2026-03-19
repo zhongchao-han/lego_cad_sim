@@ -34,7 +34,7 @@ const PartModel: React.FC<{ url: string }> = ({ url }) => {
 export const VerificationWorkbench: React.FC = () => {
   const { 
     pendingList, currentPartId, currentPorts, fetchPendingList, 
-    selectPart, addPort, deletePort, movePort, flipPortZ, rotatePort90, 
+    selectPart, addPort, deletePort, movePort, flipPortZ, rotateX90, rotateY90, rotateZ90, 
     snapPortToGrid, saveVerification 
   } = useVerificationStore();
 
@@ -104,13 +104,13 @@ export const VerificationWorkbench: React.FC = () => {
               onClick={() => addPort('peghole')}
               className="w-full py-2 bg-blue-900/50 hover:bg-blue-800 text-blue-300 text-sm font-bold rounded border border-blue-700 transition-colors"
             >
-              + Add Hole (蓝色)
+              + 添加 Hole (蓝色)
             </button>
             <button 
               onClick={() => addPort('peg')}
               className="w-full py-2 bg-purple-900/50 hover:bg-purple-800 text-purple-300 text-sm font-bold rounded border border-purple-700 transition-colors"
             >
-              + Add Peg (紫色)
+              + 添加 Peg (紫色)
             </button>
           </div>
         )}
@@ -159,21 +159,29 @@ export const VerificationWorkbench: React.FC = () => {
 
         {/* 修正工具箱 */}
         {selectedPortIndex !== null && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur p-6 rounded-2xl shadow-2xl border border-white/10 space-y-4">
+          <div 
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur p-6 rounded-2xl shadow-2xl border border-white/10 space-y-4"
+          >
             <div className="flex gap-2 justify-center">
-              <button className="px-3 py-1 bg-red-900 hover:bg-red-700 text-white text-xs font-bold rounded"
+              <button className="px-3 py-1 bg-red-900/80 hover:bg-red-700 text-white text-xs font-bold rounded"
                 onClick={() => { deletePort(selectedPortIndex); setSelectedPortIndex(null); }}>
-                DELETE PORT
+                DELETE (删除端口)
               </button>
             </div>
             
             <div className="flex gap-3">
-              <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-bold"
-                onClick={() => flipPortZ(selectedPortIndex)}>Flip Z (180°)</button>
-              <button className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-bold"
-                onClick={() => rotatePort90(selectedPortIndex)}>Rotate (90°)</button>
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold"
-                onClick={() => snapPortToGrid(selectedPortIndex)}>Snap to Grid</button>
+              <button className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-bold"
+                onClick={() => flipPortZ(selectedPortIndex)}>Flip Z (180°翻转)</button>
+              <button className="px-3 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-xs font-bold"
+                onClick={() => rotateX90(selectedPortIndex)}>旋转 X</button>
+              <button className="px-3 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-xs font-bold"
+                onClick={() => rotateY90(selectedPortIndex)}>旋转 Y</button>
+              <button className="px-3 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-xs font-bold"
+                onClick={() => rotateZ90(selectedPortIndex)}>旋转 Z (90°)</button>
+              <button className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold"
+                onClick={() => snapPortToGrid(selectedPortIndex)}>Grid吸附</button>
             </div>
 
             <div className="grid grid-cols-3 gap-2">

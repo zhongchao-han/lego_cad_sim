@@ -27,6 +27,9 @@ interface VerificationState {
   movePort: (index: number, axis: 0 | 1 | 2, delta: number) => void;
   flipPortZ: (index: number) => void;
   rotatePort90: (index: number) => void;
+  rotateX90: (index: number) => void;
+  rotateY90: (index: number) => void;
+  rotateZ90: (index: number) => void;
   snapPortToGrid: (index: number) => void;
   saveVerification: () => Promise<void>;
 }
@@ -99,7 +102,31 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     get().updatePort(index, { rotation: newRot });
   },
 
-  rotatePort90: (index) => {
+  rotatePort90: (index) => get().rotateX90(index), // 默认旋转 X 轴（更直观）
+
+  rotateX90: (index) => {
+    const port = get().currentPorts[index];
+    const rot = port.rotation;
+    const newRot = [
+      [rot[0][0], rot[0][2], -rot[0][1]],
+      [rot[1][0], rot[1][2], -rot[1][1]],
+      [rot[2][0], rot[2][2], -rot[2][1]]
+    ];
+    get().updatePort(index, { rotation: newRot });
+  },
+
+  rotateY90: (index) => {
+    const port = get().currentPorts[index];
+    const rot = port.rotation;
+    const newRot = [
+      [-rot[0][2], rot[0][1], rot[0][0]],
+      [-rot[1][2], rot[1][1], rot[1][0]],
+      [-rot[2][2], rot[2][1], rot[2][0]]
+    ];
+    get().updatePort(index, { rotation: newRot });
+  },
+
+  rotateZ90: (index) => {
     const port = get().currentPorts[index];
     const rot = port.rotation;
     const newRot = [

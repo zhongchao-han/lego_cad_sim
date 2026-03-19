@@ -40,6 +40,12 @@ export const PortVisualizer: React.FC<PortVisualizerProps> = ({
     return dir.normalize();
   }, [matrix]);
 
+  const xDirection = useMemo(() => {
+    const dir = new THREE.Vector3(1, 0, 0);
+    dir.applyMatrix4(matrix);
+    return dir.normalize();
+  }, [matrix]);
+
   const posVec = useMemo(() => {
     return new THREE.Vector3(
       position[0] * LDU,
@@ -50,10 +56,18 @@ export const PortVisualizer: React.FC<PortVisualizerProps> = ({
 
   return (
     <group position={posVec}>
+      {/* 主轴：Z 轴 (插入方向) */}
       <arrowHelper 
         args={[direction, new THREE.Vector3(0, 0, 0), 0.015, color, 0.005, 0.003]} 
       />
+      {/* 辅助轴：X 轴 (用于观察绕 Z 轴的旋转) */}
+      {isSelected && (
+        <arrowHelper 
+          args={[xDirection, new THREE.Vector3(0, 0, 0), 0.008, "#ff3e3e", 0.003, 0.002]} 
+        />
+      )}
       <mesh>
+
         <sphereGeometry args={[isSelected ? 0.003 : 0.002, 16, 16]} />
         <meshBasicMaterial color={color} transparent opacity={isSelected ? 0.8 : 0.5} />
       </mesh>
