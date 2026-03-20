@@ -1,11 +1,16 @@
-import unittest
+import sys
 import os
+import unittest
 import json
 import shutil
 import tempfile
-from port_config_manager import PortConfigManager
 
-class TestPortConfigManager(unittest.TestCase):
+# 将 backend 目录添加到 sys.path
+sys.path.append(os.path.normpath(os.path.join(os.path.dirname(__file__), "..")))
+
+from port_library_manager import PortLibraryManager
+
+class TestPortLibraryManager(unittest.TestCase):
     def setUp(self):
         # 创建临时测试目录和文件
         self.test_dir = tempfile.mkdtemp()
@@ -26,12 +31,12 @@ class TestPortConfigManager(unittest.TestCase):
 
     def test_initial_load_empty(self):
         """测试初始加载不存在的文件。"""
-        manager = PortConfigManager(self.config_path)
+        manager = PortLibraryManager(self.config_path)
         self.assertEqual(len(manager.get_pending_parts()), 0)
 
     def test_save_and_load(self):
         """测试保存并重新加载数据。"""
-        manager = PortConfigManager(self.config_path)
+        manager = PortLibraryManager(self.config_path)
         manager.update_part_config("6558.dat", self.sample_ports, confidence=0.8)
         manager.save()
         
@@ -42,14 +47,14 @@ class TestPortConfigManager(unittest.TestCase):
             self.assertEqual(data["6558.dat"]["status"], "pending")
         
         # 重新加载
-        new_manager = PortConfigManager(self.config_path)
+        new_manager = PortLibraryManager(self.config_path)
         config = new_manager.get_part_config("6558.dat")
         self.assertIsNotNone(config)
         self.assertEqual(config["confidence"], 0.8)
 
     def test_metadata_lock_verified(self):
         """核心测试：verified 状态应阻止非强制更新。"""
-        manager = PortConfigManager(self.config_path)
+        manager = PortLibraryManager(self.config_path)
         
         # 1. 模拟人工复核
         manager.update_part_config("6558.dat", self.sample_ports, status="verified")
@@ -66,7 +71,7 @@ class TestPortConfigManager(unittest.TestCase):
 
     def test_metadata_lock_force(self):
         """测试 force 参数应能强制覆盖 verified 数据。"""
-        manager = PortConfigManager(self.config_path)
+        manager = PortLibraryManager(self.config_path)
         manager.update_part_config("6558.dat", self.sample_ports, status="verified")
         
         new_ports = [{"type": "forced_update", "position": [0,0,0]}]
@@ -78,7 +83,7 @@ class TestPortConfigManager(unittest.TestCase):
 
     def test_pending_list_sorting(self):
         """测试待复核列表按自信度排序。"""
-        manager = PortConfigManager(self.config_path)
+        manager = PortLibraryManager(self.config_path)
         manager.update_part_config("A.dat", [], confidence=0.9) # 较自信
         manager.update_part_config("B.dat", [], confidence=0.2) # 不自信
         manager.update_part_config("C.dat", [], confidence=0.5)
@@ -86,8 +91,22 @@ class TestPortConfigManager(unittest.TestCase):
         
         pending = manager.get_pending_parts()
         self.assertEqual(len(pending), 3)
-        self.assertEqual(pending[0]["part_id"], "B.dat", "最不自信的应排在首位")
-        self.assertEqual(pending[-1]["part_id"], "A.dat", "最自信的应排在末位")
+        self.assertEqual(pending[0]["part_id"], "b.dat", "最不自信的应排在首位")
+        self.assertEqual(pending[-1]["part_id"], "a.dat", "最自信的应排在末位")
+
+    def test_get_verified_parts(self):
+        """测试获取已复核零件列表。"""
+        manager = PortLibraryManager(self.config_path)
+        manager.update_part_config("v1.dat", [], status="verified")
+        manager.update_part_config("p1.dat", [], status="pending")
+        manager.update_part_config("v2.dat", [], status="verified")
+        
+        verified = manager.get_verified_parts()
+        self.assertEqual(len(verified), 2)
+        self.assertEqual(verified[0]["part_id"], "v1.dat")
+        self.assertEqual(verified[1]["part_id"], "v2.dat")
+        self.assertIn("mesh_url", verified[0])
+        self.assertTrue(verified[0]["mesh_url"].endswith("_c7.glb"))
 
     def test_exception_handling_read_only(self):
         """测试文件权限异常。"""
@@ -96,7 +115,7 @@ class TestPortConfigManager(unittest.TestCase):
             f.write("{}")
         os.chmod(self.config_path, 0o444) 
         
-        manager = PortConfigManager(self.config_path)
+        manager = PortLibraryManager(self.config_path)
         manager.update_part_config("test.dat", [])
         
         with self.assertRaises(IOError):

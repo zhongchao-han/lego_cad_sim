@@ -99,6 +99,11 @@ async def get_pending_list():
     """获取待复核零件列表，按自信度排序。"""
     return port_lib_manager.get_pending_parts()
 
+@app.get("/api/get_verified_parts")
+async def get_verified_parts():
+    """获取物料库所需的已复核零件摘要。"""
+    return port_lib_manager.get_verified_parts()
+
 @app.get("/api/verify/search")
 async def search_parts(q: str):
     """在全文库中搜索零件（包括已复核和未复核）。"""

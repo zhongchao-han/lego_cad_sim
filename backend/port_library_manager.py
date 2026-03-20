@@ -125,6 +125,20 @@ class PortLibraryManager:
             # 自信度从小到大排序
             return sorted(pending, key=lambda x: x["confidence"])
 
+    def get_verified_parts(self) -> List[Dict[str, Any]]:
+        """获取所有已复核的零件摘要，用于物料库展示。"""
+        with self._lock:
+            verified = []
+            for pid, cfg in self._data.items():
+                if cfg.get("status") == "verified":
+                    verified.append({
+                        "part_id": pid,
+                        "port_count": len(cfg.get("ports", [])),
+                        # 默认颜色设为灰黑色 (color=7) 的 GLB 路径
+                        "mesh_url": f"/ldraw_meshes/{pid.replace('.dat', '')}_c7.glb"
+                    })
+            return sorted(verified, key=lambda x: x["part_id"])
+
     def delete_part(self, part_id: str) -> bool:
         """删除某个零件的配置。"""
         with self._lock:
