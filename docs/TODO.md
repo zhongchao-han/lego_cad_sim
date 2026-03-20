@@ -14,14 +14,15 @@
 ---
 
 ## 2. 自动化与识别系统 (Automation & Discovery)
+运行 `python analyze_ports.py`。
 
-### 2.1 `PortDiscoverer` 算法升级
+### 2.1 `analyze_ports.py` (自动化识别脚本)
 - [ ] **轴向启发式权重**：引入邻近几何法向量权重，辅助判定 Pin/Hole 的主轴方向。
 - [ ] **格点异常警报**：识别时若发现非标 LDU 偏离，自动标记零件为 `pending` 状态且降低 `confidence`。
 - [ ] **镜像自动填充**：利用 CAD 对称性，自动补全镜像位置的端口位姿。
 
 ### 2.2 数据管线优化
-- [ ] **多进程识别**：使用 `ProcessPoolExecutor` 加速 `port_discovery.py` 对大型 ldraw 库的扫描过程。
+- [ ] **多进程识别**：使用 `ProcessPoolExecutor` 加速使用 `index_library.py` (库索引器)
 
 ---
 

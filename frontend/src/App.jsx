@@ -7,6 +7,7 @@ import Scene from './Scene';
 import { VerificationWorkbench } from './VerificationWorkbench.tsx';
 
 import { PartLibraryPanel } from './components/PartLibraryPanel';
+import { StagingTrayPanel } from './components/StagingTrayPanel';
 import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 
 function UIOverlay() {
@@ -100,6 +101,12 @@ function UIOverlay() {
         )}
       </div>
 
+      {/* 暂存区仓库 (右边栏) */}
+      {view === 'ASSEMBLY' && (
+        <div className="absolute top-0 right-0 h-full">
+           <StagingTrayPanel />
+        </div>
+      )}
       <PartPreviewOverlay />
 
       {/* 底部引导栏 (FSM 驱动) */}

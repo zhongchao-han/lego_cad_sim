@@ -17,16 +17,16 @@
 
 export enum InteractionPhase {
   IDLE                 = 'IDLE',
-  PICKING_FROM_LIBRARY = 'PICKING_FROM_LIBRARY', // 正在物料库或工作台中“预览”零件，尚未选点
+  PREVIEWING           = 'PREVIEWING', // 正在物料库或暂存仓中“预览”零件，尚未选点
   SOURCE_LOCKED        = 'SOURCE_LOCKED',
   ANIMATING_SNAP       = 'ANIMATING_SNAP',
 }
 
 // 合法跳转表
 const VALID_TRANSITIONS: Record<InteractionPhase, readonly InteractionPhase[]> = {
-  [InteractionPhase.IDLE]:           [InteractionPhase.SOURCE_LOCKED, InteractionPhase.PICKING_FROM_LIBRARY],
-  [InteractionPhase.PICKING_FROM_LIBRARY]: [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED],
-  [InteractionPhase.SOURCE_LOCKED]:  [InteractionPhase.IDLE, InteractionPhase.ANIMATING_SNAP],
+  [InteractionPhase.IDLE]:           [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED, InteractionPhase.PREVIEWING],
+  [InteractionPhase.PREVIEWING]:     [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED, InteractionPhase.PREVIEWING],
+  [InteractionPhase.SOURCE_LOCKED]:  [InteractionPhase.IDLE, InteractionPhase.ANIMATING_SNAP, InteractionPhase.PREVIEWING],
   [InteractionPhase.ANIMATING_SNAP]: [InteractionPhase.IDLE],
 };
 
@@ -55,9 +55,9 @@ export function transition(from: InteractionPhase, to: InteractionPhase): Intera
  * 根据用户动作推断目标阶段（封装常见跳转语义）。
  */
 export const InteractionEvents = {
-  /** 用户点击侧边栏零件，开启预览 */
-  pickFromLibrary: (current: InteractionPhase): InteractionPhase =>
-    transition(current, InteractionPhase.PICKING_FROM_LIBRARY),
+  /** 用户点击侧边栏或暂存区零件，开启预览 */
+  previewPart: (current: InteractionPhase): InteractionPhase =>
+    transition(current, InteractionPhase.PREVIEWING),
 
   /** 预览中旋转零件，然后选中了一个特定源端口 */
   pickSourcePort: (current: InteractionPhase): InteractionPhase =>

@@ -1,58 +1,53 @@
 import { create } from 'zustand';
 import axios from 'axios';
-
-import { InteractionPhase, InteractionEvents, isValidTransition } from './interactionFSM';
-import { HistoryStack, createSnapCommand, type SnapSnapshot } from './historyStack';
-import { ZoneType, WorkbenchGrid } from './workbench';
+import { InteractionPhase, isValidTransition, InteractionEvents } from './interactionFSM';
+import { ZoneType, StagingGrid } from './staging';
+import { HistoryStack, createSnapCommand, SnapSnapshot } from './historyStack';
 
 export { InteractionPhase, ZoneType };
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 type Vec3 = [number, number, number];
-type Quat = [number, number, number, number]; // [x, y, z, w]
+type Quat = [number, number, number, number];
 type Mat3 = number[][] | number[];
 
-export interface PartState {
-  ldrawId: string; // .dat 文件名
-  position: [number, number, number];
-  quaternion: [number, number, number, number];
-  colorCode?: number;
+interface PartState {
+  ldrawId: string;
+  position: Vec3;
+  quaternion: Quat;
+  colorCode: number;
   zone: ZoneType;
 }
 
 type ConnectionGraph = Record<string, Set<string>>;
 
-type FocusMode = 'part' | 'port' | null;
-
-export type AppView = 'ASSEMBLY' | 'VERIFY';
-
 interface StoreState {
   mode: 'ASSEMBLY' | 'SIMULATION';
-  view: AppView;
+  view: 'ASSEMBLY' | 'LIBRARY_VERIFY';
   parts: Record<string, PartState>;
   connections: ConnectionGraph;
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
   interactionPhase: InteractionPhase;
   focusedPartId: string | null;
-  focusMode: FocusMode;
+  focusMode: 'part' | 'assembly' | null;
   showPortGizmos: boolean;
   enableFocusAnimation: boolean;
   enableSSAO: boolean;
   enableContactShadows: boolean;
   debugMode: boolean;
-  previewPartId: string | null; // 当前预览的物料库零件 ID
-
-  setView: (view: AppView) => void;
+  previewPartId: string | null;
+  
+  // Actions
+  setView: (view: 'ASSEMBLY' | 'LIBRARY_VERIFY') => void;
   toggleMode: () => Promise<void>;
-  updatePartState: (partId: string, state: Omit<PartState, 'zone'> & { zone?: ZoneType }) => void;
-  batchUpdatePartStates: (updates: Record<string, PartState>) => void;
+  updatePartState: (partId: string, state: Partial<PartState>) => void;
+  batchUpdatePartStates: (updates: Record<string, Partial<PartState>>) => void;
   setWsConnected: (status: boolean) => void;
-  /** 端口点击入口：由 FSM 统一管理 selectedPort 的生命周期。*/
   handlePortClick: (port: SelectedPortInfo) => Promise<void>;
   snapParts: (source: SelectedPortInfo, target: SelectedPortInfo) => Promise<boolean>;
-  setFocus: (payload: { partId: string | null; mode: FocusMode }) => void;
+  setFocus: (params: { partId: string | null; mode: 'part' | 'assembly' | null }) => void;
   setShowPortGizmos: (value: boolean) => void;
   setEnableFocusAnimation: (value: boolean) => void;
   setEnableSSAO: (value: boolean) => void;
@@ -63,11 +58,11 @@ interface StoreState {
   canUndo: boolean;
   canRedo: boolean;
   setPartZone: (partId: string, zone: ZoneType) => void;
-  workbenchGrid: WorkbenchGrid;
-  pickFromLibrary: (partId: string) => void;
+  stagingGrid: StagingGrid;
+  previewPart: (partId: string) => void;
   
-  /** 拆卸某个零件及其所有连接，并将其移动至工作台暂存区 */
-  detachPart: (partId: string) => void;
+  /** 拆卸某个零件及其所有连接，并将其移动至暂存区 */
+  stagePart: (partId: string) => void;
 }
 
 export interface SelectedPortInfo {
@@ -188,16 +183,6 @@ function getConnectedGroup(connections: ConnectionGraph, startId: string, exclud
 }
 
 // ---------------------------------------------------------------------------
-// stripAxis：端口对齐核心投影
-// ---------------------------------------------------------------------------
-// 将端口局部坐标投影到零件几何中心轴线上（消除轴向分量）。
-// 规则：对 Source 和 Target 端口均无条件调用，不区分 peg / hole 类型。
-const stripAxis = (pos: Vec3, axis: Vec3): Vec3 => {
-  const d = vecDot(pos, axis);
-  return vecSub(pos, vecScale(axis, d));
-};
-
-// ---------------------------------------------------------------------------
 // 模块级 HistoryStack（生命周期与 store 相同）
 // ---------------------------------------------------------------------------
 const _history = new HistoryStack(50);
@@ -228,7 +213,7 @@ export const useStore = create<StoreState>((set, get) => ({
   previewPartId: null,
   canUndo: false,
   canRedo: false,
-  workbenchGrid: new WorkbenchGrid(),
+  stagingGrid: new StagingGrid(),
 
   setView: (view) => set({ view }),
 
@@ -249,7 +234,7 @@ export const useStore = create<StoreState>((set, get) => ({
     return {
       parts: {
         ...prev.parts,
-        [partId]: { ...prevPart, ...state },
+        [partId]: { ...prevPart, ...state } as PartState,
       }
     };
   }),
@@ -295,11 +280,12 @@ export const useStore = create<StoreState>((set, get) => ({
       return;
     }
 
-     if (interactionPhase === InteractionPhase.PICKING_FROM_LIBRARY) {
+    // 仅当用户在预览模式下（PREVIEWING）点击预览层的端口时才触发预览锁定。
+    if (interactionPhase === InteractionPhase.PREVIEWING) {
       // 在预览窗口中点击了某个端口 -> 锁定为 Source，等待场内 Target
       if (!isValidTransition(interactionPhase, InteractionPhase.SOURCE_LOCKED)) return;
-      set({ 
-        selectedPort: port, 
+      set({
+        selectedPort: port,
         interactionPhase: InteractionPhase.SOURCE_LOCKED,
         previewPartId: null // 选定端口后自动关闭预览窗口
       });
@@ -335,13 +321,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
   // =================================================================
   // snapParts — "先选即动"：Source 永远移动到 Target
-  //
-  // 核心修复（来自 docs/issue/pin_clipping_issue.md）：
-  //   1. 移除 moveTargetToSource 启发式判断 — Source 组始终移动
-  //   2. 废除 stripAxis 投影对齐，改用 point-to-point 对齐（见 docs/issue/6558_pin_flipping_analysis.md）
   // =================================================================
 
-  snapParts: async (source, target) => {
+  snapParts: async (source: SelectedPortInfo, target: SelectedPortInfo) => {
     const parts = get().parts;
     const connections = get().connections;
 
@@ -355,6 +337,7 @@ export const useStore = create<StoreState>((set, get) => ({
         ldrawId: source.ldrawId,
         position: [0, 0, 0],
         quaternion: [0, 0, 0, 1],
+        colorCode: 7, // 默认点云灰
         zone: ZoneType.ACTIVE_ARENA,
       };
     }
@@ -376,14 +359,14 @@ export const useStore = create<StoreState>((set, get) => ({
     const srcGroup = getConnectedGroup(connections, source.partId, target.partId);
 
     // 保存 Snap 前快照
-    const prevPositions: SnapSnapshot['prevPositions'] = {};
+    const prevPositions: Record<string, { position: Vec3; quaternion: Quat }> = {};
     for (const pid of srcGroup) {
       const p = parts[pid];
       if (p) prevPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
     }
 
     const updated: Record<string, PartState> = { ...parts };
-    
+
     // 如果 Source 组是新选中的馆藏零件（场内还没有），在此初始化其初始位姿
     if (!parts[source.partId]) {
       updated[source.partId] = sourcePart;
@@ -420,20 +403,23 @@ export const useStore = create<StoreState>((set, get) => ({
       quatApplyToVec3(rotatedSource.quaternion, source.position),
     );
 
-    const delta = vecSub(targetWorldPos, sourceWorldPos);
+    const moveDelta = vecSub(targetWorldPos, sourceWorldPos);
+
     for (const pid of srcGroup) {
       const part = updated[pid];
       if (!part) continue;
-      updated[pid] = { ...part, position: vecAdd(part.position, delta) };
+      updated[pid] = {
+        ...part,
+        position: vecAdd(part.position, moveDelta),
+      };
     }
 
-    // 物理检测
-    if (isPegIntoHole) {
-      try {
-        await axios.get(`${API_URL}/insertion_check`, {
-          params: { peg_id: source.partId, hole_id: target.partId },
-        });
-      } catch (e) {}
+    // 步骤 3：区域切换与槽位释放
+    for (const pid of srcGroup) {
+      const part = updated[pid];
+      if (!part) continue;
+      updated[pid] = { ...part, zone: ZoneType.ACTIVE_ARENA };
+      get().stagingGrid.releaseSlot(pid);
     }
 
     // 连接图
@@ -444,11 +430,17 @@ export const useStore = create<StoreState>((set, get) => ({
     newConnections[target.partId] = new Set(newConnections[target.partId]).add(source.partId);
 
     // History
+    const snapSnapshot: SnapSnapshot = { 
+      movedPartIds: srcGroup, 
+      prevPositions, 
+      addedConnections: [{ from: source.partId, to: target.partId }] 
+    };
+
     const snapCmd = createSnapCommand(
-      { movedPartIds: srcGroup, prevPositions, addedConnections: [{ from: source.partId, to: target.partId }] },
+      snapSnapshot,
       () => {},
-      (snap) => {
-        set((prev) => {
+      (snap: SnapSnapshot) => {
+        set((prev: any) => {
           const revertedParts = { ...prev.parts };
           for (const [pid, saved] of Object.entries(snap.prevPositions)) {
             if (revertedParts[pid]) revertedParts[pid] = { ...revertedParts[pid], ...saved };
@@ -466,7 +458,7 @@ export const useStore = create<StoreState>((set, get) => ({
     _history.push(snapCmd);
 
     set({ parts: updated, connections: newConnections, selectedPort: null });
-    
+
     try {
       await axios.post(`${API_URL}/snap_parts`, {
         parent_id: target.partId,
@@ -479,27 +471,33 @@ export const useStore = create<StoreState>((set, get) => ({
         child_rot: flatRot(source.rotation),
       });
     } catch (e) {}
-    
+
     return true;
   },
 
-  pickFromLibrary: (partId: string) => {
+  previewPart: (partId: string) => {
     const { interactionPhase } = get();
-    const nextPhase = InteractionEvents.pickFromLibrary(interactionPhase);
+    const nextPhase = InteractionEvents.previewPart(interactionPhase);
     set({ previewPartId: partId, interactionPhase: nextPhase, selectedPort: null });
   },
 
-  detachPart: (partId) => {
+  stagePart: (partId: string) => {
     const pid = String(partId).trim();
-    const { workbenchGrid, connections } = get();
-    
-    const slot = workbenchGrid.assign(pid);
-    if (!slot) return;
+    const { parts, connections, stagingGrid } = get();
+    const part = parts[pid];
+    if (!part) return;
+
+    if (part.zone !== ZoneType.ACTIVE_ARENA) return;
+
+    const slot = stagingGrid.assign(pid);
+    if (!slot) {
+      console.warn("Staging tray is full! Clear some space first.");
+      return;
+    }
 
     const nextConnections: Record<string, Set<string>> = {};
     for (const key in connections) {
       if (key === pid) continue;
-      
       const neighborSet = connections[key];
       if (neighborSet.has(pid)) {
         const newSet = new Set(neighborSet);
@@ -510,17 +508,14 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     }
 
-    set((prev) => ({
-      parts: {
-        ...prev.parts,
-        [pid]: {
-          ...prev.parts[pid],
-          zone: ZoneType.WORKBENCH,
-          position: [...slot.worldPosition],
-          quaternion: [0, 0, 0, 1],
-        }
-      },
-      connections: nextConnections
-    }));
+    const updated: Record<string, PartState> = { ...parts };
+    updated[pid] = {
+      ...part,
+      position: slot.worldPosition,
+      quaternion: [0, 0, 0, 1],
+      zone: ZoneType.STAGED,
+    };
+
+    set({ parts: updated, connections: nextConnections });
   }
 }));

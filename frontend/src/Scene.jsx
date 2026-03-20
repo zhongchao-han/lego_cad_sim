@@ -2,11 +2,10 @@ import { useThree } from '@react-three/fiber';
 import { Sphere, Environment, ContactShadows, BakeShadows, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { EffectComposer, N8AO } from '@react-three/postprocessing';
 import { useMemo, memo } from 'react';
-import { useStore } from './store';
+import { useStore, ZoneType } from './store';
 import { CameraController as GenericCameraController } from './CameraController';
 import { calculateAssemblyTarget } from './cameraUtils';
 import { InteractivePart } from './components/InteractivePart';
-import { WorkbenchVisualizer } from './components/WorkbenchVisualizer';
 
 // --- Smart Snapping UI ---
 const SnappingHighlight = ({ position }) => (
@@ -28,13 +27,13 @@ const LegoPart = memo(({ id }) => {
     const handlePortClickStore = useStore((s) => s.handlePortClick);
     const showPortGizmos = useStore((s) => s.showPortGizmos);
     const setFocus = useStore((s) => s.setFocus);
-    const detachPart = useStore((s) => s.detachPart);
+    const stagePart = useStore((s) => s.stagePart);
 
     if (!state) return null;
 
     const onDoubleClick = () => {
-        if (mode === 'ASSEMBLY' && state.zone === 'ACTIVE_ARENA') {
-            detachPart(id);
+        if (mode === 'ASSEMBLY' && state.zone === ZoneType.ACTIVE_ARENA) {
+            stagePart(id);
         } else {
             setFocus({ partId: id, mode: 'part' });
         }
@@ -90,7 +89,6 @@ export default function Scene() {
             <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
 
             <AssemblyCameraController />
-            <WorkbenchVisualizer />
 
             {Object.keys(parts).map(id => (
                 <LegoPart key={id} id={id} />

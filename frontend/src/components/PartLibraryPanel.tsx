@@ -16,7 +16,7 @@ export function PartLibraryPanel() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  const pickFromLibrary = useStore((s) => s.pickFromLibrary);
+  const previewPart = useStore((s) => s.previewPart);
   const previewPartId = useStore((s) => s.previewPartId);
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function PartLibraryPanel() {
           filteredParts.map((part) => (
             <button
               key={part.part_id}
-              onClick={() => pickFromLibrary(part.part_id)}
+              onClick={() => previewPart(part.part_id)}
               className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
                 previewPartId === part.part_id 
                   ? 'bg-blue-50 border-blue-200 shadow-sm' 

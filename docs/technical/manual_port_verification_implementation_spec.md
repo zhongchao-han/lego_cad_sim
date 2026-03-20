@@ -3,7 +3,8 @@
 > **To Claude Code CLI / Gemini CLI:**
 > 请立即阅读以下文件以建立稳定的上下文：
 > - `port.py` (Z 轴归一化标准)
-> - `port_discovery.py` (自动化识别脚本)
+> - `analyze_ports.py` (自动化识别脚本)
+> - `index_library.py` (库索引器)
 > - `server.py` (后端 API 宿主)
 > - `ldraw_port_configs.json` (持久化配置)
 
