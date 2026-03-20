@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useVerificationStore } from './verificationStore';
 import { PortVisualizer } from './PortVisualizer.tsx';
 import { Canvas } from '@react-three/fiber';
-import { CameraControls, Grid, Environment, useGLTF, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { CameraControls, Grid, Environment, useGLTF, GizmoHelper, GizmoViewport, Html, Stats } from '@react-three/drei';
 import { useLDrawPart } from './useLDrawPart';
 import { CameraController } from './CameraController';
 import { calculateWorkbenchTarget, LDU } from './cameraUtils';
@@ -12,7 +12,7 @@ import { calculateWorkbenchTarget, LDU } from './cameraUtils';
  * 内部组件：负责加载和渲染单个零件模型
  */
 const PartModel: React.FC<{ url: string }> = ({ url }) => {
-  const fullUrl = `http://127.0.0.1:8000${url}`;
+  const fullUrl = encodeURI(`http://127.0.0.1:8000${url}`);
   const { scene } = useGLTF(fullUrl);
   
   const processedScene = useMemo(() => {
@@ -138,7 +138,8 @@ export const VerificationWorkbench: React.FC = () => {
 
       <div style={{ flex: 1, position: 'relative' }}>
         <Canvas camera={{ position: [0.08, 0.08, 0.08], fov: 50, near: 0.0001, far: 10 }} onPointerMissed={() => setSelectedPortIndex(null)}>
-          <Suspense fallback={null}>
+          <Stats /> {/* 添加性能监控方便定位 */}
+          <Suspense fallback={<Html center><div className="text-blue-400 animate-pulse">加载 3D 模型中...</div></Html>}>
             <ambientLight intensity={1.5} />
             <directionalLight position={[1, 1, 1]} intensity={0.8} />
             <Environment preset="city" />

@@ -74,15 +74,14 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
   selectPart: async (partId: string) => {
     set({ isLoading: true, currentPartId: partId });
     try {
-      const resp = await fetch(`${API_BASE}/ldraw_part/${partId}?include_pending=true`);
+      const resp = await fetch(`${API_BASE}/ldraw_part/${encodeURIComponent(partId)}?include_pending=true`);
       const data = await resp.json();
       
-      // 关键修正：后端返回的是 SI (米)，为了能在 Workbench 中按 10 LDU 步进编辑，
-      // 我们在此处将其转回 LDU
       const LDU = 0.0004;
-      const normalizedPorts = data.ports.map((p: any) => ({
+      const ports = data?.ports || [];
+      const normalizedPorts = ports.map((p: any) => ({
         ...p,
-        position: p.position.map((v: number) => v / LDU)
+        position: (p.position || [0, 0, 0]).map((v: number) => v / LDU)
       }));
       
       set({ currentPorts: normalizedPorts });

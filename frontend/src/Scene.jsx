@@ -6,6 +6,7 @@ import { useStore } from './store';
 import { CameraController as GenericCameraController } from './CameraController';
 import { calculateAssemblyTarget } from './cameraUtils';
 import { InteractivePart } from './components/InteractivePart';
+import { WorkbenchVisualizer } from './components/WorkbenchVisualizer';
 
 // --- Smart Snapping UI ---
 const SnappingHighlight = ({ position }) => (
@@ -27,8 +28,17 @@ const LegoPart = memo(({ id }) => {
     const handlePortClickStore = useStore((s) => s.handlePortClick);
     const showPortGizmos = useStore((s) => s.showPortGizmos);
     const setFocus = useStore((s) => s.setFocus);
+    const detachPart = useStore((s) => s.detachPart);
 
     if (!state) return null;
+
+    const onDoubleClick = () => {
+        if (mode === 'ASSEMBLY' && state.zone === 'ACTIVE_ARENA') {
+            detachPart(id);
+        } else {
+            setFocus({ partId: id, mode: 'part' });
+        }
+    };
 
     return (
         <group position={state.position} quaternion={state.quaternion}>
@@ -38,7 +48,7 @@ const LegoPart = memo(({ id }) => {
                 colorCode={state.colorCode}
                 showPorts={mode === 'ASSEMBLY' && showPortGizmos}
                 onPortClick={handlePortClickStore}
-                onDoubleClick={() => setFocus({ partId: id, mode: 'part' })}
+                onDoubleClick={onDoubleClick}
              />
         </group>
     );
@@ -80,6 +90,7 @@ export default function Scene() {
             <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
 
             <AssemblyCameraController />
+            <WorkbenchVisualizer />
 
             {Object.keys(parts).map(id => (
                 <LegoPart key={id} id={id} />

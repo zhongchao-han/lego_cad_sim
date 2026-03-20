@@ -65,6 +65,9 @@ interface StoreState {
   setPartZone: (partId: string, zone: ZoneType) => void;
   workbenchGrid: WorkbenchGrid;
   pickFromLibrary: (partId: string) => void;
+  
+  /** 拆卸某个零件及其所有连接，并将其移动至工作台暂存区 */
+  detachPart: (partId: string) => void;
 }
 
 export interface SelectedPortInfo {
@@ -240,12 +243,16 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  updatePartState: (partId, state) => set((prev) => ({
-    parts: {
-      ...prev.parts,
-      [partId]: { ldrawId: prev.parts[partId]?.ldrawId!, zone: prev.parts[partId]?.zone ?? ZoneType.ACTIVE_ARENA, ...state },
-    }
-  })),
+  updatePartState: (partId, state) => set((prev) => {
+    const prevPart = prev.parts[partId];
+    if (!prevPart) return {};
+    return {
+      parts: {
+        ...prev.parts,
+        [partId]: { ...prevPart, ...state },
+      }
+    };
+  }),
 
   batchUpdatePartStates: (updates) => set((prev) => ({
     parts: { ...prev.parts, ...updates }
@@ -376,6 +383,11 @@ export const useStore = create<StoreState>((set, get) => ({
     }
 
     const updated: Record<string, PartState> = { ...parts };
+    
+    // 如果 Source 组是新选中的馆藏零件（场内还没有），在此初始化其初始位姿
+    if (!parts[source.partId]) {
+      updated[source.partId] = sourcePart;
+    }
 
     // 步骤 1：旋转 Source 组
     const effectiveSrcAxis: Vec3 = isPegIntoHole
@@ -475,5 +487,40 @@ export const useStore = create<StoreState>((set, get) => ({
     const { interactionPhase } = get();
     const nextPhase = InteractionEvents.pickFromLibrary(interactionPhase);
     set({ previewPartId: partId, interactionPhase: nextPhase, selectedPort: null });
+  },
+
+  detachPart: (partId) => {
+    const pid = String(partId).trim();
+    const { workbenchGrid, connections } = get();
+    
+    const slot = workbenchGrid.assign(pid);
+    if (!slot) return;
+
+    const nextConnections: Record<string, Set<string>> = {};
+    for (const key in connections) {
+      if (key === pid) continue;
+      
+      const neighborSet = connections[key];
+      if (neighborSet.has(pid)) {
+        const newSet = new Set(neighborSet);
+        newSet.delete(pid);
+        if (newSet.size > 0) nextConnections[key] = newSet;
+      } else {
+        nextConnections[key] = neighborSet;
+      }
+    }
+
+    set((prev) => ({
+      parts: {
+        ...prev.parts,
+        [pid]: {
+          ...prev.parts[pid],
+          zone: ZoneType.WORKBENCH,
+          position: [...slot.worldPosition],
+          quaternion: [0, 0, 0, 1],
+        }
+      },
+      connections: nextConnections
+    }));
   }
 }));

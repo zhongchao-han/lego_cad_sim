@@ -212,16 +212,13 @@ async def toggle_mode(mode: str):
     return {"status": "ok", "msg": "No changes made."}
 
 
-@app.get("/api/ldraw_part/{part_id}", response_model=LDrawPartResponse)
+@app.get("/api/ldraw_part/{part_id:path}", response_model=LDrawPartResponse)
 async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = False):
     """
     获取 LDraw 零件及其端口数据。
-    
-    Args:
-        part_id: LDraw 零件 ID。
-        color: 颜色编号。
-        include_pending: 只有库复核工具应设为 True。
     """
+    # 彻底杜绝前后端空格污染导致的 URL 崩溃
+    part_id = part_id.strip()
     dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
 
     # 使用全局单例解析，此时 library._data 与 port_lib_manager._data 实时同步

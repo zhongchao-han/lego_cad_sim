@@ -23,17 +23,28 @@ TECHNIC_PRIMITIVES = {
 def is_technic_part(filename: str, filepath: str) -> bool:
     """综合通过文件名和文件内容判断是否包含科技接口。"""
     fname = filename.lower()
-    # 极大放宽关键词
-    keywords = {"beam", "technic", "axle", "pin", "gear", "joint", "conn", "link", "peg", "hole", "liftarm", "panel"}
+    # 极致全量关键词，确保全领域覆盖
+    keywords = {
+        "beam", "technic", "axle", "pin", "gear", "joint", "conn", "link", "peg", "hole", "liftarm", "panel",
+        "pulley", "tire", "rim", "wheel", "pneumatic", "cylinder", "shock", "spring", "suspension", "steering"
+    }
     if any(k in fname for k in keywords):
         return True
 
-    # 只要包含了核心机械孔位原部件就算
+    # 只要包含了核心机械孔位原部件，或者描述中带科技件关键词就算
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                if 'peghole' in line or 'axlehole' in line or 'pin.dat' in line or 'axle.dat' in line:
+            for i, line in enumerate(f):
+                line_lower = line.lower()
+                # 检查内容是否包含核心原部件
+                if 'peghole' in line_lower or 'axlehole' in line_lower or 'pin.dat' in line_lower or 'axle.dat' in line_lower:
                     return True
+                
+                # 检查文件前 10 行是否包含科技件关键字 (通常是描述行)
+                if i < 10 and any(k in line_lower for k in keywords):
+                    return True
+                
+                if i > 100: break # 不扫太深，性能优先
     except:
         pass
     return False

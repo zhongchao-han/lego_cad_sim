@@ -5,6 +5,12 @@ import { LDrawMeshRenderer } from './LDrawMeshRenderer';
 import PropTypes from 'prop-types';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+
+const encodeModelUrl = (path: string) => {
+  if (!path) return null;
+  return encodeURI(`${BACKEND_ORIGIN}${path}`);
+};
+
 const LDU = 0.0004;
 
 export const InteractivePart = memo(({ 
@@ -43,7 +49,7 @@ export const InteractivePart = memo(({
     return [];
   }, [ldrawPart.ports]);
 
-  const activeMeshUrl = ldrawPart.meshUrl ? `${BACKEND_ORIGIN}${ldrawPart.meshUrl}` : null;
+  const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
 
   if (ldrawPart.loading) return null;
 
