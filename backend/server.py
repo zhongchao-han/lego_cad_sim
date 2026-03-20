@@ -4,6 +4,8 @@ import logging
 import os
 from typing import Dict, Any, Optional, List
 
+import numpy as np
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -109,38 +111,42 @@ async def search_parts(q: str):
 async def save_verified_ports(req: VerifySaveRequest):
     """保存人工复核后的端口数据，状态设为 verified。"""
     try:
-        def clean_value(v):
-            import numpy as np
+        def clean_pos(v):
             if isinstance(v, (float, np.floating)):
-                # 智能格点吸附：如果非常接近 10 LDU (乐高标准格点/半格点)，强制归零
-                # 容差设为 0.1 LDU
+                # 智能格点吸附只应应用于 LDU 位置坐标
                 snapped = round(v / 10.0) * 10.0
                 if abs(v - snapped) < 0.1:
                     return float(snapped)
                 return round(float(v), 4)
-            if isinstance(v, list): return [clean_value(i) for i in v]
+            if isinstance(v, list): return [clean_pos(i) for i in v]
+            return v
+
+        def clean_rot(v):
+            if isinstance(v, (float, np.floating)):
+                # 旋转矩阵元素范围 [-1, 1]，绝不应用 10 LDU 吸附
+                return round(float(v), 4)
+            if isinstance(v, list): return [clean_rot(i) for i in v]
             return v
 
         ports_dict = []
         for p in req.ports:
-            p_data = p.dict()
-            p_data["position"] = [clean_value(x) for x in p_data["position"]]
-            p_data["rotation"] = [[clean_value(x) for x in row] for row in p_data["rotation"]]
+            # 使用 Pydantic V2 推荐的 model_dump()
+            p_data = p.model_dump()
+            p_data["position"] = [clean_pos(x) for x in p_data["position"]]
+            p_data["rotation"] = [[clean_rot(x) for x in row] for row in p_data["rotation"]]
             ports_dict.append(p_data)
 
         # 统一入库标准：在保存 verified 数据前，确保其轴向是归一化且规整的
-        # 这里多做一步由 Port 对象的 to_dict 完成的归一化，确保存进 JSON 的永远是成品
         final_ports = []
         for p in ports_dict:
-            # 这里的 p 已经是前端传来的带有 position/rotation 的字典
-            # 为了严谨，我们用 from_config 创建后再次导出的 clean 数据
+            # 此时 np 已在全局作用域定义
             obj = Port.from_config(
                 f"{req.part_id}_v", p['type'], np.array(p['position']), np.array(p['rotation'])
             )
             if obj:
                 final_ports.append(obj.to_dict())
             else:
-                final_ports.append(p) # 兜底
+                final_ports.append(p)
 
         # 注意：这里调用 update_part_config，将状态设为 verified
         success = port_lib_manager.update_part_config(

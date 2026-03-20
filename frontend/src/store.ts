@@ -203,9 +203,9 @@ export const useStore = create<StoreState>((set, get) => ({
   mode: 'ASSEMBLY',
   view: 'ASSEMBLY',
   parts: {
-    "32524": { position: [0, 0.005, 0],       quaternion: [0, 0, 0, 1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
-    "32523": { position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
-    "6558":  { position: [-0.03, 0.03, 0],    quaternion: [0, 0, 0, 1], colorCode: 0, zone: ZoneType.ACTIVE_ARENA },
+    "32524.dat": { position: [0, 0.005, 0],       quaternion: [0, 0, 0, 1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
+    "32523.dat": { position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+    "6558.dat":  { position: [-0.03, 0.03, 0],    quaternion: [0, 0, 0, 1], colorCode: 0, zone: ZoneType.ACTIVE_ARENA },
   },
   connections: {},
   wsConnected: false,

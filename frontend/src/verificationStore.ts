@@ -76,7 +76,16 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     try {
       const resp = await fetch(`${API_BASE}/ldraw_part/${partId}?include_pending=true`);
       const data = await resp.json();
-      set({ currentPorts: data.ports });
+      
+      // 关键修正：后端返回的是 SI (米)，为了能在 Workbench 中按 10 LDU 步进编辑，
+      // 我们在此处将其转回 LDU
+      const LDU = 0.0004;
+      const normalizedPorts = data.ports.map((p: any) => ({
+        ...p,
+        position: p.position.map((v: number) => v / LDU)
+      }));
+      
+      set({ currentPorts: normalizedPorts });
     } finally {
       set({ isLoading: false });
     }
@@ -199,13 +208,18 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
           ports: currentPorts
         })
       });
-      if (resp.ok) {
+      
+      const result = await resp.json();
+      
+      if (resp.ok && result.status === 'success') {
         // 导入并清理缓存，防止装配页面继续显示旧数据
         const { clearPartCache } = await import('./useLDrawPart');
         clearPartCache(currentPartId);
 
         await get().fetchPendingList();
         set({ currentPartId: null, currentPorts: [] });
+      } else {
+        alert(`保存失败: ${result.msg || '未知错误'}`);
       }
     } finally {
       set({ isLoading: false });

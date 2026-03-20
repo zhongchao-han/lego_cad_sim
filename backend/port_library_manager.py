@@ -69,6 +69,10 @@ class PortLibraryManager:
 
     def get_part_config(self, part_id: str) -> Optional[Dict[str, Any]]:
         """获取特定零件的配置副本。"""
+        # 强制归一化 ID 为 lowercase .dat
+        part_id = part_id.lower()
+        if not part_id.endswith(".dat"): part_id += ".dat"
+        
         with self._lock:
             config = self._data.get(part_id)
             return json.loads(json.dumps(config)) if config else None
@@ -89,6 +93,10 @@ class PortLibraryManager:
         Returns:
             bool: 是否成功更新。若因 verified 锁定且未开启 force，则返回 False。
         """
+        # 强制归一化 ID 为 lowercase .dat
+        part_id = part_id.lower()
+        if not part_id.endswith(".dat"): part_id += ".dat"
+
         with self._lock:
             existing = self._data.get(part_id, {})
             if existing.get("status") == "verified" and not force:

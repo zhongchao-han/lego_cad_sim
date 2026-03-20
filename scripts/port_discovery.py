@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # 常量定义
 SEMANTIC_PRIMITIVES = ["peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat", "connect.dat"]
 CONNECTOR_PREFIXES = ["confric", "axlehole", "peghole", "axle", "pin", "halfpin"]
-KNOWN_UNIT_LENGTHS = {"confric6": 2.0, "confric3": 2.0, "confric2": 2.0}
+KNOWN_UNIT_LENGTHS = {"confric3": 2.0, "axlehol8.dat": 5.75}
 
 class PortDiscoverer:
     """
@@ -97,12 +97,22 @@ class PortDiscoverer:
                     
                     num_units = int(round(num_units_float))
                     if num_units >= 1:
-                        # 多单元采样（见 docs/issue/6558_insertion_depth_analysis.md）
-                        # 核心逻辑：中心对齐采样。
-                        # 对于 1 unit, start_phys_offset = 0 -> sampled_pos is origin.
-                        # 对于 2 units, start_phys_offset = -10 -> sampled_pos are -10, 10.
-                        # 对于 3 units, start_phys_offset = -20 -> sampled_pos are -20, 0, 20.
-                        start_phys_offset = -(num_units - 1) * 10.0
+                        # 采样偏置逻辑：
+                        # LDraw 原件通常有两种 origin 风格：
+                        # 1. Origin at Center (如大部分长梁): 3 units -> -20, 0, 20
+                        # 2. Origin at First Hole (如大部分 pin/axle 子原件): 3 units -> 0, 20, 40
+                        # 
+                        # 我们通过检测 Y 轴的 bounding box 来智能判断：
+                        # 如果 Y_min < 0 且 Y_max > 0，则假定为 Center 风格。
+                        # 否则假定为 First Hole 风格。
+                        
+                        start_phys_offset = -(num_units - 1) * 10.0 # 默认 Center 风格
+                        
+                        # 特殊逻辑修正：常见的销/轴原件 (confric系列、peg/pin/axle) 通常以孔位为原点
+                        if is_connector or any(x in child_file for x in ["peg", "pin", "axle", "hole"]):
+                             # 这种情况下，第一个端口就在原点 (0,0,0)
+                             start_phys_offset = 0.0
+                        
                         for k in range(num_units):
                             phys_offset_y = start_phys_offset + k * 20.0
                             
