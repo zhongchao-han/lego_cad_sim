@@ -25,10 +25,28 @@ logger = logging.getLogger(__name__)
 
 # --- 服务实体与配置 ---
 
-app = FastAPI(title="LEGO Technic Simulation Backend", version="1.0.0")
+# LDRAW_PARTS_ROOT 配置
+LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
+MESH_CACHE_ROOT = os.path.join(os.getcwd(), "ldraw_meshes")
+os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
 
-# 初始化端口库管理器 (写入/复核用)
+# --- 初始化后端核心单例组件 ---
+# 负责数据持久化（单一真理来源）
 port_lib_manager = PortLibraryManager()
+
+# 负责解析语义逻辑 (通过依赖注入共享 Manager 的内存数据，保证一致性)
+library = PortLibrary(ldraw_path=LDRAW_PARTS_ROOT, data_store=port_lib_manager._data)
+
+# 负责网格转换与渲染 (静态颜色表缓存)
+geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
+
+engine = PhysicsEngine(mode="DIRECT")
+topo_manager = TopologyManager()
+
+system_mode = "ASSEMBLY"
+engine.toggle_gravity(False)
+
+app = FastAPI(title="LEGO Technic Simulation Backend", version="1.0.0")
 
 allow_origins_str = os.environ.get("FASTAPI_ALLOW_ORIGINS", "*")
 allow_origins = [origin.strip() for origin in allow_origins_str.split(",")] if allow_origins_str else ["*"]
@@ -41,16 +59,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-engine = PhysicsEngine(mode="DIRECT")
-topo_manager = TopologyManager()
-
-system_mode = "ASSEMBLY"
-engine.toggle_gravity(False)
-
-LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
-MESH_CACHE_ROOT = os.path.join(os.getcwd(), "ldraw_meshes")
-
-os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
 app.mount("/ldraw_meshes", StaticFiles(directory=MESH_CACHE_ROOT), name="ldraw_meshes")
 
 # --- API 数据模型定义 ---
@@ -207,17 +215,12 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
     Args:
         part_id: LDraw 零件 ID。
         color: 颜色编号。
-        include_pending: 默认 False (严格模式)。只有库复核工具应设为 True。
+        include_pending: 只有库复核工具应设为 True。
     """
-    import numpy as np
-
     dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
 
-    library = PortLibrary(ldraw_path=LDRAW_PARTS_ROOT)
-    geo_proc = GeometryProcessor(ldraw_path=LDRAW_PARTS_ROOT)
-
+    # 使用全局单例解析，此时 library._data 与 port_lib_manager._data 实时同步
     ports = []
-    # 严格模式过滤：只有当 include_pending 为 True 时，才返回未复核的端口
     parsed_ports = library.parse_dat_file(dat_filename, allow_pending=include_pending)
     if parsed_ports:
         ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
@@ -242,7 +245,6 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
 @app.post("/api/snap_parts")
 async def snap_parts(req: SnapRequest):
     """只做拓扑记录。插入位姿完全由前端基于零件几何计算。"""
-    import numpy as np
 
     for pid in (req.parent_id, req.child_id):
         if not topo_manager.graph.has_node(pid):
@@ -282,16 +284,7 @@ async def insertion_check(peg_id: str, hole_id: str,
                           hole_type: Optional[str] = None):
     """
     物理插入检测。
-
-    优先路径（参数化查表，O(1)）：
-      若 peg_type / hole_type 已知，或 peg_id / hole_id 本身就是已注册的接口名称
-      （如 "pin.dat", "peghole.dat", "peg", "peghole"），则直接用参数化公差表判定。
-      无需加载任何网格，响应极快。
-
-    降级路径（网格切片，O(n)）：
-      仅当零件完全未知时才调用原来的几何处理逻辑，保证对非标准零件的兼容性。
     """
-    import numpy as np
 
     fit_desc = {
         "clearance":    "间隙配合(可自由滑入)",

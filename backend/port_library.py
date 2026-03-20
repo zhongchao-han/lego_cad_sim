@@ -22,16 +22,21 @@ class PortLibrary:
     - 同时也封装了 LDraw 库的标准文件搜索逻辑。
     """
     
-    def __init__(self, ldraw_path: str = "ldraw_lib"):
+    def __init__(self, ldraw_path: str = "ldraw_lib", data_store: Dict[str, Any] = None):
         self.ldraw_path = ldraw_path
-        self._data: Dict[str, Any] = {}
         
-        # 强制加载项目顶层 data/ 目录下的真理库
-        config_path = os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json")
-        if os.path.exists(config_path):
-            self.load_configs(config_path)
+        if data_store is not None:
+            # 依赖注入：使用外部传入的数据源（如来自 PortLibraryManager 的引用）
+            self._data = data_store
+            logger.info("PortLibrary 已联结至共享内存数据源。")
         else:
-            logger.warning(f"未找到端口配置文件: {config_path}。系统将无法识别任何连接点。")
+            self._data: Dict[str, Any] = {}
+            # 强制加载项目顶层 data/ 目录下的真理库
+            config_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json"))
+            if os.path.exists(config_path):
+                self.load_configs(config_path)
+            else:
+                logger.warning(f"未找到端口配置文件: {config_path}。系统将无法识别任何连接点。")
             
     def load_configs(self, filepath: str) -> None:
         """加载已复核的端口快照。"""
