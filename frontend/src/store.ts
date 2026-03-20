@@ -14,6 +14,7 @@ type Quat = [number, number, number, number]; // [x, y, z, w]
 type Mat3 = number[][] | number[];
 
 export interface PartState {
+  ldrawId: string; // .dat 文件名
   position: [number, number, number];
   quaternion: [number, number, number, number];
   colorCode?: number;
@@ -41,6 +42,7 @@ interface StoreState {
   enableSSAO: boolean;
   enableContactShadows: boolean;
   debugMode: boolean;
+  previewPartId: string | null; // 当前预览的物料库零件 ID
 
   setView: (view: AppView) => void;
   toggleMode: () => Promise<void>;
@@ -62,10 +64,12 @@ interface StoreState {
   canRedo: boolean;
   setPartZone: (partId: string, zone: ZoneType) => void;
   workbenchGrid: WorkbenchGrid;
+  pickFromLibrary: (partId: string) => void;
 }
 
 export interface SelectedPortInfo {
-  partId: string;
+  partId: string; // 实例唯一 ID (Instance ID)
+  ldrawId: string; // 原始 .dat ID
   portType: string;
   position: Vec3;
   rotation: Mat3;
@@ -203,9 +207,9 @@ export const useStore = create<StoreState>((set, get) => ({
   mode: 'ASSEMBLY',
   view: 'ASSEMBLY',
   parts: {
-    "32524.dat": { position: [0, 0.005, 0],       quaternion: [0, 0, 0, 1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
-    "32523.dat": { position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
-    "6558.dat":  { position: [-0.03, 0.03, 0],    quaternion: [0, 0, 0, 1], colorCode: 0, zone: ZoneType.ACTIVE_ARENA },
+    "32524.dat": { ldrawId: "32524.dat", position: [0, 0.005, 0],       quaternion: [0, 0, 0, 1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
+    "32523.dat": { ldrawId: "32523.dat", position: [0.03, 0.005, 0.04], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+    "6558.dat":  { ldrawId: "6558.dat",  position: [-0.03, 0.03, 0],    quaternion: [0, 0, 0, 1], colorCode: 0, zone: ZoneType.ACTIVE_ARENA },
   },
   connections: {},
   wsConnected: false,
@@ -218,6 +222,7 @@ export const useStore = create<StoreState>((set, get) => ({
   enableSSAO: false,
   enableContactShadows: false,
   debugMode: false,
+  previewPartId: null,
   canUndo: false,
   canRedo: false,
   workbenchGrid: new WorkbenchGrid(),
@@ -238,7 +243,7 @@ export const useStore = create<StoreState>((set, get) => ({
   updatePartState: (partId, state) => set((prev) => ({
     parts: {
       ...prev.parts,
-      [partId]: { zone: prev.parts[partId]?.zone ?? ZoneType.ACTIVE_ARENA, ...state },
+      [partId]: { ldrawId: prev.parts[partId]?.ldrawId!, zone: prev.parts[partId]?.zone ?? ZoneType.ACTIVE_ARENA, ...state },
     }
   })),
 
@@ -283,6 +288,17 @@ export const useStore = create<StoreState>((set, get) => ({
       return;
     }
 
+     if (interactionPhase === InteractionPhase.PICKING_FROM_LIBRARY) {
+      // 在预览窗口中点击了某个端口 -> 锁定为 Source，等待场内 Target
+      if (!isValidTransition(interactionPhase, InteractionPhase.SOURCE_LOCKED)) return;
+      set({ 
+        selectedPort: port, 
+        interactionPhase: InteractionPhase.SOURCE_LOCKED,
+        previewPartId: null // 选定端口后自动关闭预览窗口
+      });
+      return;
+    }
+
     if (interactionPhase === InteractionPhase.SOURCE_LOCKED) {
       if (!selectedPort) {
         // 状态异常修复
@@ -322,13 +338,23 @@ export const useStore = create<StoreState>((set, get) => ({
     const parts = get().parts;
     const connections = get().connections;
 
-    const sourcePart = parts[source.partId];
     const targetPart = parts[target.partId];
-    if (!sourcePart || !targetPart) return false;
+    if (!targetPart) return false;
 
-    // 仅允许在 ACTIVE_ARENA 零件之间进行 Snap
-    if (sourcePart.zone !== ZoneType.ACTIVE_ARENA || targetPart.zone !== ZoneType.ACTIVE_ARENA) {
-      console.warn('[snapParts] 拒绝: 非 ACTIVE_ARENA 零件不参与 Snap');
+    // 获取 Source 零件状态：若不存在，则实例化新零件
+    let sourcePart = parts[source.partId];
+    if (!sourcePart) {
+      sourcePart = {
+        ldrawId: source.ldrawId,
+        position: [0, 0, 0],
+        quaternion: [0, 0, 0, 1],
+        zone: ZoneType.ACTIVE_ARENA,
+      };
+    }
+
+    // 仅允许在 ACTIVE_ARENA 零件之间进行 Snap (对新进入零件默认放行)
+    if (targetPart.zone !== ZoneType.ACTIVE_ARENA) {
+      console.warn('[snapParts] 拒绝: Target 非 ACTIVE_ARENA 零件');
       return false;
     }
 
@@ -441,7 +467,13 @@ export const useStore = create<StoreState>((set, get) => ({
         child_rot: flatRot(source.rotation),
       });
     } catch (e) {}
-
+    
     return true;
+  },
+
+  pickFromLibrary: (partId: string) => {
+    const { interactionPhase } = get();
+    const nextPhase = InteractionEvents.pickFromLibrary(interactionPhase);
+    set({ previewPartId: partId, interactionPhase: nextPhase, selectedPort: null });
   }
 }));

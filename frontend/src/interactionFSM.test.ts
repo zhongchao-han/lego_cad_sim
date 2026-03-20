@@ -17,6 +17,18 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('isValidTransition', () => {
+  it('IDLE → PICKING_FROM_LIBRARY is valid', () => {
+    expect(isValidTransition(InteractionPhase.IDLE, InteractionPhase.PICKING_FROM_LIBRARY)).toBe(true);
+  });
+
+  it('PICKING_FROM_LIBRARY → SOURCE_LOCKED is valid', () => {
+    expect(isValidTransition(InteractionPhase.PICKING_FROM_LIBRARY, InteractionPhase.SOURCE_LOCKED)).toBe(true);
+  });
+
+  it('PICKING_FROM_LIBRARY → IDLE is valid', () => {
+    expect(isValidTransition(InteractionPhase.PICKING_FROM_LIBRARY, InteractionPhase.IDLE)).toBe(true);
+  });
+
   it('IDLE → SOURCE_LOCKED is valid', () => {
     expect(isValidTransition(InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED)).toBe(true);
   });
@@ -80,6 +92,16 @@ describe('transition', () => {
 // ---------------------------------------------------------------------------
 
 describe('InteractionEvents', () => {
+  it('pickFromLibrary: IDLE → PICKING_FROM_LIBRARY', () => {
+    expect(InteractionEvents.pickFromLibrary(InteractionPhase.IDLE))
+      .toBe(InteractionPhase.PICKING_FROM_LIBRARY);
+  });
+
+  it('pickSourcePort: PICKING_FROM_LIBRARY → SOURCE_LOCKED', () => {
+    expect(InteractionEvents.pickSourcePort(InteractionPhase.PICKING_FROM_LIBRARY))
+      .toBe(InteractionPhase.SOURCE_LOCKED);
+  });
+
   it('lockSource: IDLE → SOURCE_LOCKED', () => {
     expect(InteractionEvents.lockSource(InteractionPhase.IDLE))
       .toBe(InteractionPhase.SOURCE_LOCKED);
@@ -118,6 +140,18 @@ describe('InteractionEvents', () => {
     // completeSnap does not need to throw here; callers should gate on phase === ANIMATING_SNAP.
     expect(InteractionEvents.completeSnap(InteractionPhase.SOURCE_LOCKED))
       .toBe(InteractionPhase.IDLE);
+  });
+
+  it('full library-to-snap flow: IDLE → PICKING → LOCKED → ANIMATING → IDLE', () => {
+    let phase = InteractionPhase.IDLE;
+    phase = InteractionEvents.pickFromLibrary(phase);
+    expect(phase).toBe(InteractionPhase.PICKING_FROM_LIBRARY);
+    phase = InteractionEvents.pickSourcePort(phase);
+    expect(phase).toBe(InteractionPhase.SOURCE_LOCKED);
+    phase = InteractionEvents.beginSnap(phase);
+    expect(phase).toBe(InteractionPhase.ANIMATING_SNAP);
+    phase = InteractionEvents.completeSnap(phase);
+    expect(phase).toBe(InteractionPhase.IDLE);
   });
 
   it('full happy-path sequence: IDLE → SOURCE_LOCKED → ANIMATING_SNAP → IDLE', () => {

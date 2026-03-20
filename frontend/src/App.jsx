@@ -6,8 +6,11 @@ import { useStore } from './store';
 import Scene from './Scene';
 import { VerificationWorkbench } from './VerificationWorkbench.tsx';
 
+import { PartLibraryPanel } from './components/PartLibraryPanel';
+import { PartPreviewOverlay } from './components/PartPreviewOverlay';
+
 function UIOverlay() {
-  // --- 1. 所有 Hooks 必须在顶层调用 ---
+  // ... (existing constants)
   const mode = useStore((state) => state.mode);
   const view = useStore((state) => state.view);
   const setView = useStore((state) => state.setView);
@@ -24,37 +27,45 @@ function UIOverlay() {
   const setEnableContactShadows = useStore((state) => state.setEnableContactShadows);
   const debugMode = useStore((state) => state.debugMode);
   const setDebugMode = useStore((state) => state.setDebugMode);
+  const interactionPhase = useStore((state) => state.interactionPhase);
+  const selectedPort = useStore((state) => state.selectedPort);
 
-  // --- 2. 渲染逻辑 ---
   return (
-    <div className="absolute top-0 left-0 w-full h-full p-4 flex justify-between items-start pointer-events-none z-50">
-      <div className="flex flex-col gap-2 pointer-events-auto bg-white/50 backdrop-blur-sm p-2 rounded-lg border border-white/20 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-800 drop-shadow-md">
-          LEGO Editor
+    <div className="absolute top-0 left-0 w-full h-full p-4 pointer-events-none z-[60]">
+      {/* 侧边物料库 */}
+      {view === 'ASSEMBLY' && (
+        <div className="absolute top-0 left-0 h-full">
+           <PartLibraryPanel />
+        </div>
+      )}
+
+      {/* 顶部状态与模式切换 (左上角偏移，避免被物料库遮挡) */}
+      <div className={`flex flex-col gap-2 pointer-events-auto bg-white/50 backdrop-blur-sm p-4 rounded-lg border border-white/20 shadow-sm absolute top-4 ${view === 'ASSEMBLY' ? 'left-[300px]' : 'left-4'} transition-all`}>
+        <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+          LEGO CAD SIM
+          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
         </h1>
-        <div className={`px-2 py-1 rounded-full text-xs font-bold inline-block w-max ${wsConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-          {wsConnected ? 'Engine Connected' : 'Engine Disconnected'}
+        <div className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block w-max ${wsConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+          {wsConnected ? 'ENGINE CONNECTED' : 'ENGINE OFFLINE'}
         </div>
 
-        {/* 模式切换 Tabs */}
-        <div className="flex bg-gray-200/50 p-1 rounded-md mt-2">
+        <div className="flex bg-slate-200/50 p-1 rounded-md mt-1 border">
           <button 
             onClick={() => setView('ASSEMBLY')}
-            className={`px-3 py-1 rounded text-xs font-bold transition-all ${view === 'ASSEMBLY' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-3 py-1 rounded text-[10px] font-black transition-all ${view === 'ASSEMBLY' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
             ASSEMBLY
           </button>
           <button 
             onClick={() => setView('VERIFY')}
-            className={`px-3 py-1 rounded text-xs font-bold transition-all ${view === 'VERIFY' ? 'bg-white shadow text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-3 py-1 rounded text-[10px] font-black transition-all ${view === 'VERIFY' ? 'bg-white shadow text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            LIBRARY VERIFY
+            VERIFY
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 items-end pointer-events-auto z-50">
-        {/* 仅在 ASSEMBLY 模式显示的控件 */}
+      <div className="flex flex-col gap-3 items-end pointer-events-auto absolute top-4 right-4">
         {view === 'ASSEMBLY' && (
           <>
             <button
@@ -62,77 +73,43 @@ function UIOverlay() {
                 e.stopPropagation();
                 toggleMode();
               }}
-              className={`flex items-center px-6 py-3 rounded-lg font-bold shadow-lg transition-all ${mode === 'ASSEMBLY'
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+              className={`flex items-center px-6 py-3 rounded-lg font-black shadow-lg transition-all border-b-4 active:border-b-0 active:translate-y-1 ${mode === 'ASSEMBLY'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-800'
+                : 'bg-amber-500 hover:bg-amber-600 text-white border-amber-700 animate-pulse'
                 }`}
             >
-              {mode === 'ASSEMBLY' ? (
-                <>START SIMULATION</>
-              ) : (
-                <>STOP SIMULATION</>
-              )}
+              {mode === 'ASSEMBLY' ? 'START SIMULATION' : 'STOP SIMULATION'}
             </button>
 
-            {/* 调试与渲染控制面板 */}
-            <div className="bg-white/85 backdrop-blur-sm rounded-lg shadow px-4 py-3 text-xs space-y-2 border">
-              <div className="font-semibold text-gray-700 mb-1">
-                Render Controls
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-blue-600"
-                  checked={showPortGizmos}
-                  onChange={(e) => setShowPortGizmos(e.target.checked)}
-                />
-                <span>Show port gizmos</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-blue-600"
-                  checked={enableFocusAnimation}
-                  onChange={(e) => setEnableFocusAnimation(e.target.checked)}
-                />
-                <span>Enable focus animation</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-blue-600"
-                  checked={enableSSAO}
-                  onChange={(e) => setEnableSSAO(e.target.checked)}
-                />
-                <span>SSAO (ambient occlusion)</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-blue-600"
-                  checked={enableContactShadows}
-                  onChange={(e) => setEnableContactShadows(e.target.checked)}
-                />
-                <span>Contact shadows</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  className="accent-blue-600"
-                  checked={debugMode}
-                  onChange={(e) => setDebugMode(e.target.checked)}
-                />
-                <span>Debug mode (Axes)</span>
-              </label>
+            <div className="bg-white/85 backdrop-blur-sm rounded-xl shadow-xl px-4 py-3 text-[10px] space-y-2 border border-slate-200 w-48 font-semibold text-slate-600">
+              <div className="text-slate-400 font-bold mb-2 uppercase tracking-widest text-[9px]">Render Tuning</div>
+              {[
+                { label: 'Port Gizmos', checked: showPortGizmos, set: setShowPortGizmos },
+                { label: 'Focus Animation', checked: enableFocusAnimation, set: setEnableFocusAnimation },
+                { label: 'SSAO', checked: enableSSAO, set: setEnableSSAO },
+                { label: 'Contact Shadows', checked: enableContactShadows, set: setEnableContactShadows },
+                { label: 'Debug Axes', checked: debugMode, set: setDebugMode },
+              ].map(({ label, checked, set }) => (
+                <label key={label} className="flex items-center justify-between cursor-pointer hover:bg-slate-50 p-1 rounded transition-colors">
+                  <span>{label}</span>
+                  <input type="checkbox" className="accent-blue-600 h-3 w-3" checked={checked} onChange={(e) => set(e.target.checked)} />
+                </label>
+              ))}
             </div>
           </>
         )}
       </div>
 
-      {/* 底部引导栏 */}
-      {view === 'ASSEMBLY' && mode === 'ASSEMBLY' && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow border pointer-events-none text-sm text-gray-600">
-          Click two ports to snap them together.
+      <PartPreviewOverlay />
+
+      {/* 底部引导栏 (FSM 驱动) */}
+      {view === 'ASSEMBLY' && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur text-white px-6 py-2.5 rounded-full shadow-2xl border border-white/20 pointer-events-none text-xs font-bold flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+          {interactionPhase === 'IDLE' && "Click a part in library or scene port to start."}
+          {interactionPhase === 'PICKING_FROM_LIBRARY' && "PREVIEW: Rotate part and click a source port."}
+          {interactionPhase === 'SOURCE_LOCKED' && `LOCKED: ${selectedPort?.partId}. Now click a target port in scene.`}
+          {interactionPhase === 'ANIMATING_SNAP' && "Sensing geometry... Snap in progress."}
         </div>
       )}
     </div>

@@ -16,14 +16,16 @@
  */
 
 export enum InteractionPhase {
-  IDLE           = 'IDLE',
-  SOURCE_LOCKED  = 'SOURCE_LOCKED',
-  ANIMATING_SNAP = 'ANIMATING_SNAP',
+  IDLE                 = 'IDLE',
+  PICKING_FROM_LIBRARY = 'PICKING_FROM_LIBRARY', // 正在物料库或工作台中“预览”零件，尚未选点
+  SOURCE_LOCKED        = 'SOURCE_LOCKED',
+  ANIMATING_SNAP       = 'ANIMATING_SNAP',
 }
 
 // 合法跳转表
 const VALID_TRANSITIONS: Record<InteractionPhase, readonly InteractionPhase[]> = {
-  [InteractionPhase.IDLE]:           [InteractionPhase.SOURCE_LOCKED],
+  [InteractionPhase.IDLE]:           [InteractionPhase.SOURCE_LOCKED, InteractionPhase.PICKING_FROM_LIBRARY],
+  [InteractionPhase.PICKING_FROM_LIBRARY]: [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED],
   [InteractionPhase.SOURCE_LOCKED]:  [InteractionPhase.IDLE, InteractionPhase.ANIMATING_SNAP],
   [InteractionPhase.ANIMATING_SNAP]: [InteractionPhase.IDLE],
 };
@@ -53,19 +55,27 @@ export function transition(from: InteractionPhase, to: InteractionPhase): Intera
  * 根据用户动作推断目标阶段（封装常见跳转语义）。
  */
 export const InteractionEvents = {
-  /** 用户点击了一个端口（空闲 → 锁定） */
+  /** 用户点击侧边栏零件，开启预览 */
+  pickFromLibrary: (current: InteractionPhase): InteractionPhase =>
+    transition(current, InteractionPhase.PICKING_FROM_LIBRARY),
+
+  /** 预览中旋转零件，然后选中了一个特定源端口 */
+  pickSourcePort: (current: InteractionPhase): InteractionPhase =>
+    transition(current, InteractionPhase.SOURCE_LOCKED),
+
+  /** 用户在场内点击了一个已落位零件的端口（传统 Snap） */
   lockSource: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.SOURCE_LOCKED),
 
-  /** 用户取消选择（锁定 → 空闲） */
+  /** 用户取消（预览取消或选点后取消） */
   cancel: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.IDLE),
 
-  /** 用户点击了目标端口，开始 Snap 动画（锁定 → 动画中） */
+  /** 开始 Snap 动画 */
   beginSnap: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.ANIMATING_SNAP),
 
-  /** 动画播放完毕（动画中 → 空闲） */
+  /** 动画完毕 */
   completeSnap: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.IDLE),
 } as const;
