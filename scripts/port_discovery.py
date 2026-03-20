@@ -1,7 +1,12 @@
 import os
+import sys
 import logging
 from typing import Dict, List, Optional, Any
 import numpy as np
+
+# 添加 backend 目录到 sys.path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+
 from port_library import PortLibrary
 from port_library_manager import PortLibraryManager
 from core_constants import HALF_GRID_LDU, LDU_TO_SI

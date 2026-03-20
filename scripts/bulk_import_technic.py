@@ -4,6 +4,8 @@ import logging
 from concurrent.futures import ProcessPoolExecutor
 
 # 添加 backend 到路径以便导入
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
+# 添加当前目录 (scripts) 到路径以导入 port_discovery
 sys.path.append(os.path.dirname(__file__))
 
 from port_discovery import PortDiscoverer
@@ -70,6 +72,10 @@ def bulk_import_technic(ldraw_root: str):
     logger.info("全量科技件入库同步完成。")
 
 if __name__ == "__main__":
-    # 假设从项目根目录运行
-    ldraw_root = "ldraw_lib"
-    bulk_import_technic(ldraw_root)
+    import argparse
+    parser = argparse.ArgumentParser(description="全量 LDraw 科技件端口自动识别与入库工具")
+    parser.add_argument("--ldraw_root", type=str, default="ldraw_lib", help="LDraw 库根目录 (默认: ldraw_lib)")
+    
+    args = parser.parse_args()
+    
+    bulk_import_technic(args.ldraw_root)
