@@ -1,5 +1,5 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Sphere, Environment, ContactShadows, useGLTF, BakeShadows, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { CameraControls, Html, Sphere, Environment, ContactShadows, useGLTF, BakeShadows, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { EffectComposer, N8AO } from '@react-three/postprocessing';
 import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useStore } from './store';
@@ -7,6 +7,8 @@ import { Vector3, MathUtils } from 'three';
 import * as THREE from 'three';
 import { useLDrawPart } from './useLDrawPart';
 import PropTypes from 'prop-types';
+import { CameraController as GenericCameraController } from './CameraController';
+import { calculateAssemblyTarget } from './cameraUtils';
 
 const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
@@ -80,80 +82,20 @@ LDrawMeshRenderer.propTypes = {
 const FOCUS_DISTANCE = 0.2;
 const LERP_SPEED = 0.08;
 
-const CameraController = () => {
-    const controlsRef = useRef();
-    const { camera } = useThree();
-    const selectedPort = useStore((state) => state.selectedPort);
-    const focusedPartId = useStore((state) => state.focusedPartId);
-    const enableFocusAnimation = useStore((state) => state.enableFocusAnimation);
-    const parts = useStore((state) => state.parts);
-
-    const desiredTarget = useRef(new Vector3());
-    const desiredDistance = useRef(null);
-    const animating = useRef(false);
-
-    const startFocus = useCallback((pos, dist) => {
-        desiredTarget.current.copy(pos);
-        desiredDistance.current = dist ?? FOCUS_DISTANCE;
-        animating.current = true;
-    }, []);
-
-    useEffect(() => {
-        if (!selectedPort) return;
-        startFocus(new Vector3(...selectedPort.globalPos), FOCUS_DISTANCE);
-    }, [selectedPort, startFocus]);
-
-    useEffect(() => {
-        if (!focusedPartId) return;
-        const partState = parts[focusedPartId];
-        if (!partState) return;
-        startFocus(new Vector3(...partState.position), FOCUS_DISTANCE);
-    }, [focusedPartId, parts, startFocus]);
-
-    useFrame(() => {
-        const controls = controlsRef.current;
-        if (!controls || !animating.current) return;
-
-        const curTarget = controls.target;
-        const desired = desiredTarget.current;
-
-        if (!enableFocusAnimation) {
-            curTarget.copy(desired);
-            if (desiredDistance.current !== null) {
-                const dir = new Vector3().subVectors(camera.position, curTarget).normalize();
-                camera.position.copy(curTarget).addScaledVector(dir, desiredDistance.current);
-            }
-            animating.current = false;
-        } else {
-            curTarget.lerp(desired, LERP_SPEED);
-
-            if (desiredDistance.current !== null) {
-                const dir = new Vector3().subVectors(camera.position, curTarget);
-                const curDist = dir.length();
-                if (curDist > 0) {
-                    dir.normalize();
-                    const newDist = MathUtils.lerp(curDist, desiredDistance.current, LERP_SPEED);
-                    camera.position.copy(curTarget).addScaledVector(dir, newDist);
-                }
-            }
-
-            if (curTarget.distanceTo(desired) < 0.0001) {
-                animating.current = false;
-                desiredDistance.current = null;
-            }
-        }
-
-        controls.minDistance = 0.01;
-        controls.maxDistance = 0.5;
-        controls.update();
-    });
+// --- Assembly 专用的摄像机协调逻辑 ---
+const AssemblyCameraController = () => {
+    const selectedPort = useStore((s) => s.selectedPort);
+    
+    // 计算当前的聚焦目标：[x, y, z] 或 null
+    const target = useMemo(() => {
+        return calculateAssemblyTarget(selectedPort);
+    }, [selectedPort]);
 
     return (
-        <OrbitControls
-            ref={controlsRef}
-            makeDefault
-            enableDamping
-            dampingFactor={0.08}
+        <GenericCameraController 
+            target={target} 
+            minDistance={0.001} 
+            maxDistance={1} 
         />
     );
 };
@@ -370,7 +312,7 @@ export default function Scene() {
 
             <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
 
-            <CameraController />
+            <AssemblyCameraController />
 
             {Object.keys(parts).map(id => (
                 <LegoPart key={id} id={id} />

@@ -28,6 +28,10 @@
 ### 3.5 精度保障 (Alignment Precision)
 - **stripAxis 投影**: 强制将所有 Snap 路径投影至零件的几何中心轴，实现亚毫米级的对齐精度。
 
+### 3.6 交互细节增强 (Interaction Polish)
+- **摄像机自适应对焦 (Adaptive Camera Focusing)**: 选中端口后摄像机自动平滑移动至操作点，配合基于光标的缩放逻辑 (`Dolly to Cursor`)，实现类似专业 CAD 的微操作体验。
+- **单一责任摄像控制 (CameraController Pattern)**: 摄像机控制逻辑与业务模块解耦，确保装配与复核场景具备完全一致的过渡动效与稳定度。
+
 ## 4. 模块职责划分
 - `topology_manager.py`: 负责装配拓扑解算、树/环关系维护。
 - `port_library.py`: 零件语义库加载器（原 `ldraw_parser.py`），系统唯一的端口真理来源。

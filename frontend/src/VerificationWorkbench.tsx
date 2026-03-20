@@ -5,6 +5,8 @@ import { PortVisualizer } from './PortVisualizer.tsx';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Grid, Environment, useGLTF, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { useLDrawPart } from './useLDrawPart';
+import { CameraController } from './CameraController';
+import { calculateWorkbenchTarget, LDU } from './cameraUtils';
 
 /**
  * 内部组件：负责加载和渲染单个零件模型
@@ -52,24 +54,11 @@ export const VerificationWorkbench: React.FC = () => {
   const listData = searchQuery ? searchList : pendingList;
 
   const [selectedPortIndex, setSelectedPortIndex] = useState<number | null>(null);
-  const controlsRef = React.useRef<CameraControls>(null);
 
-  const LDU = 0.0004;
-
-  const currentTarget = useMemo(() => {
-    if (selectedPortIndex !== null && currentPorts[selectedPortIndex]) {
-      const p = currentPorts[selectedPortIndex].position;
-      return [p[0] * LDU, p[1] * LDU, p[2] * LDU] as [number, number, number];
-    }
-    return [0, 0, 0] as [number, number, number];
+  const target = useMemo(() => {
+    return calculateWorkbenchTarget(currentPorts[selectedPortIndex!]);
   }, [selectedPortIndex, currentPorts]);
 
-  // 核心：当对焦点改变时，平滑驱动摄像机移动到目标点
-  useEffect(() => {
-    if (controlsRef.current) {
-      controlsRef.current.setTarget(currentTarget[0], currentTarget[1], currentTarget[2], true);
-    }
-  }, [currentTarget]);
 
   useEffect(() => {
     fetchPendingList();
@@ -177,14 +166,11 @@ export const VerificationWorkbench: React.FC = () => {
             <GizmoViewport axisColors={['#ff3e3e', '#3fff3e', '#3e3eff']} labelColor="white" />
           </GizmoHelper>
 
-          {/* 核心交互：CameraControls 提供顺滑过渡、缩放中心锁定和更精准的交互 */}
-          <CameraControls 
-            ref={controlsRef} 
-            makeDefault 
+          <CameraController 
+            target={target} 
             minDistance={0.001} 
-            maxDistance={1}
-            dollyToCursor={true} // 缩放时向鼠标指针靠拢（提升交互感）
-            mouseButtons={{ left: 1, middle: 0, right: 2, wheel: 8 }} // 允许右键平移以防万一
+            maxDistance={1} 
+            mouseButtons={{ left: 1, middle: 0, right: 2, wheel: 8 }}
           />
         </Canvas>
 

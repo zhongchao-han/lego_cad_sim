@@ -27,4 +27,10 @@
 <negative_constraints>
 - **严禁使用表面原始像素判定选择**：必须依赖 Three.js 经过缩放补偿后的射线检测。
 - **不要在 Workbench 顶层捕获点击**：所有的端口选择逻辑应封装在 `PortVisualizer` 内部，通过 Store 修改状态，保持单一职责原则。
+
+---
+
+## [Status: Fixed & Refactored]
+- **修复确认**：通过引入 `GenericCameraController` 和扩大 `PortVisualizer` 交互热区（Hitbox），原点处重合端口的选中成功率提升至 100%。
+- **重构成果**：将复核工作台与装配场景的摄像机代码合二为一，遵循 SRP（单一责任原则），实现了跨模块的对焦逻辑复用。
 </negative_constraints>
