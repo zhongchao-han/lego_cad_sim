@@ -18,23 +18,39 @@ const createABSPlasticMaterial = (sourceColor: THREE.Color | string | undefined,
     });
 };
 
-export function LDrawMeshRenderer({ url, onPointerOver, onPointerOut, onDoubleClick }: any) {
-    const { scene } = useGLTF(url, true);
+export function LDrawMeshRenderer({ 
+    url, 
+    onPointerOver, 
+    onPointerOut, 
+    onDoubleClick,
+    highlightColor = null,
+    highlightIntensity = 0 
+}: any) {
+    const gltf = useGLTF(url, true) as any;
+    const scene = Array.isArray(gltf) ? gltf[0].scene : gltf.scene;
 
     const cloned = useMemo(() => {
+        if (!scene) return new THREE.Group();
         const c = scene.clone(true);
-        c.traverse((child) => {
+        c.traverse((child: any) => {
             if ((child as THREE.Mesh).isMesh) {
                 const mesh = child as THREE.Mesh;
                 const hasVC = !!mesh.geometry?.attributes?.color;
                 const origColor = (mesh.material as THREE.MeshStandardMaterial)?.color;
-                mesh.material = createABSPlasticMaterial(origColor, hasVC);
+                const mat = createABSPlasticMaterial(origColor, hasVC);
+                
+                if (highlightColor) {
+                    mat.emissive = new THREE.Color(highlightColor);
+                    mat.emissiveIntensity = highlightIntensity;
+                }
+                
+                mesh.material = mat;
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
             }
         });
         return c;
-    }, [scene]);
+    }, [scene, highlightColor, highlightIntensity]);
 
     return (
         <primitive

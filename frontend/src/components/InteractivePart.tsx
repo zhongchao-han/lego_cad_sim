@@ -1,29 +1,66 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { useStore } from '../store';
+import { SelectionLevel } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
-import PropTypes from 'prop-types';
 
-const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+const BACKEND_ORIGIN = (import.meta as any).env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
-const encodeModelUrl = (path: string) => {
+const encodeModelUrl = (path: string | undefined) => {
   if (!path) return null;
   return encodeURI(`${BACKEND_ORIGIN}${path}`);
 };
 
 const LDU = 0.0004;
 
+interface InteractivePartProps {
+  partId: string;
+  ldrawId?: string;
+  colorCode?: number;
+  onPortClick?: (port: any) => void;
+  showPorts?: boolean;
+  onHoverChange?: (h: boolean) => void;
+  onDoubleClick?: () => void;
+  isStatic?: boolean;
+}
+
 export const InteractivePart = memo(({ 
   partId,
-  ldrawId, // 实际对应的 LDraw 资源 ID
+  ldrawId,
   colorCode = 7, 
   onPortClick, 
   showPorts = true, 
   onHoverChange,
   onDoubleClick,
   isStatic = false 
-}: any) => {
+}: InteractivePartProps) => {
   const [hovered, setHover] = useState(false);
+  const selection = useStore(s => s.selection);
+  const interference = useStore(s => s.interferenceReport);
+  
+  const isSelected = selection.primaryId === partId;
+  const isGroupMember = selection.level === SelectionLevel.GROUP && selection.allConnectedIds.includes(partId);
+  const isBlocked = isSelected && interference.isBlocked;
+
+  const [pulse, setPulse] = useState(0);
+  useFrame(({ clock }) => {
+    if (isBlocked) {
+      setPulse(Math.sin(clock.elapsedTime * 12) * 0.4 + 0.6);
+    } else if (pulse !== 0) {
+      setPulse(0);
+    }
+  });
+
+  const highlight = useMemo(() => {
+    if (isBlocked) return { color: '#ff3d00', intensity: pulse };
+    if (isSelected) return { color: '#2979ff', intensity: 0.8 };
+    if (isGroupMember) return { color: '#2979ff', intensity: 0.25 };
+    if (hovered) return { color: '#ffffff', intensity: 0.15 };
+    return { color: null, intensity: 0 };
+  }, [isSelected, isGroupMember, isBlocked, pulse, hovered]);
+
   const ldrawPart = useLDrawPart(ldrawId || partId, colorCode);
   const groupRef = useRef<THREE.Group>(null);
 
@@ -41,7 +78,7 @@ export const InteractivePart = memo(({
     if (ldrawPart.ports && ldrawPart.ports.length > 0) {
       return ldrawPart.ports.map((p) => ({
         type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
-        localPos: p.position,
+        localPos: p.position as [number, number, number],
         rot: p.rotation,
         quaternion: computeQuaternion(p.rotation)
       }));
@@ -72,6 +109,8 @@ export const InteractivePart = memo(({
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
           onDoubleClick={onDoubleClick}
+          highlightColor={highlight.color}
+          highlightIntensity={highlight.intensity}
         />
       ) : (
         <mesh
@@ -80,7 +119,7 @@ export const InteractivePart = memo(({
           onDoubleClick={onDoubleClick}
         >
           <boxGeometry args={[0.005, 0.005, 0.005]} />
-          <meshBasicMaterial color={hovered ? '#ff9800' : '#b0bec5'} />
+          <meshBasicMaterial color={highlight.color || (hovered ? '#ff9800' : '#b0bec5')} />
         </mesh>
       )}
 
@@ -99,40 +138,25 @@ export const InteractivePart = memo(({
                 depthTest={false}
               />
             </mesh>
-            {/* 箭杆：指示插入方向 (局部 Z 轴) */}
             <mesh position={[0, 0, 3 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
               <cylinderGeometry args={[0.5 * LDU, 0.5 * LDU, 6 * LDU, 8]} />
-              <meshBasicMaterial
-                color={color}
-                transparent
-                opacity={0.85}
-                depthTest={false}
-              />
+              <meshBasicMaterial color={color} transparent opacity={0.85} depthTest={false} />
             </mesh>
-            {/* 箭头 */}
             <mesh position={[0, 0, 8 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
               <coneGeometry args={[2 * LDU, 4 * LDU, 8]} />
-              <meshBasicMaterial
-                color={color}
-                transparent
-                opacity={0.85}
-                depthTest={false}
-              />
+              <meshBasicMaterial color={color} transparent opacity={0.85} depthTest={false} />
             </mesh>
 
             <mesh
               renderOrder={999}
               onClick={(e) => {
                 e.stopPropagation();
-                // 如果是静态零件（如预览窗内），不需要计算世界坐标
                 const worldPos = new THREE.Vector3(...port.localPos);
-                if (!isStatic && groupRef.current) {
-                   groupRef.current.localToWorld(worldPos);
-                }
+                if (!isStatic && groupRef.current) groupRef.current.localToWorld(worldPos);
                 
                 onPortClick?.({
-                  partId, // 实例 ID
-                  ldrawId: ldrawId || partId, // 材质 ID
+                  partId,
+                  ldrawId: ldrawId || partId,
                   portType: port.type,
                   position: port.localPos,
                   rotation: port.rot,
@@ -158,12 +182,3 @@ export const InteractivePart = memo(({
 });
 
 InteractivePart.displayName = 'InteractivePart';
-InteractivePart.propTypes = {
-  partId: PropTypes.string.isRequired,
-  colorCode: PropTypes.number,
-  onPortClick: PropTypes.func,
-  showPorts: PropTypes.bool,
-  onHoverChange: PropTypes.func,
-  onDoubleClick: PropTypes.func,
-  isStatic: PropTypes.bool,
-};

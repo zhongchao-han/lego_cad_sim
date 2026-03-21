@@ -48,8 +48,13 @@ engine.toggle_gravity(False)
 
 app = FastAPI(title="LEGO Technic Simulation Backend", version="1.0.0")
 
-allow_origins_str = os.environ.get("FASTAPI_ALLOW_ORIGINS", "*")
-allow_origins = [origin.strip() for origin in allow_origins_str.split(",")] if allow_origins_str else ["*"]
+# 开发环境下明确指定 Origin 以支持 credentials=True
+allow_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000"
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -217,32 +222,38 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
     """
     获取 LDraw 零件及其端口数据。
     """
-    # 彻底杜绝前后端空格污染导致的 URL 崩溃
-    part_id = part_id.strip()
-    dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
+    try:
+        # 彻底杜绝前后端空格污染导致的 URL 崩溃
+        part_id = part_id.strip()
+        dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
 
-    # 使用全局单例解析，此时 library._data 与 port_lib_manager._data 实时同步
-    ports = []
-    parsed_ports = library.parse_dat_file(dat_filename, allow_pending=include_pending)
-    if parsed_ports:
-        ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
-    else:
-        logger.warning(f"LDraw 源文件未找到或未解析出端口: {dat_filename}")
+        # 使用全局单例解析，此时 library._data 与 port_lib_manager._data 实时同步
+        ports = []
+        parsed_ports = library.parse_dat_file(dat_filename, allow_pending=include_pending)
+        if parsed_ports:
+            ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
+        else:
+            logger.warning(f"LDraw 源文件未找到或未解析出端口: {dat_filename}")
 
-    glb_filename = f"{part_id}_c{color}.glb"
-    glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
+        glb_filename = f"{part_id}_c{color}.glb"
+        glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
 
-    if not os.path.exists(glb_path):
-        logger.info(f"触发动态转换 (异步线程): {dat_filename} -> {glb_filename}")
-        await asyncio.to_thread(geo_proc.convert_to_glb, dat_filename, glb_path, color_code=color)
+        if not os.path.exists(glb_path):
+            logger.info(f"触发动态转换 (异步线程): {dat_filename} -> {glb_filename}")
+            await asyncio.to_thread(geo_proc.convert_to_glb, dat_filename, glb_path, color_code=color)
 
-    mesh_url = f"/ldraw_meshes/{glb_filename}"
+        mesh_url = f"/ldraw_meshes/{glb_filename}"
 
-    return LDrawPartResponse(
-        part_id=part_id,
-        ports=ports,
-        mesh_url=mesh_url,
-    )
+        return LDrawPartResponse(
+            part_id=part_id,
+            ports=ports,
+            mesh_url=mesh_url,
+        )
+    except Exception as e:
+        logger.error(f"Failed to get_ldraw_part: {part_id} - {str(e)}", exc_info=True)
+        # 显式抛出 500 并在日志中记录调用栈
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/snap_parts")
 async def snap_parts(req: SnapRequest):
