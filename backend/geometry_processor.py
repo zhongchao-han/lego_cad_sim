@@ -11,6 +11,50 @@ from core_constants import LDU_TO_SI
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+def calculate_p2p_alignment(source_port: 'Port', target_port: 'Port') -> np.ndarray:
+    """
+    [Interaction v1.2] 计算将 Source 零件对齐到 Target 端口的 4x4 变换矩阵。
+    核心逻辑：
+    1. 旋转 Source 使得 SourcePort.Z 对齐到 -TargetPort.Z。
+    2. 平移 Source 使得 SourcePort.pos 与 TargetPort.pos 重合。
+    """
+    from scipy.spatial.transform import Rotation
+    
+    # 获取原始轴向 (Local to part)
+    # 注意：Port.rotation 是局部旋转，Z轴是插入轴
+    src_z = source_port.rotation[:, 2]      # 源零件的插入轴
+    parent_z = -target_port.rotation[:, 2] # 目标零件的接受轴（反向对冲）
+
+    # 1. 计算旋转 R：将 src_z 旋转到 parent_z 的最短路径
+    # 使用两个向量的叉积作为旋转轴，点积作为余弦值
+    cross_vec = np.cross(src_z, parent_z)
+    dot_val = np.dot(src_z, parent_z)
+    
+    if np.allclose(src_z, parent_z):
+        # 已经平行，无需额外旋转
+        rot_matrix = np.eye(3)
+    elif np.allclose(src_z, -parent_z):
+        # 恰好反向，绕任意正交轴旋转 180 度
+        # 寻找一个不与 src_z 平行的向量
+        ortho_vec = np.array([1, 0, 0]) if abs(src_z[0]) < 0.9 else np.array([0, 1, 0])
+        rot_axis = np.cross(src_z, ortho_vec)
+        rot_matrix = Rotation.from_rotvec(np.pi * (rot_axis / np.linalg.norm(rot_axis))).as_matrix()
+    else:
+        # 正常情况：计算旋转向量并转为矩阵
+        rot_matrix = Rotation.from_rotvec(cross_vec / (np.linalg.norm(cross_vec) + 1e-9) * np.arccos(np.clip(dot_val, -1.0, 1.0))).as_matrix()
+
+    # 2. 计算位移 T：T = target_pos - (R @ source_pos)
+    # 因为我们要把 Source 零件整体移动，所以先旋转 SourcePort，再算偏移
+    translated_src_pos = rot_matrix @ source_port.position
+    translation = target_port.position - translated_src_pos
+
+    # 3. 构造 4x4 矩阵
+    matrix = np.eye(4)
+    matrix[:3, :3] = rot_matrix
+    matrix[:3, 3] = translation
+    
+    return matrix
+
 class GeometryProcessor:
     """
     负责将 LDraw (.dat) 几何体转换为 Web 可用的网格格式 (.glb)。

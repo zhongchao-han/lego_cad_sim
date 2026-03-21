@@ -32,7 +32,7 @@ class TestV1_2Logic:
     def test_site_clustering_basic(self):
         """测试：物理重合的两个端口是否能聚合为一个 Site"""
         p1 = create_mock_port("p1", [0, 0, 0], [0, 0, 1])
-        p2 = create_mock_port("p2", [0.1, 0, 0], [0, 0, -1]) # 极微小位移，应聚合
+        p2 = create_mock_port("p2", [0.0001, 0, 0], [0, 0, -1]) # 0.25 LDU，应聚合
         
         # 预期的聚合逻辑调用（此时会 Fail）
         sites = Site.cluster_ports([p1, p2], threshold=1.0)

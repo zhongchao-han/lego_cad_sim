@@ -1,32 +1,17 @@
 /**
  * interactionFSM.ts
  * ==================
- * 用户交互状态机 — 纯逻辑模块，无任何框架依赖。
- *
- * 阶段定义：
- *   IDLE            — 空闲，用户可自由旋转场景
- *   SOURCE_LOCKED   — 已锁定第一个端口（Source），等待用户点击 Target
- *   ANIMATING_SNAP  — 正在播放落位动画（锁定用户输入）
- *
- * 合法跳转（单向）：
- *   IDLE            → SOURCE_LOCKED   (点击第一个端口)
- *   SOURCE_LOCKED   → IDLE            (取消选择 / ESC)
- *   SOURCE_LOCKED   → ANIMATING_SNAP  (点击第二个端口，触发 Snap)
- *   ANIMATING_SNAP  → IDLE            (动画播放完毕 / onComplete 回调)
+ * 用户交互状态机 — Interaction v1.2 增强版。
  */
 
-export enum InteractionPhase {
-  IDLE                 = 'IDLE',
-  PREVIEWING           = 'PREVIEWING', // 正在物料库或暂存仓中“预览”零件，尚未选点
-  SOURCE_LOCKED        = 'SOURCE_LOCKED',
-  ANIMATING_SNAP       = 'ANIMATING_SNAP',
-}
+import { InteractionPhase } from './types';
 
 // 合法跳转表
 const VALID_TRANSITIONS: Record<InteractionPhase, readonly InteractionPhase[]> = {
   [InteractionPhase.IDLE]:           [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED, InteractionPhase.PREVIEWING],
   [InteractionPhase.PREVIEWING]:     [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED, InteractionPhase.PREVIEWING],
-  [InteractionPhase.SOURCE_LOCKED]:  [InteractionPhase.IDLE, InteractionPhase.ANIMATING_SNAP, InteractionPhase.PREVIEWING],
+  [InteractionPhase.SOURCE_LOCKED]:  [InteractionPhase.IDLE, InteractionPhase.ANIMATING_SNAP, InteractionPhase.PREVIEWING, InteractionPhase.AXIAL_SLIDING],
+  [InteractionPhase.AXIAL_SLIDING]:   [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED],
   [InteractionPhase.ANIMATING_SNAP]: [InteractionPhase.IDLE],
 };
 
@@ -39,7 +24,6 @@ export function isValidTransition(from: InteractionPhase, to: InteractionPhase):
 
 /**
  * 执行跳转并返回新阶段。
- * 非法跳转会抛出 Error（编程错误，不应被静默忽略）。
  */
 export function transition(from: InteractionPhase, to: InteractionPhase): InteractionPhase {
   if (!isValidTransition(from, to)) {
@@ -52,23 +36,23 @@ export function transition(from: InteractionPhase, to: InteractionPhase): Intera
 }
 
 /**
- * 根据用户动作推断目标阶段（封装常见跳转语义）。
+ * 根据用户动作推断目标阶段。
  */
 export const InteractionEvents = {
   /** 用户点击侧边栏或暂存区零件，开启预览 */
   previewPart: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.PREVIEWING),
 
-  /** 预览中旋转零件，然后选中了一个特定源端口 */
+  /** 预览中选中了一个特定源端口 */
   pickSourcePort: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.SOURCE_LOCKED),
 
-  /** 用户在场内点击了一个已落位零件的端口（传统 Snap） */
-  lockSource: (current: InteractionPhase): InteractionPhase =>
-    transition(current, InteractionPhase.SOURCE_LOCKED),
+  /** 吸附成功，进入深度调节模式 */
+  beginSliding: (current: InteractionPhase): InteractionPhase =>
+    transition(current, InteractionPhase.AXIAL_SLIDING),
 
-  /** 用户取消（预览取消或选点后取消） */
-  cancel: (current: InteractionPhase): InteractionPhase =>
+  /** 用户取消或操作完成 */
+  abort: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.IDLE),
 
   /** 开始 Snap 动画 */

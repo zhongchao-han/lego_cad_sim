@@ -104,6 +104,51 @@ class Port:
     rotation:  np.ndarray  # (3, 3)，Z 轴 = 插入方向（已归一化）
     port_type: str = ""    # 原始 LDraw 类型名，用于 to_dict() 兼容旧接口
 
+@dataclass
+class Site:
+    """
+    [Interaction v1.2] 代表零件上一个物理/交互场站 (Slot)。
+    一个 Site 可以包含多个方向/类型的 Port（如：同心圆孔与十字孔）。
+    """
+    site_id: str
+    position: np.ndarray           # 场站中心位置 (m)
+    site_type: str                 # 场站的主体类型 (如 'peghole')
+    ports: Dict[str, Port] = field(default_factory=dict)
+
+    @classmethod
+    def cluster_ports(cls, ports: list[Port], threshold: float = 1.0) -> list['Site']:
+        """
+        核心空间聚合算法：将彼此距离小于阈值的端口聚类为同一个 Site。
+        """
+        from core_constants import LDU
+        dist_threshold = threshold * LDU
+        sites: list[Site] = []
+        
+        # 简单的聚类算法：基于距离的贪婪归并
+        for port in ports:
+            found = False
+            for site in sites:
+                dist = np.linalg.norm(port.position - site.position)
+                if dist < dist_threshold:
+                    site.ports[port.name] = port
+                    # 重新计算 Site 的重心（可选：由于是同一个物理孔，通常只需保留第一个端口的位置即可，或者求平均值）
+                    # 此处采用平均值确保极高精度
+                    site.position = np.mean([p.position for p in site.ports.values()], axis=0)
+                    found = True
+                    break
+            
+            if not found:
+                # 创建新 Site
+                new_site = Site(
+                    site_id=f"site_{len(sites)}",
+                    position=port.position.copy(),
+                    site_type=port.port_type,
+                    ports={port.name: port}
+                )
+                sites.append(new_site)
+        
+        return sites
+
     # ------------------------------------------------------------------ #
     # 工厂方法
     # ------------------------------------------------------------------ #
