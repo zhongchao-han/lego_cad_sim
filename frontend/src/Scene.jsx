@@ -1,32 +1,17 @@
-import { useThree } from '@react-three/fiber';
-import { Sphere, Environment, ContactShadows, BakeShadows, GizmoHelper, GizmoViewport } from '@react-three/drei';
-import { EffectComposer, N8AO } from '@react-three/postprocessing';
-import { useMemo, memo } from 'react';
+import React, { Suspense, memo } from 'react';
+import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } from '@react-three/drei';
 import { useStore } from './store';
-import { ZoneType } from './types';
-import { CameraController as GenericCameraController } from './CameraController';
-import { calculateAssemblyTarget } from './cameraUtils';
 import { InteractivePart } from './components/InteractivePart';
-
-// --- Smart Snapping UI ---
-const SnappingHighlight = ({ position }) => (
-    <Sphere position={position} args={[0.005, 16, 16]}>
-        <meshBasicMaterial color="#00ff00" transparent opacity={0.6} />
-    </Sphere>
-);
-
-// --- Camera Controller 协调逻辑 ---
-const AssemblyCameraController = () => {
-    const selectedPort = useStore((s) => s.selectedPort);
-    const target = useMemo(() => calculateAssemblyTarget(selectedPort), [selectedPort]);
-    return <GenericCameraController target={target} minDistance={0.001} maxDistance={1} />;
-};
+import { CameraController } from './CameraController';
+import { InteractionPhase, ZoneType } from './types';
+import { calculateSnapPose } from './utils/snapMath';
 
 const LegoPart = memo(({ id }) => {
     const state = useStore((s) => s.parts[id]);
     const mode = useStore((s) => s.mode);
-    const handlePortClickStore = useStore((s) => s.handlePortClick);
     const showPortGizmos = useStore((s) => s.showPortGizmos);
+    const handlePortClickStore = useStore((s) => s.handlePortClick);
+    const setHoveredPort = useStore((s) => s.setHoveredPort);
     const setFocus = useStore((s) => s.setFocus);
     const stagePart = useStore((s) => s.stagePart);
 
@@ -48,31 +33,82 @@ const LegoPart = memo(({ id }) => {
                 colorCode={state.colorCode}
                 showPorts={mode === 'ASSEMBLY' && showPortGizmos}
                 onPortClick={handlePortClickStore}
+                onPortHover={setHoveredPort}
                 onDoubleClick={onDoubleClick}
              />
         </group>
     );
 });
 
-const ConditionalSSAO = () => {
-    const enabled = useStore((s) => s.enableSSAO);
-    if (!enabled) return null;
-    return (
-        <EffectComposer>
-            <N8AO aoRadius={0.05} intensity={1.5} distanceFalloff={0.5} />
-        </EffectComposer>
-    );
-};
+/**
+ * 实时对齐幽灵 (PlacementGhost)
+ */
+const PlacementGhost = () => {
+    const selectedPort = useStore(s => s.selectedPort);
+    const hoveredPort = useStore(s => s.hoveredPort);
+    const phase = useStore(s => s.interactionPhase);
 
-const ConditionalContactShadows = () => {
-    const enabled = useStore((s) => s.enableContactShadows);
-    if (!enabled) return null;
-    return <ContactShadows position={[0, -0.01, 0]} opacity={0.5} width={0.5} height={0.5} blur={2} far={0.3} />;
+    if (phase !== InteractionPhase.SOURCE_LOCKED || !selectedPort || !hoveredPort) return null;
+
+    // 采用工业级稳健解算器，相信后端已完成旋向纠偏，但前端需具备处理任意正交阵的能力
+    const getQuatFromMat = (m) => {
+        const mm = m;
+        const nm = [];
+        for (let col = 0; col < 3; col++) {
+            const v = [mm[0][col], mm[1][col], mm[2][col]];
+            const len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]) || 1;
+            nm.push([v[0]/len, v[1]/len, v[2]/len]);
+        }
+        
+        // 列向量 nm 映射到矩阵元素 (Row-Major index mapping)
+        const m11 = nm[0][0], m12 = nm[1][0], m13 = nm[2][0];
+        const m21 = nm[0][1], m22 = nm[1][1], m23 = nm[2][1];
+        const m31 = nm[0][2], m32 = nm[1][2], m33 = nm[2][2];
+
+        const tr = m11 + m22 + m33;
+        let q = [0, 0, 0, 1];
+
+        if (tr > 0) {
+            const s = 0.5 / Math.sqrt(tr + 1.0);
+            q = [(m32 - m23) * s, (m13 - m31) * s, (m21 - m12) * s, 0.25 / s];
+        } else if (m11 > m22 && m11 > m33) {
+            const s = 2.0 * Math.sqrt(1.0 + m11 - m22 - m33);
+            q = [0.25 * s, (m12 + m21) / s, (m13 + m31) / s, (m32 - m23) / s];
+        } else if (m22 > m33) {
+            const s = 2.0 * Math.sqrt(1.0 + m22 - m11 - m33);
+            q = [(m12 + m21) / s, 0.25 * s, (m23 + m32) / s, (m13 - m31) / s];
+        } else {
+            const s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
+            q = [(m13 + m31) / s, (m23 + m32) / s, 0.25 * s, (m21 - m12) / s];
+        }
+        
+        const qLen = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]) || 1;
+        return [q[0]/qLen, q[1]/qLen, q[2]/qLen, q[3]/qLen];
+    };
+
+    const previewPose = calculateSnapPose(
+        selectedPort.position,
+        getQuatFromMat(selectedPort.rotation),
+        hoveredPort.position,
+        getQuatFromMat(hoveredPort.rotation)
+    );
+
+    return (
+        <group position={previewPose.position} quaternion={previewPose.quaternion}>
+            <InteractivePart
+                partId="ghost"
+                ldrawId={selectedPort.ldrawId}
+                colorCode={7}
+                opacity={0.4}
+                transparent={true}
+                showPorts={false}
+            />
+        </group>
+    );
 };
 
 export default function Scene() {
     const parts = useStore((s) => s.parts);
-    const selectedPort = useStore((s) => s.selectedPort);
     const debugMode = useStore((s) => s.debugMode);
 
     return (
@@ -83,36 +119,25 @@ export default function Scene() {
                 position={[0.8, 1.5, 1.2]}
                 intensity={2.0}
                 castShadow
-                shadow-mapSize-width={1024}
-                shadow-mapSize-height={1024}
-                shadow-bias={-0.0003}
             />
             <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
 
-            <AssemblyCameraController />
+            <CameraController />
 
             {Object.keys(parts).map(id => (
                 <LegoPart key={id} id={id} />
             ))}
 
-            {selectedPort && (
-                <SnappingHighlight position={selectedPort.globalPos} />
-            )}
+            <PlacementGhost />
 
-            <ConditionalContactShadows />
+            <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
 
             {debugMode && (
-                <>
-                    <axesHelper args={[0.2]} />
-                    <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
-                        <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="white" />
-                    </GizmoHelper>
-                </>
+                <axesHelper args={[0.2]} />
             )}
 
             <BakeShadows />
-            <ConditionalSSAO />
         </>
     );
 }

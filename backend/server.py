@@ -99,6 +99,15 @@ class VerifySaveRequest(BaseModel):
 
 # --- 核心业务 API ---
 
+@app.post("/api/reload_library")
+async def reload_library():
+    """ 手动刷新后端端口库配置文件 """
+    logger.info("收到后端库重载请求...")
+    port_lib_manager.load()
+    # 强制同步 PortLibrary 以应用最新数据
+    library.data = port_lib_manager._data
+    return {"status": "success", "part_count": len(port_lib_manager._data)}
+
 @app.get("/api/verify/pending_list")
 async def get_pending_list():
     """获取待复核零件列表，按自信度排序。"""

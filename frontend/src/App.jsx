@@ -66,7 +66,7 @@ function UIOverlay() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 items-end pointer-events-auto absolute top-4 right-4">
+      <div className="flex flex-col gap-3 items-end pointer-events-auto absolute top-4 right-[300px]">
         {view === 'ASSEMBLY' && (
           <>
             <button
