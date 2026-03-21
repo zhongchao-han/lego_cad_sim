@@ -5,7 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ZoneType, WorkbenchGrid } from './workbench';
+import { ZoneType } from '../types';
+import { StagingGrid as WorkbenchGrid } from '../staging';
 
 // ---------------------------------------------------------------------------
 // ZoneType
@@ -20,8 +21,8 @@ describe('ZoneType', () => {
     expect(ZoneType.ACTIVE_ARENA).toBe('ACTIVE_ARENA');
   });
 
-  it('WORKBENCH value is correct', () => {
-    expect(ZoneType.WORKBENCH).toBe('WORKBENCH');
+  it('STAGED value is correct', () => {
+    expect(ZoneType.STAGED).toBe('STAGED');
   });
 
   it('PREVIEW value is correct', () => {
@@ -145,28 +146,28 @@ describe('WorkbenchGrid', () => {
   describe('release', () => {
     it('returns true for known occupant', () => {
       grid.assign('A');
-      expect(grid.release('A')).toBe(true);
+      expect(grid.releaseSlot('A')).toBe(true);
     });
 
     it('returns false for unknown occupant', () => {
-      expect(grid.release('NOBODY')).toBe(false);
+      expect(grid.releaseSlot('NOBODY')).toBe(false);
     });
 
     it('sets occupiedBy to null', () => {
       const slot = grid.assign('A')!;
-      grid.release('A');
+      grid.releaseSlot('A');
       expect(slot.occupiedBy).toBeNull();
     });
 
     it('freeCount increases after release', () => {
       grid.assign('A');
-      grid.release('A');
+      grid.releaseSlot('A');
       expect(grid.freeCount).toBe(grid.capacity);
     });
 
     it('released slot can be reassigned', () => {
       grid.assign('A');
-      grid.release('A');
+      grid.releaseSlot('A');
       const slot = grid.assign('B');
       expect(slot).not.toBeNull();
       expect(slot!.index).toBe(0); // first slot again
@@ -188,7 +189,7 @@ describe('WorkbenchGrid', () => {
 
     it('returns null after release', () => {
       grid.assign('A');
-      grid.release('A');
+      grid.releaseSlot('A');
       expect(grid.findByOccupant('A')).toBeNull();
     });
   });
@@ -199,7 +200,7 @@ describe('WorkbenchGrid', () => {
     it('assign → release → reassign works correctly', () => {
       grid.assign('SUB_1');
       grid.assign('SUB_2');
-      grid.release('SUB_1');
+      grid.releaseSlot('SUB_1');
 
       const newSlot = grid.assign('SUB_3')!;
       expect(newSlot.index).toBe(0); // slot 0 was freed by SUB_1

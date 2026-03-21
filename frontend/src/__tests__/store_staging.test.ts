@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useStore } from './store';
-import { ZoneType } from './staging';
+import { useStore } from '../store';
+import { ZoneType } from '../types';
 
 describe('Store: Staging Logic', () => {
   beforeEach(() => {
@@ -15,7 +15,7 @@ describe('Store: Staging Logic', () => {
         "6558.dat": new Set(["32524.dat"]),
       }
     };
-    useStore.setState(initialState);
+    useStore.setState(initialState as any);
     useStore.getState().stagingGrid.clearAll(); // 彻底清理暂存区，防止测试间污染
   });
 
@@ -63,7 +63,7 @@ describe('Store: Staging Logic', () => {
     const { stagePart, stagingGrid } = useStore.getState();
     
     // 强行占满所有槽位
-    stagingGrid.slots.forEach((s, i) => s.occupiedBy = `dummy_${i}`);
+    stagingGrid.slots.forEach((s: any, i: number) => s.occupiedBy = `dummy_${i}`);
 
     const partId = "32524.dat";
     const originalPos = useStore.getState().parts[partId].position;

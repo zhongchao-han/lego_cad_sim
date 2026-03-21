@@ -364,11 +364,24 @@ export const useStore = create<StoreState>((set, get) => ({
 
   previewPart: (id) => set({ previewPartId: id, interactionPhase: InteractionPhase.PREVIEWING, selectedPort: null }),
   stagePart: (id) => {
-    const { parts, stagingGrid } = get();
+    const { parts, connections, stagingGrid } = get();
     const p = parts[id];
     if (p && p.zone === ZoneType.ACTIVE_ARENA) {
       const slot = stagingGrid.assign(id);
-      if (slot) get().updatePartState(id, { zone: ZoneType.STAGED, position: slot.worldPosition, quaternion: [0,0,0,1] });
+      if (slot) {
+        // 1. 更新区域与坐标
+        get().updatePartState(id, { zone: ZoneType.STAGED, position: slot.worldPosition, quaternion: [0,0,0,1] });
+        
+        // 2. 彻底清理连接图
+        const nextConnections: Record<string, Set<string>> = {};
+        Object.entries(connections).forEach(([key, neighborSet]) => {
+          if (key === id) return;
+          const newSet = new Set(neighborSet);
+          newSet.delete(id);
+          if (newSet.size > 0) nextConnections[key] = newSet;
+        });
+        set({ connections: nextConnections });
+      }
     }
   }
 }));
