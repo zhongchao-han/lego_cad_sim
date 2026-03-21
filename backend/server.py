@@ -19,6 +19,7 @@ from port_library_manager import PortLibraryManager
 from port_semantics import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
 from port import Port
 from core_constants import LDU
+from math_utils import purify_rotation_matrix, matrix_to_list
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -157,10 +158,15 @@ async def save_verified_ports(req: VerifySaveRequest):
 
         ports_dict = []
         for p in req.ports:
-            # 使用 Pydantic V2 推荐的 model_dump()
+            # 1. 基础清理与格式化
             p_data = p.model_dump()
             p_data["position"] = [clean_pos(x) for x in p_data["position"]]
-            p_data["rotation"] = [[clean_rot(x) for x in row] for row in p_data["rotation"]]
+            
+            # 2. 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
+            raw_rot = np.array(p_data["rotation"])
+            pure_rot = purify_rotation_matrix(raw_rot)
+            p_data["rotation"] = matrix_to_list(pure_rot)
+            
             ports_dict.append(p_data)
 
         # 统一入库标准：在保存 verified 数据前，确保其轴向是归一化且规整的

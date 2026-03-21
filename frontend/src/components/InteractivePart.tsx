@@ -6,6 +6,8 @@ import { SelectionLevel } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
 
+import { RenderErrorBoundary } from './RenderErrorBoundary';
+
 const BACKEND_ORIGIN = (import.meta as any).env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
 const encodeModelUrl = (path: string | undefined) => {
@@ -61,8 +63,13 @@ export const InteractivePart = memo(({
     return { color: null, intensity: 0 };
   }, [isSelected, isGroupMember, isBlocked, pulse, hovered]);
 
+  const [forceFallback, setForceFallback] = useState(false);
   const ldrawPart = useLDrawPart(ldrawId || partId, colorCode);
   const groupRef = useRef<THREE.Group>(null);
+
+  // 宏观考量：如果元数据层面报错，直接标记强制降级
+  const isDataError = !!ldrawPart.error;
+  const shouldRenderMesh = !!ldrawPart.meshUrl && !isDataError && !forceFallback;
 
   const effectivePorts = useMemo(() => {
     const computeQuaternion = (r: number[][]) => {
@@ -103,23 +110,32 @@ export const InteractivePart = memo(({
 
   return (
     <group ref={groupRef}>
-      {activeMeshUrl ? (
-        <LDrawMeshRenderer
-          url={activeMeshUrl}
-          onPointerOver={handlePointerOver}
-          onPointerOut={handlePointerOut}
-          onDoubleClick={onDoubleClick}
-          highlightColor={highlight.color}
-          highlightIntensity={highlight.intensity}
-        />
+      {shouldRenderMesh && activeMeshUrl ? (
+        <RenderErrorBoundary 
+            onCatch={() => setForceFallback(true)}
+        >
+            <LDrawMeshRenderer
+              url={activeMeshUrl}
+              onPointerOver={handlePointerOver}
+              onPointerOut={handlePointerOut}
+              onDoubleClick={onDoubleClick}
+              highlightColor={highlight.color}
+              highlightIntensity={highlight.intensity}
+            />
+        </RenderErrorBoundary>
       ) : (
         <mesh
           onPointerOver={handlePointerOver}
           onPointerOut={handlePointerOut}
           onDoubleClick={onDoubleClick}
         >
-          <boxGeometry args={[0.005, 0.005, 0.005]} />
-          <meshBasicMaterial color={highlight.color || (hovered ? '#ff9800' : '#b0bec5')} />
+          {/* 红色警告表示加载彻底失败，灰色表示仅数据拉取中或正常占位 */}
+          <boxGeometry args={[10 * LDU, 10 * LDU, 10 * LDU]} />
+          <meshStandardMaterial 
+            color={forceFallback || isDataError ? '#ff5252' : (highlight.color || (hovered ? '#ff9800' : '#b0bec5'))} 
+            emissive={forceFallback || isDataError ? '#b71c1c' : '#000000'}
+            emissiveIntensity={forceFallback || isDataError ? pulse : 0}
+          />
         </mesh>
       )}
 

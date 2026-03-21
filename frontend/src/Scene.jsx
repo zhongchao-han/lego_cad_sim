@@ -113,8 +113,26 @@ export default function Scene() {
 
     return (
         <>
-            <Environment preset="apartment" background={false} />
-            <ambientLight intensity={0.4} />
+            {/* 宏观治理：使用程序化虚拟现实工作室，彻底脱离在线 CDN 依赖 */}
+            <Environment frames={1} resolution={256}>
+              <group>
+                {/* 模拟摄影棚软灯箱 (Soft Box) */}
+                <mesh position={[0, 5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                  <planeGeometry args={[10, 10]} />
+                  <meshBasicMaterial color="white" />
+                </mesh>
+                <mesh position={[5, 0, 2]} rotation={[0, -Math.PI / 2, 0]}>
+                  <planeGeometry args={[10, 10]} />
+                  <meshBasicMaterial color="white" />
+                </mesh>
+                <mesh position={[-5, 0, -2]} rotation={[0, Math.PI / 2, 0]}>
+                  <planeGeometry args={[10, 10]} />
+                  <meshBasicMaterial color="white" />
+                </mesh>
+              </group>
+            </Environment>
+            
+            <ambientLight intensity={0.6} />
             <directionalLight
                 position={[0.8, 1.5, 1.2]}
                 intensity={2.0}

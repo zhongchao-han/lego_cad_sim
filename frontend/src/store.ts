@@ -21,6 +21,12 @@ type ConnectionGraph = Record<string, Set<string>>;
 
 const API_URL = 'http://localhost:8000';
 
+interface StoreLog {
+    timestamp: number;
+    type: 'INFO' | 'ACTION' | 'ERROR' | 'PHYSICS';
+    message: string;
+}
+
 interface StoreState {
   mode: 'ASSEMBLY' | 'SIMULATION';
   view: 'ASSEMBLY' | 'LIBRARY_VERIFY';
@@ -41,6 +47,10 @@ interface StoreState {
   canUndo: boolean;
   canRedo: boolean;
   stagingGrid: StagingGrid;
+  
+  // 日志系统
+  logs: StoreLog[];
+  showLogPanel: boolean;
 
   // v1.2 State
   selection: {
@@ -74,6 +84,11 @@ interface StoreState {
   setHoveredPort: (port: SelectedPortInfo | null) => void;
   snapParts: (source: SelectedPortInfo, target: SelectedPortInfo) => Promise<boolean>;
   abortCurrentInteraction: () => void;
+  
+  // 日志 Actions
+  addLog: (msg: string, type?: StoreLog['type']) => void;
+  clearLogs: () => void;
+  toggleLogPanel: (show?: boolean) => void;
 
   // v1.2 Actions
   addParts: (ids: string[]) => void;
@@ -96,8 +111,6 @@ const quatNormalize = (q: [number, number, number, number]): Quat => {
 
 const getQuatFromMat3 = (m: Mat3): Quat => {
   const mm = m as number[][];
-  
-  // 1. Column Normalization (Robustness against float / LDraw scaling)
   const nm: number[][] = [];
   for (let col = 0; col < 3; col++) {
     const v = [mm[0][col], mm[1][col], mm[2][col]];
@@ -105,8 +118,6 @@ const getQuatFromMat3 = (m: Mat3): Quat => {
     nm.push([v[0]/len, v[1]/len, v[2]/len]);
   }
   
-  // mm is already Row-Major if coming from Python's tolist()
-  // But our nm is now technically [col0, col1, col2]
   const m11 = nm[0][0], m12 = nm[1][0], m13 = nm[2][0];
   const m21 = nm[0][1], m22 = nm[1][1], m23 = nm[2][1];
   const m31 = nm[0][2], m32 = nm[1][2], m33 = nm[2][2];
@@ -127,7 +138,6 @@ const getQuatFromMat3 = (m: Mat3): Quat => {
     const s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
     q = [(m13 + m31) / s, (m23 + m32) / s, 0.25 * s, (m21 - m12) / s];
   }
-  
   return quatNormalize(q);
 };
 
@@ -172,29 +182,39 @@ export const useStore = create<StoreState>((set, get) => ({
   canUndo: false,
   canRedo: false,
   stagingGrid: new StagingGrid(),
+  
+  logs: [],
+  showLogPanel: false,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
 
-  reset: () => set({
-    interactionPhase: InteractionPhase.IDLE,
-    selectedPort: null,
-    hoveredPort: null,
-    selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
-    interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
-    slideOffset: 0
-  }),
+  reset: () => {
+      get().addLog("Store reset to default state.");
+      set({
+        interactionPhase: InteractionPhase.IDLE,
+        selectedPort: null,
+        hoveredPort: null,
+        selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
+        interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
+        slideOffset: 0
+      });
+  },
 
-  setView: (view) => set({ view }),
+  setView: (view) => {
+      get().addLog(`Switching view to: ${view}`);
+      set({ view });
+  },
 
   toggleMode: async () => {
     const nextMode = get().mode === 'ASSEMBLY' ? 'SIMULATION' : 'ASSEMBLY';
+    get().addLog(`Toggling mode to: ${nextMode}`, 'ACTION');
     try {
       await axios.post(`${API_URL}/toggle_mode?mode=${nextMode}`);
       set({ mode: nextMode, selectedPort: null, interactionPhase: InteractionPhase.IDLE });
     } catch (e) {
-      console.error("Failed to toggle mode:", e);
+      get().addLog(`Failed to toggle mode: ${e}`, 'ERROR');
     }
   },
 
@@ -212,30 +232,46 @@ export const useStore = create<StoreState>((set, get) => ({
       return { parts: newParts };
   }),
 
-  setWsConnected: (status) => set({ wsConnected: status }),
-  setFocus: ({ partId, mode }) => set({ focusedPartId: partId, focusMode: mode }),
+  setWsConnected: (status) => {
+      if (status !== get().wsConnected) {
+          get().addLog(`WebSocket ${status ? 'Connected' : 'Disconnected'}`, status ? 'INFO' : 'ERROR');
+      }
+      set({ wsConnected: status });
+  },
+  setFocus: ({ partId, mode }) => {
+      const msg = partId ? `Focusing on ${partId} (Mode: ${mode})` : "Clearing focus";
+      get().addLog(msg);
+      set({ focusedPartId: partId, focusMode: mode });
+  },
   setShowPortGizmos: (value) => set({ showPortGizmos: value }),
   setEnableFocusAnimation: (value) => set({ enableFocusAnimation: value }),
   setEnableSSAO: (value) => set({ enableSSAO: value }),
   setEnableContactShadows: (value) => set({ enableContactShadows: value }),
-  setDebugMode: (value) => set({ debugMode: value }),
+  setDebugMode: (value) => {
+      get().addLog(`Debug mode: ${value}`);
+      set({ debugMode: value });
+  },
   setPartZone: (partId, zone) => get().updatePartState(partId, { zone }),
 
   undo: () => {
     _history.undo();
+    get().addLog("Undo performed", 'ACTION');
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
   },
 
   redo: () => {
     _history.redo();
+    get().addLog("Redo performed", 'ACTION');
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
   },
 
   handlePortClick: async (port: SelectedPortInfo) => {
     const { interactionPhase, selectedPort, snapParts, parts } = get();
+    get().addLog(`Port clicked: ${port.partId} (${port.ldrawId})`, 'ACTION');
     
     const activeParts = Object.values(parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA);
     if (activeParts.length === 0 && (interactionPhase === InteractionPhase.IDLE || interactionPhase === InteractionPhase.PREVIEWING)) {
+      get().addLog(`Starting first part in scene: ${port.partId}`);
       const instanceId = port.partId;
       set((state) => ({
         parts: {
@@ -256,18 +292,25 @@ export const useStore = create<StoreState>((set, get) => ({
     }
 
     if (interactionPhase === InteractionPhase.IDLE || interactionPhase === InteractionPhase.PREVIEWING) {
+      get().addLog(`Source port locked: ${port.partId}`);
       set({ selectedPort: port, interactionPhase: InteractionPhase.SOURCE_LOCKED, previewPartId: null });
       return;
     }
     if (interactionPhase === InteractionPhase.SOURCE_LOCKED && selectedPort) {
       if (port.partId === selectedPort.partId) {
+        get().addLog("Clicked same part port, aborting snap.");
         get().abortCurrentInteraction();
         return;
       }
+      get().addLog(`Target port selected: ${port.partId}. Starting snap animation...`, 'PHYSICS');
       set({ interactionPhase: InteractionPhase.ANIMATING_SNAP });
       const ok = await snapParts(selectedPort, port);
       set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null, hoveredPort: null, canUndo: _history.canUndo, canRedo: _history.canRedo });
-      if (!ok) console.warn('Snap failed');
+      if (ok) {
+          get().addLog("Snap SUCCESSFUL.", 'PHYSICS');
+      } else {
+          get().addLog("Snap FAILED.", 'ERROR');
+      }
     }
   },
 
@@ -331,27 +374,41 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   abortCurrentInteraction: () => {
+    get().addLog("Aborting port interaction.");
     set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null, hoveredPort: null });
   },
 
+  addLog: (message, type = 'INFO') => set(s => ({
+      logs: [...s.logs, { timestamp: Date.now(), type, message }].slice(-200) // 保持最近200条
+  })),
+
+  clearLogs: () => set({ logs: [] }),
+  toggleLogPanel: (show) => set(s => ({ showLogPanel: show !== undefined ? show : !s.showLogPanel })),
+
   addParts: (ids) => set(s => {
+    get().addLog(`Add parts to scene: ${ids.join(', ')}`, 'ACTION');
     const np = { ...s.parts };
     ids.forEach(id => { np[id] = { ldrawId: id.split('_')[0] + '.dat', position: [0,0,0], quaternion: [0,0,0,1], colorCode: 16, zone: ZoneType.ACTIVE_ARENA }; });
     return { parts: np };
   }),
   removeParts: (ids) => set(s => {
+    get().addLog(`Removing parts: ${ids.join(', ')}`, 'ACTION');
     const np = { ...s.parts };
     ids.forEach(id => delete np[id]);
     return { parts: np };
   }),
   connectParts: (a_id, pa, b_id, pb) => set(s => {
+    get().addLog(`Establishing connection: ${a_id} <-> ${b_id}`);
     const nc = { ...s.connections };
     if (!nc[a_id]) nc[a_id] = new Set();
     if (!nc[b_id]) nc[b_id] = new Set();
     nc[a_id].add(b_id); nc[b_id].add(a_id);
     return { connections: nc };
   }),
-  selectPart: (id, level = SelectionLevel.GROUP) => set({ selection: { ...get().selection, primaryId: id, level } }),
+  selectPart: (id, level = SelectionLevel.GROUP) => {
+      get().addLog(`Selecting part: ${id} (Level: ${level})`, 'ACTION');
+      set({ selection: { ...get().selection, primaryId: id, level } });
+  },
   updateSelection: (level) => set({ selection: { ...get().selection, level } }),
   updateSlideOffset: (o) => set({ slideOffset: o }),
   setBlocked: (r) => set({ interferenceReport: r }),
@@ -361,6 +418,7 @@ export const useStore = create<StoreState>((set, get) => ({
   stagePart: (id) => {
     const p = get().parts[id];
     if (p) {
+        get().addLog(`Staging part: ${id}`);
         get().updatePartState(id, { zone: ZoneType.STAGED });
         get().stagingGrid.assign(id);
     }

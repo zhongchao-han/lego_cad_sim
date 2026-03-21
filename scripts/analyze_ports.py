@@ -9,6 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from port_library import PortLibrary
 from port_library_manager import PortLibraryManager
+from math_utils import purify_rotation_matrix
 from core_constants import HALF_GRID_LDU, LDU_TO_SI
 
 # 配置日志
@@ -99,33 +100,9 @@ class PortDiscoverer:
                                     lv = np.array([0, offset_y / y_scale, 0, 1])
                                     sampled_pos = (global_mat @ lv)[:3]
                                     
-                                    # --- 宏观数据流治理：正交规范化与旋向纠偏 ---
-                                    # 目的：确保 JSON 中的 rotation 永远是行列式为 1 的标准旋转矩阵
+                                    # --- 宏观数据流治理：使用统一数学中枢进行正交规范化与旋向纠偏 ---
                                     raw_rot = global_mat[:3, :3].copy()
-                                    
-                                    # 1. 提取 Z 轴 (索引为 2)，它是对齐的主轴
-                                    z_axis = raw_rot[:, 2]
-                                    z_norm = np.linalg.norm(z_axis)
-                                    z_axis = z_axis / z_norm if z_norm > 1e-6 else np.array([0, 0, 1])
-                                    
-                                    # 2. 构造临时 X 轴 (索引为 0)
-                                    x_axis = raw_rot[:, 0]
-                                    proj_z = np.dot(x_axis, z_axis) * z_axis
-                                    x_axis = x_axis - proj_z
-                                    x_norm = np.linalg.norm(x_axis)
-                                    if x_norm > 1e-6:
-                                        x_axis /= x_norm
-                                    else:
-                                        # 如果 X 与 Z 平行，退而求其次使用其它基向量
-                                        temp_v = np.array([0, 1, 0]) if abs(z_axis[1]) < 0.9 else np.array([1, 0, 0])
-                                        x_axis = np.cross(temp_v, z_axis)
-                                        x_axis /= np.linalg.norm(x_axis)
-                                        
-                                    # 3. 构造 Y 轴 (索引为 1) - 强制采用叉乘，确保右手系 (Det=1)
-                                    y_axis = np.cross(z_axis, x_axis)
-                                    
-                                    # 重新组装 3x3 矩阵 (按列拼接)
-                                    norm_rot = np.column_stack((x_axis, y_axis, z_axis))
+                                    norm_rot = purify_rotation_matrix(raw_rot)
                                     
                                     from port import Port
                                     ld_type = "fric_pin.dat" if "fric" in child_file else ("peghole" if "hole" in child_file else "peg")
