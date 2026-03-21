@@ -178,15 +178,7 @@ const _history = new HistoryStack(50);
 export const useStore = create<StoreState>((set, get) => ({
   mode: 'ASSEMBLY',
   view: 'ASSEMBLY',
-  parts: {
-    '32524.dat': {
-      ldrawId: '32524.dat',
-      position: [0, 0, 0],
-      quaternion: [0, 0, 0, 1],
-      colorCode: 15,
-      zone: ZoneType.ACTIVE_ARENA,
-    },
-  },
+  parts: {},
   connections: {},
   wsConnected: false,
   selectedPort: null,
