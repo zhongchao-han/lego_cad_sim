@@ -1,44 +1,48 @@
-# LEGO CAD Simulation - TODO List
+# LEGO CAD 仿真系统：项目待办清单 (TODO)
 
-## 1. 核心架构增强 (Core Architecture)
-
-### 1.1 `TopologyManager` 逻辑加固
-- [ ] **ROOT 动态迁移**：实现 `set_root(part_id)` 与 `migrate_root(target_id)`，确保 Snap 后地基动态切换。
-- [ ] **刚体孔距一致性校验**：在 `connect_ports` 时增加几何间距核验，拦截物理上非法的多端连接。
-- [ ] **单零件成组逻辑**：确保所有悬空零件最终必须连通至 ROOT 树。
-
-### 1.2 物理引擎对接深度
-- [ ] **摩擦力参数精细化**：根据接口类型（如 `friction_pin`）自动调整 `JointState` 中的阻尼系数。
-- [ ] **CCD 自适应调整**：根据零件包围盒大小，动态调节 `ccdSweptSphereRadius`。
+本清单记录了系统从原型到生产级的演进路径。
 
 ---
 
-## 2. 自动化与识别系统 (Automation & Discovery)
-运行 `python analyze_ports.py`。
+## ✅ 已完成 (Completed)
 
-### 2.1 `analyze_ports.py` (自动化识别脚本)
-- [ ] **轴向启发式权重**：引入邻近几何法向量权重，辅助判定 Pin/Hole 的主轴方向。
-- [ ] **格点异常警报**：识别时若发现非标 LDU 偏离，自动标记零件为 `pending` 状态且降低 `confidence`。
-- [ ] **镜像自动填充**：利用 CAD 对称性，自动补全镜像位置的端口位姿。
-
-### 2.2 数据管线优化
-- [ ] **多进程识别**：使用 `ProcessPoolExecutor` 加速使用 `index_library.py` (库索引器)
+- [x] **语义重构**：将所有 `Workbench` 术语统一为更专业的 **`Staging (暂存)`**。
+- [x] **后台脚本更名与优化**：
+    - `port_discovery.py` -> **`analyze_ports.py`**（提升了轴孔分类精度）。
+    - `bulk_import_technic.py` -> **`index_library.py`**（标准化了零件索引流程）。
+- [x] **交互设计 1.2 规范**：完成了 Site-Port 拓扑、沿轴滑动、UI 旋转按钮等核心交互的文档设计。
+- [x] **核心 Bug 修复**：解决了 6558 长销翻转、主画布/暂存区逻辑冲突、以及 FSM 状态机死锁问题。
 
 ---
 
-## 3. 测试覆盖 (Verification)
+## 🚀 正在进行 (In Progress)
 
-### 3.1 单元测试完善
-- [ ] **`test_topology.py`**：覆盖多连接合并、闭环检测、ROOT 迁移的回归测试。
-- [ ] **`test_port_library_manager.py`**：验证 JSON 读写的线程安全与增量保存逻辑。
+### 1. 核心拓扑升级 (Topology Upgrade)
+- [ ] **Site-Port 数据规范实现**：重构 `ldraw_port_configs.json`，将端口平铺列表升级为 **Site-Based（物理场站）** 方案。
+- [ ] **后端自动闭环扫描**：实现在单次 Snap 后自动扫描并闭合邻近的位移对齐点。
 
-### 3.2 CI 集成
-- [ ] **GitHub Actions**：配置自动化测试流程，每次 push 对核心数学模块进行回归校验。
+### 2. 交互系统 1.2 落地 (UX Implementation)
+- [ ] **3D 方向选择箭头 (Gizmos)**：在 Three.js 中实现基于 Site 方向的精准点击箭头。
+- [ ] **沿轴滑动平平移控制**：实现“吸附后即刻拖拽深度”的手势逻辑，集成物理限位。
+- [ ] **上下文 UI 旋转面板**：按钮驱动的角度步进调节，并支持 **DOF (自由度)** 自动感知隐藏按钮。
+- [ ] **Auto-Frame (镜头自动聚焦)**：实现零件选中后的平滑视口对齐动画。
 
 ---
 
-## 4. 前端交互 (Frontend UX)
+## 🛠️ 后续规划 (Backlog)
 
-### 4.1 复核工作台增强
-- [ ] **Ghost Snapping**：在复核零件时即时加载 1L 标准件对比对扣效果。
-- [x] **步进旋转 UI**：提供 180° / 90° 翻转按钮替代矩阵参数编辑。（已于 CameraController 重构中同步优化翻译与布局）
+### 3. 数据与精度 (Data & Accuracy)
+- [ ] **零件缩略图渲染**：替代暂存区内的占位图标。
+- [ ] **高精度物理过盈检测**：基于查表法（Gap / Friction / Blocked）实现更真实的插拔手感。
+- [ ] **手控零件搜索优化**：实现零件库的分级目录搜索。
+
+### 4. 物理与仿真 (Simulation & Physics)
+- [ ] **齿轮传动链条相位自动对齐**：支持多齿轮联动的自动相位咬合算法。
+- [ ] **URDF 导出器导出逻辑修正**：确保多点约束结构能正确导出为 Joint 固定关系。
+- [ ] **重力补偿与受力分析**：提供简单的静态受力可视化（绿色/红色指示连通质量）。
+
+---
+
+## 📝 备注 (Notes)
+- **单一责任原则**：每一步迭代需确保功能极简化、通用化且测试完备。
+- **一致性**：时刻保持代码实现与 `docs/technical/` 下的设计文档同步。

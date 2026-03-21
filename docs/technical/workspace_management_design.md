@@ -1,132 +1,78 @@
-# 空间与物料管理设计文档：三区流转与状态机规范
+# 技术设计文档：装配空间管理与数据结构设计
 
 > **To Claude Code CLI:**
-> Please read the following files into your context immediately to establish a stable context prefix for Prompt Caching:
-> 
-> Required context files:
-> - `frontend/src/store.ts` (前端状态机扩展点)
-> - `assembly.py` (后端 Assembly 装配体扩展点)
-> - `server.py` (物料目录 API 扩展点)
+> Please read the following files immediately into your context:
+> - `frontend/src/staging.ts` (For StagingTray logic and Grid management)
+> - `frontend/src/store.ts` (For Zone status transitions)
 
 <directory_structure>
 D:\Users\hanerlv\Documents\workspace\lego_cad_sim\
-├───server.py                # 待扩展：新增 /api/catalog 物料目录接口
-├───assembly.py              # 待扩展：新增 Zone 状态管理，隔离工作台零件
 └───frontend/src/
-    └───store.ts             # 待扩展：新增 InventoryState, PreviewState, WorkbenchState
+    ├───staging.ts           # 核心：暂存区网格算法与区域划分
+    └───store.ts             # 状态：Zone 切换与分区存储
 </directory_structure>
 
 <current_pain_points>
-虽然在产品设计中提出了“活跃主画布”、“暂存工作台”和“物料盒”的“三区逻辑定义”，但目前代码库和底层架构设计中完全缺失了支撑这些概念的数据结构。这导致：
-1. **状态归属不明确**：`Part` 和 `Assembly` 缺乏枚举或标识来区分物理计算区和挂起暂存区。
-2. **槽位管理机制空白**：工作台的 $N \times M$ 槽位分配、自动滑入逻辑缺少具体的网格管理器（Grid Manager）。
-3. **物料盒缺乏模板抽象**：从 LDraw 库加载到 UI 展示之间，缺乏 `Template` 到 `Instance` 的转化抽象层，导致预览与实例化逻辑混淆。
+1. **多区状态混乱**：系统中缺乏对零件所处空间的显式隔离（主画布、暂存区、零件库预览层）。
+2. **重力干涉**：暂存区内的零件不应受全局重力或物理系统的影响。
+3. **坐标系冲突**：当零件被移入暂存区时，其三维坐标必须从“世界坐标”重映射为“网格坐标”，否则会在空间中乱飞。
 </current_pain_points>
 
 <core_design_rules>
-### 1. 区域状态枚举 (ZoneType)
-零件实例在其生命周期中必须明确属于以下三个空间状态之一：
-- **`PREVIEW`**：悬浮预览层（不参与碰撞和渲染树，仅供用户选择初始端口）。
-- **`ACTIVE_ARENA`**：主画布（参与物理仿真，由后端完整推导拓扑与刚体运动学）。
-- **`STAGED`**：暂存托盘（冻结物理，忽略碰撞，严格按列表排列，不参与 URDF 导出）。
+### 1. 区域隔离 (Zone Isolation)
+定义三种严格隔离的物理/逻辑空间：
+- **ACTIVE_ARENA (主画布)**：活跃工作区。参与物理模拟，所有连接关系会反映在导出的 URDF 中。
+- **STAGED (暂存区)**：零件暂存托盘 (Staging Tray)。物理引擎对该区零件置为 `Static`。
+- **PREVIEW (零件库预览)**：仅用于零件库的浮动预览层，不在此三维空间中保存位姿。
 
-### 2. 物料盒与模板 (Inventory & Template)
-- **模板抽象**：在侧边栏物料盒中展示的仅为 `PartTemplate`，包含元数据和局部端口信息。不要在物料盒阶段就创建包含世界坐标的 3D 物理实例。
-- **目录服务**：后端需提供 `/api/catalog` 接口，扫描 `ldraw_lib` 并返回可用零件的分类列表与缩略图信息。
+### 2. 网格化布局 (Staging Tray Grid)
+所有进入 `STAGED` 区域的零件必须被强制分配到一个 **StagingSlot**。
+- 系统根据零件大小自动寻找空闲槽位。
+- 采用局部坐标系对齐，确保所有暂存零件整整齐齐地排列在界面的右侧浮动面板中。
 
-### 3. 暂存网格管理 (Staging Grid Manager)
-- 暂存区具有固定的 $N \times M$ 虚拟槽位（Slots）。
-- 当主画布发生“双击拆解”时，系统必须调用 `findNextAvailableSlot()` 分配物理坐标，并将该子装配体内所有零件的区域状态更新为 `STAGED`。
+### 3. 连接自动切断 (Auto-Severing)
+当一个零件从 `ACTIVE_ARENA` 移动到 `STAGED` 区域（如通过双击或右键），系统必须 **自动切断** 该零件与其周围所有零件的 `ConnectionEdge`。
+- 移入 `STAGED` 的零件始终是独立的。
 
-### 4. 拆解物料回收机制
-- 当拆解产生的子装配体是单一零件（$|S| = 1$）时，严禁进入暂存区，必须直接执行“回收”逻辑（销毁实例，清空相关连接）。
+### 4. 视图层映射 (UI Layering)
+暂存区 (Staging Tray) 在渲染层面通过 2D/3D 混合技术实现。即使是 3D 零件，也应在 UI 面板中展现。
 </core_design_rules>
 
 <architecture>
-## 数据结构与接口定义扩展建议
+## 数据结构与接口定义建议
 
-### 【后端】API 响应与装配体隔离
-```python
-# server.py / 物料模板定义
-from pydantic import BaseModel
-from typing import List, Dict
-from enum import Enum
+### 【前端】1. 区域状态定义
+```typescript
+export enum ZoneType {
+  ACTIVE_ARENA = 'ACTIVE_ARENA',
+  STAGED = 'STAGED', // 原 WORKBENCH
+}
 
-class LDrawPortTemplate(BaseModel):
-    name: str
-    port_type: str
-
-class PartTemplate(BaseModel):
-    ldraw_id: str
-    name: str
-    category: str
-    bounding_box: List[float]
-    ports: List[LDrawPortTemplate]
-
-# assembly.py / 物理隔离
-class PartZone(Enum):
-    ACTIVE = 1
-    STAGED = 2 # 原 WORKBENCH 更名为 STAGED
-
-class Assembly:
-    # 需增加追踪属性
-    # self.staged_roots: set[str] = set() # 原 workbench_roots 更名为 staged_roots
-    
-    def resolve_kinematics(self):
-        # 必须过滤掉 zone == PartZone.STAGED 的零件，它们不参与 URDF 导出
-        pass
+interface PartState {
+  zone: ZoneType;
+  position: Vec3;
+  quaternion: Quat;
+  // ... 其他属性
+}
 ```
 
-### 【前端】Zustand Store 状态机划分
+### 【前端】2. 暂存区网格管理 (StagingGrid)
 ```typescript
-// 1. 实例扩展
-export enum ZoneType { 
-  PREVIEW = 'PREVIEW', 
-  ACTIVE_ARENA = 'ACTIVE_ARENA', 
-  STAGED = 'STAGED' // 原 WORKBENCH 更名为 STAGED
+interface StagingSlot {
+  index: number;
+  worldPosition: Vec3;
+  occupiedBy: string | null;
 }
 
-interface LegoPartInstance {
-  instanceId: string;
-  templateId: string;
-  zone: ZoneType;
-  // ... 其他现有属性
-}
-
-// 2. 物料盒状态
-interface InventoryState {
-  catalog: Record<string, PartTemplate[]>;
-  selectedTemplate: PartTemplate | null;
-}
-
-// 3. 预览态控制
-interface PreviewState {
-  previewInstance: LegoPartInstance | null;
-  lockedSourcePortId: string | null;
-  enterPreview: (template: PartTemplate) => void;
-  commitToArena: (targetPortId: string) => void;
-}
-
-// 4. 暂存区网格 (Staging Area Grid)
-//### 2.2 暂存区 (Staging Area / Parts Bin)
-    //- 使用 `StagingGrid` 管理槽位。
-    //- 在右侧侧边栏以 `StagingTrayPanel` 形式呈现。
-interface StagingSlot { // 原 WorkbenchSlot 更名为 StagingSlot
-  gridX: number;
-  gridY: number;
-  worldPosition: [number, number, number];
-  occupiedBySubAssemblyId: string | null;
-}
-
-  slots: WorkbenchSlot[];
-  findNextAvailableSlot: () => WorkbenchSlot | null;
-  moveToWorkbench: (subAssemblyRootId: string) => void;
+class StagingGrid {
+  slots: StagingSlot[];
+  assign: (partId: string) => StagingSlot | null;
+  release: (partId: string) => void;
 }
 ```
 </architecture>
 
 <negative_constraints>
-- **绝不要混淆 Template 和 Instance**：Template 仅用于 UI 和生成 Instance 的蓝本，没有世界坐标；Instance 才参与场景树。
-- **后端物理引擎不可见暂存区**: 绝对不要将处于 `STAGED` 状态的零件加入运动学图，也不要为它们创建物理碰撞体。
-- **暂存区零件不可直接发起交互**: 处于 `STAGED` 状态时，用户不能在其上点击发起新的 Snap 操作（必须先点击进入预览态）。
+- **严禁跨区连接**：禁止在处于 `ACTIVE_ARENA` 的零件与处于 `STAGED` 的零件之间建立 Snap 连接。
+- **术语规范**：系统中禁止出现 `Workbench` 等旧词，一律使用 `Staging`。
 </negative_constraints>
