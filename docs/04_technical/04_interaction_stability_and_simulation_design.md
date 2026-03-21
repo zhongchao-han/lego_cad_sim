@@ -59,6 +59,11 @@
 - **逻辑**：点击零件默认选中其所属的 **整个物理连通体**（Connected Components）。
 - **排除**：按住 `Ctrl` 点击可排除特定的零件进行独立移动或“抽取”。
 
+#### E. 极限场景应对 (Edge Case Logic)
+1. **孤岛检测 (Island Detection)**：当连接失效或零件被删除时，系统通过 BFS 自动分割子装配体，并重新确立新的重心。
+2. **多点自动闭合 (Auto-Latching)**：通过主路径（Primary Path）对齐后，系统自动扫描并闭合邻近端口，形成多点过约束（Fixed Joint）。
+3. **即时回滚 (Instant Abort)**：通过 `Esc` 键瞬间取消当前位移，强制 Snap Back 而不记录历史进度。
+
 <negative_constraints>
 - **严禁支持柔性零件 (No Flexible Parts)**：本系统仅支持刚体物理。
 - **严禁在仿真模式下操作暂存区**：暂存区在物理引擎运行时必须处于锁定状态。
