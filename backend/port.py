@@ -33,6 +33,11 @@ class Port:
         if not interface: return None
         return cls(name=name, interface=interface, position=pos, rotation=rot, port_type=ldraw_type, part_context=part_context)
 
+    @classmethod
+    def from_config(cls, *args, **kwargs):
+        """[Alias] 语义别名，符合从 JSON 配置加载的语境"""
+        return cls.from_raw(*args, **kwargs)
+
     def to_dict(self) -> Dict:
         return {
             "name": self.name,

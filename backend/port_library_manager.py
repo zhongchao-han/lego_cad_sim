@@ -33,6 +33,7 @@ class PortLibraryManager:
 
     def load(self) -> None:
         """加载配置文件。若文件不存在则初始化为空。"""
+        logger.debug(f"[DEBUG] 进入 load: path={self.config_path}")
         with self._lock:
             if not os.path.exists(self.config_path):
                 logger.info(f"配置文件不存在，初始化新配置: {self.config_path}")
@@ -49,7 +50,13 @@ class PortLibraryManager:
 
     def save(self) -> None:
         """持久化数据到文件。"""
+        logger.debug(f"[DEBUG] 进入 save: path={self.config_path}")
         with self._lock:
+            # [TRACER] 断点审计数据真理性
+            _p = os.path.abspath(self.config_path)
+            _s = self._data.get("6558.dat", {}).get("status", "N/A")
+            print(f"[TRACE] Manager 准备落盘: Path={_p}, 6558 Status={_s}")
+            
             temp_path = f"{self.config_path}.tmp"
             try:
                 # 写入临时文件
@@ -67,48 +74,60 @@ class PortLibraryManager:
                 logger.error(f"保存配置文件失败: {e}", exc_info=True)
                 raise IOError(f"无法写入端口配置文件: {self.config_path}") from e
 
-    def get_part_config(self, part_id: str) -> Optional[Dict[str, Any]]:
-        """获取特定零件的配置副本。"""
-        # 强制归一化 ID 为 lowercase .dat
-        part_id = part_id.lower()
-        if not part_id.endswith(".dat"): part_id += ".dat"
-        
+    def get_part_data(self, part_id: str) -> Optional[Dict[str, Any]]:
+        """获取零件的完整元数据包副本。"""
+        # 强制归一化 ID
+        part_id = part_id.lower().replace(".dat", "") + ".dat"
         with self._lock:
             config = self._data.get(part_id)
             return json.loads(json.dumps(config)) if config else None
 
-    def update_part_config(self, part_id: str, ports: List[Dict[str, Any]], 
-                           status: str = "pending", confidence: float = 1.0,
-                           force: bool = False) -> bool:
+    def update_part(self, part_id: str, data: Dict[str, Any], force: bool = False) -> bool:
         """
-        更新零件配置。
+        全量更新或合并更新零件的元数据。
         
         Args:
-            part_id: 零件 ID (如 '6558.dat')
-            ports: 端口列表
-            status: 'pending' 或 'verified'
-            confidence: 自信度 (0.0-1.0)
+            part_id: 零件 ID (如 '32316.dat')
+            data: 要写入的完整字典数据
             force: 是否强制覆盖 verified 状态的数据
-            
-        Returns:
-            bool: 是否成功更新。若因 verified 锁定且未开启 force，则返回 False。
         """
-        # 强制归一化 ID 为 lowercase .dat
-        part_id = part_id.lower()
-        if not part_id.endswith(".dat"): part_id += ".dat"
-
+        logger.debug(f"[DEBUG] 进入 update_part: part_id={part_id}, force={force}")
+        # 强制归一化 ID
+        part_id = part_id.lower().replace(".dat", "") + ".dat"
+        
         with self._lock:
             existing = self._data.get(part_id, {})
-            if existing.get("status") == "verified" and not force:
-                logger.warning(f"跳过更新: 零件 {part_id} 已人工复核 (verified)，且未启用 force。")
+            if existing.get("verified", False) and not force:
+                logger.warning(f"跳过更新: 零件 {part_id} 已人工核验 (verified)，且未启用 force。")
                 return False
 
-            self._data[part_id] = {
-                "status": status,
-                "confidence": round(float(confidence), 2),
-                "ports": ports
-            }
+            # 将新数据深度写入主字典
+            self._data[part_id] = data
             return True
+
+    def get_part_config(self, part_id: str) -> Optional[Dict[str, Any]]:
+        """兼容性包装器：等同于 get_part_data"""
+        logger.debug(f"[DEBUG] 进入 get_part_config: part_id={part_id}")
+        return self.get_part_data(part_id)
+
+    def update_part_config(self, part_id: str, ports: List[Dict], status: str, confidence: float = 1.0, force: bool = False) -> bool:
+        """
+        [Compatibility] 专门服务于前端复核提交的接口。
+        将复核后的坐标与状态打包更新入库，同时保留原有的 v3.0 元数据。
+        """
+        logger.debug(f"[DEBUG] 进入 update_part_config: part_id={part_id}, status={status}, force={force}")
+        existing = self.get_part_data(part_id) or {}
+        new_payload = existing.copy()
+        
+        # 应用复核后的核心数据
+        new_payload.update({
+            "ports": ports,
+            "status": status,
+            "confidence": confidence,
+            "verified": (status == "verified")
+        })
+        
+        return self.update_part(part_id, new_payload, force=force)
 
     def get_pending_parts(self) -> List[Dict[str, Any]]:
         """获取所有待复核的零件，按自信度升序排列（分值越低越靠前）。"""

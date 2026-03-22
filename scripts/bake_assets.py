@@ -12,7 +12,7 @@ from backend.geometry_processor import GeometryProcessor
 from backend.port_library_manager import PortLibraryManager
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class UnifiedAssetBaker:
@@ -31,6 +31,7 @@ class UnifiedAssetBaker:
         """
         原子操作：同时生成网格并刷新端口数据。
         """
+        logger.debug(f"[DEBUG] 开始烘焙单个零件: part_id={part_id}, force={force}")
         # 统一规范：确保 part_id 包含 .dat 后缀
         if not part_id.lower().endswith(".dat"):
             part_id += ".dat"
@@ -79,6 +80,7 @@ class UnifiedAssetBaker:
         """
         全量烘焙：对 ldraw_port_configs.json 中登记的所有零件执行同步更新。
         """
+        logger.debug(f"[DEBUG] 开始全量库烘焙流程: force={force}")
         parts_list = list(self.plm._data.keys())
         logger.info(f"[INIT] 开始全量烘焙，目标总数: {len(parts_list)}")
         

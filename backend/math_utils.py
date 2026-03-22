@@ -1,4 +1,8 @@
 import numpy as np
+from scipy.spatial.transform import Rotation as R
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CoordinateTransformer:
     """
@@ -42,8 +46,11 @@ class CoordinateTransformer:
     @staticmethod
     def purify_rotation_matrix(m: np.ndarray) -> np.ndarray:
         """
-        Gram-Schmidt 正交化：确确保合法正交且为右手系 (det=1.0)。
+        [v3.0 物理核心] 强制执行 Gram-Schmidt 正交化并确保右手系 (det=1.0)。
         """
+        logger.debug(f"[DEBUG] 进入 purify_rotation_matrix: dtype={m.dtype}")
+        # 补丁：强制转换为 float64 以避免 numpy 对 int32 数组进行原位浮点除法时崩溃
+        m = m.astype(np.float64)
         m = np.nan_to_num(m, nan=0.0).copy()
         
         # 1. 确保 X 轴向量非零

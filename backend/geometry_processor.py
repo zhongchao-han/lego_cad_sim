@@ -3,7 +3,7 @@ import trimesh
 import numpy as np
 import re
 import logging
-from typing import List, Tuple, Optional, Dict
+from typing import List, Dict, Tuple, Optional, Any
 from backend.port_library import PortLibrary
 from backend.core_constants import LDU_TO_SI, LEGO_GRID_METERS
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix, matrix_to_list
@@ -89,7 +89,11 @@ class GeometryProcessor:
     def _resolve_color(self, color_code: int) -> Tuple[int, int, int, int]:
         return self.color_table.get(color_code, (255, 0, 255, 255))
 
-    def extract_geometry(self, filename: str, transform: np.ndarray = np.eye(4), parent_color_code: int = 16, inverted: bool = False) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple]]:
+    def extract_geometry(self, filename: str, global_mat: np.ndarray = np.eye(4), parent_color_code: int = 7, inverted: bool = False) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple]]:
+        """
+        递归地从 .dat 文件中提取几何信息。
+        """
+        logger.debug(f"[DEBUG] 进入 extract_geometry: filename={filename}, color={parent_color_code}, inverted={inverted}")
         filepath = self.resolve_path(filename)
         if not filepath: return [], [], []
         vertices, faces, vertex_colors = [], [], []
@@ -98,7 +102,7 @@ class GeometryProcessor:
                 lines = f.readlines()
         except Exception: return [], [], []
         
-        det = np.linalg.det(transform[:3, :3])
+        det = np.linalg.det(global_mat[:3, :3])
         is_mirrored = (det < 0) ^ inverted
         bfc_invert_next = False
         
@@ -119,8 +123,8 @@ class GeometryProcessor:
                     x, y, z = map(float, parts[2:5])
                     a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
                     local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
-                    global_mat = transform @ local_mat
-                    cv, cf, cvc = self.extract_geometry(child_file, global_mat, effective_color, inverted=bfc_invert_next)
+                    child_global_mat = global_mat @ local_mat
+                    cv, cf, cvc = self.extract_geometry(child_file, child_global_mat, effective_color, inverted=bfc_invert_next)
                     offset = len(vertices)
                     vertices.extend(cv); vertex_colors.extend(cvc)
                     for face in cf: faces.append(np.array(face) + offset)
@@ -135,7 +139,7 @@ class GeometryProcessor:
                     v = []
                     for k in range(2, 2 + num_pts * 3, 3):
                         p = np.array([float(parts[k]), float(parts[k+1]), float(parts[k+2]), 1.0])
-                        v.append((transform @ p)[:3])
+                        v.append((global_mat @ p)[:3])
                     vertices.extend(v); vertex_colors.extend([rgba] * num_pts)
                     idx = len(vertices) - num_pts
                     if is_mirrored:
@@ -149,7 +153,10 @@ class GeometryProcessor:
         return vertices, faces, vertex_colors
 
     def convert_to_glb(self, dat_filename: str, output_path: str, color_code: int = 7) -> bool:
-        """核心转换函数: .dat -> .glb (SI 米制 + Y-Up 归一化)"""
+        """
+        将 LDraw 零件转换为 GLB 文件。
+        """
+        logger.debug(f"[DEBUG] 进入 convert_to_glb: dat_filename={dat_filename}, output={output_path}, color={color_code}")
         vertices, faces, vertex_colors = self.extract_geometry(dat_filename, parent_color_code=color_code)
         if not vertices or not faces: return False
         try:
@@ -172,8 +179,11 @@ class GeometryProcessor:
             logger.error(f"GLB 导出失败: {e}")
             return False
 
-    def discover_ports(self, filename: str, transform: np.ndarray = np.eye(4), root_id: Optional[str] = None) -> List[Dict]:
-        """递归发现 LDraw 文件中的物理连接点，应用归一化位姿。"""
+    def discover_ports(self, filename: str, global_mat: np.ndarray = np.eye(4), root_id: str = None) -> List[Dict[str, Any]]:
+        """
+        地毯式递归扫描：从零件源文件中发现所有潜在的物理端口。
+        """
+        logger.debug(f"[DEBUG] 进入 discover_ports: filename={filename}, root_id={root_id}")
         if root_id is None: root_id = filename.replace(".dat", "")
         filepath = self.resolve_path(filename)
         if not filepath: return []

@@ -20,15 +20,15 @@ from backend.port_semantics import get_interface, check_fit, build_fit_result, F
 from backend.port import Port
 from backend.core_constants import LDU
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
-
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+# 配置日志记录
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # --- 服务实体与配置 ---
 
 # LDRAW_PARTS_ROOT 配置
 LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
-MESH_CACHE_ROOT = os.path.join(os.getcwd(), "ldraw_meshes")
+MESH_CACHE_ROOT = os.path.join(os.getcwd(), "data", "custom_assets")
 os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
 
 # --- 初始化后端核心单例组件 ---
@@ -136,10 +136,14 @@ async def search_parts(q: str):
                 })
     return results[:50] # 限制返回数量防止 UI 爆炸
 
-@app.post("/api/verify/save")
-async def save_verified_ports(req: VerifySaveRequest):
-    """保存人工复核后的端口数据，状态设为 verified。"""
+@app.post("/api/verify_part")
+async def save_verification(req: VerifySaveRequest):
+    """
+    [TRACER] 接收并保存人工复核的零件配置。
+    """
+    print(f"[TRACE] Server 接收到复核提交: Part ID={req.part_id}, Ports={len(req.ports)}")
     try:
+        # 将前端发来的结构转换为内部的 LDrawPort 模型
         def clean_pos(v):
             if isinstance(v, (float, np.floating)):
                 # 宏观治理：由于已切换为 SI 米制，原先 [10 LDU] 级别的吸附逻辑会误杀微小位移。
@@ -163,6 +167,74 @@ async def save_verified_ports(req: VerifySaveRequest):
             # 2. 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
             raw_rot = np.array(p_data["rotation"])
             pure_rot = purify_rotation_matrix(raw_rot)
+            p_data["rotation"] = matrix_to_list(pure_rot)
+            
+            ports_dict.append(p_data)
+
+        # 统一入库标准：在保存 verified 数据前，确保其轴向是归一化且规整的
+        final_ports = []
+        for p in ports_dict:
+            # 此时 np 已在全局作用域定义
+            obj = Port.from_config(
+                f"{req.part_id}_v", p['type'], np.array(p['position']), np.array(p['rotation'])
+            )
+            if obj:
+                final_ports.append(obj.to_dict())
+            else:
+                final_ports.append(p)
+
+        # 注意：这里调用 update_part_config，将状态设为 verified
+        success = port_lib_manager.update_part_config(
+            part_id=req.part_id,
+            ports=final_ports,
+            status="verified",
+            confidence=1.0,
+            force=True  # 人工复核总是强制覆盖
+        )
+        if success:
+            port_lib_manager.save()
+            return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
+        else:
+            return {"status": "error", "msg": f"Failed to update config for {req.part_id}."}
+    except Exception as e:
+        logger.error(f"保存复核数据失败: {req.part_id} - {e}", exc_info=True)
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/verify/save")
+async def save_verified_ports(req: VerifySaveRequest):
+    """保存人工复核后的端口数据，状态设为 verified。"""
+    logger.debug(f"[DEBUG] 进入 save_verified_ports: req={req.model_dump()}")
+    try:
+        def clean_pos(v):
+            if isinstance(v, (float, np.floating)):
+                # 宏观治理：由于已切换为 SI 米制，原先 [10 LDU] 级别的吸附逻辑会误杀微小位移。
+                # 现在直接保留高精度原始值，物理吸附应交由前端 Grid 或解析脚本负责。
+                return round(float(v), 6)
+            if isinstance(v, list): return [clean_pos(i) for i in v]
+            return v
+
+        def clean_rot(v):
+            if isinstance(v, (float, np.floating)):
+                return round(float(v), 6)
+            if isinstance(v, list): return [clean_rot(i) for i in v]
+            return v
+
+        ports_dict = []
+        for p in req.ports:
+            # 1. 基础清理与格式化
+            p_data = p.model_dump()
+            p_data["position"] = [clean_pos(x) for x in p_data["position"]]
+            
+            # [TRACER] 实时断点审计：观察前端原始数据的物理形态
+            _raw = p_data["rotation"]
+            _np_raw = np.array(_raw)
+            print(f"[TRACE] Frontend Rotation Data: {_raw}")
+            print(f"[TRACE] Python Type: {type(_raw)}, Inner Type: {type(_raw[0][0])}")
+            print(f"[TRACE] NumPy Result Dtype: {_np_raw.dtype}")
+            
+            # 2. 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
+            pure_rot = purify_rotation_matrix(_np_raw)
+            p_data["rotation"] = matrix_to_list(pure_rot)
             p_data["rotation"] = matrix_to_list(pure_rot)
             
             ports_dict.append(p_data)
@@ -230,11 +302,10 @@ async def toggle_mode(mode: str):
     return {"status": "ok", "msg": "No changes made."}
 
 
-@app.get("/api/ldraw_part/{part_id:path}", response_model=LDrawPartResponse)
+@app.get("/api/ldraw_part/{part_id}")
 async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = False):
-    """
-    获取 LDraw 零件及其端口数据。使用 v3.0 GeometryProcessor 进行实时准通解析。
-    """
+    """请求转换并获取 LDraw 零件。"""
+    logger.debug(f"[DEBUG] 进入 get_ldraw_part: part_id={part_id}, color={color}, include_pending={include_pending}")
     try:
         part_id = part_id.strip()
         dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
