@@ -49,3 +49,4 @@ ldraw_temp/
 mock_part.dat
 fallback.json
 current_assembly.urdf
+tmp/
