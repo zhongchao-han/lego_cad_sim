@@ -142,7 +142,7 @@ export default function Scene() {
 
             <CameraController />
 
-            {Object.keys(parts).map(id => (
+            {Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA).map(id => (
                 <LegoPart key={id} id={id} />
             ))}
 

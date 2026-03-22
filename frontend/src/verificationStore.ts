@@ -210,6 +210,8 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     if (!currentPartId) return;
     
     log(`Submitting verification for ${currentPartId}...`, 'ACTION');
+    set({ isLoading: true });
+    
     const LDU_VAL = 0.0004;
     const portsToSave = currentPorts.map(p => ({
       ...p,
@@ -224,12 +226,22 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
       });
       if (resp.ok) {
         log(`Verification SAVED successfully for ${currentPartId}`, 'INFO');
-        get().fetchPendingList();
+        // 宏观体验：成功后不仅要刷新列表，还要清空当前编辑区，给用户“任务完成”的明确暗示
+        set({ currentPartId: null, currentPorts: [] });
+        await get().fetchPendingList();
+        
+        // 增加浏览器级物理弹窗，防止用户错过状态变更
+        window.alert(`✅ 【${currentPartId}】 已成功提交复核！`);
       } else {
-        log(`Failed to save verification for ${currentPartId}`, 'ERROR');
+        const errText = await resp.text();
+        log(`Failed to save: ${errText}`, 'ERROR');
+        window.alert(`❌ 保存失败: ${errText}`);
       }
     } catch (e) {
       log(`Network error during save: ${e}`, 'ERROR');
+      window.alert(`❌ 网络错误: ${e}`);
+    } finally {
+      set({ isLoading: false });
     }
   }
 }));

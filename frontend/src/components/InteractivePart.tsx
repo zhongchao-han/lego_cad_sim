@@ -179,6 +179,7 @@ export const InteractivePart = memo(({
                   globalPos: [worldPos.x, worldPos.y, worldPos.z],
                 });
               }}
+              onDoubleClick={(e) => e.stopPropagation()}
               onPointerOver={(e) => {
                 e.stopPropagation();
                 document.body.style.cursor = 'pointer';

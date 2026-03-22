@@ -62,6 +62,8 @@ _NORMALIZER_MAP: Dict[str, np.ndarray] = {
     # FEMALE（孔）—— 统一使用 Rx(+90°)，使 Z 指向 -Y_ldraw (开口向外)
     "peghole":          _Rx_POS90,
     "peghole.dat":      _Rx_POS90,
+    "beamhole.dat":     _Rx_POS90,
+    "connhole.dat":     _Rx_POS90,
     "axlehole":         _Rx_POS90,
     "axlehole.dat":     _Rx_POS90,
     "axleholepin.dat":  _Rx_POS90,

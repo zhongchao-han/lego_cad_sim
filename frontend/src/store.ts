@@ -298,8 +298,8 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     if (interactionPhase === InteractionPhase.SOURCE_LOCKED && selectedPort) {
       if (port.partId === selectedPort.partId) {
-        get().addLog("Clicked same part port, aborting snap.");
-        get().abortCurrentInteraction();
+        get().addLog("Clicked another port on same part, switching source.");
+        set({ selectedPort: port }); // 切换源端口，不中止
         return;
       }
       get().addLog(`Target port selected: ${port.partId}. Starting snap animation...`, 'PHYSICS');

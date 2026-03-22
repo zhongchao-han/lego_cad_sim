@@ -16,9 +16,14 @@ from core_constants import HALF_GRID_LDU, LDU_TO_SI
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# 常量定义
-SEMANTIC_PRIMITIVES = ["peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat", "connect.dat"]
-CONNECTOR_PREFIXES = ["confric", "axlehole", "peghole", "axle", "pin", "halfpin"]
+# 常量定义：扩展 Technic 核心语义集，支持递归穿透
+SEMANTIC_PRIMITIVES = [
+    "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat", 
+    "connect.dat", "beamhole.dat", "connhole.dat", "bush.dat", "crosshole.dat"
+]
+CONNECTOR_PREFIXES = [
+    "confric", "axlehole", "peghole", "axle", "pin", "halfpin", "beamhole", "connhole"
+]
 KNOWN_UNIT_LENGTHS = {
     "confric3": 2.0, 
     "confric6": 2.0,
@@ -72,12 +77,13 @@ class PortDiscoverer:
                         global_mat = transform @ local_mat
                         
                         y_scale = max(np.linalg.norm(local_mat[:3, 0]), np.linalg.norm(local_mat[:3, 1]), np.linalg.norm(local_mat[:3, 2]))
-                        
                         child_basename = os.path.basename(child_file).split('.')[0]
-                        is_semantic = any(p in child_file for p in SEMANTIC_PRIMITIVES)
+                        
+                        is_semantic = any(child_file.endswith(p) for p in SEMANTIC_PRIMITIVES)
                         is_connector = any(child_basename.startswith(pfx) for pfx in CONNECTOR_PREFIXES)
 
                         if is_semantic or is_connector:
+                            # --- 采样逻辑：作为叶子节点直接解析 ---
                             base_unit_len = 1.0
                             for k, v in KNOWN_UNIT_LENGTHS.items():
                                 if k in child_basename:
@@ -87,40 +93,39 @@ class PortDiscoverer:
                             num_units = int(round(length_ldu / 20.0))
                             
                             if num_units >= 1:
-                                # 核心修正：探测生长方向
-                                # 在插销类原件中，LDraw 习惯向 -Y 方向生长 (0, -20, -40...)
                                 is_pin_type = any(x in child_file for x in ["peg", "pin", "axle", "confric"])
                                 step_dir = -1.0 if is_pin_type else 1.0
                                 
                                 for k in range(num_units):
-                                    # 采样点在本地坐标系的偏移。
-                                    # 第一孔位通常在 0，后续孔位按 20 LDU 步进
                                     offset_y = k * 20.0 * step_dir
-                                    # 转换为本地单位缩放下的偏移值
                                     lv = np.array([0, offset_y / y_scale, 0, 1])
                                     sampled_pos = (global_mat @ lv)[:3]
                                     
-                                    # --- 宏观数据流治理：使用统一数学中枢进行正交规范化与旋向纠偏 ---
                                     raw_rot = global_mat[:3, :3].copy()
                                     norm_rot = purify_rotation_matrix(raw_rot)
+                                    sampled_pos_m = sampled_pos * LDU_TO_SI
                                     
                                     from port import Port
                                     ld_type = "fric_pin.dat" if "fric" in child_file else ("peghole" if "hole" in child_file else "peg")
+                                    # 针对特定 Technic 原件的细化修正
+                                    if "beamhole" in child_file or "connhole" in child_file:
+                                        ld_type = "peghole.dat"
                                     
                                     port_obj = Port.from_raw(
                                         name=f"{filename}_p",
                                         ldraw_type=ld_type,
-                                        pos=sampled_pos,
+                                        pos=sampled_pos_m,
                                         rot=norm_rot,
                                         part_context=filename
                                     )
                                     if port_obj:
                                         discovered.append(port_obj.to_dict())
-                    except:
+                        else:
+                            # --- 递归逻辑：潜入子部件继续搜寻物理原件 ---
+                            discovered.extend(self.discover_ports(child_file, transform=global_mat))
+                    except Exception as e:
+                        logger.debug(f"跳过行解析 {child_file}: {e}")
                         continue
-                else:
-                    child_file = parts[-1].lower()
-                    discovered.extend(self.discover_ports(child_file, transform=global_mat))
         return discovered
 
     def run_on_parts(self, part_list: List[str], force: bool = False):
@@ -130,7 +135,8 @@ class PortDiscoverer:
             unique = []
             if ports:
                 for p in ports:
-                    if not any(np.linalg.norm(np.array(p['position']) - np.array(u['position'])) < 0.5 for u in unique):
+                    # 阈值修正：米制下 0.002 代表 2mm，足够区分 8mm 间距的乐高孔位
+                    if not any(np.linalg.norm(np.array(p['position']) - np.array(u['position'])) < 0.002 for u in unique):
                         unique.append(p)
             logger.info(f"  -> 录入 {len(unique)} 端口")
             self.manager.update_part_config(part, unique, "pending", self._calculate_confidence(unique), force)

@@ -37,7 +37,7 @@ export const VerificationWorkbench: React.FC = () => {
   const { 
     pendingList, searchList, currentPartId, currentPorts, fetchPendingList, searchParts,
     selectPart, addPort, deletePort, movePort, flipPortZ, rotateX90, rotateY90, rotateZ90, 
-    snapPortToGrid, saveVerification 
+    snapPortToGrid, saveVerification, isLoading 
   } = useVerificationStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -221,9 +221,14 @@ export const VerificationWorkbench: React.FC = () => {
         {currentPartId && (
           <button 
             onClick={saveVerification}
-            className="absolute top-6 right-6 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg shadow-lg transition-all"
+            disabled={isLoading}
+            className={`absolute top-6 right-6 z-50 px-8 py-3 font-bold rounded-xl shadow-2xl transition-all border ${
+              isLoading 
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed border-slate-600' 
+                : 'bg-green-600 hover:bg-green-500 active:scale-95 text-white border-green-400/30'
+            }`}
           >
-            完成并提交复核
+            {isLoading ? '正在提交复核...' : '完成并提交复核'}
           </button>
         )}
         

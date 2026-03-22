@@ -75,6 +75,8 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # 标准圆孔：半径 6.0 LDU = 2.4mm，孔深 = 梁厚 20 LDU = 8mm
     "peghole":      ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
     "peghole.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "beamhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "connhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
 
     # 十字轴孔：用于锁定轴的旋转
     "axlehole":     ConnectionInterface(Gender.FEMALE, Profile.CROSS,    4.0 * LDU, 20.0 * LDU),
