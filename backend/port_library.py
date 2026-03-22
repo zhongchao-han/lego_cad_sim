@@ -116,9 +116,11 @@ class PortLibrary:
             
             p_type     = mp.get("type", "peg")
             
-            # 使用 from_config 工厂直接初始化，跳过二次 Z 轴归一化逻辑
+            # 宏观治理：
+            # 这里的 position 数据来自 ldraw_port_configs.json。
+            # 既然我们的标准已经是 SI 米制，此处就不再需要乘以 LDU_TO_SI，直接透传。
             port = Port.from_config(
-                f"{part_name}_p{i}", p_type, pos_global * LDU_TO_SI, rot_global
+                f"{part_name}_p{i}", p_type, pos_global, rot_global
             )
             if port:
                 json_ports.append(port)

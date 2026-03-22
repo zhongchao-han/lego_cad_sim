@@ -83,12 +83,22 @@ export const InteractivePart = memo(({
     };
 
     if (ldrawPart.ports && ldrawPart.ports.length > 0) {
-      return ldrawPart.ports.map((p) => ({
-        type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
-        localPos: p.position as [number, number, number],
-        rot: p.rotation,
-        quaternion: computeQuaternion(p.rotation)
-      }));
+      return ldrawPart.ports.map((p) => {
+        // 宏观兼容性治理：
+        // 如果后端传来的坐标已经转换成了米（数值通常在 0.x 级别），
+        const rawPos = p.position as [number, number, number];
+        
+        // 核心修正：由于后端的 GLB 导出器已经执行了 0.0004 的米制缩放，
+        // 前端渲染层必须直接使用米制原始坐标，严禁再次除以 LDU 导致坐标逃逸。
+        const normalizedPos = rawPos; 
+        
+        return {
+          type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
+          localPos: normalizedPos,
+          rot: p.rotation,
+          quaternion: computeQuaternion(p.rotation)
+        };
+      });
     }
     return [];
   }, [ldrawPart.ports]);

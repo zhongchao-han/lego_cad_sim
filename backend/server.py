@@ -141,18 +141,15 @@ async def save_verified_ports(req: VerifySaveRequest):
     try:
         def clean_pos(v):
             if isinstance(v, (float, np.floating)):
-                # 智能格点吸附只应应用于 LDU 位置坐标
-                snapped = round(v / 10.0) * 10.0
-                if abs(v - snapped) < 0.1:
-                    return float(snapped)
-                return round(float(v), 4)
+                # 宏观治理：由于已切换为 SI 米制，原先 [10 LDU] 级别的吸附逻辑会误杀微小位移。
+                # 现在直接保留高精度原始值，物理吸附应交由前端 Grid 或解析脚本负责。
+                return round(float(v), 6)
             if isinstance(v, list): return [clean_pos(i) for i in v]
             return v
 
         def clean_rot(v):
             if isinstance(v, (float, np.floating)):
-                # 旋转矩阵元素范围 [-1, 1]，绝不应用 10 LDU 吸附
-                return round(float(v), 4)
+                return round(float(v), 6)
             if isinstance(v, list): return [clean_rot(i) for i in v]
             return v
 

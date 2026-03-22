@@ -95,9 +95,10 @@ class Port:
 
     Attributes:
         name:      端口标识符，如 "hole_0"
-        interface: 物理接口语义（极性、形状、尺寸）
-        position:  局部坐标系下的位置，SI 单位（m），shape (3,)
+        interface: 物理接口语义（极性、形状、尺寸 [Meters]）
+        position:  局部坐标系下的位置，单位：[SI Meters (米)]，shape (3,)
         rotation:  局部坐标系下的 3×3 旋转矩阵（Z 列 = 插入方向）
+        port_type: LDraw 的原始零件名（如 "peghole.dat"）
         port_type: 原始 LDraw 类型字符串，保留供序列化使用
     """
     name:      str
@@ -162,7 +163,8 @@ class Port:
     ) -> Optional["Port"]:
         """
         [运行时专用] 从已经归一化好的 JSON 配置创建端口。
-        直接信任输入数据，不再进行二次轴向变换。
+        :param pos: 零件局部位置 [SI Meters]。
+        :param rot: 归一化好的定向矩阵。
         """
         iface = get_interface(ldraw_type)
         if iface is None:

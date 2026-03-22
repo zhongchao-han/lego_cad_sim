@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import numpy as np
 import pytest
 
-from connection_interface import (
+from port_semantics import (
     ConnectionInterface, Gender, Profile, FitType, LDU,
 )
 from port import Port

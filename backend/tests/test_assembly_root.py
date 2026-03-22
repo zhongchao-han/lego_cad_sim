@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import numpy as np
 import pytest
 
-from part import Part, PartZone
+from port import Port
 from port import Port
 from connection_edge import ConnectionEdge
 from assembly import Assembly

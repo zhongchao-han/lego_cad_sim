@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useStore } from './store';
+import { clearPartCache } from './useLDrawPart';
 
 export interface PortData {
   type: string;
@@ -212,10 +213,16 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     log(`Submitting verification for ${currentPartId}...`, 'ACTION');
     set({ isLoading: true });
     
-    const LDU_VAL = 0.0004;
+    /** 
+     * 持久化单位大一统 [Persistence Logic]:
+     * - Workbench 工作台内部所有位置坐标均采用 [LDU (LDraw Units)]，以便于格点吸附(20-LDU)。
+     * - 入库(JSON)前，必须统一转换为 [SI Meters (米)]，公式 = LDU * 0.0004。
+     * - 这保证了仿真引擎后端可以直接加载这些真实物理位移数据。
+     */
+    const SI_METERS_CONV = 0.0004;
     const portsToSave = currentPorts.map(p => ({
       ...p,
-      position: p.position.map(v => v * LDU_VAL)
+      position: p.position.map(v => v * SI_METERS_CONV)
     }));
     
     try {
@@ -229,6 +236,9 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
         // 宏观体验：成功后不仅要刷新列表，还要清空当前编辑区，给用户“任务完成”的明确暗示
         set({ currentPartId: null, currentPorts: [] });
         await get().fetchPendingList();
+        
+        // 关键补丁：强制清理该零件的所有本地 UI 缓存，确保切回组装视图时能拉到全新的米制数据
+        clearPartCache(currentPartId);
         
         // 增加浏览器级物理弹窗，防止用户错过状态变更
         window.alert(`✅ 【${currentPartId}】 已成功提交复核！`);

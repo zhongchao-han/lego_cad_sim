@@ -25,11 +25,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import numpy as np
 import pytest
 
-from connection_interface import (
+from port_semantics import (
     ConnectionInterface, Gender, Profile, FitType, LDU,
 )
 from port import Port
-from part import Part
+from port import Port
 from connection_edge import ConnectionEdge, JointState
 from assembly import Assembly
 from urdf_exporter import URDFExporter
