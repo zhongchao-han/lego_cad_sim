@@ -1,0 +1,36 @@
+name: Daily Full Unit Tests
+
+on:
+  schedule:
+    # 每天凌晨 3:00 (北京时间) = 19:00 (UTC)
+    - cron: '0 19 * * *'
+  workflow_dispatch: # 允许手动手动触发检测
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy trimesh scipy fastapi uvicorn pydantic # 基础依赖
+          # 如果有 requirements.txt，也可改为 pip install -r backend/requirements.txt
+
+      - name: Run Backend Unit Tests
+        run: |
+          # 核心：执行所有 v1.3 物理对齐测试及遗留逻辑测试
+          # 我们排除掉已经过时的 test_assembly_root 和 test_insertion
+          python -m unittest backend/tests/test_v1_3_metrics.py \
+                            backend/tests/test_6558_sampling.py \
+                            backend/tests/test_port_connections.py \
+                            backend/tests/test_port_parsing.py \
+                            backend/tests/test_port_library_manager.py
