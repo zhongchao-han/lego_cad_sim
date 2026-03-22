@@ -12,9 +12,20 @@ from backend.math_utils import CoordinateTransformer
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-# 物理常量
-SEMANTIC_PRIMITIVES = ["axlehol8.dat", "axleend2.dat", "peghole.dat", "fric_pin.dat"]
-CONNECTOR_PREFIXES = ["axle", "pin", "hole"]
+# 物理常量 - 精确匹配清单 (避免递归到子原语导致双重计数)
+SEMANTIC_PRIMITIVES = [
+    "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat", 
+    "connect.dat", "beamhole.dat", "connhole.dat", "bush.dat", "crosshole.dat",
+    "axlehol8.dat", "axleend2.dat", "fric_pin.dat"
+]
+CONNECTOR_PREFIXES = ["axle", "pin", "hole", "peg", "confric"]
+
+# 特殊原语的单位步长补偿 (LDU)
+KNOWN_UNIT_LENGTHS = {
+    "axlehol8.dat": 5.75,
+    "confric3": 2.0, 
+    "confric6": 2.0
+}
 
 def calculate_p2p_alignment(source_port: 'Port', target_port: 'Port') -> np.ndarray:
     """
@@ -175,11 +186,20 @@ class GeometryProcessor:
             global_mat = transform @ local_mat
             if child_file in SEMANTIC_PRIMITIVES or any(child_file.startswith(p) for p in CONNECTOR_PREFIXES):
                 y_scale = np.linalg.norm(global_mat[:3, 1])
-                is_axle = "axle" in child_file
-                base_unit_len = 1.0 if not is_axle else (5.75 if "axlehol8" in child_file else 1.0)
+                
+                # 采样步长判定
+                base_unit_len = 1.0
+                for k, v in KNOWN_UNIT_LENGTHS.items():
+                    if k in child_file:
+                        base_unit_len = v; break
+                
                 length_ldu = y_scale * base_unit_len * 20.0 if y_scale <= 10.0 else y_scale
                 num_units = max(1, int(round(length_ldu / 20.0)))
-                step_dir = -1.0 if is_axle else 1.0
+                
+                # 方向判定 (Pin/Axle 为 MALE, Z轴朝外)
+                is_extruding = any(x in child_file for x in ["peg", "pin", "axle", "confric"])
+                step_dir = -1.0 if is_extruding else 1.0
+                
                 for k in range(num_units):
                     offset_y = k * 20.0 * step_dir
                     lv = np.array([0, offset_y / y_scale, 0, 1])
