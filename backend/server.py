@@ -85,6 +85,7 @@ class ForceRequest(BaseModel):
     position: list = [0, 0, 0]
 
 class LDrawPort(BaseModel):
+    name: str
     type: str
     position: list
     rotation: list
@@ -232,34 +233,32 @@ async def toggle_mode(mode: str):
 @app.get("/api/ldraw_part/{part_id:path}", response_model=LDrawPartResponse)
 async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = False):
     """
-    获取 LDraw 零件及其端口数据。
+    获取 LDraw 零件及其端口数据。使用 v3.0 GeometryProcessor 进行实时准通解析。
     """
     try:
-        # 彻底杜绝前后端空格污染导致的 URL 崩溃
         part_id = part_id.strip()
         dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
 
-        # 使用全局单例解析，此时 library._data 与 port_lib_manager._data 实时同步
-        ports = []
-        parsed_ports = library.parse_dat_file(dat_filename, allow_pending=include_pending)
-        if parsed_ports:
-            ports = [LDrawPort(**p.to_dict()) for p in parsed_ports]
+        # 1. 检查持久化层中是否已有烘培好的 V3.0 数据
+        cached_data = port_lib_manager.get_part_data(dat_filename)
+        if cached_data and cached_data.get("version") == "v3.0.normalized":
+            ports = [LDrawPort(**p) for p in cached_data["ports"]]
+            glb_filename = os.path.basename(cached_data["glb_path"])
         else:
-            logger.warning(f"LDraw 源文件未找到或未解析出端口: {dat_filename}")
-
-        glb_filename = f"{part_id}_c{color}.glb"
-        glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
-
-        if not os.path.exists(glb_path):
-            logger.info(f"触发动态转换 (异步线程): {dat_filename} -> {glb_filename}")
-            await asyncio.to_thread(geo_proc.convert_to_glb, dat_filename, glb_path, color_code=color)
-
-        mesh_url = f"/ldraw_meshes/{glb_filename}"
+            # 2. 如果没有（或版本过旧），则执行实时高精度解析
+            logger.info(f"[*] 缓存缺失，正在为 {dat_filename} 执行实时 v3.0 解析...")
+            raw_ports = geo_proc.discover_ports(dat_filename)
+            ports = [LDrawPort(**p) for p in raw_ports]
+            
+            # 同时生成预览模型 (Color 7)
+            glb_filename = f"{part_id.replace('.dat', '')}_c{color}.glb"
+            glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
+            geo_proc.convert_to_glb(dat_filename, glb_path, color=color)
 
         return LDrawPartResponse(
-            part_id=part_id,
+            part_id=dat_filename,
             ports=ports,
-            mesh_url=mesh_url,
+            mesh_url=f"/ldraw_meshes/{glb_filename}"
         )
     except Exception as e:
         logger.error(f"Failed to get_ldraw_part: {part_id} - {str(e)}", exc_info=True)

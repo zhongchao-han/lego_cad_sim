@@ -6,7 +6,7 @@ import logging
 from typing import List, Tuple, Optional, Dict
 from backend.port_library import PortLibrary
 from backend.core_constants import LDU_TO_SI, LEGO_GRID_METERS
-from backend.math_utils import CoordinateTransformer
+from backend.math_utils import CoordinateTransformer, purify_rotation_matrix, matrix_to_list
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -154,12 +154,17 @@ class GeometryProcessor:
         if not vertices or not faces: return False
         try:
             verts_arr = np.array(vertices)
+            # Rx180 翻转 + SI 缩放
             verts_arr = (CoordinateTransformer.get_rx180() @ verts_arr.T).T * CoordinateTransformer.LDU_TO_SI
             mesh = trimesh.Trimesh(vertices=verts_arr, faces=np.array(faces), 
                                    vertex_colors=np.array(vertex_colors, dtype=np.uint8) if vertex_colors else None, 
                                    process=False)
             mesh.fix_normals()
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            # 路径安全检查
+            dir_name = os.path.dirname(output_path)
+            if dir_name: os.makedirs(dir_name, exist_ok=True)
+            
             export_data = trimesh.exchange.gltf.export_glb(scene=trimesh.Scene(mesh))
             with open(output_path, 'wb') as f: f.write(export_data)
             return True
@@ -167,15 +172,18 @@ class GeometryProcessor:
             logger.error(f"GLB 导出失败: {e}")
             return False
 
-    def discover_ports(self, filename: str, transform: np.ndarray = np.eye(4)) -> List[Dict]:
+    def discover_ports(self, filename: str, transform: np.ndarray = np.eye(4), root_id: Optional[str] = None) -> List[Dict]:
         """递归发现 LDraw 文件中的物理连接点，应用归一化位姿。"""
+        if root_id is None: root_id = filename.replace(".dat", "")
         filepath = self.resolve_path(filename)
         if not filepath: return []
+        
         discovered = []
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
         except Exception: return []
+
         for line in lines:
             parts = line.strip().split()
             if not parts or parts[0] != '1': continue
@@ -184,6 +192,7 @@ class GeometryProcessor:
             a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
             local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
             global_mat = transform @ local_mat
+            
             if child_file in SEMANTIC_PRIMITIVES or any(child_file.startswith(p) for p in CONNECTOR_PREFIXES):
                 y_scale = np.linalg.norm(global_mat[:3, 1])
                 
@@ -203,15 +212,21 @@ class GeometryProcessor:
                 for k in range(num_units):
                     offset_y = k * 20.0 * step_dir
                     lv = np.array([0, offset_y / y_scale, 0, 1])
-                    raw_pos_ldu = (global_mat @ lv)[:3]
-                    raw_rot_ldu = global_mat[:3, :3].copy()
-                    norm_rot_ldw = CoordinateTransformer.purify_matrix(raw_rot_ldu)
-                    pos_m = CoordinateTransformer.normalize_pos(raw_pos_ldu)
-                    rot_norm = CoordinateTransformer.normalize_rot(norm_rot_ldw)
-                    from backend.port import Port
-                    ld_type = "peghole.dat" if ("hole" in child_file or "beamhole" in child_file) else "fric_pin.dat"
-                    port_obj = Port.from_raw(name=f"{filename}_p", ldraw_type=ld_type, pos=pos_m, rot=rot_norm, part_context=filename)
-                    if port_obj: discovered.append(port_obj.to_dict())
+                    p_mat = global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
+                    
+                    # 强制正交化与右手系检阅
+                    pure_rot_ldu = purify_rotation_matrix(p_mat[:3, :3])
+                    final_rot = CoordinateTransformer.normalize_rot(pure_rot_ldu)
+                    
+                    # 生成唯一端口名
+                    port_name = f"{root_id}_p{len(discovered)}"
+                    discovered.append({
+                        "name": port_name,
+                        "type": child_file,
+                        "position": CoordinateTransformer.normalize_pos(p_mat[:3, 3]).tolist(),
+                        "rotation": final_rot.tolist()
+                    })
             else:
-                discovered.extend(self.discover_ports(child_file, transform=global_mat))
+                # 关键修复：向下传递 root_id
+                discovered.extend(self.discover_ports(child_file, transform=global_mat, root_id=root_id))
         return discovered

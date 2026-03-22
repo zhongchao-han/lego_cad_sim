@@ -31,6 +31,10 @@ class UnifiedAssetBaker:
         """
         原子操作：同时生成网格并刷新端口数据。
         """
+        # 统一规范：确保 part_id 包含 .dat 后缀
+        if not part_id.lower().endswith(".dat"):
+            part_id += ".dat"
+
         glb_filename = f"{part_id.replace('.dat', '')}.glb"
         glb_path = os.path.join(self.output_dir, glb_filename)
         

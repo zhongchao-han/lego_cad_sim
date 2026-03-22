@@ -40,17 +40,38 @@ class CoordinateTransformer:
         return rx180 @ rot_ldu @ rx180
 
     @staticmethod
-    def purify_matrix(mat: np.ndarray) -> np.ndarray:
+    def purify_rotation_matrix(m: np.ndarray) -> np.ndarray:
         """
-        [Test 1.2] Gram-Schmidt 正交化，剔除 LDraw 中常见的剪切畸变。
+        Gram-Schmidt 正交化：确确保合法正交且为右手系 (det=1.0)。
         """
-        m = np.asanyarray(mat[:3, :3], dtype=np.float64)
-        u, s, vh = np.linalg.svd(m)
-        return u @ vh
+        m = np.nan_to_num(m, nan=0.0).copy()
+        
+        # 1. 确保 X 轴向量非零
+        vx = m[:, 0]
+        norm_x = np.linalg.norm(vx)
+        if norm_x < 1e-6: vx = np.array([1.0, 0, 0])
+        else: vx /= norm_x
+        
+        # 2. 正交化 Y 轴
+        vy = m[:, 1]
+        vy = vy - np.dot(vy, vx) * vx
+        norm_y = np.linalg.norm(vy)
+        if norm_y < 1e-6: vy = np.array([0, 1.0, 0])
+        else: vy /= norm_y
+        
+        # 3. 强制右手系 (Z = X cross Y)
+        vz = np.cross(vx, vy)
+        
+        res = np.column_stack((vx, vy, vz))
+        return res
 
 def purify_rotation_matrix(m: np.ndarray) -> np.ndarray:
-    """兼容性包装器"""
-    return CoordinateTransformer.purify_matrix(m)
+    """全局别名：调用 CoordinateTransformer 的右手正交化逻辑"""
+    return CoordinateTransformer.purify_rotation_matrix(m)
+
+def purify_matrix(m: np.ndarray) -> np.ndarray:
+    """兼容性别名：统一重定向到 purify_rotation_matrix"""
+    return purify_rotation_matrix(m)
 
 def matrix_to_list(m: np.ndarray) -> list:
     """工具函数：矩阵转嵌套列表"""
