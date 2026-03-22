@@ -3,61 +3,50 @@ import trimesh
 import numpy as np
 import re
 import logging
-from typing import List, Tuple, Optional
-from port_library import PortLibrary
-from core_constants import LDU_TO_SI
+from typing import List, Tuple, Optional, Dict
+from backend.port_library import PortLibrary
+from backend.core_constants import LDU_TO_SI, LEGO_GRID_METERS
+from backend.math_utils import CoordinateTransformer
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
+# 物理常量
+SEMANTIC_PRIMITIVES = ["axlehol8.dat", "axleend2.dat", "peghole.dat", "fric_pin.dat"]
+CONNECTOR_PREFIXES = ["axle", "pin", "hole"]
+
 def calculate_p2p_alignment(source_port: 'Port', target_port: 'Port') -> np.ndarray:
     """
     [Interaction v1.2] 计算将 Source 零件对齐到 Target 端口的 4x4 变换矩阵。
-    核心逻辑：
-    1. 旋转 Source 使得 SourcePort.Z 对齐到 -TargetPort.Z。
-    2. 平移 Source 使得 SourcePort.pos 与 TargetPort.pos 重合。
+    基于 Z 轴反向对冲原则。
     """
     from scipy.spatial.transform import Rotation
+    src_z = source_port.rotation[:, 2]
+    parent_z = -target_port.rotation[:, 2]
     
-    # 获取原始轴向 (Local to part)
-    # 注意：Port.rotation 是局部旋转，Z轴是插入轴
-    src_z = source_port.rotation[:, 2]      # 源零件的插入轴
-    parent_z = -target_port.rotation[:, 2] # 目标零件的接受轴（反向对冲）
-
-    # 1. 计算旋转 R：将 src_z 旋转到 parent_z 的最短路径
-    # 使用两个向量的叉积作为旋转轴，点积作为余弦值
-    cross_vec = np.cross(src_z, parent_z)
     dot_val = np.dot(src_z, parent_z)
-    
     if np.allclose(src_z, parent_z):
-        # 已经平行，无需额外旋转
         rot_matrix = np.eye(3)
     elif np.allclose(src_z, -parent_z):
-        # 恰好反向，绕任意正交轴旋转 180 度
-        # 寻找一个不与 src_z 平行的向量
         ortho_vec = np.array([1, 0, 0]) if abs(src_z[0]) < 0.9 else np.array([0, 1, 0])
         rot_axis = np.cross(src_z, ortho_vec)
         rot_matrix = Rotation.from_rotvec(np.pi * (rot_axis / np.linalg.norm(rot_axis))).as_matrix()
     else:
-        # 正常情况：计算旋转向量并转为矩阵
+        cross_vec = np.cross(src_z, parent_z)
         rot_matrix = Rotation.from_rotvec(cross_vec / (np.linalg.norm(cross_vec) + 1e-9) * np.arccos(np.clip(dot_val, -1.0, 1.0))).as_matrix()
-
-    # 2. 计算位移 T：T = target_pos - (R @ source_pos)
-    # 因为我们要把 Source 零件整体移动，所以先旋转 SourcePort，再算偏移
+    
     translated_src_pos = rot_matrix @ source_port.position
     translation = target_port.position - translated_src_pos
-
-    # 3. 构造 4x4 矩阵
     matrix = np.eye(4)
     matrix[:3, :3] = rot_matrix
     matrix[:3, 3] = translation
-    
     return matrix
 
 class GeometryProcessor:
     """
-    负责将 LDraw (.dat) 几何体转换为 Web 可用的网格格式 (.glb)。
+    全能加工厂：负责将 LDraw (.dat) 几何体转换为归一化资产 (GLB + Ports)。
+    单一责任: 负责文件解析与树状遍历。
     """
     
     def __init__(self, ldraw_path: str = "ldraw_lib"):
@@ -65,297 +54,144 @@ class GeometryProcessor:
         self.color_table = self._load_color_table()
         
     def resolve_path(self, filename: str) -> Optional[str]:
-        """[委托] 使用系统的标准文件定位规则。"""
         return PortLibrary.resolve_path(self.ldraw_path, filename)
 
     def _load_color_table(self) -> dict:
-        """Parse LDConfig.ldr to build {color_code: (R, G, B, A)} mapping."""
         colors = {}
         config_path = os.path.join(self.ldraw_path, "LDConfig.ldr")
-        if not os.path.exists(config_path):
-            logger.critical(
-                f"\n{'!'*60}\n"
-                f"MISSING COLOR CONFIG: 未找到 LDConfig.ldr!\n"
-                f"路径: {config_path}\n"
-                f"结果: 系统无法解析任何 LDraw 颜色，渲染将可能崩溃或显示异常。\n"
-                f"{'!'*60}\n"
-            )
-            return colors
+        if not os.path.exists(config_path): return colors
         try:
             with open(config_path, 'r', encoding='utf-8', errors='ignore') as f:
                 for line in f:
-                    if '!COLOUR' not in line:
-                        continue
+                    if '!COLOUR' not in line: continue
                     code_m = re.search(r'CODE\s+(\d+)', line)
                     val_m = re.search(r'VALUE\s+#([0-9A-Fa-f]{6})', line)
-                    if not (code_m and val_m):
-                        continue
-                    code = int(code_m.group(1))
-                    hx = val_m.group(1)
+                    if not (code_m and val_m): continue
+                    code, hx = int(code_m.group(1)), val_m.group(1)
                     r, g, b = int(hx[0:2], 16), int(hx[2:4], 16), int(hx[4:6], 16)
                     alpha_m = re.search(r'ALPHA\s+(\d+)', line)
                     a = int(alpha_m.group(1)) if alpha_m else 255
                     colors[code] = (r, g, b, a)
-            logger.info(f"Loaded {len(colors)} colors from LDConfig.ldr")
-        except Exception as e:
-            logger.warning(f"Failed to load LDConfig.ldr: {e}")
+        except Exception: pass
         return colors
 
     def _resolve_color(self, color_code: int) -> Tuple[int, int, int, int]:
-        """Resolve an LDraw color code to (R, G, B, A)."""
-        if color_code in self.color_table:
-            return self.color_table[color_code]
-        
-        # 严格模式：未定义颜色打印 CRITICAL 报错
-        logger.critical(
-            f"UNDEFINED COLOR CODE: 颜色代码 {color_code} 未在 LDConfig.ldr 中定义。\n"
-            f"请检查模型文件或更新配色表。"
-        )
-        # 返回一个极其显眼的“报错紫” (Magenta) 用于视觉反馈
-        return (255, 0, 255, 255)
+        return self.color_table.get(color_code, (255, 0, 255, 255))
 
     def extract_geometry(self, filename: str, transform: np.ndarray = np.eye(4), parent_color_code: int = 16, inverted: bool = False) -> Tuple[List[np.ndarray], List[np.ndarray], List[Tuple]]:
-        """
-        递归提取 LDraw 文件中的几何顶点和每顶点颜色。
-        返回: (vertices_list, faces_list, vertex_colors_list)
-        
-        法线翻转策略：
-        - 面片绕序翻转根据全局变换行列式和 BFC 状态决定
-        """
         filepath = self.resolve_path(filename)
-        if not filepath:
-            return [], [], []
-
-        vertices = []
-        faces = []
-        vertex_colors = []
-        
+        if not filepath: return [], [], []
+        vertices, faces, vertex_colors = [], [], []
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
-        except Exception as e:
-            logger.error(f"读取文件失败 {filepath}: {e}")
-            return [], [], []
-
+        except Exception: return [], [], []
+        
         det = np.linalg.det(transform[:3, :3])
-        # 当前文件的基础镜像状态：变换矩阵镜像状态 XOR 继承的倒置状态
         is_mirrored = (det < 0) ^ inverted
-
         bfc_invert_next = False
-
+        
         for line in lines:
             parts = line.strip().split()
             if not parts: continue
-
             line_type = parts[0]
-
             if line_type == '0':
-                if len(parts) >= 3 and parts[1] == 'BFC' and parts[2] == 'INVERTNEXT':
+                if len(parts) >= 3 and parts[1] == 'BFC' and parts[2] == 'INVERTNEXT': 
                     bfc_invert_next = True
                 continue
-
+            
             if line_type == '1' and len(parts) >= 15:
                 child_file = parts[-1].lower()
                 try:
                     color_code = int(parts[1])
                     effective_color = parent_color_code if color_code == 16 else color_code
-
                     x, y, z = map(float, parts[2:5])
                     a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
-                    local_mat = np.array([
-                        [a, b, c, x],
-                        [d, e, f, y],
-                        [g, h, i, z],
-                        [0, 0, 0, 1]
-                    ])
+                    local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
                     global_mat = transform @ local_mat
-                    
-                    # 子文件继承当前的 inverted 状态，并加上 INVERTNEXT
-                    child_v, child_f, child_vc = self.extract_geometry(
-                        child_file, global_mat, effective_color, 
-                        inverted=bfc_invert_next
-                    )
-                    
+                    cv, cf, cvc = self.extract_geometry(child_file, global_mat, effective_color, inverted=bfc_invert_next)
                     offset = len(vertices)
-                    vertices.extend(child_v)
-                    vertex_colors.extend(child_vc)
-                    for face in child_f:
-                        f_arr = np.array(face) + offset
-                        faces.append(f_arr)
+                    vertices.extend(cv); vertex_colors.extend(cvc)
+                    for face in cf: faces.append(np.array(face) + offset)
                 except ValueError: pass
-                finally:
-                    bfc_invert_next = False
-
-            elif line_type == '3' and len(parts) >= 11:
+                finally: bfc_invert_next = False
+                
+            elif line_type in ['3', '4']:
                 try:
+                    num_pts = int(line_type)
                     color_code = int(parts[1])
-                    effective_color = parent_color_code if color_code == 16 else color_code
-                    rgba = self._resolve_color(effective_color)
-
+                    rgba = self._resolve_color(parent_color_code if color_code == 16 else color_code)
                     v = []
-                    for k in range(2, 11, 3):
+                    for k in range(2, 2 + num_pts * 3, 3):
                         p = np.array([float(parts[k]), float(parts[k+1]), float(parts[k+2]), 1.0])
                         v.append((transform @ p)[:3])
-                    vertices.extend(v)
-                    vertex_colors.extend([rgba] * 3)
-                    idx = len(vertices) - 3
+                    vertices.extend(v); vertex_colors.extend([rgba] * num_pts)
+                    idx = len(vertices) - num_pts
                     if is_mirrored:
                         faces.append(np.array([idx, idx+2, idx+1]))
+                        if num_pts == 4: faces.append(np.array([idx, idx+3, idx+2]))
                     else:
                         faces.append(np.array([idx, idx+1, idx+2]))
+                        if num_pts == 4: faces.append(np.array([idx, idx+2, idx+3]))
                 except ValueError: pass
-                finally:
-                    bfc_invert_next = False
-
-            elif line_type == '4' and len(parts) >= 14:
-                try:
-                    color_code = int(parts[1])
-                    effective_color = parent_color_code if color_code == 16 else color_code
-                    rgba = self._resolve_color(effective_color)
-
-                    v = []
-                    for k in range(2, 14, 3):
-                        p = np.array([float(parts[k]), float(parts[k+1]), float(parts[k+2]), 1.0])
-                        v.append((transform @ p)[:3])
-                    vertices.extend(v)
-                    vertex_colors.extend([rgba] * 4)
-                    idx = len(vertices) - 4
-                    if is_mirrored:
-                        faces.append(np.array([idx, idx+2, idx+1]))
-                        faces.append(np.array([idx, idx+3, idx+2]))
-                    else:
-                        faces.append(np.array([idx, idx+1, idx+2]))
-                        faces.append(np.array([idx, idx+2, idx+3]))
-                except ValueError: pass
-                finally:
-                    bfc_invert_next = False
-
+                finally: bfc_invert_next = False
         return vertices, faces, vertex_colors
 
     def convert_to_glb(self, dat_filename: str, output_path: str, color_code: int = 7) -> bool:
-        """
-        核心转换函数: .dat -> .glb（带颜色）
-        color_code: LDraw 颜色代码，用作 color 16（主色）的实际颜色
-        """
-        logger.info(f"正在转换几何体: {dat_filename} -> {output_path} (color={color_code})")
-        
-        LDU_TO_SI = 0.0004
-        
-        vertices, faces, vertex_colors = self.extract_geometry(
-            dat_filename, parent_color_code=color_code
-        )
-        
-        if not vertices or not faces:
-            logger.warning(f"未能提取到有效几何数据: {dat_filename}")
-            return False
-
+        """核心转换函数: .dat -> .glb (SI 米制 + Y-Up 归一化)"""
+        vertices, faces, vertex_colors = self.extract_geometry(dat_filename, parent_color_code=color_code)
+        if not vertices or not faces: return False
         try:
-            verts_arr = np.array(vertices) * LDU_TO_SI
-            faces_arr = np.array(faces)
-
-            if vertex_colors:
-                vc_arr = np.array(vertex_colors, dtype=np.uint8)
-            else:
-                rgba = self._resolve_color(color_code)
-                vc_arr = np.tile(np.array(rgba, dtype=np.uint8), (len(verts_arr), 1))
-
-            mesh = trimesh.Trimesh(
-                vertices=verts_arr,
-                faces=faces_arr,
-                vertex_colors=vc_arr,
-                process=False
-            )
-            
+            verts_arr = np.array(vertices)
+            verts_arr = (CoordinateTransformer.get_rx180() @ verts_arr.T).T * CoordinateTransformer.LDU_TO_SI
+            mesh = trimesh.Trimesh(vertices=verts_arr, faces=np.array(faces), 
+                                   vertex_colors=np.array(vertex_colors, dtype=np.uint8) if vertex_colors else None, 
+                                   process=False)
             mesh.fix_normals()
-            
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            
-            export_data = trimesh.exchange.gltf.export_glb(
-                scene=trimesh.Scene(mesh),
-            )
-            with open(output_path, 'wb') as f:
-                f.write(export_data)
-            
-            logger.info(f"转换成功: {output_path} (vertices={len(mesh.vertices)}, faces={len(mesh.faces)})")
+            export_data = trimesh.exchange.gltf.export_glb(scene=trimesh.Scene(mesh))
+            with open(output_path, 'wb') as f: f.write(export_data)
             return True
         except Exception as e:
-            logger.error(f"构建或导出网格失败: {e}")
+            logger.error(f"GLB 导出失败: {e}")
             return False
 
-    def get_cross_section_profile(self, dat_filename: str, axis: int = 0, num_slices: int = 30) -> Optional[dict]:
-        """
-        沿指定轴切片，计算零件在每个位置的截面半径（到轴心的最大距离）。
-        返回: { axis_positions: [...], radii: [...], bbox_min: [...], bbox_max: [...] }
-        单位: SI (meters)
-        :param axis: 0=X, 1=Y, 2=Z
-        """
-        LDU_TO_SI = 0.0004
-        vertices, faces, _ = self.extract_geometry(dat_filename)
-        if not vertices:
-            return None
-        
-        verts = np.array(vertices) * LDU_TO_SI
-        
-        bbox_min = verts.min(axis=0)
-        bbox_max = verts.max(axis=0)
-        
-        axis_min = bbox_min[axis]
-        axis_max = bbox_max[axis]
-        
-        cross_axes = [i for i in range(3) if i != axis]
-        
-        positions = np.linspace(axis_min, axis_max, num_slices)
-        radii = []
-        slice_thickness = (axis_max - axis_min) / num_slices * 1.5
-        
-        for pos in positions:
-            mask = np.abs(verts[:, axis] - pos) < slice_thickness
-            nearby = verts[mask]
-            if len(nearby) == 0:
-                radii.append(0.0)
-                continue
-            dists = np.sqrt(nearby[:, cross_axes[0]]**2 + nearby[:, cross_axes[1]]**2)
-            radii.append(float(np.max(dists)))
-        
-        return {
-            "axis": axis,
-            "axis_positions": positions.tolist(),
-            "radii": radii,
-            "bbox_min": bbox_min.tolist(),
-            "bbox_max": bbox_max.tolist(),
-        }
-
-    def get_hole_radius(self, dat_filename: str, hole_axis: int = 1) -> Optional[float]:
-        """
-        估算梁孔的内径：在孔位处沿 hole_axis 的中心截面上，找最小内圈距离。
-        返回: 孔的半径 (SI)
-        """
-        LDU_TO_SI = 0.0004
-        vertices, faces, _ = self.extract_geometry(dat_filename)
-        if not vertices:
-            return None
-        
-        verts = np.array(vertices) * LDU_TO_SI
-        
-        cross_axes = [i for i in range(3) if i != hole_axis]
-        
-        center_mask = np.abs(verts[:, hole_axis]) < 0.001
-        center_verts = verts[center_mask]
-        if len(center_verts) == 0:
-            return None
-        
-        dists = np.sqrt(center_verts[:, cross_axes[0]]**2 + center_verts[:, cross_axes[1]]**2)
-        inner_verts = center_verts[dists < np.median(dists)]
-        if len(inner_verts) == 0:
-            return None
-        
-        inner_dists = np.sqrt(inner_verts[:, cross_axes[0]]**2 + inner_verts[:, cross_axes[1]]**2)
-        return float(np.max(inner_dists))
-
-
-if __name__ == "__main__":
-    # 小型本地测试
-    proc = GeometryProcessor(ldraw_path="ldraw_lib")
-    test_part = "32523.dat"
-    out_file = "ldraw_meshes/32523.glb"
-    proc.convert_to_glb(test_part, out_file)
+    def discover_ports(self, filename: str, transform: np.ndarray = np.eye(4)) -> List[Dict]:
+        """递归发现 LDraw 文件中的物理连接点，应用归一化位姿。"""
+        filepath = self.resolve_path(filename)
+        if not filepath: return []
+        discovered = []
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception: return []
+        for line in lines:
+            parts = line.strip().split()
+            if not parts or parts[0] != '1': continue
+            child_file = parts[-1].lower()
+            x, y, z = map(float, parts[2:5])
+            a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
+            local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
+            global_mat = transform @ local_mat
+            if child_file in SEMANTIC_PRIMITIVES or any(child_file.startswith(p) for p in CONNECTOR_PREFIXES):
+                y_scale = np.linalg.norm(global_mat[:3, 1])
+                is_axle = "axle" in child_file
+                base_unit_len = 1.0 if not is_axle else (5.75 if "axlehol8" in child_file else 1.0)
+                length_ldu = y_scale * base_unit_len * 20.0 if y_scale <= 10.0 else y_scale
+                num_units = max(1, int(round(length_ldu / 20.0)))
+                step_dir = -1.0 if is_axle else 1.0
+                for k in range(num_units):
+                    offset_y = k * 20.0 * step_dir
+                    lv = np.array([0, offset_y / y_scale, 0, 1])
+                    raw_pos_ldu = (global_mat @ lv)[:3]
+                    raw_rot_ldu = global_mat[:3, :3].copy()
+                    norm_rot_ldw = CoordinateTransformer.purify_matrix(raw_rot_ldu)
+                    pos_m = CoordinateTransformer.normalize_pos(raw_pos_ldu)
+                    rot_norm = CoordinateTransformer.normalize_rot(norm_rot_ldw)
+                    from backend.port import Port
+                    ld_type = "peghole.dat" if ("hole" in child_file or "beamhole" in child_file) else "fric_pin.dat"
+                    port_obj = Port.from_raw(name=f"{filename}_p", ldraw_type=ld_type, pos=pos_m, rot=rot_norm, part_context=filename)
+                    if port_obj: discovered.append(port_obj.to_dict())
+            else:
+                discovered.extend(self.discover_ports(child_file, transform=global_mat))
+        return discovered

@@ -10,16 +10,16 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from physics_engine import PhysicsEngine
-from topology_manager import TopologyManager, PartNode, ConnectionEdge
-from port_library import PortLibrary
-from geometry_processor import GeometryProcessor
+from backend.physics_engine import PhysicsEngine
+from backend.topology_manager import TopologyManager, PartNode, ConnectionEdge
+from backend.port_library import PortLibrary
+from backend.geometry_processor import GeometryProcessor
 from fastapi.staticfiles import StaticFiles
-from port_library_manager import PortLibraryManager
-from port_semantics import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
-from port import Port
-from core_constants import LDU
-from math_utils import purify_rotation_matrix, matrix_to_list
+from backend.port_library_manager import PortLibraryManager
+from backend.port_semantics import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
+from backend.port import Port
+from backend.core_constants import LDU
+from backend.math_utils import purify_rotation_matrix, matrix_to_list
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-from core_constants import LDU
+from backend.core_constants import LDU
 
 # 配合公差（SI 单位，米）
 # 真实 ABS 塑料可承受约 0.1-0.3mm 径向变形

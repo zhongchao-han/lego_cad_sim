@@ -103,8 +103,28 @@ class PortDiscoverer:
                                     
                                     raw_rot = global_mat[:3, :3].copy()
                                     norm_rot = purify_rotation_matrix(raw_rot)
-                                    sampled_pos_m = sampled_pos * LDU_TO_SI
                                     
+                                    # --- 核心归一化变革 [The Great Normalization] ---
+                                    # 为了适配 Web-GL/Three.js 的 Y-Up 环境，将 LDraw 的 Y-Down 坐标系绕 X 轴旋转 180 度
+                                    # 变换矩阵 Rx180 = [[1, 0, 0], [0, -1, 0], [0, 0, -1]]
+                                    
+                                    # 1. 位置翻转与单位化 (SI Meters)
+                                    # 注意：原 sampled_pos 为 LDU，我们需要先翻转再转换。
+                                    final_pos_m = np.array([
+                                        sampled_pos[0],
+                                        -sampled_pos[1], # Y 轴取反
+                                        -sampled_pos[2]  # Z 轴取反
+                                    ]) * LDU_TO_SI
+
+                                    # 2. 旋转矩阵翻转
+                                    # T_new = Rx180 @ T_orig
+                                    rx180 = np.array([
+                                        [1, 0, 0],
+                                        [0, -1, 0],
+                                        [0, 0, -1]
+                                    ])
+                                    final_rot = rx180 @ norm_rot
+
                                     from port import Port
                                     ld_type = "fric_pin.dat" if "fric" in child_file else ("peghole" if "hole" in child_file else "peg")
                                     # 针对特定 Technic 原件的细化修正
@@ -114,8 +134,8 @@ class PortDiscoverer:
                                     port_obj = Port.from_raw(
                                         name=f"{filename}_p",
                                         ldraw_type=ld_type,
-                                        pos=sampled_pos_m,
-                                        rot=norm_rot,
+                                        pos=final_pos_m,
+                                        rot=final_rot,
                                         part_context=filename
                                     )
                                     if port_obj:

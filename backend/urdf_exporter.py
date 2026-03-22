@@ -16,7 +16,7 @@ import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from connection_edge import ConnectionEdge
+from backend.connection_edge import ConnectionEdge
 
 logger = logging.getLogger(__name__)
 

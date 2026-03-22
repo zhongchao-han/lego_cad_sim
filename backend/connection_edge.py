@@ -72,7 +72,7 @@ class ConnectionEdge:
         """
         检验两端口的物理接口是否可插合（极性互补 + 截面相同 + 无几何干涉）。
         """
-        from port_semantics import FitType
+        from backend.port_semantics import FitType
         fit = self.port_parent.test_fit_with(self.port_child)
         return fit not in (FitType.INCOMPATIBLE, FitType.BLOCKED)
 

@@ -5,11 +5,9 @@ import logging
 from typing import Dict, List, Tuple, Any, Optional
 import uuid
 
-from port import Port
-
-# 从独立模块导入，保持向后兼容：外部代码 `from topology_manager import ConnectionEdge` 仍可用
-from connection_edge import ConnectionEdge, JointState  # noqa: F401
-from urdf_exporter import URDFExporter
+from backend.port import Port
+from backend.connection_edge import ConnectionEdge, JointState
+from backend.urdf_exporter import URDFExporter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
