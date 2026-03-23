@@ -22,15 +22,41 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy trimesh scipy fastapi uvicorn pydantic # 基础依赖
-          # 如果有 requirements.txt，也可改为 pip install -r backend/requirements.txt
+          pip install numpy trimesh scipy fastapi uvicorn pydantic mypy ruff # 增加审计工具
+
+      - name: Backend Type Analysis (Mypy)
+        run: |
+          # [TRACER] 严格检查 Python 类型契约
+          python -m mypy backend --ignore-missing-imports --explicit-package-bases
+
+      - name: Backend Static Code Audit (Ruff)
+        run: |
+          # 快速检查代码中的拼写错误或规范问题
+          python -m ruff check backend
 
       - name: Run Backend Unit Tests
         run: |
           # 核心：执行所有 v1.3 物理对齐测试及遗留逻辑测试
-          # 我们排除掉已经过时的 test_assembly_root 和 test_insertion
           python -m unittest backend/tests/test_v1_3_metrics.py \
                             backend/tests/test_6558_sampling.py \
                             backend/tests/test_port_connections.py \
                             backend/tests/test_port_parsing.py \
                             backend/tests/test_port_library_manager.py
+
+      # --- [新增] 前端静态质量审计环节 ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Frontend Static Type Analysis (TS Audit)
+        working-directory: ./frontend
+        run: npx tsc --noEmit # 核心检查命令：如果不通过，CI 流程将直接中断报错
+        
+      - name: Frontend ESLint Audit
+        working-directory: ./frontend
+        run: npm run lint # 额外增加：检查未定义的变量、未使用的导入等代码规范问题
