@@ -33,14 +33,14 @@ def start_server():
         print(f"错误: 找不到 {script_path}")
         return
 
-    print(f"正在启动后端服务: {script_path} ...")
+    print(f"正在启动后端服务 (模块): backend.server ...")
     # 使用与系统环境一致的 python 解释器
     try:
-        # 使用 Popen 后台运行
-        subprocess.Popen([sys.executable, script_path], 
+        # 使用 Popen 后台运行，通过 -m 启动以正确处理包导入
+        subprocess.Popen([sys.executable, "-m", "backend.server"], 
                          cwd=os.getcwd(),
                          creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0)
-        print("后端服务已在后台启动。")
+        print("后端服务已在后台以模块形式启动。")
     except Exception as e:
         print(f"启动失败: {e}")
 

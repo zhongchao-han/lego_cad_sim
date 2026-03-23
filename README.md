@@ -52,7 +52,8 @@ pip install fastapi uvicorn pydantic pybullet networkx trimesh scipy numpy
 
 2. 开启并暴露 8000 Web 端口启动实时运算伺服程序：
 ```bash
-python server.py
+python -m backend.server
+# 或者使用重启脚本：python scripts/restart_server.py
 # 启动就绪后可供 React 获取引擎流。
 ```
 
