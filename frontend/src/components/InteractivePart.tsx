@@ -22,6 +22,7 @@ interface InteractivePartProps {
   ldrawId?: string;
   colorCode?: number;
   onPortClick?: (port: any) => void;
+  onPortHover?: (port: any | null) => void;
   showPorts?: boolean;
   onHoverChange?: (h: boolean) => void;
   onDoubleClick?: () => void;
@@ -33,6 +34,7 @@ export const InteractivePart = memo(({
   ldrawId,
   colorCode = 7, 
   onPortClick, 
+  onPortHover,
   showPorts = true, 
   onHoverChange,
   onDoubleClick,
