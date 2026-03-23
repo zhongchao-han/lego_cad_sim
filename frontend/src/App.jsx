@@ -103,6 +103,20 @@ function App() {
     return () => { isMounted = false; clearTimeout(reconnectTimer); if (ws) ws.close(); };
   }, [setWsConnected, batchUpdatePartStates]);
 
+  const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
+  const interactionPhase = useStore((state) => state.interactionPhase);
+
+  // 键盘全局监听：ESC 取消选中
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        abortCurrentInteraction();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [abortCurrentInteraction]);
+
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">
       {/* 宏观策略：分视图渲染 UI，互不干扰 */}
@@ -115,6 +129,12 @@ function App() {
             shadows
             gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
             className="w-full h-full"
+            onPointerMissed={() => {
+                // 如果当前正在锁定源端口，点击空白处则释放
+                if (interactionPhase !== 'IDLE') {
+                    abortCurrentInteraction();
+                }
+            }}
           >
             <Suspense fallback={<Html center><span>Loading…</span></Html>}>
               <Scene />
