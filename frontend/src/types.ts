@@ -81,4 +81,5 @@ export interface SelectedPortInfo {
   position: Vec3;
   rotation: Mat3;
   globalPos: Vec3;
+  globalQuat: Quat;
 }

@@ -341,9 +341,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const { position, quaternion } = calculateSnapPose(
       source.position as Vec3, 
-      getQuatFromMat3(source.rotation),
-      target.position as Vec3,
-      getQuatFromMat3(target.rotation)
+      getQuatFromMat3(source.rotation as Mat3),
+      target.globalPos as Vec3,
+      target.globalQuat as Quat
     );
 
     const updated: Record<string, PartState> = { ...parts };

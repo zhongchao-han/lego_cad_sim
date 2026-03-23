@@ -89,8 +89,8 @@ const PlacementGhost = () => {
     const previewPose = calculateSnapPose(
         selectedPort.position,
         getQuatFromMat(selectedPort.rotation),
-        hoveredPort.position,
-        getQuatFromMat(hoveredPort.rotation)
+        hoveredPort.globalPos,
+        hoveredPort.globalQuat
     );
 
     return (

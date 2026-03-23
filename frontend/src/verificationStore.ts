@@ -3,6 +3,7 @@ import { useStore } from './store';
 import { clearPartCache } from './useLDrawPart';
 
 export interface PortData {
+  name: string;
   type: string;
   position: [number, number, number];
   rotation: number[][];
@@ -108,6 +109,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
   addPort: (type) => {
     log(`Manually adding port: ${type}`, 'ACTION');
     const newPort: PortData = {
+      name: `manual_${Date.now()}`, // [补丁] 确保前端手动生成的端口具备唯一 Name 以满足后端 Pydantic 校验
       type: type === 'peghole' ? 'peghole.dat' : 'peg',
       position: [0, 0, 0],
       rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]]

@@ -175,10 +175,43 @@ export const InteractivePart = memo(({
 
             <mesh
               renderOrder={999}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+                const worldPos = new THREE.Vector3().copy(new THREE.Vector3(...port.localPos));
+                const worldQuat = new THREE.Quaternion().copy(port.quaternion);
+                if (groupRef.current) {
+                    groupRef.current.localToWorld(worldPos);
+                    const groupWorldQuat = new THREE.Quaternion();
+                    groupRef.current.getWorldQuaternion(groupWorldQuat);
+                    worldQuat.premultiply(groupWorldQuat);
+                }
+                
+                onPortHover?.({
+                  partId,
+                  ldrawId: ldrawId || partId,
+                  portType: port.type,
+                  position: port.localPos,
+                  rotation: port.rot,
+                  globalPos: [worldPos.x, worldPos.y, worldPos.z],
+                  globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
+                });
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = 'auto';
+                onPortHover?.(null);
+              }}
               onClick={(e) => {
                 e.stopPropagation();
-                const worldPos = new THREE.Vector3(...port.localPos);
-                if (!isStatic && groupRef.current) groupRef.current.localToWorld(worldPos);
+                const worldPos = new THREE.Vector3().copy(new THREE.Vector3(...port.localPos));
+                const worldQuat = new THREE.Quaternion().copy(port.quaternion);
+                
+                if (groupRef.current) {
+                    groupRef.current.localToWorld(worldPos);
+                    const groupWorldQuat = new THREE.Quaternion();
+                    groupRef.current.getWorldQuaternion(groupWorldQuat);
+                    worldQuat.premultiply(groupWorldQuat);
+                }
                 
                 onPortClick?.({
                   partId,
@@ -187,16 +220,10 @@ export const InteractivePart = memo(({
                   position: port.localPos,
                   rotation: port.rot,
                   globalPos: [worldPos.x, worldPos.y, worldPos.z],
+                  globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
                 });
               }}
               onDoubleClick={(e) => e.stopPropagation()}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                document.body.style.cursor = 'pointer';
-              }}
-              onPointerOut={() => {
-                document.body.style.cursor = 'auto';
-              }}
             >
               <sphereGeometry args={[12 * LDU, 6, 6]} />
               <meshBasicMaterial transparent opacity={0} depthTest={false} />
