@@ -201,10 +201,10 @@ class GeometryProcessor:
             x, y, z = map(float, parts[2:5])
             a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
             local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
-            global_mat = transform @ local_mat
+            current_global_mat = global_mat @ local_mat
             
             if child_file in SEMANTIC_PRIMITIVES or any(child_file.startswith(p) for p in CONNECTOR_PREFIXES):
-                y_scale = np.linalg.norm(global_mat[:3, 1])
+                y_scale = np.linalg.norm(current_global_mat[:3, 1])
                 
                 # 采样步长判定
                 base_unit_len = 1.0
@@ -222,7 +222,7 @@ class GeometryProcessor:
                 for k in range(num_units):
                     offset_y = k * 20.0 * step_dir
                     lv = np.array([0, offset_y / y_scale, 0, 1])
-                    p_mat = global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
+                    p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                     
                     # 强制正交化与右手系检阅
                     pure_rot_ldu = purify_rotation_matrix(p_mat[:3, :3])
@@ -237,6 +237,6 @@ class GeometryProcessor:
                         "rotation": final_rot.tolist()
                     })
             else:
-                # 关键修复：向下传递 root_id
-                discovered.extend(self.discover_ports(child_file, transform=global_mat, root_id=root_id))
+                # 递归发现子部件端口
+                discovered.extend(self.discover_ports(child_file, current_global_mat, root_id=root_id))
         return discovered
