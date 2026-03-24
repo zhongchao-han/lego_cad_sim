@@ -1,4 +1,4 @@
-# LEGO CAD 仿真系统：全链路质量验证协议 (Test Case Specifications v3.0)
+# LEGO CAD 仿真系统：全链路质量验证协议 (Test Case Specifications v3.1)
 
 ## 0. 质量公约 (Quality Covenant)
 本协议规定了系统在 v3.0 归一化架构下必须通过的测试项。任何涉及物理坐标、网格导出及拓扑连接的修改，必须通过以下所有自动化与人工测试逻辑。
@@ -20,12 +20,10 @@
 - **预期输出**: 一个标准的、行列式为 1 的正交矩阵。
 - **断言**: `is_orthogonal(result_matrix) == True`。
 
-### **Test 1.3: 步长采样完整性 (Pitch-based Sampling)**
-- **测试模型**: `32316.dat` (3L 梁) 或 `6558.dat` (3L 带摩擦销)。
-- **预期输出**: 
-    - 端口计数恰好为 3。
-    - 端口间距精准等于 **0.008m** (20 LDU)。
-- **断言**: `len(ports) == 3`, `dist(p0, p1) == 0.008`。
+### **Test 1.3: Site 聚类准度 (Site-Based Clustering)**
+- **测试零件**: `6558.dat` (3L 带摩擦销)。
+- **逻辑**: 验证 3 个 LDraw 原始点是否被正确聚合为 **3 个独立 Site**。
+- **断言**: `len(sites) == 3`, `all(len(s.ports) >= 1 for s in sites)`。
 
 ---
 
@@ -53,8 +51,8 @@
 - **断言**: `dot(v_source_z, v_target_z) == -1.0` (误差 < 1e-6)。
 
 ### **Test 3.2: 自动闭合扫描 (Auto-Snap Auto-Latching)**
-- **场景**: 两个多孔梁通过一根销钉连接后，用户通过滑动逻辑将另一个销钉也对准孔。
-- **预期输出**: 当间距 < 1mm 时，`TopologyManager` 自动产生第二条 `ConnectionEdge`。
+- **状态**: <span style="color:red">**[GAP - 待后端触发器集成]**</span>
+- **预期**: 当间距 < 1mm 时，`TopologyManager` 自动产生第二条 `ConnectionEdge`。
 
 ---
 

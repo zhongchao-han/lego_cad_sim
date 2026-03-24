@@ -105,25 +105,48 @@ class PortLibrary:
             return []
 
         json_ports = []
-        for i, mp in enumerate(part_config.get("ports", [])):
-            pos_ldu    = np.array(mp.get("position", [0.0, 0.0, 0.0]))
-            pos_global = (transform @ np.append(pos_ldu, 1.0))[:3]
-            
-            # JSON 旋转数据已归一化
-            rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
-            rot_global = transform[:3, :3] @ rot_local
-            
-            p_type     = mp.get("type", "peg")
-            
-            # 宏观治理：
-            # 这里的 position 数据来自 ldraw_port_configs.json。
-            # 既然我们的标准已经是 SI 米制，此处就不再需要乘以 LDU_TO_SI，直接透传。
-            port = Port.from_config(
-                f"{part_name}_p{i}", p_type, pos_global, rot_global
-            )
-            if port:
-                json_ports.append(port)
+        
+        # 1. 优先加载 Site-Based 结构 (v3.1+)
+        if "sites" in part_config:
+            for site_idx, site_cfg in enumerate(part_config["sites"]):
+                site_pos = np.array(site_cfg.get("position", [0.0, 0.0, 0.0]))
+                for port_idx, mp in enumerate(site_cfg.get("ports", [])):
+                    # 如果 Port 自身没有 position，则取 Site 的 position
+                    p_pos_local = np.array(mp.get("position", site_pos))
+                    pos_global = (transform @ np.append(p_pos_local, 1.0))[:3]
+                    
+                    rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
+                    rot_global = transform[:3, :3] @ rot_local
+                    
+                    p_type = mp.get("type", "peg")
+                    is_adj = mp.get("is_manually_adjusted", False)
+                    
+                    port = Port.from_config(
+                        f"{part_name}_s{site_idx}_p{port_idx}", p_type, pos_global, rot_global,
+                        is_manually_adjusted=is_adj
+                    )
+                    if port:
+                        json_ports.append(port)
+                        
+        # 2. 兜底加载扁平 Ports 结构 (向后兼容 v3.0)
+        elif "ports" in part_config:
+            for i, mp in enumerate(part_config["ports"]):
+                pos_ldu    = np.array(mp.get("position", [0.0, 0.0, 0.0]))
+                pos_global = (transform @ np.append(pos_ldu, 1.0))[:3]
                 
+                rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
+                rot_global = transform[:3, :3] @ rot_local
+                
+                p_type     = mp.get("type", "peg")
+                is_adj     = mp.get("is_manually_adjusted", False)
+                
+                port = Port.from_config(
+                    f"{part_name}_p{i}", p_type, pos_global, rot_global,
+                    is_manually_adjusted=is_adj
+                )
+                if port:
+                    json_ports.append(port)
+                    
         return json_ports
 
 if __name__ == "__main__":

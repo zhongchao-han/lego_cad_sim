@@ -16,26 +16,32 @@ graph TD
     subgraph "1. 资产构建流程 (Pre-processing)"
         A[".dat LDraw Source"] --> B["AssetFactory (生产线)"]
         B --> C["Mesh Generator (GLB Output)"]
-        B --> D["Port Sampler (Port Data Output)"]
+        B --> D["Port Sampler (Port Data Discovery)"]
+        D --> D1["Site Clustering (动态聚类)"]
         C --> E["/public/ldraw_meshes/ (静态存储)"]
-        D --> F["ldraw_port_configs.json (SSOT)"]
+        D1 --> F["ldraw_port_configs.json (v3.1 SSOT)"]
     end
 
-    subgraph "2. 人工校验管线 (Library Verify HITL)"
-        E --> G["Verify UI (视觉回送)"]
-        F --> G
-        G --> H["/api/verify/save (修正请求)"]
-        H --> F["已校验位姿更新 (verified:true)"]
+    subgraph "2. 后端 API 调度逻辑 (Runtime Dispatcher)"
+        F --> Q{Is Verified?}
+        Q -- "Yes (Cache HIT)" --> R["Direct Site Load (免聚类保护)"]
+        Q -- "No (Cache MISS)" --> S["Dynamic Clustering (实时聚类)"]
+        R --> T["API: /api/ldraw_part"]
+        S --> T
     end
 
-    subgraph "3. 物理装配消费 (Simulation Stage)"
-        F --> I["InteractivePart (React 直接渲染)"]
-        F --> J["PhysicsEngine (米制对冲解析)"]
-        E --> I
+    subgraph "3. 前端交互与物理反馈 (Simulation Sync)"
+        T --> I["InteractivePart (React Frontend)"]
+        I -- "Snap Actions" --> J["TopologyManager (拓扑合并)"]
+        J --> K["PhysicsEngine (仿真步进)"]
+        K -- "WebSocket (1/60s)" --> L["States Stream (位姿回传)"]
+        L --> I
     end
 
     style B fill:#e3f2fd,stroke:#1565c0
-    style G fill:#fffde7,stroke:#fbc02d
+    style Q fill:#fffde7,stroke:#fbc02d
+    style D1 fill:#f3e5f5,stroke:#7b1fa2
+    style L fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ---
@@ -47,31 +53,46 @@ graph TD
 -   **关键算子**:
     1.  **矩阵提纯 (Purification)**: 消除嵌套浮点误差。
     2.  **空间归一化**: 执行 Rx180 翻转。
-    3.  **步长采样 (Pitch Sampling)**: 在长插销 (2L, 3L) 路径上按照 8mm (20 LDU) 间距均匀采样。
--   **主要产出**: 同步写入 **`.glb`** 文件与 **`ldraw_port_configs.json`**。
+    3.  **Site 聚类 (Clustering)**: 执行 `site_utils.py` 中的近邻贪心聚类算法，将距离 < 0.1mm 的端口归并为 Site。
+-   **主要产出**: 同步写入 **`.glb`** 文件与 **`ldraw_port_configs.json`** (v3.1 Sites 模式)。
 
-### **2.2 第二阶段：人工校验质量关 (Quality Control - HITL)**
--   **责任**: 识别不可自动化的轴向误差。
+### **2.2 第二阶段：运行时 API 服务 (API Dispatch Stage)**
+-   **核心原则：保护人工由于误差**
+-   **逻辑分支**：
+    -   **已校验 (Verified)**: 直接读取 `sites` 数组，跳过聚类。这是为了防止重新聚类可能导致的人工微调数据偏移。
+    -   **未校验 (Pending)**: 调用 `site_utils.py` 进行实时聚类，以便在交互界面中提供基础的可视化位点。
+
+### **2.3 第三阶段：物理同步流 (State Sync Stage)**
+-   **协议**: WebSocket (`/ws/physics_stream`)。
+-   **频率**: 60Hz。
+-   **内容**: 包含所有 Link 的位姿矩阵及其物理状态（如线速度、角速度）。
 
 ---
 
-## 4. 资产数据结构规范 (Asset Data Schema v3.0)
+## 4. 资产数据结构规范 (Asset Data Schema v3.1)
 
-所有通过烘焙管线的零件在 `ldraw_port_configs.json` 中遵循以下 **“原子资产包”** 规范：
+所有通过烘焙管线的零件在 `ldraw_port_configs.json` 中遵循以下 **“Site-Based 资产包”** 规范：
 
 ```json
 {
   "part_id.dat": {
-    "version": "v3.0.normalized",
+    "version": "v3.1.sites",
     "baked_at": "YYYY-MM-DD HH:MM:SS",
     "glb_path": "data/custom_assets/part_id.glb",
-    "verified": false,
-    "ports": [
+    "status": "verified",
+    "sites": [
       {
-        "name": "string (unique_id)",
-        "type": "string (primitive_name)",
+        "id": "string (part_id_siteN)",
         "position": [number, number, number], // SI Meters (Y-Up)
-        "rotation": [[number,3], [number,3], [number,3]] // SO(3) Orthogonal Matrix
+        "ports": [
+          {
+            "name": "string (unique_id)",
+            "type": "string (primitive_name)",
+            "position": [number, number, number],
+            "rotation": [[number,3], [number,3], [number,3]],
+            "is_manually_adjusted": boolean
+          }
+        ]
       }
     ]
   }

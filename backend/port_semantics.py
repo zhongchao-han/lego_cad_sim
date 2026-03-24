@@ -88,6 +88,7 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # ── MALE（销/轴）────────────────────────────────────────────────────────
     # 普通销（间隙配合）：半径 5.9 LDU < 孔半径 6.0 LDU，可自由旋转
     "peg":          ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
+    "peg.dat":      ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
     "pin":          ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
     "pin.dat":      ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
 
@@ -101,6 +102,12 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # LDraw 中对应 6558.dat 等（摩擦脊在模型中被夸大，实际阻尼由物理引擎注入）
     "fric_pin.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),
     "pin_friction": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),
+    
+    # 摩擦脊原件 (Friction Ridges)：广泛用于 Technic 长销系列
+    "confric3.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 20.0 * LDU),
+    "confric5.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 20.0 * LDU),
+    "confric6.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),
+    "confric8.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),
 
     # 十字轴：锁定旋转
     "axle":         ConnectionInterface(Gender.MALE, Profile.CROSS, 3.9 * LDU, 40.0 * LDU),

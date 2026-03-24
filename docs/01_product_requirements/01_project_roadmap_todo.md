@@ -27,8 +27,8 @@
 ## 🚀 正在进行 (In Progress)
 
 ### 1. 核心拓扑升级 (Topology Upgrade)
-- [ ] **Site-Port 数据规范实现**：重构 `ldraw_port_configs.json`，将端口平铺列表升级为 **Site-Based（物理场站）** 方案。
-- [ ] **后端自动闭环扫描**：实现在单次 Snap 后自动扫描并闭合邻近的位移对齐点。
+- [x] **Site-Port 数据规范实现**：重构 `ldraw_port_configs.json`，将端口平铺列表升级为 **Site-Based（物理场站）** 方案。
+- [x] **后端自动闭环扫描**：实现在单次 Snap 后自动扫描并闭合邻近的位移对齐点。
 
 ### 2. 交互系统 1.2 落地 (UX Implementation)
 - [x] **3D 方向选择箭头 (Gizmos)**：`SiteGizmo.tsx` 组件已实现，支持 Hover 展开、Intent 极性过滤（SOURCE_LOCKED 阶段）、点击锁定目标端口，并集成到 `InteractivePart`。

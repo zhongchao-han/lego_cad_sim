@@ -21,6 +21,7 @@ from backend.port import Port
 from backend.core_constants import LDU
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
+from backend.auto_latch_scanner import AutoLatchScanner
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -79,6 +80,10 @@ class SnapRequest(BaseModel):
     parent_rot: list
     child_origin: list
     child_rot: list
+    # v3.1: 世界坐标，用于 AutoLatchScanner 的 Site 距离筛选
+    # 格式: [x, y, z]（SI 米制，Y-Up），由前端在 Snap 确认后传入
+    parent_world_pos: Optional[list] = None
+    child_world_pos: Optional[list] = None
 
 class ForceRequest(BaseModel):
     link_name: str
@@ -345,7 +350,62 @@ async def snap_parts(req: SnapRequest):
         port_child=port_c,
     )
     topo_manager.connect_ports(edge)
-    return {"status": "success", "msg": f"Connected {req.parent_id} to {req.child_id}"}
+
+    # ── v3.1: Auto-Latch 自动闭合扫描 ────────────────────────────────────────
+    # 前提：前端在 Snap 确认后必须传入 parent_world_pos / child_world_pos。
+    # 若未传入（如旧版前端），则跳过自动扫描，保持后向兼容。
+    auto_latched_count = 0
+    if req.parent_world_pos is not None and req.child_world_pos is not None:
+        try:
+            # 为两个零件各构建一个平移世界变换矩阵（仅位移，旋转部分留待后续版本完善）
+            def _make_world_t(origin: list, rot: list) -> np.ndarray:
+                T = np.eye(4)
+                T[:3, :3] = np.array(rot).reshape(3, 3)
+                T[:3,  3] = np.array(origin[:3])
+                return T
+
+            parent_T = _make_world_t(req.parent_world_pos, req.parent_rot)
+            child_T  = _make_world_t(req.child_world_pos,  req.child_rot)
+
+            # 从真理库加载两个零件的 Site 配置
+            parent_cfg = port_lib_manager.get_part_data(req.parent_id)
+            child_cfg  = port_lib_manager.get_part_data(req.child_id)
+            parent_sites = parent_cfg.get("sites", []) if parent_cfg else []
+            child_sites  = child_cfg.get("sites",  []) if child_cfg  else []
+
+            if parent_sites and child_sites:
+                scanner = AutoLatchScanner()
+                new_edges = scanner.scan(
+                    parent_id=req.parent_id,
+                    child_id=req.child_id,
+                    parent_sites=parent_sites,
+                    child_sites=child_sites,
+                    parent_world_transform=parent_T,
+                    child_world_transform=child_T,
+                    exclude_port_pair=(
+                        f"p_{req.parent_id}",
+                        f"c_{req.child_id}",
+                    ),
+                )
+                auto_latched_count = topo_manager.batch_connect(new_edges)
+                logger.info(
+                    f"[AutoLatch] Snap({req.parent_id} ↔ {req.child_id}): "
+                    f"自动闭合 {auto_latched_count} 条额外连接。"
+                )
+            else:
+                logger.debug(
+                    f"[DEBUG] AutoLatch 跳过: parent_sites={len(parent_sites)}, "
+                    f"child_sites={len(child_sites)}，其中一方为空。"
+                )
+        except Exception as exc:
+            # 自动扫描失败不应阻断主连接的成功响应（降级处理）
+            logger.error(f"[AutoLatch] 扫描异常（主连接已建立）: {exc}", exc_info=True)
+
+    return {
+        "status": "success",
+        "msg": f"Connected {req.parent_id} to {req.child_id}",
+        "auto_latched_count": auto_latched_count,
+    }
 
 
 @app.get("/api/insertion_check")

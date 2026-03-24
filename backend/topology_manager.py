@@ -53,8 +53,40 @@ class TopologyManager:
         if not self.graph.has_node(edge.parent_id) or not self.graph.has_node(edge.child_id):
             logger.error("连接建立失败：有端口引用的 PartNode ID 不在图中，请先 add_part。")
             return
-            
+
         self.graph.add_edge(edge.parent_id, edge.child_id, key=uuid.uuid4().hex, data=edge)
+
+    def batch_connect(self, edges: List[ConnectionEdge]) -> int:
+        """
+        幂等性批量注册连接边。仅注册目标节点已存在于图中的连接。
+
+        Args:
+            edges: 由 AutoLatchScanner 发现的 ConnectionEdge 列表。
+
+        Returns:
+            实际成功注册的边数量。
+        """
+        logger.debug(f"[DEBUG] batch_connect: 尝试注册 {len(edges)} 条自动发现边。")
+        success_count = 0
+        for edge in edges:
+            if not self.graph.has_node(edge.parent_id):
+                logger.warning(
+                    f"[AutoLatch] 跳过边: 父节点 {edge.parent_id!r} 不在图中，忽略。"
+                )
+                continue
+            if not self.graph.has_node(edge.child_id):
+                logger.warning(
+                    f"[AutoLatch] 跳过边: 子节点 {edge.child_id!r} 不在图中，忽略。"
+                )
+                continue
+            self.graph.add_edge(edge.parent_id, edge.child_id, key=uuid.uuid4().hex, data=edge)
+            success_count += 1
+            logger.info(
+                f"[AutoLatch] 注册: {edge.parent_id} ↔ {edge.child_id} "
+                f"({edge.port_parent.port_type} ↔ {edge.port_child.port_type})"
+            )
+        logger.debug(f"[DEBUG] batch_connect: 成功注册 {success_count} 条边。")
+        return success_count
 
     def _derive_joint(self, edge: "ConnectionEdge") -> Tuple[str, float, float]:
         """
