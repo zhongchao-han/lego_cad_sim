@@ -1,18 +1,29 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 export interface LDrawPort {
+  name: string;
   type: string;
   position: [number, number, number];
   rotation: number[][];
+  is_manually_adjusted?: boolean;
+}
+
+/** 物理坑位：共享同一中心点的一组端口（来自后端 Site 聚类） */
+export interface LDrawSite {
+  id: string;
+  position: [number, number, number];
+  occupied_by: string | null;
+  ports: LDrawPort[];
 }
 
 export interface LDrawPartState {
   loading: boolean;
   error: string | null;
-  ports: LDrawPort[];
+  ports: LDrawPort[];       // 向后兼容：扁平列表
+  sites: LDrawSite[];       // 新增：聚类后的 Site 列表
   meshUrl?: string;
 }
 
@@ -36,6 +47,7 @@ export function useLDrawPart(
     loading: !!partId,
     error: null,
     ports: [],
+    sites: [],
     meshUrl: undefined,
   }));
 
@@ -47,6 +59,7 @@ export function useLDrawPart(
         loading: false,
         error: null,
         ports: [],
+        sites: [],
         meshUrl: undefined,
       });
       return;
@@ -65,6 +78,7 @@ export function useLDrawPart(
         loading: true,
         error: null,
         ports: [],
+        sites: [],
         meshUrl: undefined,
       });
 
@@ -81,6 +95,7 @@ export function useLDrawPart(
           loading: false,
           error: null,
           ports: res.data?.ports ?? [],
+          sites: res.data?.sites ?? [],
           meshUrl: res.data?.mesh_url ?? res.data?.meshUrl,
         };
 
@@ -93,6 +108,7 @@ export function useLDrawPart(
           loading: false,
           error: message,
           ports: [],
+          sites: [],
           meshUrl: undefined,
         };
         partCache.set(cacheKey, next);

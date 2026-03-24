@@ -9,6 +9,7 @@ import os
 import json
 import logging
 import threading
+from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,10 @@ class PortLibraryManager:
                 logger.warning(f"跳过更新: 零件 {part_id} 已人工核验 (verified)，且未启用 force。")
                 return False
 
+            # 核心修正：任何写入操作都必须刷新时间戳与版本号，以触发前端/缓存失效
+            data["baked_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            data["version"] = "v3.0.normalized"
+
             # 将新数据深度写入主字典
             self._data[part_id] = data
             return True
@@ -110,22 +115,26 @@ class PortLibraryManager:
         logger.debug(f"[DEBUG] 进入 get_part_config: part_id={part_id}")
         return self.get_part_data(part_id)
 
-    def update_part_config(self, part_id: str, ports: List[Dict], status: str, confidence: float = 1.0, force: bool = False) -> bool:
+    def update_part_config(self, part_id: str, sites: List[Dict], status: str, confidence: float = 1.0, force: bool = False) -> bool:
         """
         [Compatibility] 专门服务于前端复核提交的接口。
-        将复核后的坐标与状态打包更新入库，同时保留原有的 v3.0 元数据。
+        将复核后的 Sites（包含坐标与端口集）与状态打包更新入库。
         """
         logger.debug(f"[DEBUG] 进入 update_part_config: part_id={part_id}, status={status}, force={force}")
         existing = self.get_part_data(part_id) or {}
         new_payload = existing.copy()
         
-        # 应用复核后的核心数据
+        # 应用复核后的层次化 Sites 数据
         new_payload.update({
-            "ports": ports,
+            "sites": sites,
             "status": status,
             "confidence": confidence,
             "verified": (status == "verified")
         })
+        
+        # 如果存在旧的扁平 ports，建议移除或同步更新（此处选择移除以推行新标准）
+        if "ports" in new_payload:
+            new_payload.pop("ports")
         
         return self.update_part(part_id, new_payload, force=force)
 
@@ -135,10 +144,16 @@ class PortLibraryManager:
             pending = []
             for pid, cfg in self._data.items():
                 if cfg.get("status") == "pending":
+                    # 优先从 sites 计算总端口数
+                    if "sites" in cfg:
+                        count = sum(len(s.get("ports", [])) for s in cfg["sites"])
+                    else:
+                        count = len(cfg.get("ports", []))
+                        
                     pending.append({
                         "part_id": pid,
                         "confidence": cfg.get("confidence", 1.0),
-                        "port_count": len(cfg.get("ports", []))
+                        "port_count": count
                     })
             
             # 自信度从小到大排序
@@ -150,9 +165,14 @@ class PortLibraryManager:
             verified = []
             for pid, cfg in self._data.items():
                 if cfg.get("status") == "verified":
+                    if "sites" in cfg:
+                        count = sum(len(s.get("ports", [])) for s in cfg["sites"])
+                    else:
+                        count = len(cfg.get("ports", []))
+
                     verified.append({
                         "part_id": pid,
-                        "port_count": len(cfg.get("ports", [])),
+                        "port_count": count,
                         # 默认颜色设为灰黑色 (color=7) 的 GLB 路径
                         "mesh_url": f"/ldraw_meshes/{pid.replace('.dat', '')}_c7.glb"
                     })

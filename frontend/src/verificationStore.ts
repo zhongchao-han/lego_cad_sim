@@ -7,6 +7,7 @@ export interface PortData {
   type: string;
   position: [number, number, number];
   rotation: number[][];
+  is_manually_adjusted?: boolean;
 }
 
 export interface PendingPart {
@@ -106,7 +107,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     }
   },
 
-  addPort: (type) => {
+  addPort: (type: 'peghole' | 'peg') => {
     log(`Manually adding port: ${type}`, 'ACTION');
     const newPort: PortData = {
       name: `manual_${Date.now()}`, // [补丁] 确保前端手动生成的端口具备唯一 Name 以满足后端 Pydantic 校验
@@ -117,24 +118,25 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     set({ currentPorts: [...get().currentPorts, newPort] });
   },
 
-  deletePort: (index) => {
+  deletePort: (index: number) => {
     log(`Deleting port index [${index}]`, 'ACTION');
     const newPorts = [...get().currentPorts];
     newPorts.splice(index, 1);
     set({ currentPorts: newPorts });
   },
 
-  updatePort: (index, newData) => {
+  updatePort: (index: number, newData: Partial<PortData>) => {
     const newPorts = [...get().currentPorts];
     newPorts[index] = { ...newPorts[index], ...newData };
     set({ currentPorts: newPorts });
   },
 
-  movePort: (index, axis, delta) => {
+  movePort: (index: number, axis: 0 | 1 | 2, delta: number) => {
     const newPorts = [...get().currentPorts];
     const p = [...newPorts[index].position];
     p[axis] += delta;
     newPorts[index].position = p as any;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -143,6 +145,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     const newPorts = [...get().currentPorts];
     const p = newPorts[index].position.map(v => Math.round(v / 20) * 20);
     newPorts[index].position = p as any;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -158,6 +161,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
       [rot[2][0]*flipMat[0][0], rot[2][1]*flipMat[1][1], rot[2][2]*flipMat[2][2]]
     ];
     newPorts[index].rotation = newRot;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -172,6 +176,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
         [rot[2][0]*rotateMat[0][0] + rot[2][2]*rotateMat[2][0], rot[2][1], rot[2][0]*rotateMat[0][2] + rot[2][2]*rotateMat[2][2]]
     ];
     newPorts[index].rotation = newRot;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -183,6 +188,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     const res = [[0,0,0],[0,0,0],[0,0,0]];
     for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++) res[r][c] += rot[r][k]*rx[k][c];
     newPorts[index].rotation = res;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -194,6 +200,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     const res = [[0,0,0],[0,0,0],[0,0,0]];
     for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++) res[r][c] += rot[r][k]*ry[k][c];
     newPorts[index].rotation = res;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -205,6 +212,7 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
     const res = [[0,0,0],[0,0,0],[0,0,0]];
     for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++) res[r][c] += rot[r][k]*rz[k][c];
     newPorts[index].rotation = res;
+    newPorts[index].is_manually_adjusted = true;
     set({ currentPorts: newPorts });
   },
 
@@ -222,16 +230,54 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
      * - 这保证了仿真引擎后端可以直接加载这些真实物理位移数据。
      */
     const SI_METERS_CONV = 0.0004;
-    const portsToSave = currentPorts.map(p => ({
+    const SITE_MERGE_THRESHOLD = 0.0001; // 0.1mm
+
+    // 1. 坐标转换与初步封装
+    const portsWithSI = currentPorts.map(p => ({
       ...p,
-      position: p.position.map(v => v * SI_METERS_CONV)
+      position: p.position.map(v => v * SI_METERS_CONV) as [number, number, number]
     }));
-    
+
+    // 2. 贪心聚类：将 Port 归入 Site
+    const sites: any[] = [];
+    const assigned = new Array(portsWithSI.length).fill(false);
+
+    for (let i = 0; i < portsWithSI.length; i++) {
+      if (assigned[i]) continue;
+
+      const p_i = portsWithSI[i];
+      const siteId = `${currentPartId}_site${sites.length}`;
+      const currentSite = {
+        id: siteId,
+        position: p_i.position,
+        ports: [p_i]
+      };
+      assigned[i] = true;
+
+      for (let j = i + 1; j < portsWithSI.length; j++) {
+        if (assigned[j]) continue;
+        const p_j = portsWithSI[j];
+        
+        // 计算欧氏距离
+        const dist = Math.sqrt(
+          Math.pow(p_i.position[0] - p_j.position[0], 2) +
+          Math.pow(p_i.position[1] - p_j.position[1], 2) +
+          Math.pow(p_i.position[2] - p_j.position[2], 2)
+        );
+
+        if (dist < SITE_MERGE_THRESHOLD) {
+          currentSite.ports.push(p_j);
+          assigned[j] = true;
+        }
+      }
+      sites.push(currentSite);
+    }
+
     try {
       const resp = await fetch(`${API_BASE}/verify/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ part_id: currentPartId, ports: portsToSave })
+        body: JSON.stringify({ part_id: currentPartId, sites })
       });
       if (resp.ok) {
         log(`Verification SAVED successfully for ${currentPartId}`, 'INFO');

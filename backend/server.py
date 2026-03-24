@@ -20,6 +20,7 @@ from backend.port_semantics import get_interface, check_fit, build_fit_result, F
 from backend.port import Port
 from backend.core_constants import LDU
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
+from backend.site_utils import cluster_ports_into_sites, sites_to_response
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -89,15 +90,24 @@ class LDrawPort(BaseModel):
     type: str
     position: list
     rotation: list
+    is_manually_adjusted: bool = False
+
+class LDrawSite(BaseModel):
+    """物理坑位：共享同一中心点的一组端口。"""
+    id: str
+    position: list
+    occupied_by: Optional[str] = None
+    ports: List[LDrawPort]
 
 class LDrawPartResponse(BaseModel):
     part_id: str
-    ports: List[LDrawPort]
+    ports: List[LDrawPort]         # 向后兼容：保留扁平 Port 列表
+    sites: List[LDrawSite] = []   # 新增：按物理位点聚类后的 Site 列表
     mesh_url: Optional[str] = None
 
 class VerifySaveRequest(BaseModel):
     part_id: str
-    ports: List[LDrawPort]
+    sites: List[LDrawSite]
 
 # --- 核心业务 API ---
 
@@ -128,144 +138,80 @@ async def search_parts(q: str):
     with port_lib_manager._lock:
         for pid, cfg in port_lib_manager._data.items():
             if q in pid.lower():
+                # 计算端口数以向后兼容
+                if "sites" in cfg:
+                    count = sum(len(s.get("ports", [])) for s in cfg["sites"])
+                else:
+                    count = len(cfg.get("ports", []))
+                    
                 results.append({
                     "part_id": pid,
                     "status": cfg.get("status", "pending"),
                     "confidence": cfg.get("confidence", 1.0),
-                    "port_count": len(cfg.get("ports", []))
+                    "port_count": count
                 })
-    return results[:50] # 限制返回数量防止 UI 爆炸
+    return results[:50]
 
 @app.post("/api/verify_part")
+@app.post("/api/verify/save")
 async def save_verification(req: VerifySaveRequest):
     """
-    [TRACER] 接收并保存人工复核的零件配置。
+    接收并保存人工复核的零件配置。
+    支持层次化的 Site-Port 结构。
     """
-    print(f"[TRACE] Server 接收到复核提交: Part ID={req.part_id}, Ports={len(req.ports)}")
+    logger.info(f"收到复核提交: Part ID={req.part_id}, Sites={len(req.sites)}")
+    
+    def clean_pos(v):
+        if isinstance(v, (float, np.floating)):
+            return round(float(v), 6)
+        if isinstance(v, list): return [clean_pos(i) for i in v]
+        return v
+
     try:
-        # 将前端发来的结构转换为内部的 LDrawPort 模型
-        def clean_pos(v):
-            if isinstance(v, (float, np.floating)):
-                # 宏观治理：由于已切换为 SI 米制，原先 [10 LDU] 级别的吸附逻辑会误杀微小位移。
-                # 现在直接保留高精度原始值，物理吸附应交由前端 Grid 或解析脚本负责。
-                return round(float(v), 6)
-            if isinstance(v, list): return [clean_pos(i) for i in v]
-            return v
-
-        def clean_rot(v):
-            if isinstance(v, (float, np.floating)):
-                return round(float(v), 6)
-            if isinstance(v, list): return [clean_rot(i) for i in v]
-            return v
-
-        ports_dict = []
-        for p in req.ports:
-            # 1. 基础清理与格式化
-            p_data = p.model_dump()
-            p_data["position"] = [clean_pos(x) for x in p_data["position"]]
+        final_sites = []
+        for site_req in req.sites:
+            site_dict = site_req.model_dump()
+            site_dict["position"] = [clean_pos(x) for x in site_dict["position"]]
             
-            # 2. 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
-            raw_rot = np.array(p_data["rotation"])
-            pure_rot = purify_rotation_matrix(raw_rot)
-            p_data["rotation"] = matrix_to_list(pure_rot)
+            normalized_ports = []
+            for p_req in site_req.ports:
+                p_data = p_req.model_dump()
+                p_data["position"] = [clean_pos(x) for x in p_data["position"]]
+                
+                # 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
+                raw_rot = np.array(p_data["rotation"])
+                pure_rot = purify_rotation_matrix(raw_rot)
+                p_data["rotation"] = matrix_to_list(pure_rot)
+                
+                # 构造 Port 对象以利用 to_dict() 的规范化输出
+                obj = Port.from_config(
+                    f"{req.part_id}_v", p_data['type'], np.array(p_data['position']), np.array(p_data['rotation']),
+                    is_manually_adjusted=p_data.get('is_manually_adjusted', False)
+                )
+                if obj:
+                    normalized_ports.append(obj.to_dict())
+                else:
+                    normalized_ports.append(p_data)
             
-            ports_dict.append(p_data)
+            site_dict["ports"] = normalized_ports
+            final_sites.append(site_dict)
 
-        # 统一入库标准：在保存 verified 数据前，确保其轴向是归一化且规整的
-        final_ports = []
-        for p in ports_dict:
-            # 此时 np 已在全局作用域定义
-            obj = Port.from_config(
-                f"{req.part_id}_v", p['type'], np.array(p['position']), np.array(p['rotation'])
-            )
-            if obj:
-                final_ports.append(obj.to_dict())
-            else:
-                final_ports.append(p)
-
-        # 注意：这里调用 update_part_config，将状态设为 verified
         success = port_lib_manager.update_part_config(
             part_id=req.part_id,
-            ports=final_ports,
+            sites=final_sites,
             status="verified",
             confidence=1.0,
-            force=True  # 人工复核总是强制覆盖
+            force=True
         )
+        
         if success:
             port_lib_manager.save()
             return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
         else:
-            return {"status": "error", "msg": f"Failed to update config for {req.part_id}."}
+            return {"status": "error", "msg": "Failed to update config."}
+            
     except Exception as e:
-        logger.error(f"保存复核数据失败: {req.part_id} - {e}", exc_info=True)
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/verify/save")
-async def save_verified_ports(req: VerifySaveRequest):
-    """保存人工复核后的端口数据，状态设为 verified。"""
-    logger.debug(f"[DEBUG] 进入 save_verified_ports: req={req.model_dump()}")
-    try:
-        def clean_pos(v):
-            if isinstance(v, (float, np.floating)):
-                # 宏观治理：由于已切换为 SI 米制，原先 [10 LDU] 级别的吸附逻辑会误杀微小位移。
-                # 现在直接保留高精度原始值，物理吸附应交由前端 Grid 或解析脚本负责。
-                return round(float(v), 6)
-            if isinstance(v, list): return [clean_pos(i) for i in v]
-            return v
-
-        def clean_rot(v):
-            if isinstance(v, (float, np.floating)):
-                return round(float(v), 6)
-            if isinstance(v, list): return [clean_rot(i) for i in v]
-            return v
-
-        ports_dict = []
-        for p in req.ports:
-            # 1. 基础清理与格式化
-            p_data = p.model_dump()
-            p_data["position"] = [clean_pos(x) for x in p_data["position"]]
-            
-            # [TRACER] 实时断点审计：观察前端原始数据的物理形态
-            _raw = p_data["rotation"]
-            _np_raw = np.array(_raw)
-            print(f"[TRACE] Frontend Rotation Data: {_raw}")
-            print(f"[TRACE] Python Type: {type(_raw)}, Inner Type: {type(_raw[0][0])}")
-            print(f"[TRACE] NumPy Result Dtype: {_np_raw.dtype}")
-            
-            # 2. 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
-            pure_rot = purify_rotation_matrix(_np_raw)
-            p_data["rotation"] = matrix_to_list(pure_rot)
-            p_data["rotation"] = matrix_to_list(pure_rot)
-            
-            ports_dict.append(p_data)
-
-        # 统一入库标准：在保存 verified 数据前，确保其轴向是归一化且规整的
-        final_ports = []
-        for p in ports_dict:
-            # 此时 np 已在全局作用域定义
-            obj = Port.from_config(
-                f"{req.part_id}_v", p['type'], np.array(p['position']), np.array(p['rotation'])
-            )
-            if obj:
-                final_ports.append(obj.to_dict())
-            else:
-                final_ports.append(p)
-
-        # 注意：这里调用 update_part_config，将状态设为 verified
-        success = port_lib_manager.update_part_config(
-            part_id=req.part_id,
-            ports=final_ports,
-            status="verified",
-            confidence=1.0,
-            force=True  # 人工复核总是强制覆盖
-        )
-        if success:
-            port_lib_manager.save()
-            return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
-        else:
-            return {"status": "error", "msg": f"Failed to update config for {req.part_id}."}
-    except Exception as e:
-        logger.error(f"保存复核数据失败: {req.part_id} - {e}", exc_info=True)
+        logger.error(f"保存失败: {e}", exc_info=True)
         return {"status": "error", "msg": str(e)}
 
 @app.post("/api/toggle_mode")
@@ -310,30 +256,59 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
         part_id = part_id.strip()
         dat_filename = part_id if part_id.lower().endswith(".dat") else f"{part_id}.dat"
 
-        # 1. 检查持久化层中是否已有烘培好的 V3.0 数据
+        # 1. 检查持久化层中是否已有烘培好的数据
         cached_data = port_lib_manager.get_part_data(dat_filename)
-        if cached_data and cached_data.get("version") == "v3.0.normalized":
-            ports = [LDrawPort(**p) for p in cached_data["ports"]]
-            glb_filename = os.path.basename(cached_data["glb_path"])
+        glb_filename = f"{part_id.replace('.dat', '')}_c{color}.glb"
+        
+        # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites，禁止重新聚类以防元数据丢失
+        if cached_data and cached_data.get("status") == "verified":
+            logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
+            return LDrawPartResponse(
+                part_id=dat_filename,
+                ports=[LDrawPort(**p) for p in cached_data.get("ports", [])] if "ports" in cached_data else [],
+                sites=[LDrawSite(**s) for s in cached_data.get("sites", [])],
+                mesh_url=cached_data.get("mesh_url") or f"/ldraw_meshes/{glb_filename}"
+            )
+
+        if cached_data:
+            # 优先处理 Site-Based 结构 (v3.1+)
+            if "sites" in cached_data:
+                ports = []
+                for s_cfg in cached_data["sites"]:
+                    s_pos = s_cfg.get("position", [0, 0, 0])
+                    for p_cfg in s_cfg.get("ports", []):
+                        # 兼容：如果 port 没位移，取 site 位移
+                        if "position" not in p_cfg:
+                            p_cfg["position"] = s_pos
+                        ports.append(LDrawPort(**p_cfg))
+            # 向后兼容扁平结构
+            else:
+                ports = [LDrawPort(**p) for p in cached_data.get("ports", [])]
+            
+            glb_filename = os.path.basename(cached_data.get("glb_path", f"{part_id.replace('.dat', '')}_c{color}.glb"))
         else:
-            # 2. 如果没有（或版本过旧），则执行实时高精度解析
+            # 2. 如果没有，则执行实时高精度解析
             logger.info(f"[*] 缓存缺失，正在为 {dat_filename} 执行实时 v3.0 解析...")
             raw_ports = geo_proc.discover_ports(dat_filename)
             ports = [LDrawPort(**p) for p in raw_ports]
             
             # 同时生成预览模型 (Color 7)
-            glb_filename = f"{part_id.replace('.dat', '')}_c{color}.glb"
             glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
             geo_proc.convert_to_glb(dat_filename, glb_path, color=color)
+
+        # 动态聚类：无论从缓存还是实时解析，均在查询时计算 Sites
+        ports_raw = [p.model_dump() for p in ports]
+        computed_sites = cluster_ports_into_sites(ports_raw, dat_filename)
+        sites_serialized = [LDrawSite(**s) for s in sites_to_response(computed_sites)]
 
         return LDrawPartResponse(
             part_id=dat_filename,
             ports=ports,
+            sites=sites_serialized,
             mesh_url=f"/ldraw_meshes/{glb_filename}"
         )
     except Exception as e:
         logger.error(f"Failed to get_ldraw_part: {part_id} - {str(e)}", exc_info=True)
-        # 显式抛出 500 并在日志中记录调用栈
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=str(e))
 

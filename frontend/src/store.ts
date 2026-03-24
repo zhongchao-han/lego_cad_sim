@@ -35,6 +35,7 @@ interface StoreState {
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
   hoveredPort: SelectedPortInfo | null;
+  slidingTarget: SelectedPortInfo | null; // 新增：正在滑动的目标参考点
   interactionPhase: InteractionPhase;
   focusedPartId: string | null;
   focusMode: 'part' | 'assembly' | null;
@@ -82,7 +83,7 @@ interface StoreState {
 
   handlePortClick: (port: SelectedPortInfo) => Promise<void>;
   setHoveredPort: (port: SelectedPortInfo | null) => void;
-  snapParts: (source: SelectedPortInfo, target: SelectedPortInfo) => Promise<boolean>;
+  snapParts: (source: SelectedPortInfo, target: SelectedPortInfo, slideOffset?: number) => Promise<boolean>;
   abortCurrentInteraction: () => void;
   
   // 日志 Actions
@@ -170,6 +171,7 @@ export const useStore = create<StoreState>((set, get) => ({
   wsConnected: false,
   selectedPort: null,
   hoveredPort: null,
+  slidingTarget: null,
   interactionPhase: InteractionPhase.IDLE,
   focusedPartId: null,
   focusMode: null,
@@ -305,11 +307,17 @@ export const useStore = create<StoreState>((set, get) => ({
       get().addLog(`Target port selected: ${port.partId}. Starting snap animation...`, 'PHYSICS');
       set({ interactionPhase: InteractionPhase.ANIMATING_SNAP });
       const ok = await snapParts(selectedPort, port);
-      set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null, hoveredPort: null, canUndo: _history.canUndo, canRedo: _history.canRedo });
+      
       if (ok) {
-          get().addLog("Snap SUCCESSFUL.", 'PHYSICS');
+          get().addLog("Snap SUCCESSFUL. Entering Axial Sliding...", 'PHYSICS');
+          set({ 
+            interactionPhase: InteractionPhase.AXIAL_SLIDING,
+            slidingTarget: port,
+            slideOffset: 0
+          });
       } else {
           get().addLog("Snap FAILED.", 'ERROR');
+          set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null, hoveredPort: null });
       }
     }
   },
@@ -323,7 +331,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  snapParts: async (source, target) => {
+  snapParts: async (source, target, slideOffset = 0) => {
     const { parts, connections, stagingGrid } = get();
     const targetPart = parts[target.partId];
     if (!targetPart || targetPart.zone !== ZoneType.ACTIVE_ARENA) return false;
@@ -343,7 +351,8 @@ export const useStore = create<StoreState>((set, get) => ({
       source.position as Vec3, 
       getQuatFromMat3(source.rotation as Mat3),
       target.globalPos as Vec3,
-      target.globalQuat as Quat
+      target.globalQuat as Quat,
+      slideOffset
     );
 
     const updated: Record<string, PartState> = { ...parts };
@@ -410,7 +419,26 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ selection: { ...get().selection, primaryId: id, level } });
   },
   updateSelection: (level) => set({ selection: { ...get().selection, level } }),
-  updateSlideOffset: (o) => set({ slideOffset: o }),
+  updateSlideOffset: (o) => {
+    const { selectedPort, slidingTarget, snapParts } = get();
+    if (selectedPort && slidingTarget) {
+      set({ slideOffset: o });
+      snapParts(selectedPort, slidingTarget, o); // 实时更新位置
+    }
+  },
+  commitAxialSliding: () => {
+    const { canUndo, canRedo } = _history;
+    set({ 
+      interactionPhase: InteractionPhase.IDLE, 
+      selectedPort: null, 
+      hoveredPort: null, 
+      slidingTarget: null,
+      slideOffset: 0,
+      canUndo,
+      canRedo 
+    });
+    get().addLog("Axial Sliding committed.", 'ACTION');
+  },
   setBlocked: (r) => set({ interferenceReport: r }),
   setPhase: (p) => set({ interactionPhase: p }),
   commitAction: () => set({ interactionPhase: InteractionPhase.IDLE }),

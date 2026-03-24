@@ -14,7 +14,8 @@ export function calculateSnapPose(
     sourcePortPos: [number, number, number],
     sourcePortQuat: [number, number, number, number],
     targetPortPos: [number, number, number],
-    targetPortQuat: [number, number, number, number]
+    targetPortQuat: [number, number, number, number],
+    slideOffset: number = 0
 ) {
     // 1. 构造 Target 端口的全局矩阵 (T_target)
     const m_target = new THREE.Matrix4().compose(
@@ -31,14 +32,23 @@ export function calculateSnapPose(
     );
 
     // 3. 核心物理变换：对扣对齐
-    // 我们需要零件本身的矩阵 M_part，使得 M_part * T_source_local = T_target * T_flip
-    // T_flip 是将端口 Z 轴旋转 180 度的翻转矩阵（对扣）
     const m_flip = new THREE.Matrix4().makeRotationX(Math.PI); 
     
     // M_part = T_target * T_flip * (T_source_local)^-1
-    const m_part = m_target.clone()
+    let m_part = m_target.clone()
         .multiply(m_flip)
         .multiply(m_source_local.invert());
+
+    // 4. 沿轴滑动 (Axial Sliding)
+    // 偏移量是在连接轴（即对齐后的 Source 端口 Z 轴）上移动
+    if (slideOffset !== 0) {
+        const m_offset = new THREE.Matrix4().makeTranslation(0, 0, slideOffset);
+        
+        // 这里的逻辑是：零件整体相对于“完美吸附位”再偏移。
+        // 由于 m_part 是将零件原点移到位的矩阵，我们可以在 m_target * m_flip 之后应用位移
+        const m_final_snap = m_target.clone().multiply(m_flip).multiply(m_offset);
+        m_part = m_final_snap.multiply(m_source_local.invert());
+    }
 
     const finalPos = new THREE.Vector3();
     const finalQuat = new THREE.Quaternion();

@@ -24,7 +24,8 @@ export function LDrawMeshRenderer({
     onPointerOut, 
     onDoubleClick,
     highlightColor = null,
-    highlightIntensity = 0 
+    highlightIntensity = 0,
+    opacity = 1.0
 }: any) {
     const gltf = useGLTF(url, true) as any;
     const scene = Array.isArray(gltf) ? gltf[0].scene : gltf.scene;
@@ -42,6 +43,12 @@ export function LDrawMeshRenderer({
                 if (highlightColor) {
                     mat.emissive = new THREE.Color(highlightColor);
                     mat.emissiveIntensity = highlightIntensity;
+                }
+                
+                if (opacity < 1.0) {
+                    mat.transparent = true;
+                    mat.opacity = opacity;
+                    mat.depthWrite = false;
                 }
                 
                 mesh.material = mat;

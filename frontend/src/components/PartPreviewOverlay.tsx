@@ -68,7 +68,8 @@ export function PartPreviewOverlay() {
                <InteractivePart 
                  partId={previewPartId} 
                  onPortClick={onPortSelected}
-                 isStatic={true} // 静态零件，点击直接返回局部坐标
+                 isStatic={true}
+                 opacity={0.5} 
                />
                
                <CameraControls makeDefault minDistance={0.02} maxDistance={0.5} />
