@@ -51,9 +51,20 @@
 - **断言**: `dot(v_source_z, v_target_z) == -1.0` (误差 < 1e-6)。
 
 ### **Test 3.2: 自动闭合扫描 (Auto-Snap Auto-Latching)**
-- **状态**: <span style="color:red">**[GAP - 待后端触发器集成]**</span>
-- **预期**: 当间距 < 1mm 时，`TopologyManager` 自动产生第二条 `ConnectionEdge`。
-
+- **状态**: <span style="color:green">**[已上线 - 11/11 测试通过]**</span>
+- **核心组件覆盖 (`test_auto_latch_scanner.py`)**:
+    1. **正向匹配**: `test_single_compatible_site_pair_within_threshold` - 正确识别 1mm 内的相互兼容 Site。
+    2. **多点匹配**: `test_two_compatible_pairs_both_within_threshold` - 多重连接位点同时闭合。
+    3. **幂等排重**: `test_main_connection_excluded_by_idempotency` - 忽略主 Snap 产生的重复边。
+    4. **负向排斥 (语义)**:
+        - `test_incompatible_female_to_female_returns_empty` - 排斥 Female-Female。
+        - `test_incompatible_cross_to_round_returns_empty` - 排斥 Cross-Round 外形不匹配。
+    5. **负向排斥 (空间)**:
+        - `test_sites_beyond_threshold_return_empty` - 严格忽略 >1mm 的连接。
+        - `test_site_exactly_at_threshold_boundary` - 等于 1mm 边界通过。
+    6. **批量挂载 (`TopologyManager.batch_connect`)**:
+        - `test_batch_connect_registers_edges_for_existing_nodes` - 成功注册扫描边。
+        - `test_batch_connect_skips_unknown_nodes` / `empty_list` - 鲁棒性验证。
 ---
 
 ## 4. 物理约束与安全性 (Safety & Constraints)
@@ -75,7 +86,9 @@
 
 ---
 
-## 5. 质量回归基准 (Regression Baseline)
+## 5. 质量回归基准 (Regression Baseline / Integration)
 
-- **基准零件集**: `32316.dat`, `6558.dat`, `3749.dat`, `2780.dat`。
-- **通过准则**: 每次架构重构后，以上零件的 **连接自由度（DOF）** 必须保持与物理真实表现一致。
+- **基准测试集 (`test_v3_1_full_coverage.py` Section 5.0)**
+    - `test_5_0_site_cluster_produces_non_empty_result`: 保证对核心资产进行真实 `site_utils.py` 聚类能够产出有效的 Sites。
+    - `test_5_0_peg_hole_fit_baseline`: End-to-End 测试从配置抽取 -> 构建 Port -> `check_fit` -> 判定 `CLEARANCE` 兼容。
+- **通过准则**: 每次架构重构后，以上零件 (`32316.dat`, `6558.dat` 等) 的 **连续 Snap 与自动闭路** 必须无缝衔接。

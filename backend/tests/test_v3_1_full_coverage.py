@@ -516,5 +516,153 @@ class TestSection5_RegressionBaseline(unittest.TestCase):
                                     f"基准配合 {peg_t}->{hole_t} 不应返回 INCOMPATIBLE (语义回归失败)。")
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Section 6: 边界条件与防御性路径 (Corner Cases & Defensive Guards)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestSection6_CornerCasesAndDefense(unittest.TestCase):
+    """
+    补充覆盖规范中未明确描述但属于稳健性保证的边界条件。
+    包括: 未注册类型、序列化往返、关节类型推导、Site 释放、
+          非单位变换矩阵下的 Auto-Latch 扫描，以及重复 add_part 的幂等性。
+    """
+
+    # ── 6.1: Port 工厂防御性 (Unregistered Type) ─────────────────────────────
+
+    def test_6_1_from_raw_unknown_type_returns_none(self):
+        """
+        [Test 6.1] Port.from_raw 对未注册类型必须返回 None（不应崩溃）。
+        这是 auto_latch_scanner 的核心防御路径。
+        """
+        logger.debug("[Test 6.1] 未注册端口类型防御测试。")
+        result = Port.from_raw("ghost", "TOTALLY_UNKNOWN_TYPE.dat",
+                               np.zeros(3), np.eye(3))
+        self.assertIsNone(result, "未注册类型应使 from_raw 返回 None，而非崩溃。")
+
+    # ── 6.2: Port 序列化往返 (to_dict Round-trip) ────────────────────────────
+
+    def test_6_2_port_to_dict_round_trip(self):
+        """
+        [Test 6.2] Port.to_dict() 输出的字段必须完整且类型正确，
+        保证前端或持久化层能无损地恢复数据。
+        """
+        logger.debug("[Test 6.2] Port.to_dict() 序列化往返测试。")
+        pos = np.array([0.004, 0.0, -0.008])
+        rot = np.eye(3)
+        port = Port.from_raw("p0", "peg.dat", pos, rot, is_manually_adjusted=True)
+        self.assertIsNotNone(port)
+
+        d = port.to_dict()
+        self.assertEqual(d["name"], "p0")
+        self.assertEqual(d["type"], "peg.dat")
+        self.assertAlmostEqual(d["position"][0], 0.004, places=7)
+        self.assertTrue(d["is_manually_adjusted"], "手动调整标记未能正确序列化。")
+
+    # ── 6.3: 关节类型推导 (Joint Type Derivation) ────────────────────────────
+
+    def test_6_3_fixed_joint_derived_for_merged_connection(self):
+        """
+        [Test 6.3.a] is_merged=True 时 derive_joint 应返回 'fixed'。
+        这是过约束合并为 Fixed Joint 的物理语义验证。
+        """
+        logger.debug("[Test 6.3.a] Fixed Joint 类型推导测试。")
+        peg = _build_port("peg", "peg.dat", [0, 0, 0])
+        hole = _build_port("hole", "peghole.dat", [0, 0, 0])
+        j_type, _, _ = peg.derive_joint(hole, is_merged=True)
+        self.assertEqual(j_type, "fixed",
+                         "is_merged=True 应推导出 'fixed' 关节类型。")
+
+    def test_6_3_cross_profile_derived_as_fixed(self):
+        """
+        [Test 6.3.b] 十字轴插入轴孔 (Axle→AxleHole) 物理上无旋转自由度，
+        derive_joint_params 必须将其推导为 'fixed' 关节。
+        """
+        logger.debug("[Test 6.3.b] 十字轴 Fixed Joint 类型推导测试。")
+        axle = Port.from_raw("a", "axle.dat", np.zeros(3), np.eye(3))
+        axle_hole = Port.from_raw("ah", "axlehole.dat", np.zeros(3), np.eye(3))
+        if axle is None or axle_hole is None:
+            self.skipTest("axle.dat 或 axlehole.dat 未在 port_semantics 注册，跳过。")
+        j_type, _, _ = axle.derive_joint(axle_hole, is_merged=False)
+        self.assertEqual(j_type, "fixed",
+                         "十字截面配合 (CROSS) 应推导为 'fixed' 锁定关节。")
+
+    def test_6_3_cylinder_profile_derived_as_continuous(self):
+        """
+        [Test 6.3.c] 圆柱销插入圆孔 (Peg→PegHole) 有无限旋转自由度，
+        derive_joint_params 必须将其推导为 'continuous' 关节。
+        """
+        logger.debug("[Test 6.3.c] 圆柱销 Continuous Joint 类型推导测试。")
+        peg = Port.from_raw("p", "peg.dat", np.zeros(3), np.eye(3))
+        hole = Port.from_raw("h", "peghole.dat", np.zeros(3), np.eye(3))
+        if peg is None or hole is None:
+            self.skipTest("peg.dat 或 peghole.dat 未在 port_semantics 注册，跳过。")
+        j_type, _, _ = peg.derive_joint(hole, is_merged=False)
+        self.assertEqual(j_type, "continuous",
+                         "圆柱截面配合 (CYLINDER) 应推导为 'continuous' 连续旋转关节。")
+
+    # ── 6.4: Site 占用与释放 (Site Occupation Lifecycle) ─────────────────────
+
+    def test_6_4_site_release_clears_occupation(self):
+        """
+        [Test 6.4] Site 被占用后调用 release() 或清空 occupied_by，
+        is_occupied() 必须重新返回 False。
+        保证轴向滑动完成后 Site 状态能正确复位。
+        """
+        logger.debug("[Test 6.4] Site 占用释放生命周期测试。")
+        from backend.port import Site
+        site = Site(id="s0")
+        site.occupied_by = "part_X"
+        self.assertTrue(site.is_occupied(), "占用后 is_occupied 应返回 True。")
+        site.occupied_by = None
+        self.assertFalse(site.is_occupied(), "释放后 is_occupied 应重新返回 False。")
+
+    # ── 6.5: Auto-Latch 非单位变换矩阵 (Non-Identity Transform) ──────────────
+
+    def test_6_5_auto_latch_with_translated_world_transform(self):
+        """
+        [Test 6.5] AutoLatchScanner 在子零件有非零世界平移时，
+        必须正确将 Site 坐标投影到世界系后再判断距离。
+        若子零件平移后 Site 落在阈值外，扫描结果必须为空。
+        """
+        logger.debug("[Test 6.5] 非单位世界变换矩阵下的 Auto-Latch 扫描测试。")
+        from backend.auto_latch_scanner import AutoLatchScanner, AUTO_LATCH_THRESHOLD_M
+
+        scanner = AutoLatchScanner()
+        parent_sites = [{
+            "id": "s_p", "position": [0.0, 0.0, 0.0],
+            "ports": [{"name": "hole_p", "type": "peghole.dat",
+                       "position": [0, 0, 0], "rotation": [[1,0,0],[0,1,0],[0,0,1]]}]
+        }]
+        child_sites = [{
+            "id": "s_c", "position": [0.0, 0.0, 0.0],
+            "ports": [{"name": "peg_c", "type": "peg.dat",
+                       "position": [0, 0, 0], "rotation": [[1,0,0],[0,1,0],[0,0,1]]}]
+        }]
+        parent_T = np.eye(4)
+        # 子零件平移 10mm，远超 1mm 阈值
+        child_T = np.eye(4)
+        child_T[0, 3] = AUTO_LATCH_THRESHOLD_M * 10.0
+
+        edges = scanner.scan("beam", "pin", parent_sites, child_sites, parent_T, child_T)
+        self.assertEqual(len(edges), 0,
+                         "世界系下距离超过阈值时 Auto-Latch 不应返回任何边。")
+
+    # ── 6.6: TopologyManager 幂等 add_part ────────────────────────────────────
+
+    def test_6_6_add_part_is_idempotent(self):
+        """
+        [Test 6.6] 重复调用 add_part 同一零件不应产生重复节点。
+        保证多次热加载时拓扑图不会膨胀。
+        """
+        logger.debug("[Test 6.6] 重复 add_part 幂等性测试。")
+        manager = TopologyManager()
+        part = PartNode(part_id="dup_part", name="test")
+        manager.add_part(part)
+        manager.add_part(part)   # 再次添加，应被忽略
+        self.assertEqual(manager.graph.number_of_nodes(), 1,
+                         "重复 add_part 不应使节点数超过 1。")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

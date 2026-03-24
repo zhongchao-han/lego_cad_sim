@@ -60,3 +60,46 @@ export function calculateSnapPose(
         quaternion: [finalQuat.x, finalQuat.y, finalQuat.z, finalQuat.w] as [number, number, number, number]
     };
 }
+
+/**
+ * 沿指定端口的 Z 轴（法线）旋转整个零件
+ */
+export function calculatePortRotationPose(
+    partPos: [number, number, number],
+    partQuat: [number, number, number, number],
+    portLocalPos: [number, number, number],
+    portLocalQuat: [number, number, number, number],
+    angleRads: number
+) {
+    const m_part = new THREE.Matrix4().compose(
+        new THREE.Vector3(...partPos),
+        new THREE.Quaternion(...partQuat),
+        new THREE.Vector3(1, 1, 1)
+    );
+
+    const m_port_local = new THREE.Matrix4().compose(
+        new THREE.Vector3(...portLocalPos),
+        new THREE.Quaternion(...portLocalQuat),
+        new THREE.Vector3(1, 1, 1)
+    );
+
+    // 计算端口的当前全局矩阵
+    const m_port_global = m_part.clone().multiply(m_port_local);
+
+    // 在端口自身局部坐标系下绕 Z 轴旋转
+    const m_rot_z = new THREE.Matrix4().makeRotationZ(angleRads);
+    const m_port_new = m_port_global.multiply(m_rot_z);
+
+    // 反推零件的新全局矩阵
+    const m_part_new = m_port_new.multiply(m_port_local.invert());
+
+    const finalPos = new THREE.Vector3();
+    const finalQuat = new THREE.Quaternion();
+    const finalScale = new THREE.Vector3();
+    m_part_new.decompose(finalPos, finalQuat, finalScale);
+
+    return {
+        position: [finalPos.x, finalPos.y, finalPos.z] as [number, number, number],
+        quaternion: [finalQuat.x, finalQuat.y, finalQuat.z, finalQuat.w] as [number, number, number, number]
+    };
+}

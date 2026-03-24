@@ -71,6 +71,38 @@ classDiagram
         +triggerSnap(partId, targetPose)
     }
 
+    %% --- UX 与组件视图层 (Frontend Components) ---
+    class useStore {
+        <<Zustand State>>
+        +Vec3? cameraTarget
+        +setCameraTarget(pos)
+        +rotatePartAroundAxis(angle)
+    }
+
+    class CameraController {
+        <<React Component>>
+        +Vec3? target
+        +focusToTarget()
+    }
+
+    class ContextualRotationPanel {
+        <<React Component>>
+        +Port selectedPort
+        +renderStepButtons()
+    }
+
+    class SiteGizmo {
+        <<React Component>>
+        +Site siteData
+        +showPolarityIntent()
+    }
+
+    class InteractivePart {
+        <<React Component>>
+        +PartAsset data
+        +mountGizmos()
+    }
+
     %% --- 关系定义 ---
     PartAsset "1" *-- "many" Site
     Site "1" *-- "many" Port
@@ -78,6 +110,10 @@ classDiagram
     InteractionFSM ..> SelectionAnchor
     CollisionEngine ..> SelectionAnchor
     AssetFactory ..> PartAsset
+    useStore --> InteractionFSM
+    CameraController ..> useStore
+    ContextualRotationPanel ..> useStore
+    InteractivePart "1" *-- "many" SiteGizmo
 ```
 
 ---
@@ -96,6 +132,18 @@ classDiagram
 - **`Port`**: 强制 **+Z 轴** 为插入法线。
 - **`Site`**: 管理物理坑位。负责解决同心孔选择冲突。
 - **`PartAsset`**: 包含 `isGrounded` (地基锚定) 属性。
+
+### **2.3 UX 与前端组件类 (Frontend UI/UX)**
+- **`useStore`**: 中心化全局状态管理器 (Zustand)。
+    - 打通物理/逻辑计算与视图渲染边界，负责维护 `cameraTarget` 引用及触发 `rotatePartAroundAxis()`。
+- **`CameraController`**: 相机管控视图层。
+    - 监听 `cameraTarget`，自动执行无感知的平滑聚焦 (Auto-Frame) 过渡，消除互动视角的镜头虚晃。
+- **`ContextualRotationPanel`**: 上下文空间 UI。
+    - 依附于当前活动的 `selectedPort`，基于端口 Profile（如 CYLINDER）感知自由度 (DOF)，决定是否挂载或禁用旋转控件。
+- **`SiteGizmo`**: 坑位可交互锚点挂件。
+    - 处理 Hover 极性意图过滤。
+- **`InteractivePart`**: 3D 实体包裹器组件。
+    - 解析零件级别的数据集，并将基础网格和 `SiteGizmo` 挂载到正确的局部坐标系下。
 
 ---
 

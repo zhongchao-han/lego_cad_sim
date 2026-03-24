@@ -15,7 +15,7 @@ import {
 import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand } from './historyStack';
-import { calculateSnapPose } from './utils/snapMath';
+import { calculateSnapPose, calculatePortRotationPose } from './utils/snapMath';
 
 type ConnectionGraph = Record<string, Set<string>>;
 
@@ -62,6 +62,7 @@ interface StoreState {
   };
   interferenceReport: InterferenceReport;
   slideOffset: number;
+  cameraTarget: [number, number, number] | null;
 
   // Actions
   reset: () => void;
@@ -71,6 +72,7 @@ interface StoreState {
   batchUpdatePartStates: (updates: Record<string, Partial<PartState>>) => void;
   setWsConnected: (status: boolean) => void;
   setFocus: (focus: { partId: string | null; mode: 'part' | 'assembly' | null }) => void;
+  setCameraTarget: (target: [number, number, number] | null) => void;
   setShowPortGizmos: (value: boolean) => void;
   setEnableFocusAnimation: (value: boolean) => void;
   setEnableSSAO: (value: boolean) => void;
@@ -98,6 +100,7 @@ interface StoreState {
   selectPart: (id: string | null, level?: SelectionLevel) => void;
   updateSelection: (level: SelectionLevel) => void;
   updateSlideOffset: (offset: number) => void;
+  rotateSelectedPart: (angleRads: number) => void;
   setBlocked: (report: InterferenceReport) => void;
   setPhase: (phase: InteractionPhase) => void;
   commitAction: () => void;
@@ -191,6 +194,7 @@ export const useStore = create<StoreState>((set, get) => ({
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
+  cameraTarget: null,
 
   reset: () => {
       get().addLog("Store reset to default state.");
@@ -200,7 +204,8 @@ export const useStore = create<StoreState>((set, get) => ({
         hoveredPort: null,
         selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
-        slideOffset: 0
+        slideOffset: 0,
+        cameraTarget: null
       });
   },
 
@@ -240,11 +245,24 @@ export const useStore = create<StoreState>((set, get) => ({
       }
       set({ wsConnected: status });
   },
+  
+  setCameraTarget: (target) => set({ cameraTarget: target }),
+
   setFocus: ({ partId, mode }) => {
       const msg = partId ? `Focusing on ${partId} (Mode: ${mode})` : "Clearing focus";
       get().addLog(msg);
       set({ focusedPartId: partId, focusMode: mode });
+      
+      if (partId && get().enableFocusAnimation) {
+          const state = get().parts[partId];
+          if (state) {
+              set({ cameraTarget: [state.position[0], state.position[1], state.position[2]] });
+          }
+      } else if (!partId) {
+          set({ cameraTarget: null });
+      }
   },
+  
   setShowPortGizmos: (value) => set({ showPortGizmos: value }),
   setEnableFocusAnimation: (value) => set({ enableFocusAnimation: value }),
   setEnableSSAO: (value) => set({ enableSSAO: value }),
@@ -426,6 +444,30 @@ export const useStore = create<StoreState>((set, get) => ({
       snapParts(selectedPort, slidingTarget, o); // 实时更新位置
     }
   },
+  
+  rotateSelectedPart: (angleRads: number) => {
+    const { parts, selectedPort, updatePartState } = get();
+    if (!selectedPort) return;
+    
+    // The part being rotated is the one that contains the selectedPort.
+    const partId = selectedPort.partId;
+    const part = parts[partId];
+    if (!part) return;
+
+    // Use our utility to calculate new world pose rotated along local Z
+    const newPose = calculatePortRotationPose(
+        part.position,
+        part.quaternion,
+        selectedPort.position,
+        getQuatFromMat3(selectedPort.rotation),
+        angleRads
+    );
+
+    // Update the store and sync to physics
+    updatePartState(partId, newPose);
+    get().addLog(`Rotated part ${partId} by ${angleRads.toFixed(2)} rads`);
+  },
+
   commitAxialSliding: () => {
     const { canUndo, canRedo } = _history;
     set({ 

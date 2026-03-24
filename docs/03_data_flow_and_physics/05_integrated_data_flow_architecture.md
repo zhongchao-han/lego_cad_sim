@@ -38,10 +38,18 @@ graph TD
         L --> I
     end
 
+    subgraph "4. 视图层与体验驱动 (UX & State Flow)"
+        U["useStore (Zustand)"] -- "cameraTarget" --> V["CameraController (自动镜头聚焦)"]
+        U -- "selectedPort Profile" --> W["ContextualRotationPanel (DOF 上下文面板)"]
+        W -- "rotatePartAroundAxis" --> U
+        I -- "Hover/Click Intents" --> U
+    end
+
     style B fill:#e3f2fd,stroke:#1565c0
     style Q fill:#fffde7,stroke:#fbc02d
     style D1 fill:#f3e5f5,stroke:#7b1fa2
     style L fill:#e8f5e9,stroke:#2e7d32
+    style U fill:#fce4ec,stroke:#c2185b
 ```
 
 ---
@@ -66,6 +74,11 @@ graph TD
 -   **协议**: WebSocket (`/ws/physics_stream`)。
 -   **频率**: 60Hz。
 -   **内容**: 包含所有 Link 的位姿矩阵及其物理状态（如线速度、角速度）。
+
+### **2.4 第四阶段：视图层与体验驱动 (UX State Flow)**
+-   **全局状态机 (`useStore`)**: 作为交互层与逻辑层的唯一总线。接收来自 `InteractivePart` / `SiteGizmo` 的点击事件，计算目标 `cameraTarget` 坐标。
+-   **镜头自动对齐 (Auto-Frame)**: `CameraController` 订阅 `cameraTarget` 数据流，一旦发生变化即执行平滑的补间动画，实现镜头跟随。
+-   **上下文面板 (Rotation Panel)**: 面板组件订阅当前激活的 `selectedPort` 状态。它首先评估端口语义（比如判断 `Profile` 是否是 `CYLINDER` 允许旋转），继而按需挂载渲染 3D 控件，并将用户的步进指令派发回状态机。
 
 ---
 

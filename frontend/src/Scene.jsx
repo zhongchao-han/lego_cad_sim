@@ -3,6 +3,7 @@ import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } 
 import { useStore } from './store';
 import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
+import { ContextualRotationPanel } from './components/ContextualRotationPanel';
 import { InteractionPhase, ZoneType } from './types';
 import { calculateSnapPose } from './utils/snapMath';
 
@@ -110,6 +111,7 @@ const PlacementGhost = () => {
 export default function Scene() {
     const parts = useStore((s) => s.parts);
     const debugMode = useStore((s) => s.debugMode);
+    const cameraTarget = useStore((s) => s.cameraTarget);
 
     return (
         <>
@@ -140,13 +142,14 @@ export default function Scene() {
             />
             <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
 
-            <CameraController />
+            <CameraController target={cameraTarget} />
 
             {Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA).map(id => (
                 <LegoPart key={id} id={id} />
             ))}
 
             <PlacementGhost />
+            <ContextualRotationPanel />
 
             <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
