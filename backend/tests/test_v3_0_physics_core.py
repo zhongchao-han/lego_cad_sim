@@ -82,5 +82,54 @@ class TestV3PhysicsCore(unittest.TestCase):
         if ports:
             self.assertEqual(ports[0]['name'], "6558_p0")
 
+class TestConvertToGlbSignature(unittest.TestCase):
+    """
+    [Gap-C] 针对 convert_to_glb() 参数名的回归保护测试。
+
+    背景：
+        server.py 曾错误地以 `color=color` 调用此方法，运行时抛出
+        `TypeError: unexpected keyword argument 'color'`。
+        此测试集通过直接调用确保参数签名不发生静默退化。
+    """
+
+    def _make_processor(self) -> GeometryProcessor:
+        """构造一个不依赖真实 ldraw 库的处理器实例。"""
+        return GeometryProcessor(ldraw_path="ldraw_lib")
+
+    def test_color_code_kwarg_does_not_raise_type_error(self):
+        """
+        [Gap-C.1] 以 `color_code=` 关键字调用 convert_to_glb 不应抛出 TypeError。
+        这是对 server.py Bug 修复（color= → color_code=）的直接回归守卫。
+
+        注：因不依赖真实 LDraw 文件，extract_geometry 返回空，函数预期返回 False，
+        但参数绑定发生在调用初期，TypeError 在此之前即会抛出，可可靠验证签名。
+        """
+        gp = self._make_processor()
+        try:
+            # 以正确参数名调用；不依赖文件存在，仅验证签名合法性
+            result = gp.convert_to_glb("non_existent_for_sig_test.dat",
+                                       "/tmp/sig_test_output.glb",
+                                       color_code=7)
+            # 文件不存在时 extract_geometry 返回空列表 → convert_to_glb 返回 False（非崩溃）
+            self.assertFalse(result,
+                             "无有效几何体时 convert_to_glb 应返回 False，而非 True 或异常。")
+        except TypeError as exc:
+            self.fail(
+                f"convert_to_glb() 以 color_code= 调用抛出 TypeError，"
+                f"说明参数签名存在回归: {exc}"
+            )
+
+    def test_color_kwarg_raises_type_error(self):
+        """
+        [Gap-C.2] 以错误参数名 `color=` 调用 convert_to_glb 必须抛出 TypeError。
+        这是对修复前 Bug 行为的负向验证，保证方法签名严格拦截错误调用。
+        """
+        gp = self._make_processor()
+        with self.assertRaises(TypeError,
+                               msg="以 `color=` 调用 convert_to_glb 应抛出 TypeError（旧 Bug 路径）。"):
+            # type: ignore[call-arg]  — 故意传入错误参数名以验证签名拦截
+            gp.convert_to_glb("non_existent.dat", "/tmp/wrong_kwarg.glb", color=7)  # type: ignore[call-arg]
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -276,7 +276,7 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             if not os.path.exists(glb_path):
                 logger.warning(f"[CACHE] GLB 文件缺失: {glb_path}，正在按需生成...")
                 try:
-                    geo_proc.convert_to_glb(dat_filename, glb_path, color=color)
+                    geo_proc.convert_to_glb(dat_filename, glb_path, color_code=color)
                 except Exception as e:
                     logger.error(f"[CACHE] 实时补全 GLB 失败: {e}")
             
@@ -311,7 +311,7 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             
             # 同时生成预览模型 (Color 7)
             glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
-            geo_proc.convert_to_glb(dat_filename, glb_path, color=color)
+            geo_proc.convert_to_glb(dat_filename, glb_path, color_code=color)
 
         # 动态聚类：无论从缓存还是实时解析，均在查询时计算 Sites
         ports_raw = [p.model_dump() for p in ports]
