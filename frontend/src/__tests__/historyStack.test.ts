@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { HistoryStack, createSnapCommand, type ActionCommand, type SnapSnapshot } from './historyStack';
+import { HistoryStack, createSnapCommand, type ActionCommand, type SnapSnapshot } from '../historyStack';
 
 // ---------------------------------------------------------------------------
 // 辅助：构建测试用命令

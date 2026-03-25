@@ -88,11 +88,15 @@ describe('Store: Staging Logic', () => {
     // 2. 模拟从暂存区拼回主场 (Source: 32524 从暂存区出发 -> Target: 6558 还在主场)
     const mockSource = { 
       partId: sourceId, ldrawId: sourceId, portType: 'peg', 
-      position: [0, 0, 0] as [number, number, number], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], globalPos: [0,0,0] as [number,number,number] 
+      position: [0, 0, 0] as [number, number, number], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 
+      globalPos: [0,0,0] as [number,number,number],
+      globalQuat: [0, 0, 0, 1] as [number, number, number, number]
     };
     const mockTarget = { 
       partId: targetId, ldrawId: targetId, portType: 'peghole', 
-      position: [0, 0.02, 0] as [number, number, number], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], globalPos: [0.1,0.02,0] as [number,number,number] 
+      position: [0, 0.02, 0] as [number, number, number], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 
+      globalPos: [0.1,0.02,0] as [number,number,number],
+      globalQuat: [0, 0, 0, 1] as [number, number, number, number]
     };
 
     await snapParts(mockSource as any, mockTarget as any);

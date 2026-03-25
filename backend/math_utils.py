@@ -72,13 +72,18 @@ class CoordinateTransformer:
         res = np.column_stack((vx, vy, vz))
         return res
 
+    @staticmethod
+    def purify_matrix(m: np.ndarray) -> np.ndarray:
+        """兼容性别名：统一重定向到 purify_rotation_matrix"""
+        return CoordinateTransformer.purify_rotation_matrix(m)
+
 def purify_rotation_matrix(m: np.ndarray) -> np.ndarray:
     """全局别名：调用 CoordinateTransformer 的右手正交化逻辑"""
     return CoordinateTransformer.purify_rotation_matrix(m)
 
 def purify_matrix(m: np.ndarray) -> np.ndarray:
-    """兼容性别名：统一重定向到 purify_rotation_matrix"""
-    return purify_rotation_matrix(m)
+    """全局别名：统一重定向到 CoordinateTransformer.purify_matrix"""
+    return CoordinateTransformer.purify_matrix(m)
 
 def matrix_to_list(m: np.ndarray) -> list:
     """工具函数：矩阵转嵌套列表"""

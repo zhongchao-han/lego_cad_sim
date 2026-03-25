@@ -369,7 +369,7 @@ export const useStore = create<StoreState>((set, get) => ({
       source.position as Vec3, 
       getQuatFromMat3(source.rotation as Mat3),
       target.globalPos as Vec3,
-      target.globalQuat as Quat,
+      (target.globalQuat || [0, 0, 0, 1]) as Quat, // 增加安全回退
       slideOffset
     );
 
@@ -402,7 +402,13 @@ export const useStore = create<StoreState>((set, get) => ({
 
   abortCurrentInteraction: () => {
     get().addLog("Aborting port interaction.");
-    set({ interactionPhase: InteractionPhase.IDLE, selectedPort: null, hoveredPort: null });
+    set({ 
+      interactionPhase: InteractionPhase.IDLE, 
+      selectedPort: null, 
+      hoveredPort: null,
+      slidingTarget: null,
+      slideOffset: 0
+    });
   },
 
   addLog: (message, type = 'INFO') => set(s => ({
@@ -434,7 +440,30 @@ export const useStore = create<StoreState>((set, get) => ({
   }),
   selectPart: (id, level = SelectionLevel.GROUP) => {
       get().addLog(`Selecting part: ${id} (Level: ${level})`, 'ACTION');
-      set({ selection: { ...get().selection, primaryId: id, level } });
+      
+      const prevSelection = get().selection;
+      let targetLevel = level;
+      
+      // 这里的逻辑：如果已经选中了该零件（GROUP），再次选择则钻取到 INDIVIDUAL
+      if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.GROUP && level === SelectionLevel.GROUP) {
+          targetLevel = SelectionLevel.INDIVIDUAL;
+      }
+
+      let allConnectedIds: string[] = [];
+      if (id && targetLevel === SelectionLevel.GROUP) {
+          allConnectedIds = getConnectedGroup(get().connections, id, "");
+      } else if (id) {
+          allConnectedIds = [id];
+      }
+
+      set({ 
+          selection: { 
+              ...prevSelection, 
+              primaryId: id, 
+              level: targetLevel,
+              allConnectedIds
+          } 
+      });
   },
   updateSelection: (level) => set({ selection: { ...get().selection, level } }),
   updateSlideOffset: (o) => {
@@ -484,13 +513,43 @@ export const useStore = create<StoreState>((set, get) => ({
   setBlocked: (r) => set({ interferenceReport: r }),
   setPhase: (p) => set({ interactionPhase: p }),
   commitAction: () => set({ interactionPhase: InteractionPhase.IDLE }),
-  previewPart: (id) => set({ previewPartId: id }),
+  previewPart: (id: string | null) => set({ 
+    previewPartId: id,
+    interactionPhase: id ? InteractionPhase.PREVIEWING : InteractionPhase.IDLE 
+  }),
   stagePart: (id) => {
     const p = get().parts[id];
     if (p) {
         get().addLog(`Staging part: ${id}`);
-        get().updatePartState(id, { zone: ZoneType.STAGED });
-        get().stagingGrid.assign(id);
+        const slot = get().stagingGrid.assign(id);
+        if (!slot) {
+            get().addLog(`Staging tray FULL. Cannot stage ${id}`, 'ERROR');
+            return;
+        }
+
+        const newPos = slot.worldPosition;
+        
+        // 更新区域、位置并清除所有连接关系
+        get().updatePartState(id, { 
+            zone: ZoneType.STAGED,
+            position: newPos as Vec3,
+            quaternion: [0, 0, 0, 1] as Quat // 重置为水平
+        });
+
+        set(state => {
+            const newConns = { ...state.connections };
+            // 清除自己的
+            delete newConns[id];
+            // 从邻居中删除自己
+            Object.keys(newConns).forEach(targetId => {
+                if (newConns[targetId].has(id)) {
+                    const nextSet = new Set(newConns[targetId]);
+                    nextSet.delete(id);
+                    newConns[targetId] = nextSet;
+                }
+            });
+            return { connections: newConns };
+        });
     }
   }
 }));

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { calculateWorkbenchTarget, calculateAssemblyTarget, LDU } from './cameraUtils';
+import { calculateWorkbenchTarget, calculateAssemblyTarget, LDU } from '../cameraUtils';
 
 describe('cameraUtils', () => {
 
