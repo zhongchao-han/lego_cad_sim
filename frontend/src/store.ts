@@ -218,7 +218,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const nextMode = get().mode === 'ASSEMBLY' ? 'SIMULATION' : 'ASSEMBLY';
     get().addLog(`Toggling mode to: ${nextMode}`, 'ACTION');
     try {
-      await axios.post(`${API_URL}/toggle_mode?mode=${nextMode}`);
+      // 路由与后端 FastAPI 定义保持一致：/api/toggle_mode
+      await axios.post(`${API_URL}/api/toggle_mode?mode=${nextMode}`);
       set({ mode: nextMode, selectedPort: null, interactionPhase: InteractionPhase.IDLE });
     } catch (e) {
       get().addLog(`Failed to toggle mode: ${e}`, 'ERROR');
@@ -366,7 +367,7 @@ export const useStore = create<StoreState>((set, get) => ({
     });
 
     const { position, quaternion } = calculateSnapPose(
-      source.position as Vec3, 
+      source.position as Vec3,
       getQuatFromMat3(source.rotation as Mat3),
       target.globalPos as Vec3,
       (target.globalQuat || [0, 0, 0, 1]) as Quat, // 增加安全回退
@@ -396,7 +397,44 @@ export const useStore = create<StoreState>((set, get) => ({
         });
     });
     _history.push(cmd);
+
+    // 先更新本地状态，保证 UI 立即响应（乐观更新）
     set({ parts: updated, connections: newConnections });
+
+    // ── v3.1：异步通知后端登记拓扑并触发 Auto-Latch ──────────────────────────
+    // 降级策略：后端调用失败不影响前端已完成的本地连接（与 server.py 中 AutoLatch
+    // 异常处理策略保持对称）。
+    // parent 为目标零件（静止基准），child 为被吸附的源零件（刚发生位移）。
+    const snapPayload = {
+      parent_id: target.partId,
+      child_id:  source.partId,
+      port_type_p: target.portType,
+      port_type_c: source.portType,
+      parent_origin: target.globalPos,
+      parent_rot:    (target.rotation as number[]).flat ? (target.rotation as number[][]).flat() : target.rotation,
+      child_origin:  position,        // Snap 后的最终 SI 世界坐标
+      child_rot:     (source.rotation as number[]).flat ? (source.rotation as number[][]).flat() : source.rotation,
+      // v3.1 字段：世界坐标，用于 AutoLatchScanner 的 Site 距离筛选
+      parent_world_pos: target.globalPos,
+      child_world_pos:  position,
+    };
+
+    axios.post(`${API_URL}/api/snap_parts`, snapPayload).then((res) => {
+      const { auto_latched_count } = res.data as { auto_latched_count?: number };
+      if (auto_latched_count && auto_latched_count > 0) {
+        get().addLog(
+          `[AutoLatch] Snap(${source.partId} ↔ ${target.partId}): 后端自动闭合 ${auto_latched_count} 条额外连接。`,
+          'INFO'
+        );
+      }
+    }).catch((err) => {
+      // 降级：后端拓扑注册失败，仅记录警告，不撤销前端已建立的本地连接
+      get().addLog(
+        `[AutoLatch] 后端 snap_parts 调用失败（本地连接已建立）: ${err instanceof Error ? err.message : String(err)}`,
+        'ERROR'
+      );
+    });
+
     return true;
   },
 

@@ -270,6 +270,16 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
         # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites，禁止重新聚类以防元数据丢失
         if cached_data and cached_data.get("status") == "verified":
             logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
+            
+            # --- 核心增强：确保 GLB 物理文件存在 ---
+            glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
+            if not os.path.exists(glb_path):
+                logger.warning(f"[CACHE] GLB 文件缺失: {glb_path}，正在按需生成...")
+                try:
+                    geo_proc.convert_to_glb(dat_filename, glb_path, color=color)
+                except Exception as e:
+                    logger.error(f"[CACHE] 实时补全 GLB 失败: {e}")
+            
             return LDrawPartResponse(
                 part_id=dat_filename,
                 ports=[LDrawPort(**p) for p in cached_data.get("ports", [])] if "ports" in cached_data else [],
