@@ -106,11 +106,28 @@ export const InteractivePart = memo(({
     };
   }, [currentPhase, isSelected, slidingTarget, raycaster, mouse, camera, updateSlideOffset, commitAxialSliding]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, raycaster }) => {
+    // Pulse 动画（干涉状态）
     if (isBlocked) {
       setPulse(Math.sin(clock.elapsedTime * 12) * 0.4 + 0.6);
     } else if (pulse !== 0) {
       setPulse(0);
+    }
+
+    // 逐帧射线检测 Hover 状态：
+    // 使用 R3F 当前帧的 raycaster（已由 R3F 更新到当前鼠标位置）直接对 group 做检测。
+    // 比事件系统更可靠：
+    //   - 无子网格切换"空窗"导致的虚假 onPointerLeave
+    //   - 无 stopPropagation / 事件冒泡链的复杂性
+    //   - 精度到三角面级别，无包围球近似误差
+    if (!isStatic && groupRef.current) {
+      const hits = raycaster.intersectObject(groupRef.current, true);
+      const isNowHovered = hits.length > 0;
+      if (isNowHovered !== hoveredRef.current) {
+        hoveredRef.current = isNowHovered;
+        setHover(isNowHovered);
+        onHoverChange?.(isNowHovered);
+      }
     }
   });
 
@@ -125,6 +142,8 @@ export const InteractivePart = memo(({
   const [forceFallback, setForceFallback] = useState(false);
   const ldrawPart = useLDrawPart(ldrawId || partId, colorCode);
   const groupRef = useRef<THREE.Group>(null);
+  // 用 ref 追踪上一帧的 hover 结果，避免每帧不必要地触发 setState
+  const hoveredRef = useRef(false);
 
   // 宏观考量：如果元数据层面报错，直接标记强制降级
   const isDataError = !!ldrawPart.error;
@@ -170,17 +189,6 @@ export const InteractivePart = memo(({
 
   if (ldrawPart.loading) return null;
 
-  const handlePointerOver = (e: any) => {
-    e.stopPropagation();
-    setHover(true);
-    onHoverChange?.(true);
-  };
-
-  const handlePointerOut = () => {
-    setHover(false);
-    onHoverChange?.(false);
-  };
-
   const isRenderingActive = hovered || isSelected || isStatic;
   const finalOpacity = isRenderingActive ? (opacity < 1 ? opacity : 0.5) : 1.0;
   const finalShowPorts = showPorts && isRenderingActive;
@@ -193,8 +201,6 @@ export const InteractivePart = memo(({
         >
             <LDrawMeshRenderer
               url={activeMeshUrl}
-              onPointerOver={handlePointerOver}
-              onPointerOut={handlePointerOut}
               onDoubleClick={onDoubleClick}
               highlightColor={highlight.color}
               highlightIntensity={highlight.intensity}
@@ -203,8 +209,6 @@ export const InteractivePart = memo(({
         </RenderErrorBoundary>
       ) : (
         <mesh
-          onPointerOver={handlePointerOver}
-          onPointerOut={handlePointerOut}
           onDoubleClick={onDoubleClick}
         >
           {/* 红色警告表示加载彻底失败，灰色表示仅数据拉取中或正常占位 */}
@@ -261,8 +265,7 @@ export const InteractivePart = memo(({
                 </mesh>
                 <mesh
                   renderOrder={999}
-                  onPointerOver={(e) => {
-                    e.stopPropagation();
+                  onPointerOver={() => {
                     document.body.style.cursor = 'pointer';
                     const worldPos = new THREE.Vector3().copy(new THREE.Vector3(...port.localPos));
                     const worldQuat = new THREE.Quaternion().copy(port.quaternion);
@@ -279,7 +282,10 @@ export const InteractivePart = memo(({
                       globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
                     });
                   }}
-                  onPointerOut={() => { document.body.style.cursor = 'auto'; onPortHover?.(null); }}
+                  onPointerOut={() => { 
+                    document.body.style.cursor = 'auto'; 
+                    onPortHover?.(null); 
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     const worldPos = new THREE.Vector3().copy(new THREE.Vector3(...port.localPos));

@@ -142,8 +142,7 @@ function PortArrow({
       {/* 不可见的碰撞球体（扩大点击热区） */}
       <mesh
         renderOrder={999}
-        onPointerOver={(e) => {
-          e.stopPropagation();
+        onPointerOver={() => {
           document.body.style.cursor = 'pointer';
           setHovered(true);
           onPortHover?.(buildPortInfo());
@@ -211,10 +210,7 @@ export function SiteGizmo({
       {/* 静默态中性球（存在感提示，始终可见） */}
       <mesh
         ref={neutralRef}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setSiteHovered(true);
-        }}
+        onPointerOver={() => { setSiteHovered(true); }}
         onPointerOut={() => setSiteHovered(false)}
       >
         <sphereGeometry args={[IDLE_SPHERE_RADIUS, 8, 8]} />
