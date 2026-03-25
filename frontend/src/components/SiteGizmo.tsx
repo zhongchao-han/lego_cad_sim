@@ -61,6 +61,8 @@ function computePortQuaternion(rotation: number[][]): THREE.Quaternion {
 
 interface PortArrowProps {
   port: LDrawPort;
+  /** Site 中心相对于零件的局部坐标（用于推算箭头的渲染偏移位置） */
+  sitePos: Vec3;
   isSelected: boolean;
   isCompatiblePort: boolean;
   groupRef: React.RefObject<THREE.Group>;
@@ -71,7 +73,7 @@ interface PortArrowProps {
 }
 
 function PortArrow({
-  port, isSelected, isCompatiblePort, groupRef, partId, ldrawId, onPortClick, onPortHover
+  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
 
@@ -79,10 +81,22 @@ function PortArrow({
   const activeColor = (hovered || isSelected) ? '#ff9800' : baseColor;
   const color = isCompatiblePort ? activeColor : '#555555'; // 不兼容端口变灰
 
+  // pos: 端口在「零件局部坐标系」中的原始坐标
+  // 这是给 buildPortInfo 使用的物理锚点，必须保持为零件局部值，不能被 Site 偏移污染
   const pos = port.position as Vec3;
+
+  // renderPos: 端口在「站点（Site）局部坐标系」中的渲染偏移
+  // 由于 <group> 已经 position={sitePos}，箭头位置需要再减去 sitePos 才能定位到正确位置
+  const renderPos = useMemo((): Vec3 => [
+    pos[0] - sitePos[0],
+    pos[1] - sitePos[1],
+    pos[2] - sitePos[2],
+  ], [pos, sitePos]);
+
   const quaternion = useMemo(() => computePortQuaternion(port.rotation), [port.rotation]);
 
   const buildPortInfo = useCallback((): SelectedPortInfo => {
+    // 必须用 pos（零件坐标系原点出发），确保 localToWorld 变换后得到正确的世界坐标
     const worldPos = new THREE.Vector3(...pos);
     const worldQuat = new THREE.Quaternion().copy(quaternion);
     if (groupRef.current) {
@@ -94,7 +108,7 @@ function PortArrow({
     return {
       partId, ldrawId,
       portType: port.type,
-      position: pos,
+      position: pos,           // 零件局部坐标，供 Snap 数学计算
       rotation: port.rotation as Mat3,
       globalPos: [worldPos.x, worldPos.y, worldPos.z],
       globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
@@ -110,7 +124,8 @@ function PortArrow({
   }, [port.rotation]);
 
   return (
-    <group position={pos}>
+    // 使用 renderPos（站点局部偏移）定位箭头，保证视觉准确
+    <group position={renderPos}>
       {/* 方向箭头 */}
       <arrowHelper
         args={[
@@ -226,20 +241,11 @@ export function SiteGizmo({
           && Math.abs(selectedPort.position[1] - portPos[1]) < 1e-4
           && Math.abs(selectedPort.position[2] - portPos[2]) < 1e-4;
 
-        // 绘制时，箭头位置是相对于 Site 中心的偏移
-        const relPort: LDrawPort = {
-          ...port,
-          position: [
-            portPos[0] - sitePos[0],
-            portPos[1] - sitePos[1],
-            portPos[2] - sitePos[2],
-          ] as [number, number, number],
-        };
-
         return (
           <PortArrow
             key={`${site.id}_port_${idx}`}
-            port={relPort}
+            port={port}         // 传递「零件局部坐标系」的原始端口数据，不做任何坐标变换
+            sitePos={sitePos}   // 站点偏移由 PortArrow 内部处理，保持渲染与物理逻辑分离
             isSelected={portIsSelected}
             isCompatiblePort={compatible}
             groupRef={groupRef}
