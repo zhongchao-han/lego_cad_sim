@@ -50,6 +50,12 @@
 - [ ] **🔎 零件搜索与分级目录优化**：实现基于关键词与类别的高效库检索。
 - [ ] **⚙️ 结构重力与受力分析**：提供简单的静态质心计算与连接处应力可视化。
 
+### 5. 极致高可用与工业级架构 (High Availability & Industrial Architecture)
+- [ ] **🚀 渲染层 GC 降本增效 (Frontend GC Abatement)**：在 `InteractivePart` 高频侦听器 (`useFrame` / `pointermove`) 中引入对象池 (Object Pooling)，彻底消灭 `new THREE.Vector3()` 实例化造成的堆内存尖刺。
+- [ ] **🚀 后端物理锁隔离 (Async/GIL Decoupling)**：剥离 `pybullet.stepSimulation()` 至独立的 `ThreadPoolExecutor` 或进程，杜绝其 CPU 密集型积分计算阻塞 asyncio 导致的 WebSocket 推流断档。
+- [ ] **🚀 API 强幂等与防重入 (Idempotency Key Strictness)**：针对 `snap_parts` 等能够变异网格及图论拓扑的核心操作，全线引入防抖动验证及幂等键，杜绝网络抖动产生的拓扑幽灵环。
+- [ ] **🚀 WebGL 自动化 E2E 测试 (Canvas E2E Pipeline)**：集成 `Playwright` 实施像素级/行为级的前端 WebGL 画布交互断言，完成质量工程的最后一块拼图。
+
 ---
 
 ## 📝 备注 (Notes)
