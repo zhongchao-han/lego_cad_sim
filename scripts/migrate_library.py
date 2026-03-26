@@ -36,23 +36,8 @@ TECHNIC_PRIMITIVES_KEYWORDS = {
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def is_technic_part(filepath: str) -> bool:
-    """判断零件是否包含科技连接原件（只扫前 150 行，性能优先）。"""
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            for i, line in enumerate(f):
-                if i > 150:
-                    break
-                ll = line.lower()
-                if any(kw in ll for kw in TECHNIC_PRIMITIVES_KEYWORDS):
-                    return True
-    except OSError:
-        pass
-    return False
-
-
-def scan_technic_parts(parts_dir: str) -> list[str]:
-    """递归扫描 parts/ 目录，返回所有科技零件的相对路径列表。"""
+def scan_all_parts(parts_dir: str) -> list[str]:
+    """递归扫描 parts/ 目录，返回所有 .dat 零件。"""
     found: list[str] = []
     for root, _, files in os.walk(parts_dir):
         for fname in files:
@@ -60,8 +45,8 @@ def scan_technic_parts(parts_dir: str) -> list[str]:
                 continue
             full = os.path.join(root, fname)
             rel  = os.path.relpath(full, parts_dir)
-            if is_technic_part(full):
-                found.append(rel)
+            # 全量扫描，不再进行前缀关键字过滤，依靠 discover_ports 结果来决定是否入库
+            found.append(rel)
     return found
 
 
@@ -83,10 +68,10 @@ def migrate() -> None:
         json.dump(existing, bf, ensure_ascii=False)
     logger.info(f"已创建旧数据备份: {backup_path}")
 
-    # ── 3. 扫描所有科技零件 ────────────────────────────────────────────────────
-    logger.info("正在扫描 LDraw 科技零件...")
-    technic_parts = scan_technic_parts(PARTS_DIR)
-    logger.info(f"找到 {len(technic_parts)} 个科技零件，开始全量重计端口（强制应用新 Z 轴与分裂约定）...")
+    # ── 3. 扫描所有零件 ──────────────────────────────────────────────────────
+    logger.info("正在扫描 LDraw 零件库...")
+    technic_parts = scan_all_parts(PARTS_DIR)
+    logger.info(f"找到 {len(technic_parts)} 个零件，开始全量重计端口（强制应用新 Z 轴与分裂约定）...")
 
     geo_proc = GeometryProcessor(ldraw_path=LDRAW_ROOT)
     success = 0

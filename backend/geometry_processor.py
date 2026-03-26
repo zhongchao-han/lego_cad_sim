@@ -16,9 +16,11 @@ logger = logging.getLogger(__name__)
 SEMANTIC_PRIMITIVES = [
     "peghole.dat", "axlehole.dat", "pin.dat", "axle.dat", "halfpin.dat", 
     "connect.dat", "beamhole.dat", "connhole.dat", "bush.dat", "crosshole.dat",
-    "axlehol8.dat", "axleend2.dat", "fric_pin.dat"
+    "axlehol8.dat", "axleend2.dat", "fric_pin.dat",
+    "stud.dat", "tube.dat", "stud2.dat", "tube2.dat", "stud3.dat", "tube3.dat",
+    "stud4.dat", "tube4.dat", "stud10.dat", "tube10.dat"
 ]
-CONNECTOR_PREFIXES = ["axle", "pin", "hole", "peg", "confric"]
+CONNECTOR_PREFIXES = ["axle", "pin", "hole", "peg", "confric", "stud", "tube"]
 
 # 特殊原语的单位步长补偿 (LDU)
 KNOWN_UNIT_LENGTHS = {

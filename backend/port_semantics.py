@@ -85,12 +85,20 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # 带销孔的连接件（部分乐高零件同时具备圆孔和十字孔功能）
     "axleholepin.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
 
-    # ── MALE（销/轴）────────────────────────────────────────────────────────
+    # ── MALE（销/轴/凸起）────────────────────────────────────────────────────
     # 普通销（间隙配合）：半径 5.9 LDU < 孔半径 6.0 LDU，可自由旋转
     "peg":          ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
     "peg.dat":      ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
     "pin":          ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
     "pin.dat":      ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 40.0 * LDU),
+
+    # 积木凸起 (Stud)：半径 6.0 LDU，高度 4.0 LDU
+    "stud":         ConnectionInterface(Gender.MALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "stud.dat":     ConnectionInterface(Gender.MALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "stud2.dat":    ConnectionInterface(Gender.MALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "stud3.dat":    ConnectionInterface(Gender.MALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "stud4.dat":    ConnectionInterface(Gender.MALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "stud10.dat":   ConnectionInterface(Gender.MALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
 
     # 半销：长度为梁厚一半
     "halfpin.dat":  ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 20.0 * LDU),
@@ -99,7 +107,6 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     "connect.dat":  ConnectionInterface(Gender.MALE, Profile.CYLINDER, 5.9 * LDU, 20.0 * LDU),
 
     # 摩擦销（friction pin）：半径 6.2 LDU > 孔半径 6.0 LDU，形成摩擦配合
-    # LDraw 中对应 6558.dat 等（摩擦脊在模型中被夸大，实际阻尼由物理引擎注入）
     "fric_pin.dat": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),
     "pin_friction": ConnectionInterface(Gender.MALE, Profile.CYLINDER, 6.2 * LDU, 40.0 * LDU),
     
@@ -112,6 +119,19 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # 十字轴：锁定旋转
     "axle":         ConnectionInterface(Gender.MALE, Profile.CROSS, 3.9 * LDU, 40.0 * LDU),
     "axle.dat":     ConnectionInterface(Gender.MALE, Profile.CROSS, 3.9 * LDU, 40.0 * LDU),
+
+    # ── FEMALE（孔/管）──────────────────────────────────────────────────────
+    # 标准圆孔：半径 6.0 LDU = 2.4mm，孔深 = 梁厚 20 LDU = 8mm
+    "peghole":      ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "peghole.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "beamhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "connhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+
+    # 积木管孔 (Tube)：对标 Stud 的母座
+    "tube":         ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "tube.dat":     ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "tube2.dat":    ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+    "tube10.dat":   ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
 }
 
 
@@ -122,9 +142,30 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
 def get_interface(port_type: str) -> Optional[ConnectionInterface]:
     """
     从注册表中查找接口定义。不区分大小写，去除前后空白。
-    未知零件返回 None，调用方应降级到几何检测。
+    支持精确匹配及其变体模糊匹配（如 stud3a.dat -> stud.dat）。
     """
-    return INTERFACE_REGISTRY.get(port_type.lower().strip())
+    p_type = port_type.lower().strip()
+    
+    # 1. 精确匹配
+    if p_type in INTERFACE_REGISTRY:
+        return INTERFACE_REGISTRY[p_type]
+    
+    # 2. 移除后缀匹配 (.dat)
+    p_base = p_type.replace(".dat", "")
+    if p_base in INTERFACE_REGISTRY:
+        return INTERFACE_REGISTRY[p_base]
+        
+    # 3. 前缀模糊匹配 (处理 stud2, tube10, axlehole2 等变体)
+    # 优先级顺序：从最具体的向最通用的匹配
+    for prefix in ["axlehole", "peghole", "beamhole", "connhole", "stud", "tube", "pin", "axle", "peg"]:
+        if p_base.startswith(prefix):
+            # 尝试查找该前缀对应的标准定义
+            if prefix in INTERFACE_REGISTRY:
+                return INTERFACE_REGISTRY[prefix]
+            if f"{prefix}.dat" in INTERFACE_REGISTRY:
+                return INTERFACE_REGISTRY[f"{prefix}.dat"]
+
+    return None
 
 
 def check_fit(plug: ConnectionInterface, socket: ConnectionInterface) -> FitType:
