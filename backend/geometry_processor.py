@@ -83,7 +83,8 @@ class GeometryProcessor:
                     alpha_m = re.search(r'ALPHA\s+(\d+)', line)
                     a = int(alpha_m.group(1)) if alpha_m else 255
                     colors[code] = (r, g, b, a)
-        except Exception: pass
+        except (FileNotFoundError, IOError, ValueError) as e:
+            logger.warning(f"Failed to load color table from {config_path}: {e}")
         return colors
 
     def _resolve_color(self, color_code: int) -> Tuple[int, int, int, int]:
@@ -100,7 +101,9 @@ class GeometryProcessor:
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
-        except Exception: return [], [], []
+        except (FileNotFoundError, IOError, ValueError) as e:
+            logger.error(f"Failed to extract geometry from {filepath}: {e}", exc_info=True)
+            return [], [], []
         
         det = np.linalg.det(global_mat[:3, :3])
         is_mirrored = (det < 0) ^ inverted
@@ -192,7 +195,9 @@ class GeometryProcessor:
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
-        except Exception: return []
+        except (FileNotFoundError, IOError, ValueError) as e:
+            logger.error(f"Failed to discover ports from {filepath}: {e}", exc_info=True)
+            return []
 
         for line in lines:
             parts = line.strip().split()

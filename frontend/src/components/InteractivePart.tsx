@@ -2,13 +2,14 @@ import { memo, useMemo, useRef, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useStore } from '../store';
-import { SelectionLevel, InteractionPhase } from '../types';
+import { SelectionLevel, InteractionPhase, SelectedPortInfo } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
 import { SiteGizmo } from './SiteGizmo';
 import { RenderErrorBoundary } from './RenderErrorBoundary';
 
-const BACKEND_ORIGIN = (import.meta as any).env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+// @ts-expect-error Vite injects env into import.meta
+const BACKEND_ORIGIN = (import.meta as unknown as Record<string, { VITE_BACKEND_ORIGIN?: string }>).env?.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
 const encodeModelUrl = (path: string | undefined) => {
   if (!path) return null;
@@ -21,8 +22,8 @@ interface InteractivePartProps {
   partId: string;
   ldrawId?: string;
   colorCode?: number;
-  onPortClick?: (port: any) => void;
-  onPortHover?: (port: any | null) => void;
+  onPortClick?: (port: SelectedPortInfo) => void;
+  onPortHover?: (port: SelectedPortInfo | null) => void;
   showPorts?: boolean;
   onHoverChange?: (h: boolean) => void;
   onDoubleClick?: () => void;
@@ -80,6 +81,7 @@ export const InteractivePart = memo(({
       
       // 使用 THREE.Ray.distanceSqToRay 或类似的几何方法
       // 简便方法：求解两条射线的最短距离点
+      // @ts-expect-error extended math function
       const distSq = mouseRay.distanceSqToRay(axisRay, closestPointOnMouseRay, closestPointOnAxis);
       
       // 3. 计算位移值 (点与原点的带符号投影距离)
@@ -229,7 +231,7 @@ export const InteractivePart = memo(({
             <SiteGizmo
               key={site.id}
               site={site}
-              groupRef={groupRef}
+              groupRef={groupRef as React.RefObject<THREE.Group>}
               partId={partId}
               ldrawId={ldrawId || partId}
               phase={interactionPhase}

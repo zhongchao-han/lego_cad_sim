@@ -103,9 +103,9 @@ interface StoreState {
   rotateSelectedPart: (angleRads: number) => void;
   setBlocked: (report: InterferenceReport) => void;
   setPhase: (phase: InteractionPhase) => void;
-  commitAction: () => void;
   previewPart: (id: string | null) => void;
   stagePart: (id: string) => void;
+  commitAxialSliding: () => void;
 }
 
 const quatNormalize = (q: [number, number, number, number]): Quat => {
@@ -377,8 +377,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const updated: Record<string, PartState> = { ...parts };
     updated[source.partId] = {
       ...sourcePart,
-      position: position as any,
-      quaternion: quaternion as any,
+      position: position as Vec3,
+      quaternion: quaternion as Quat,
       zone: ZoneType.ACTIVE_ARENA
     };
 
@@ -392,7 +392,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const cmd = createSnapCommand({ movedPartIds: srcGroup, prevPositions, addedConnections: [{ from: source.partId, to: target.partId }] }, () => {}, (snap) => {
         set(prev => {
             const rp = { ...prev.parts };
-            Object.entries(snap.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...s as any }; });
+            Object.entries(snap.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
             return { parts: rp };
         });
     });

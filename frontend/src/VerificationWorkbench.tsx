@@ -18,12 +18,14 @@ const PartModel: React.FC<{ url: string }> = ({ url }) => {
   const processedScene = useMemo(() => {
     const clone = scene.clone();
     clone.traverse((child) => {
-      if ((child as any).isMesh) {
-        const mesh = child as THREE.Mesh;
-        mesh.material = (mesh.material as any).clone();
-        (mesh.material as any).transparent = true;
-        (mesh.material as any).opacity = 0.4;
-        (mesh.material as any).depthWrite = false;
+      if (child instanceof THREE.Mesh) {
+        const mesh = child;
+        if (mesh.material instanceof THREE.Material) {
+            mesh.material = mesh.material.clone();
+            mesh.material.transparent = true;
+            mesh.material.opacity = 0.4;
+            mesh.material.depthWrite = false;
+        }
         mesh.raycast = () => null; // 绝对禁止模型阻挡射线检测
       }
     });
@@ -102,12 +104,12 @@ export const VerificationWorkbench: React.FC = () => {
               borderBottom: '1px solid #222',
               borderRadius: '4px',
               marginBottom: '4px',
-              opacity: (part as any).status === 'verified' ? 0.7 : 1
+              opacity: (part as { status?: string }).status === 'verified' ? 0.7 : 1
             }}
           >
             <div className="flex justify-between items-center">
               <span className="font-medium">{part.part_id}</span>
-              {(part as any).status === 'verified' && (
+              {(part as { status?: string }).status === 'verified' && (
                 <span className="text-[10px] bg-green-900 text-green-200 px-1 rounded">已复核</span>
               )}
             </div>
@@ -208,9 +210,9 @@ export const VerificationWorkbench: React.FC = () => {
                   <span className="text-[10px] text-gray-500 font-bold">{['X', 'Y', 'Z'][axis]} 移动</span>
                   <div className="flex gap-1">
                     <button className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded text-sm font-bold"
-                      onClick={() => movePort(selectedPortIndex, axis as any, 10)}>+</button>
+                      onClick={() => movePort(selectedPortIndex, axis as Extract<typeof axis, 0|1|2>, 10)}>+</button>
                     <button className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded text-sm font-bold"
-                      onClick={() => movePort(selectedPortIndex, axis as any, -10)}>-</button>
+                      onClick={() => movePort(selectedPortIndex, axis as Extract<typeof axis, 0|1|2>, -10)}>-</button>
                   </div>
                 </div>
               ))}

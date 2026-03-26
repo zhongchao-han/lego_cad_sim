@@ -19,7 +19,7 @@ import * as THREE from 'three';
 
 interface LDrawMeshRendererProps {
   url: string;
-  onDoubleClick?: (e: any) => void;
+  onDoubleClick?: (e: unknown) => void;
   highlightColor?: string | null;
   highlightIntensity?: number;
   opacity?: number;
@@ -50,14 +50,14 @@ export function LDrawMeshRenderer({
   highlightIntensity = 0,
   opacity = 1.0,
 }: LDrawMeshRendererProps) {
-  const gltf = useGLTF(url, true) as any;
-  const scene: THREE.Group | null = Array.isArray(gltf) ? gltf[0].scene : gltf.scene;
+  const gltf = useGLTF(url, true) as unknown as { scene: THREE.Group | THREE.Group[] };
+  const scene: THREE.Group | null = Array.isArray(gltf.scene) ? gltf.scene[0] : gltf.scene;
 
   // 仅依赖 scene（GLB 文件）时重建，避免 hover 状态变化触发不必要的重建。
   const visual = useMemo(() => {
     if (!scene) return new THREE.Group();
     const c = scene.clone(true);
-    c.traverse((child: any) => {
+    c.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
         const hasVC = !!mesh.geometry?.attributes?.color;
@@ -73,7 +73,7 @@ export function LDrawMeshRenderer({
 
   // 命令式更新高亮 emissive，不触发 visual 重建
   useEffect(() => {
-    visual.traverse((child: any) => {
+    visual.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
         const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
         if (!mat) return;
@@ -86,7 +86,7 @@ export function LDrawMeshRenderer({
 
   // 命令式更新透明度，不触发 visual 重建
   useEffect(() => {
-    visual.traverse((child: any) => {
+    visual.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
         const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
         if (!mat) return;
