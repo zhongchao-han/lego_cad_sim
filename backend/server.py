@@ -257,7 +257,7 @@ async def toggle_mode(mode: str):
     return {"status": "ok", "msg": "No changes made."}
 
 
-@app.get("/api/ldraw_part/{part_id}")
+@app.get("/api/ldraw_part/{part_id:path}")
 async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = False):
     """请求转换并获取 LDraw 零件。"""
     logger.debug(f"[DEBUG] 进入 get_ldraw_part: part_id={part_id}, color={color}, include_pending={include_pending}")
