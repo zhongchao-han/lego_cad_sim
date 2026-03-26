@@ -229,8 +229,26 @@ class GeometryProcessor:
                     lv = np.array([0, offset_y / y_scale, 0, 1])
                     p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                     
+                    # 修正：通过 Gram-Schmidt 重构局部坐标系，使 Z 轴精确对齐到物理法线 (Y 轴 * step_dir)
+                    y_axis_ldu = current_global_mat[:3, 1]
+                    raw_z = y_axis_ldu * step_dir
+                    z_norm = np.linalg.norm(raw_z)
+                    z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
+                    
+                    # 选择一个非平行的参考 X 轴 (优先用原矩阵的 X 轴)
+                    x_ref_ldu = current_global_mat[:3, 0]
+                    if abs(np.dot(x_ref_ldu / (np.linalg.norm(x_ref_ldu) + 1e-9), z_hat)) > 0.9:
+                        x_ref_ldu = np.array([0.0, 0.0, 1.0])
+                        
+                    y_hat = np.cross(z_hat, x_ref_ldu)
+                    y_hat /= np.linalg.norm(y_hat) + 1e-9
+                    x_hat = np.cross(y_hat, z_hat)
+                    x_hat /= np.linalg.norm(x_hat) + 1e-9
+                    
+                    rot_ldu = np.column_stack((x_hat, y_hat, z_hat))
+                    
                     # 强制正交化与右手系检阅
-                    pure_rot_ldu = purify_rotation_matrix(p_mat[:3, :3])
+                    pure_rot_ldu = purify_rotation_matrix(rot_ldu)
                     final_rot = CoordinateTransformer.normalize_rot(pure_rot_ldu)
                     
                     # 生成唯一端口名
