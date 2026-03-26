@@ -5,7 +5,23 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      // [HMR Guard] 必须 patch 原型方法而非实例方法。
+      // 浏览器扩展作为 document_start Content Script 运行，早于本页任何脚本。
+      // 它可能在初始化时缓存了 registry 对象引用就存储它，但调用 registry.define() 时
+      // 仍需通过原型链解析方法，因此 prototype-level patch 是拦截它的唯一可靠手段。
+      (function () {
+        var OrigDefine = CustomElementRegistry.prototype.define;
+        CustomElementRegistry.prototype.define = function (name, constructor, options) {
+          if (!this.get(name)) {
+            return OrigDefine.call(this, name, constructor, options);
+          }
+          console.debug('[HMR Guard] Custom element \'' + name + '\' already defined, skipping.');
+        };
+      })();
+    </script>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
