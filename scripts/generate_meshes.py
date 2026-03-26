@@ -19,21 +19,21 @@ def main():
     # 1. 初始化几何处理器
     # LDRAW_PARTS_ROOT 会自动从环境变量获取
     ldraw_path = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
-    mesh_out_root = os.path.join(os.getcwd(), "frontend", "public", "ldraw_meshes")
-    os.makedirs(mesh_out_root, exist_ok=True)
+    
+    from backend.mesh_asset_manager import MeshAssetManager
+    asset_manager = MeshAssetManager()
 
     proc = GeometryProcessor(ldraw_path=ldraw_path)
 
     print(f"[*] 启动全量几何体预生产流程...")
     print(f"[*] 素材库: {ldraw_path}")
-    print(f"[*] 输出路径: {mesh_out_root}")
+    print(f"[*] 统一输出总目录: {asset_manager.mesh_cache_root}")
 
     for filename in args.filenames:
         if not filename.lower().endswith(".dat"):
             filename += ".dat"
         
-        output_name = f"{filename[:-4]}_c{args.color}.glb"
-        output_path = os.path.join(mesh_out_root, output_name)
+        output_path = asset_manager.get_absolute_glb_path(filename, args.color)
 
         if os.path.exists(output_path) and not args.force:
             print(f"[-] 跳过 (已存在): {filename}")
@@ -42,7 +42,6 @@ def main():
         print(f"[>] 转换中: {filename} ...")
         
         # 核心：此处调用改进后的 convert_to_glb
-        # 我们将在 geometry_processor.py 中同步改进这个方法，加入 Y 轴翻转逻辑
         success = proc.convert_to_glb(filename, output_path, color_code=args.color)
         
         if success:

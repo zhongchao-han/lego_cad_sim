@@ -22,6 +22,7 @@ from backend.core_constants import LDU
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
 from backend.auto_latch_scanner import AutoLatchScanner
+from backend.mesh_asset_manager import MeshAssetManager
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
 MESH_CACHE_ROOT = os.path.join(os.getcwd(), "data", "custom_assets")
 os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
+mesh_manager = MeshAssetManager(MESH_CACHE_ROOT)
 
 # --- 初始化后端核心单例组件 ---
 # 负责数据持久化（单一真理来源）
@@ -265,37 +267,23 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
 
         # 1. 检查持久化层中是否已有烘培好的数据
         cached_data = port_lib_manager.get_part_data(dat_filename)
-        glb_filename = f"{part_id.replace('.dat', '')}_c{color}.glb"
         
-        # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites，禁止重新聚类以防元数据丢失
+        # 委托 MeshAssetManager 处理物理存在确认和 URL 路由组装
+        mesh_url = mesh_manager.ensure_mesh_exists(
+            part_id=dat_filename,
+            color_code=color,
+            geo_processor=geo_proc,
+            cached_glb_path=cached_data.get("glb_path") if cached_data else None
+        )
+        
+        # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites
         if cached_data and cached_data.get("status") == "verified":
             logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
-            
-            # --- 核心增强：确保 GLB 物理文件存在 ---
-            # 优先从缓存中的 glb_path 还原完整子路径（保留 s/ 等子目录），避免子文件 404
-            raw_cached_glb = cached_data.get("glb_path", "")
-            if raw_cached_glb:
-                abs_cached = os.path.abspath(raw_cached_glb) if not os.path.isabs(raw_cached_glb) else raw_cached_glb
-                try:
-                    glb_filename = os.path.relpath(abs_cached, MESH_CACHE_ROOT).replace("\\", "/")
-                except ValueError:
-                    glb_filename = os.path.basename(raw_cached_glb)
-                    logger.warning(f"[WARN] verified 分支无法计算相对路径，降级为 basename: {glb_filename}")
-            glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename.replace("/", os.sep))
-            if not os.path.exists(glb_path):
-                logger.warning(f"[CACHE] GLB 文件缺失: {glb_path}，正在按需生成...")
-                try:
-                    # 确保子目录存在（e.g. data/custom_assets/s/ 对应 s/ 子零件）
-                    os.makedirs(os.path.dirname(glb_path), exist_ok=True)
-                    geo_proc.convert_to_glb(dat_filename, glb_path, color_code=color)
-                except Exception as e:
-                    logger.error(f"[CACHE] 实时补全 GLB 失败: {e}")
-            
             return LDrawPartResponse(
                 part_id=dat_filename,
                 ports=[LDrawPort(**p) for p in cached_data.get("ports", [])] if "ports" in cached_data else [],
                 sites=[LDrawSite(**s) for s in cached_data.get("sites", [])],
-                mesh_url=cached_data.get("mesh_url") or f"/ldraw_meshes/{glb_filename}"
+                mesh_url=cached_data.get("mesh_url") or mesh_url
             )
 
         if cached_data:
@@ -305,33 +293,17 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
                 for s_cfg in cached_data["sites"]:
                     s_pos = s_cfg.get("position", [0, 0, 0])
                     for p_cfg in s_cfg.get("ports", []):
-                        # 兼容：如果 port 没位移，取 site 位移
                         if "position" not in p_cfg:
                             p_cfg["position"] = s_pos
                         ports.append(LDrawPort(**p_cfg))
             # 向后兼容扁平结构
             else:
                 ports = [LDrawPort(**p) for p in cached_data.get("ports", [])]
-            
-            # 从 glb_path 中提取相对于 MESH_CACHE_ROOT 的子路径（保留 s/ 等子目录层级）
-            # 使用 os.path.basename() 会截断子目录，导致 /ldraw_meshes/s/xxx.glb 变成 /ldraw_meshes/xxx.glb（404）
-            raw_glb_path = cached_data.get("glb_path", f"{part_id.replace('.dat', '')}_c{color}.glb")
-            abs_glb_path = os.path.abspath(raw_glb_path) if not os.path.isabs(raw_glb_path) else raw_glb_path
-            try:
-                glb_filename = os.path.relpath(abs_glb_path, MESH_CACHE_ROOT).replace("\\", "/")
-            except ValueError:
-                # 路径在不同驱动器上（Windows）或无法计算相对路径时，降级为 basename
-                glb_filename = os.path.basename(raw_glb_path)
-                logger.warning(f"[WARN] 无法计算 GLB 相对路径，降级使用 basename: {glb_filename}")
         else:
             # 2. 如果没有，则执行实时高精度解析
             logger.info(f"[*] 缓存缺失，正在为 {dat_filename} 执行实时 v3.0 解析...")
             raw_ports = geo_proc.discover_ports(dat_filename)
             ports = [LDrawPort(**p) for p in raw_ports]
-            
-            # 同时生成预览模型 (Color 7)
-            glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
-            geo_proc.convert_to_glb(dat_filename, glb_path, color_code=color)
 
         # 动态聚类：无论从缓存还是实时解析，均在查询时计算 Sites
         ports_raw = [p.model_dump() for p in ports]
@@ -342,7 +314,7 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             part_id=dat_filename,
             ports=ports,
             sites=sites_serialized,
-            mesh_url=f"/ldraw_meshes/{glb_filename}"
+            mesh_url=mesh_url
         )
     except Exception as e:
         logger.error(f"Failed to get_ldraw_part: {part_id} - {str(e)}", exc_info=True)

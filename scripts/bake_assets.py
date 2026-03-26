@@ -21,11 +21,11 @@ class UnifiedAssetBaker:
     它保证了零件的 GLB (几何网格) 与 JSON (端口配置) 始终保持同步。
     """
 
-    def __init__(self, ldraw_path: str = "ldraw_lib", output_dir: str = "data/custom_assets"):
+    def __init__(self, ldraw_path: str = "ldraw_lib"):
         self.gp = GeometryProcessor(ldraw_path=ldraw_path)
         self.plm = PortLibraryManager()
-        self.output_dir = output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
+        from backend.mesh_asset_manager import MeshAssetManager
+        self.asset_manager = MeshAssetManager()
 
     def bake_part(self, part_id: str, force: bool = False) -> bool:
         """
@@ -36,8 +36,13 @@ class UnifiedAssetBaker:
         if not part_id.lower().endswith(".dat"):
             part_id += ".dat"
 
-        glb_filename = f"{part_id.replace('.dat', '')}.glb"
-        glb_path = os.path.join(self.output_dir, glb_filename)
+        mesh_url = self.asset_manager.ensure_mesh_exists(
+            part_id=part_id,
+            color_code=7,
+            geo_processor=self.gp
+        )
+        # 获取最终的绝对物理路径，以便写入 metadata 进行管理
+        glb_path = self.asset_manager.get_absolute_glb_path(part_id, 7)
         
         # 1. 检查是否需要更新 (如果非强制且已验证，跳过)
         existing_data = self.plm.get_part_data(part_id)
