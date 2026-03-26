@@ -451,5 +451,213 @@ class TestGetLdrawPartLiveParseBranch(unittest.TestCase):
         )
 
 
+
+class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
+    """
+    GET /api/ldraw_part/{id} — mesh_url 子路径回归测试 (Regression-SubPath)
+
+    背景（Bug 复现）：
+        `server.py` 曾使用 `os.path.basename()` 从缓存的 `glb_path` 构建
+        `mesh_url`，导致 LDraw 子文件（存储于 `data/custom_assets/s/` 目录下）
+        的子路径 `s/` 被截断。
+
+        例如，`glb_path = "data/custom_assets/s/23801s01.glb"` 被错误地
+        构建成 `/ldraw_meshes/23801s01.glb`，而正确值应为
+        `/ldraw_meshes/s/23801s01.glb`。
+
+        由于 StaticFiles 挂载的根目录是 `data/custom_assets/`，
+        截断后的路径对应实际不存在的文件，从而产生 404。
+
+    修复方案：
+        改用 `os.path.relpath(abs_glb_path, MESH_CACHE_ROOT)` 保留完整子路径。
+
+    覆盖范围：
+        SubPath-1: verified 分支 — s/ 子目录零件的 mesh_url 不被截断
+        SubPath-2: verified 分支 — 顶层零件（无子目录）路径仍正确
+        SubPath-3: pending 缓存分支（非 verified）— s/ 子路径同样被保留
+        SubPath-4: 降级兜底 — 无 glb_path 时 fallback 为 _c{color} 命名规则
+    """
+
+    # ── 子文件（`s/` 子目录）的模拟配置 ────────────────────────────────────────
+    _SUBFILE_VERIFIED_SITE = {
+        "id": "23801s01.dat_site0",
+        "position": [0.0, 0.0, 0.0],
+        "occupied_by": None,
+        "ports": [
+            {
+                "name": "23801s01_p0",
+                "type": "peghole.dat",
+                "position": [0.0, 0.0, 0.0],
+                "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                "is_manually_adjusted": False,
+            }
+        ],
+    }
+
+    # glb_path 使用相对路径，与 ldraw_port_configs.json 中的真实格式一致
+    _SUBFILE_VERIFIED_CFG = {
+        "version": "v3.1.sites",
+        "status": "verified",
+        "verified": True,
+        "confidence": 1.0,
+        # 子文件的 glb_path 包含 s\ 子目录（Windows 风格，与真实配置一致）
+        "glb_path": r"data\custom_assets\s\23801s01.glb",
+        "sites": [_SUBFILE_VERIFIED_SITE],
+    }
+
+    # 顶层零件（无子目录）的模拟配置
+    _TOPLEVEL_VERIFIED_CFG = {
+        "version": "v3.1.sites",
+        "status": "verified",
+        "verified": True,
+        "confidence": 1.0,
+        "glb_path": r"data\custom_assets\6558.glb",
+        "sites": [_VERIFIED_SITE],
+    }
+
+    # pending 缓存条目（非 verified，走 pending 缓存分支）
+    _SUBFILE_PENDING_CFG = {
+        "version": "v3.1.sites",
+        "status": "pending",
+        "verified": False,
+        "confidence": 0.7,
+        # pending 条目同样携带子目录路径
+        "glb_path": r"data\custom_assets\s\23801s01.glb",
+        "sites": [_SUBFILE_VERIFIED_SITE],
+    }
+
+    def test_subpath_verified_mesh_url_preserves_subdirectory(self):
+        """
+        [SubPath-1] 已核验的 LDraw 子文件，其 mesh_url 必须保留 s/ 前缀。
+
+        回归场景：
+            `os.path.basename("data/custom_assets/s/23801s01.glb")`
+            返回 "23801s01.glb"，构建出 "/ldraw_meshes/23801s01.glb"（404）。
+
+            修复后应使用 `os.path.relpath()` 保留子目录层级，
+            返回 "/ldraw_meshes/s/23801s01.glb"（正确）。
+        """
+        mock_data = {"s\\23801s01.dat": self._SUBFILE_VERIFIED_CFG}
+        with (
+            patch("backend.server.port_lib_manager._data", mock_data),
+            patch("os.path.exists", return_value=True),
+        ):
+            client = _get_client()
+            resp = client.get("/api/ldraw_part/s\\23801s01.dat")
+
+        self.assertEqual(resp.status_code, 200)
+        mesh_url: str = resp.json().get("mesh_url", "")
+        self.assertNotEqual(mesh_url, "", "mesh_url 不应为空。")
+        self.assertIn(
+            "s/",
+            mesh_url,
+            f"[SubPath-1] mesh_url 必须包含 's/' 子目录（实际值：{mesh_url!r}）。"
+            f"这是 os.path.basename() 截断子路径 Bug 的回归测试。",
+        )
+        self.assertNotIn(
+            "//",
+            mesh_url,
+            f"mesh_url 不应包含双斜杠，当前值：{mesh_url!r}。",
+        )
+
+    def test_toplevel_verified_mesh_url_has_no_extra_prefix(self):
+        """
+        [SubPath-2] 顶层零件（无子目录）的 mesh_url 不应出现额外斜杠或路径片段。
+
+        验证修复不影响普通顶层零件的 URL 构建。
+        """
+        mock_data = {"6558.dat": self._TOPLEVEL_VERIFIED_CFG}
+        with (
+            patch("backend.server.port_lib_manager._data", mock_data),
+            patch("os.path.exists", return_value=True),
+        ):
+            client = _get_client()
+            resp = client.get("/api/ldraw_part/6558.dat")
+
+        self.assertEqual(resp.status_code, 200)
+        mesh_url: str = resp.json().get("mesh_url", "")
+        self.assertTrue(
+            mesh_url.startswith("/ldraw_meshes/"),
+            f"[SubPath-2] mesh_url 应以 '/ldraw_meshes/' 开头，实际：{mesh_url!r}。",
+        )
+        self.assertNotIn(
+            "//",
+            mesh_url,
+            f"顶层零件的 mesh_url 不应出现双斜杠：{mesh_url!r}。",
+        )
+        # 顶层文件不应包含 s/ 子路径
+        self.assertNotIn(
+            "/s/",
+            mesh_url,
+            f"[SubPath-2] 顶层零件的 mesh_url 不应包含 '/s/' 子路径：{mesh_url!r}。",
+        )
+
+    def test_pending_cached_part_with_subpath_preserves_subdirectory(self):
+        """
+        [SubPath-3] pending 缓存分支（非 verified）的子文件 mesh_url 也必须保留 s/ 前缀。
+
+        覆盖 server.py 中的非 verified 缓存分支（`if cached_data:` 块内的
+        `glb_filename` 构建逻辑），确保两条分支均已正确修复。
+        """
+        mock_data = {"s\\23801s01.dat": self._SUBFILE_PENDING_CFG}
+        with (
+            patch("backend.server.port_lib_manager._data", mock_data),
+            patch("os.path.exists", return_value=True),
+            # pending 分支会调用 cluster_ports_into_sites，mock 掉避免依赖
+            patch(
+                "backend.server.cluster_ports_into_sites",
+                return_value=[],
+                create=True,
+            ),
+            patch(
+                "backend.server.sites_to_response",
+                return_value=[],
+                create=True,
+            ),
+        ):
+            client = _get_client()
+            resp = client.get("/api/ldraw_part/s\\23801s01.dat")
+
+        self.assertEqual(resp.status_code, 200)
+        mesh_url: str = resp.json().get("mesh_url", "")
+        self.assertIn(
+            "s/",
+            mesh_url,
+            f"[SubPath-3] pending 分支的 mesh_url 也必须包含 's/' 子目录"
+            f"（实际值：{mesh_url!r}）。两条分支均需修复，不可遗漏。",
+        )
+
+    def test_mesh_url_fallback_when_no_glb_path_in_cache(self):
+        """
+        [SubPath-4] 缓存中无 glb_path 字段时，应降级为 _c{color} 命名规则。
+
+        验证降级路径不因修复引入新的崩溃，仍能给出有效的 mesh_url。
+        """
+        cfg_without_glb_path = {
+            "version": "v3.1.sites",
+            "status": "verified",
+            "verified": True,
+            "confidence": 1.0,
+            # 刻意缺省 glb_path 字段，模拟历史数据或异常写入
+            "sites": [_VERIFIED_SITE],
+        }
+        mock_data = {"6558.dat": cfg_without_glb_path}
+        with (
+            patch("backend.server.port_lib_manager._data", mock_data),
+            patch("os.path.exists", return_value=True),
+        ):
+            client = _get_client()
+            resp = client.get("/api/ldraw_part/6558.dat?color=7")
+
+        self.assertEqual(resp.status_code, 200)
+        mesh_url: str = resp.json().get("mesh_url", "")
+        self.assertNotEqual(mesh_url, "", "[SubPath-4] 降级路径下 mesh_url 不应为空。")
+        self.assertTrue(
+            mesh_url.startswith("/ldraw_meshes/"),
+            f"[SubPath-4] 降级 mesh_url 应以 '/ldraw_meshes/' 开头，实际：{mesh_url!r}。",
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

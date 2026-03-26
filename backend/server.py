@@ -272,10 +272,21 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
             
             # --- 核心增强：确保 GLB 物理文件存在 ---
-            glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename)
+            # 优先从缓存中的 glb_path 还原完整子路径（保留 s/ 等子目录），避免子文件 404
+            raw_cached_glb = cached_data.get("glb_path", "")
+            if raw_cached_glb:
+                abs_cached = os.path.abspath(raw_cached_glb) if not os.path.isabs(raw_cached_glb) else raw_cached_glb
+                try:
+                    glb_filename = os.path.relpath(abs_cached, MESH_CACHE_ROOT).replace("\\", "/")
+                except ValueError:
+                    glb_filename = os.path.basename(raw_cached_glb)
+                    logger.warning(f"[WARN] verified 分支无法计算相对路径，降级为 basename: {glb_filename}")
+            glb_path = os.path.join(MESH_CACHE_ROOT, glb_filename.replace("/", os.sep))
             if not os.path.exists(glb_path):
                 logger.warning(f"[CACHE] GLB 文件缺失: {glb_path}，正在按需生成...")
                 try:
+                    # 确保子目录存在（e.g. data/custom_assets/s/ 对应 s/ 子零件）
+                    os.makedirs(os.path.dirname(glb_path), exist_ok=True)
                     geo_proc.convert_to_glb(dat_filename, glb_path, color_code=color)
                 except Exception as e:
                     logger.error(f"[CACHE] 实时补全 GLB 失败: {e}")
@@ -302,7 +313,16 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             else:
                 ports = [LDrawPort(**p) for p in cached_data.get("ports", [])]
             
-            glb_filename = os.path.basename(cached_data.get("glb_path", f"{part_id.replace('.dat', '')}_c{color}.glb"))
+            # 从 glb_path 中提取相对于 MESH_CACHE_ROOT 的子路径（保留 s/ 等子目录层级）
+            # 使用 os.path.basename() 会截断子目录，导致 /ldraw_meshes/s/xxx.glb 变成 /ldraw_meshes/xxx.glb（404）
+            raw_glb_path = cached_data.get("glb_path", f"{part_id.replace('.dat', '')}_c{color}.glb")
+            abs_glb_path = os.path.abspath(raw_glb_path) if not os.path.isabs(raw_glb_path) else raw_glb_path
+            try:
+                glb_filename = os.path.relpath(abs_glb_path, MESH_CACHE_ROOT).replace("\\", "/")
+            except ValueError:
+                # 路径在不同驱动器上（Windows）或无法计算相对路径时，降级为 basename
+                glb_filename = os.path.basename(raw_glb_path)
+                logger.warning(f"[WARN] 无法计算 GLB 相对路径，降级使用 basename: {glb_filename}")
         else:
             # 2. 如果没有，则执行实时高精度解析
             logger.info(f"[*] 缓存缺失，正在为 {dat_filename} 执行实时 v3.0 解析...")
