@@ -16,6 +16,7 @@ import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand } from './historyStack';
 import { calculateSnapPose, calculatePortRotationPose } from './utils/snapMath';
+import { getDefaultColorCode } from './utils/partColorDefaults';
 
 type ConnectionGraph = Record<string, Set<string>>;
 
@@ -35,7 +36,7 @@ interface StoreState {
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
   hoveredPort: SelectedPortInfo | null;
-  slidingTarget: SelectedPortInfo | null; // 新增：正在滑动的目标参考点
+  slidingTarget: SelectedPortInfo | null; // 正在滑动的目标参考点
   interactionPhase: InteractionPhase;
   focusedPartId: string | null;
   focusMode: 'part' | 'assembly' | null;
@@ -48,6 +49,13 @@ interface StoreState {
   canUndo: boolean;
   canRedo: boolean;
   stagingGrid: StagingGrid;
+
+  /**
+   * 全局活跃颜色码 (LDraw Color Code)。
+   * 从颜色选择器写入，在创建零件实例时作为 colorCode 默认值注入。
+   * 默认值 4 (Red) 仅作为示例；实际工程中应由用户在 UI 中显式选取。
+   */
+  activeColorCode: number;
   
   // 日志系统
   logs: StoreLog[];
@@ -79,6 +87,9 @@ interface StoreState {
   setEnableContactShadows: (value: boolean) => void;
   setDebugMode: (value: boolean) => void;
   setPartZone: (partId: string, zone: ZoneType) => void;
+
+  /** 全局颜色选择：更新 activeColorCode，后续所有零件实例使用此颜色 */
+  setActiveColorCode: (code: number) => void;
   
   undo: () => void;
   redo: () => void;
@@ -187,6 +198,9 @@ export const useStore = create<StoreState>((set, get) => ({
   canUndo: false,
   canRedo: false,
   stagingGrid: new StagingGrid(),
+
+  // 全局活跃颜色码，默认为 4 (Red)，供新建零件实例时使用
+  activeColorCode: 4,
   
   logs: [],
   showLogPanel: false,
@@ -274,6 +288,11 @@ export const useStore = create<StoreState>((set, get) => ({
   },
   setPartZone: (partId, zone) => get().updatePartState(partId, { zone }),
 
+  setActiveColorCode: (code) => {
+      get().addLog(`Active color code changed to: ${code}`, 'ACTION');
+      set({ activeColorCode: code });
+  },
+
   undo: () => {
     _history.undo();
     get().addLog("Undo performed", 'ACTION');
@@ -294,6 +313,11 @@ export const useStore = create<StoreState>((set, get) => ({
     if (activeParts.length === 0 && (interactionPhase === InteractionPhase.IDLE || interactionPhase === InteractionPhase.PREVIEWING)) {
       get().addLog(`Starting first part in scene: ${port.partId}`);
       const instanceId = port.partId;
+      // 颜色决策：字典预设色 > 画笔色（activeColorCode）
+      const initialColorCode = getDefaultColorCode(
+        port.ldrawId || port.partId,
+        get().activeColorCode
+      );
       set((state) => ({
         parts: {
           ...state.parts,
@@ -301,7 +325,7 @@ export const useStore = create<StoreState>((set, get) => ({
             ldrawId: port.ldrawId || instanceId.split('_')[0],
             position: [0, 0, 0] as Vec3,
             quaternion: [0, 0, 0, 1] as Quat,
-            colorCode: 7, 
+            colorCode: initialColorCode,
             zone: ZoneType.ACTIVE_ARENA
           }
         },
@@ -459,7 +483,13 @@ export const useStore = create<StoreState>((set, get) => ({
   addParts: (ids) => set(s => {
     get().addLog(`Add parts to scene: ${ids.join(', ')}`, 'ACTION');
     const np = { ...s.parts };
-    ids.forEach(id => { np[id] = { ldrawId: id.split('_')[0] + '.dat', position: [0,0,0], quaternion: [0,0,0,1], colorCode: 16, zone: ZoneType.ACTIVE_ARENA }; });
+    const fallback = get().activeColorCode;
+    ids.forEach(id => {
+      // 颜色决策：字典预设色 > 画笔色（activeColorCode）
+      const ldrawId = id.split('_')[0] + '.dat';
+      const colorCode = getDefaultColorCode(ldrawId, fallback);
+      np[id] = { ldrawId, position: [0,0,0], quaternion: [0,0,0,1], colorCode, zone: ZoneType.ACTIVE_ARENA };
+    });
     return { parts: np };
   }),
   removeParts: (ids) => set(s => {

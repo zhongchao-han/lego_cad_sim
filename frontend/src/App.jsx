@@ -57,8 +57,10 @@ function AssemblyUI() {
              <StagingTrayPanel />
           </div>
         </div>
-        <PartPreviewOverlay />
       </div>
+
+      {/* 零件预览弹窗：挂载在根级确保 absolute inset-0 覆盖全视口 */}
+      <PartPreviewOverlay />
     </div>
   );
 }

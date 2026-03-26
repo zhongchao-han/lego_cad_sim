@@ -62,7 +62,8 @@ graph TD
     1.  **矩阵提纯 (Purification)**: 消除嵌套浮点误差。
     2.  **空间归一化**: 执行 Rx180 翻转。
     3.  **Site 聚类 (Clustering)**: 执行 `site_utils.py` 中的近邻贪心聚类算法，将距离 < 0.1mm 的端口归并为 Site。
--   **主要产出**: 同步写入 **`.glb`** 文件与 **`ldraw_port_configs.json`** (v3.1 Sites 模式)。
+    4.  **色彩着色 (Color Baking)**: 基于 `LDConfig.ldr` 将传入的 `color_code` 编码解析为 RGB/Alpha，注入到 GLB 文件的 `vertex_colors` (对于基础图元) 或者独立材质节点，通过 `hasVertexColors` 被前端的三维管线接管使用。作为 ABS Plastic 反馈给后续 PBR 管线。
+-   **主要产出**: 同步写入按 `"{part_id}_c{color_code}.glb"` 规则隔离换色缓存的 **`.glb`** 文件与 **`ldraw_port_configs.json`** (v3.1 Sites 模式)。
 
 ### **2.2 第二阶段：运行时 API 服务 (API Dispatch Stage)**
 -   **核心原则：保护人工由于误差**
