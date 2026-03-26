@@ -24,20 +24,40 @@
 ```mermaid
 sequenceDiagram
     participant User as 用户
-    participant UI as 预览窗口
-    participant Store as 前端状态机 (FSM)
+    participant UI as 预览窗口/视口
+    participant Store as 前端及拓扑管理器 (FSM / Topology)
     participant Engine as 后端物理引擎
 
-    User->>UI: 在预览窗点击位点 (Source Site)
-    UI->>Store: SOURCE_LOCKED (锁定位点)
-    User->>Store: 在主竞技场点击位点 (Target Site)
-    Store->>Engine: 请求 Site P2P 对齐矩阵
-    Engine->>Store: 返回 4x4 变换结果 (SI Meters)
-    Store->>User: 播放平滑滑入动画 (v1.2)
-    Engine-->>Engine: Backend Auto-Latching (扫描并尝试闭合邻近 Site)
-    User->>Store: 沿轴鼠标拖拽 (Axial Sliding)
-    Store->>Engine: checkMotion(delta) 返回阻力/碰撞
-    Store->>User: 动画落位定深 (Commit)
+    %% Phase 1: 预防与意图锁定
+    Note over Store: Phase: IDLE
+    User->>UI: Viewport 悬停目标
+    UI->>Store: PREVIEWING (意图过滤/渲染 Gizmo)
+    User->>UI: 点击源位点 (Source Site)
+    UI->>Store: SOURCE_LOCKED (锁定位点属性)
+
+    %% Phase 2: 目标锁定与计算请求
+    User->>Store: 点击目标位点 (Target Site)
+    Note over Store: Phase: ANIMATING_SNAP (屏蔽输入)
+    Store->>Engine: 请求 Site P2P 对齐矩阵 (snap_parts)
+
+    %% Phase 3: 后端拓扑闭合并下发
+    Engine-->>Engine: Backend Auto-Latching (扫描相交 Site)
+    Engine->>Store: 返回 4x4 变换结果 <br/> & 拓扑连接集 (connections)
+
+    %% Phase 4: 渲染动画与拓扑更新
+    Store->>Store: TopologyManager 注册新连接 (持久化)
+    Store->>User: 播放平滑滑入动画 (自动视口过渡)
+
+    %% Phase 5: 微调验证与提交
+    Note over Store: Phase: AXIAL_SLIDING
+    User->>Store: 沿 Z 轴鼠标拖拽
+    Store->>Engine: checkMotion(delta) 判断干涉
+    Engine->>Store: 返回阻力/碰撞预判
+    Store->>User: 渲染定深动画并应用位移
+
+    %% 闭环
+    Store->>Store: 提交深度 (Commit)
+    Note over Store: Phase: IDLE (重置态)
 ```
 
 ---
