@@ -59,8 +59,8 @@ class TestV3_0Metrics(unittest.TestCase):
         # 执行发现逻辑
         ports = gp.discover_ports(part_id)
         
-        # 1. 数量验证: 32316.dat 是 5L 梁，应有 5 个中心孔 (归一化解析)
-        self.assertEqual(len(ports), 5, f"32316.dat 端口数量异常: {len(ports)}")
+        # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
+        self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
         
         # 2. 间距验证: 每两个相邻孔的间距应为 20 LDU = 0.008m
         p0 = np.array(ports[0]["position"])

@@ -199,6 +199,10 @@ class GeometryProcessor:
             logger.error(f"Failed to discover ports from {filepath}: {e}", exc_info=True)
             return []
 
+        # 分类定义
+        THROUGH_HOLES = ["beamhole.dat", "connhole.dat", "crosshole.dat"]
+        BLIND_HOLES = ["peghole.dat", "halfhole.dat"]
+
         for line in lines:
             parts = line.strip().split()
             if not parts or parts[0] != '1': continue
@@ -209,49 +213,60 @@ class GeometryProcessor:
             current_global_mat = global_mat @ local_mat
             
             if child_file in SEMANTIC_PRIMITIVES or any(child_file.startswith(p) for p in CONNECTOR_PREFIXES):
-                y_scale = np.linalg.norm(current_global_mat[:3, 1])
                 
-                # 采样步长判定
-                base_unit_len = 1.0
-                for k, v in KNOWN_UNIT_LENGTHS.items():
-                    if k in child_file:
-                        base_unit_len = v; break
+                # 特判 1：离散通孔 (Through-holes)
+                # 其原点在厚度中心，需要向外分裂产生 2 个表面端口 (±10 LDU 偏置)
+                if any(child_file.endswith(th) for th in THROUGH_HOLES):
+                    # 前端口 (+10 LDU)
+                    for offset_y, dir_flip in [(10.0, 1.0), (-10.0, -1.0)]:
+                        lv = np.array([0, offset_y, 0, 1])
+                        p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
+                        
+                        y_axis_ldu = current_global_mat[:3, 1]
+                        raw_z = y_axis_ldu * dir_flip
+                        z_norm = np.linalg.norm(raw_z)
+                        z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
+                        
+                        x_ref_ldu = current_global_mat[:3, 0]
+                        if abs(np.dot(x_ref_ldu / (np.linalg.norm(x_ref_ldu) + 1e-9), z_hat)) > 0.9:
+                            x_ref_ldu = np.array([0.0, 0.0, 1.0])
+                            
+                        y_hat = np.cross(z_hat, x_ref_ldu)
+                        y_hat /= np.linalg.norm(y_hat) + 1e-9
+                        x_hat = np.cross(y_hat, z_hat)
+                        x_hat /= np.linalg.norm(x_hat) + 1e-9
+                        
+                        rot_ldu = np.column_stack((x_hat, y_hat, z_hat))
+                        final_rot = CoordinateTransformer.normalize_rot(purify_rotation_matrix(rot_ldu))
+                        
+                        port_name = f"{root_id}_p{len(discovered)}"
+                        discovered.append({
+                            "name": port_name,
+                            "type": child_file,
+                            "position": CoordinateTransformer.normalize_pos(p_mat[:3, 3]).tolist(),
+                            "rotation": final_rot.tolist()
+                        })
                 
-                length_ldu = y_scale * base_unit_len * 20.0 if y_scale <= 10.0 else y_scale
-                num_units = max(1, int(round(length_ldu / 20.0)))
-                
-                # 方向判定 (Pin/Axle 为 MALE, Z轴朝外)
-                is_extruding = any(x in child_file for x in ["peg", "pin", "axle", "confric"])
-                step_dir = -1.0 if is_extruding else 1.0
-                
-                for k in range(num_units):
-                    offset_y = k * 20.0 * step_dir
-                    lv = np.array([0, offset_y / y_scale, 0, 1])
+                # 特判 2：单面非通孔或盲孔 (Blind-holes)
+                elif any(child_file.endswith(bh) for bh in BLIND_HOLES):
+                    # 原点即在开口边缘处 (offset=0)，方向指向外部 (-Y)
+                    # 注: peghole.dat 的实体是 y=0 到 y=8，所以外面是负Y。即法向朝外对应的是 `-1.0`
+                    lv = np.array([0, 0, 0, 1])
                     p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                     
-                    # 修正：通过 Gram-Schmidt 重构局部坐标系，使 Z 轴精确对齐到物理法线 (Y 轴 * step_dir)
                     y_axis_ldu = current_global_mat[:3, 1]
-                    raw_z = y_axis_ldu * step_dir
+                    raw_z = y_axis_ldu * -1.0
                     z_norm = np.linalg.norm(raw_z)
                     z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
-                    
-                    # 选择一个非平行的参考 X 轴 (优先用原矩阵的 X 轴)
                     x_ref_ldu = current_global_mat[:3, 0]
                     if abs(np.dot(x_ref_ldu / (np.linalg.norm(x_ref_ldu) + 1e-9), z_hat)) > 0.9:
                         x_ref_ldu = np.array([0.0, 0.0, 1.0])
-                        
                     y_hat = np.cross(z_hat, x_ref_ldu)
                     y_hat /= np.linalg.norm(y_hat) + 1e-9
                     x_hat = np.cross(y_hat, z_hat)
                     x_hat /= np.linalg.norm(x_hat) + 1e-9
                     
-                    rot_ldu = np.column_stack((x_hat, y_hat, z_hat))
-                    
-                    # 强制正交化与右手系检阅
-                    pure_rot_ldu = purify_rotation_matrix(rot_ldu)
-                    final_rot = CoordinateTransformer.normalize_rot(pure_rot_ldu)
-                    
-                    # 生成唯一端口名
+                    final_rot = CoordinateTransformer.normalize_rot(purify_rotation_matrix(np.column_stack((x_hat, y_hat, z_hat))))
                     port_name = f"{root_id}_p{len(discovered)}"
                     discovered.append({
                         "name": port_name,
@@ -259,6 +274,67 @@ class GeometryProcessor:
                         "position": CoordinateTransformer.normalize_pos(p_mat[:3, 3]).tolist(),
                         "rotation": final_rot.tolist()
                     })
+
+                # 通用多单位步进元件 (连续轴、连续孔、连接插销等)
+                else: 
+                    y_scale = np.linalg.norm(current_global_mat[:3, 1])
+                    
+                    base_unit_len = 1.0
+                    for k, v in KNOWN_UNIT_LENGTHS.items():
+                        if k in child_file:
+                            base_unit_len = v; break
+                    
+                    length_ldu = y_scale * base_unit_len * 20.0 if y_scale <= 10.0 else y_scale
+                    num_units = max(1, int(round(length_ldu / 20.0)))
+                    
+                    # 只有纯粹的凸起组件（pin、axle、peg等）被视作挤出型。排除了 hole / hol
+                    is_extruding = any(x in child_file for x in ["peg", "pin", "axle", "confric"]) and "hol" not in child_file
+                    step_dir = -1.0 if is_extruding else 1.0
+
+                    
+                    for k in range(num_units):
+                        # 重点修复：起始点偏移 10 LDU (物理中点对齐)，若该模型的轴向是在 0..L 展开
+                        # 通常 axle.dat 是居中的 ([-L/2, L/2])，在 LDraw 中若 y_scale <= 10 通常 origin 是中点
+                        # 若原点位于端点, offset 应包含 10 LDU 补偿。
+                        # 采用基于几何域 [0, 1] 中心的对称分布算法：
+                        # LDraw 的线状组件 (scale > 10) 其本地 Y 一般是从 0 延伸到 1。其几何中心在 0.5
+                        if y_scale > 10.0:
+                            # 基于中点 0.5 进行左右偏置
+                            local_y = 0.5 + ((k - num_units / 2.0 + 0.5) * 20.0 * step_dir) / y_scale
+                            lv = np.array([0, local_y, 0, 1])
+                        else:
+                            # 典型的源点为中点的 axle (e.g. length = num_units * 20, 且scale=1)
+                            # 生成点为 -L/2 + 10, -L/2 + 30 ... -> 等效 (k - num_units/2 + 0.5) * 20
+                            offset_y = (k - num_units / 2.0 + 0.5) * 20.0 * step_dir
+                            lv = np.array([0, offset_y / y_scale, 0, 1])
+
+                        p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
+                        
+                        y_axis_ldu = current_global_mat[:3, 1]
+                        raw_z = y_axis_ldu * step_dir
+                        z_norm = np.linalg.norm(raw_z)
+                        z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
+                        
+                        x_ref_ldu = current_global_mat[:3, 0]
+                        if abs(np.dot(x_ref_ldu / (np.linalg.norm(x_ref_ldu) + 1e-9), z_hat)) > 0.9:
+                            x_ref_ldu = np.array([0.0, 0.0, 1.0])
+                            
+                        y_hat = np.cross(z_hat, x_ref_ldu)
+                        y_hat /= np.linalg.norm(y_hat) + 1e-9
+                        x_hat = np.cross(y_hat, z_hat)
+                        x_hat /= np.linalg.norm(x_hat) + 1e-9
+                        
+                        rot_ldu = np.column_stack((x_hat, y_hat, z_hat))
+                        pure_rot_ldu = purify_rotation_matrix(rot_ldu)
+                        final_rot = CoordinateTransformer.normalize_rot(pure_rot_ldu)
+                        
+                        port_name = f"{root_id}_p{len(discovered)}"
+                        discovered.append({
+                            "name": port_name,
+                            "type": child_file,
+                            "position": CoordinateTransformer.normalize_pos(p_mat[:3, 3]).tolist(),
+                            "rotation": final_rot.tolist()
+                        })
             else:
                 # 递归发现子部件端口
                 discovered.extend(self.discover_ports(child_file, current_global_mat, root_id=root_id))

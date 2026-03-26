@@ -78,8 +78,8 @@ class TestDiscoverPortsZAxisConstruction(unittest.TestCase):
         39369.dat 格栅板顶面 connhole 开口垂直（±Y 轴）。
         """
         ports = self.geo.discover_ports("39369.dat")
-        self.assertEqual(len(ports), 209,
-                         f"39369.dat 应发现 209 个端口，实际 {len(ports)}")
+        self.assertEqual(len(ports), 390,
+                         f"39369.dat 应发现 390 个端口，实际 {len(ports)}")
         # 取前 8 个（正面孔区域），Z 轴应垂直
         for p in ports[:8]:
             z = _z_axis(p)
@@ -303,6 +303,52 @@ class TestCoordinateTransformConsistency(unittest.TestCase):
         dot = np.dot(z_hole, z_pin)
         self.assertAlmostEqual(dot, -1.0, places=5,
                                msg=f"孔 Z={z_hole} 与销 Z={z_pin} 必须精确反向平行，dot={dot:.6f}")
+
+
+class TestPortPositionDistribution(unittest.TestCase):
+    """
+    验证 LDraw 模型不同类型特征原件的端口空间位置重定向：
+    覆盖 离散通孔分裂（前后表面 Ports）与 连续形长轴对称分布。
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.geo = _build_processor()
+
+    def test_beamhole_split_to_surfaces(self) -> None:
+        """
+        32523.dat (Beam 3) 应该从原本提取的 3 个中心点，分裂成总共 6 个表面端口。
+        断言 Z方向表面孔偏移应该严格等于 ±4mm (或 ±10 LDU 等效 SI 坐标偏移)。
+        """
+        ports = self.geo.discover_ports("32523.dat")
+        self.assertEqual(len(ports), 6, "Beam 3 应该因双向孔洞分裂提取出 6 个表面端口")
+        
+        # 对于前两个孔 (属于第一个物理孔前反面)
+        # 其对应的孔深应当落于 ±4mm。具体 Z/Y 看 LDraw 模型映射
+        depths = [p["position"][1] for p in ports[:2]]
+        self.assertAlmostEqual(abs(depths[0]), 0.004, places=4, msg="端口孔边缘深度应该从 0 偏置到 4mm")
+        self.assertAlmostEqual(abs(depths[1]), 0.004, places=4)
+        # 前后孔法向必定完全相反 (-1.0)
+        z0, z1 = _z_axis(ports[0]), _z_axis(ports[1])
+        self.assertAlmostEqual(np.dot(z0, z1), -1.0, places=5, msg="分裂的同结构前后方向端口其 Z 轴必须完全反冲")
+
+    def test_continuous_axle_position_distribution(self) -> None:
+        """
+        3705.dat (Axle 4) 应该分布于长轴的物理中心两旁。
+        长度 4 单位，断言端口位置分别恰好位于 ±4mm 与 ±12mm。
+        """
+        ports = self.geo.discover_ports("3705.dat")
+        # 排除 2 个 axleend2 倒角端点，取出内部的 4 个 axlehol8
+        axle_ports = [p for p in ports if "axlehol8" in p["type"]]
+        self.assertEqual(len(axle_ports), 4, "Axle 4 内部应该有 4 段连续长孔步进点")
+
+        # 当前矩阵主轴是 X 轴伸展（参见 3705.dat）
+        x_positions = sorted([p["position"][0] for p in axle_ports])
+        
+        expected_x = [-0.012, -0.004, 0.004, 0.012]
+        for act, exp in zip(x_positions, expected_x):
+            self.assertAlmostEqual(act, exp, places=4, 
+                                   msg=f"长轴端口应针对几何物理中心绝对居中分布，期望 {exp} 实际 {act}")
 
 
 if __name__ == "__main__":
