@@ -1,9 +1,6 @@
 name: Daily Full Unit Tests
 
 on:
-  schedule:
-    # 每天凌晨 3:00 (北京时间) = 19:00 (UTC)
-    - cron: '0 19 * * *'
   workflow_dispatch: # 允许手动手动触发检测
 
 jobs:
