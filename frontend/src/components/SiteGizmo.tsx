@@ -34,18 +34,22 @@ const GIZMO_SPHERE_R     = 4 * LDU;    // 展开态：方向箭头根部球
 
 // ─── 类型辅助 ──────────────────────────────────────────────────────────────
 
-function isHoleType(type: string): boolean {
-  const t = type.toLowerCase();
-  // [v3.1 Fix] Match npeghol and connhol
+function isFemale(port: LDrawPort): boolean {
+  if (port.gender) {
+    return port.gender === 'FEMALE';
+  }
+  const t = port.type?.toLowerCase() || '';
   return t.includes('hole') || t.includes('hol') || t === 'peghole' || t === 'axlehole';
 }
 
 function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
   if (!sourcePortType) return true; // SOURCE_LOCKED 未设置时，全部显示
-  const srcIsHole = isHoleType(sourcePortType);
-  const tgtIsHole = isHoleType(targetPort.type);
+  
+  const srcIsFemale = sourcePortType.toLowerCase().includes('hole') || sourcePortType.toLowerCase().includes('hol');
+  const tgtIsFemale = isFemale(targetPort);
+  
   // 简单极性过滤：一孔一插才算兼容
-  return srcIsHole !== tgtIsHole;
+  return srcIsFemale !== tgtIsFemale;
 }
 
 function computePortQuaternion(rotation: number[][]): THREE.Quaternion {
@@ -78,7 +82,7 @@ function PortArrow({
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
 
-  const baseColor = isHoleType(port.type) ? '#2196f3' : '#e040fb';
+  const baseColor = isFemale(port) ? '#2196f3' : '#e040fb';
   const activeColor = (hovered || isSelected) ? '#ff9800' : baseColor;
   const color = isCompatiblePort ? activeColor : '#555555'; // 不兼容端口变灰
 

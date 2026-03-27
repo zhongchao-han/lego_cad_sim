@@ -5,6 +5,7 @@ const LDU = 0.0004;
 
 interface PortVisualizerProps {
   type: string;
+  gender?: string;
   position: [number, number, number];
   rotation: number[][];
   isSelected?: boolean;
@@ -13,12 +14,13 @@ interface PortVisualizerProps {
 
 export const PortVisualizer: React.FC<PortVisualizerProps> = ({
   type,
+  gender,
   position,
   rotation,
   isSelected,
   onSelect
 }) => {
-  const isFemale = type.toLowerCase().includes('hole');
+  const isFemale = gender ? gender === 'FEMALE' : (type.toLowerCase().includes('hole') || type.toLowerCase().includes('hol') || type === 'peghole' || type === 'axlehole');
   const color = isFemale ? '#3b82f6' : '#a855f7';
   
   const matrix = useMemo(() => {
