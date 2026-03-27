@@ -19,7 +19,6 @@ function AssemblyUI() {
   const setView = useStore((state) => state.setView);
   const toggleMode = useStore((state) => state.toggleMode);
   const wsConnected = useStore((state) => state.wsConnected);
-  const addLog = useStore((state) => state.addLog);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50 flex flex-col">
@@ -97,7 +96,9 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           if (data.state) batchUpdatePartStates(data.state);
-        } catch (e) { }
+        } catch {
+          // ignore parsing error
+        }
       };
       ws.onclose = () => { if (isMounted) { setWsConnected(false); reconnectTimer = setTimeout(connect, 2000); } };
     };
