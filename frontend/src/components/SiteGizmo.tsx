@@ -15,7 +15,7 @@
  *   - 橙色 (#ff9800) : Hover/Selected 激活态（覆盖极性色）
  */
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { LDrawSite, LDrawPort } from '../useLDrawPart';
@@ -26,11 +26,11 @@ const LDU = 0.0004;
 
 // ─── 常量 ──────────────────────────────────────────────────────────────────
 
-const IDLE_SPHERE_RADIUS = 2.5 * LDU;   // 静默态：小点提示
-const ARROW_LENGTH       = 12 * LDU;    // 展开态：箭头总长
-const ARROW_HEAD_LEN     = 4 * LDU;
-const ARROW_HEAD_WIDTH   = 2 * LDU;
-const GIZMO_SPHERE_R     = 4 * LDU;    // 展开态：方向箭头根部球
+const IDLE_SPHERE_RADIUS = 2.5 * LDU;   // 静默态：小点提示（备用）
+const ARROW_LENGTH       = 24 * LDU;    // 展开态：箭头总长（根据要求放大）
+const ARROW_HEAD_LEN     = 8 * LDU;     // 箭头头部长度
+const ARROW_HEAD_WIDTH   = 4.5 * LDU;   // 箭头头部宽度
+const GIZMO_SPHERE_R     = 5 * LDU;     // 展开态：方向箭头根部球（稍微放大）
 
 // ─── 类型辅助 ──────────────────────────────────────────────────────────────
 
@@ -82,9 +82,22 @@ function PortArrow({
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
 
-  const baseColor = isFemale(port) ? '#2196f3' : '#e040fb';
-  const activeColor = (hovered || isSelected) ? '#ff9800' : baseColor;
-  const color = isCompatiblePort ? activeColor : '#555555'; // 不兼容端口变灰
+  const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
+  // 默认态：当仅仅是零件被 hover 时，端口和箭头显示为灰色
+  let color = '#888888';
+  let opacity = 0.5;
+  
+  // 激活态：当精确 hover 到这个特定箭头，或者被选中时，高亮显示
+  if (hovered || isSelected) {
+    color = genderColor;
+    opacity = 0.9;
+  }
+  
+  // 不兼容的源端口过滤（变暗）
+  if (!isCompatiblePort) {
+    color = '#444444';
+    opacity = 0.2;
+  }
 
   // pos: 端口在「零件局部坐标系」中的原始坐标
   // 这是给 buildPortInfo 使用的物理锚点，必须保持为零件局部值，不能被 Site 偏移污染
@@ -128,45 +141,70 @@ function PortArrow({
     return zAxis;
   }, [port.rotation]);
 
+  // 防御性光标清理，避免组件因父级状态切换突然卸载时导致样式残留
+  useEffect(() => {
+    return () => {
+      if (hovered) {
+        document.body.style.cursor = 'auto';
+      }
+    };
+  }, [hovered]);
+
   return (
     // 使用 renderPos（站点局部偏移）定位箭头，保证视觉准确
     <group position={renderPos}>
-      {/* 方向箭头 */}
+      {/* 方向箭头：由于 LDU 极小比例，内部的 THREE.Line 默认距离阈值为 1，会引发惊人的全屏误触！必须强行关闭其物理碰撞 */}
       <arrowHelper
         args={[
           direction,
           new THREE.Vector3(0, 0, 0),
           ARROW_LENGTH, color, ARROW_HEAD_LEN, ARROW_HEAD_WIDTH
         ]}
+        onUpdate={(self) => {
+          self.traverse((child) => {
+            child.raycast = () => {}; 
+          });
+        }}
       />
       {/* 根部球体（视觉锚点） */}
       <mesh quaternion={quaternion}>
         <sphereGeometry args={[GIZMO_SPHERE_R, 10, 10]} />
-        <meshBasicMaterial color={color} toneMapped={false} opacity={0.9} transparent />
+        <meshBasicMaterial color={color} toneMapped={false} opacity={opacity} transparent />
       </mesh>
-      {/* 不可见的碰撞球体（扩大点击热区） */}
-      <mesh
-        renderOrder={999}
-        onPointerOver={() => {
-          document.body.style.cursor = 'pointer';
-          setHovered(true);
-          onPortHover?.(buildPortInfo());
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = 'auto';
-          setHovered(false);
-          onPortHover?.(null);
-        }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (!isCompatiblePort) return;
-          onPortClick?.(buildPortInfo());
-        }}
-        onDoubleClick={(e) => e.stopPropagation()}
-      >
-        <sphereGeometry args={[10 * LDU, 6, 6]} />
-        <meshBasicMaterial transparent opacity={0} depthTest={false} />
-      </mesh>
+      {/* 独立封装的完美方向性碰撞热区 (Directional Hitbox) */}
+      <group>
+        <mesh
+          position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}
+          quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}
+          renderOrder={999}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = 'pointer';
+            setHovered(true);
+            onPortHover?.(buildPortInfo());
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            document.body.style.cursor = 'auto';
+            setHovered(false);
+            onPortHover?.(null);
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            console.debug('[SiteGizmo:PortArrow] 精确捕获点击目标', { port, isCompatiblePort });
+            if (!isCompatiblePort) {
+              console.debug('[SiteGizmo:PortArrow] 端口兼容性校验失败，丢弃点击事件');
+              return;
+            }
+            onPortClick?.(buildPortInfo());
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          {/* 热区圆柱体：半径放大以方便点击，长度覆盖整个箭头 */}
+          <cylinderGeometry args={[10 * LDU, 10 * LDU, ARROW_LENGTH, 12]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -192,43 +230,12 @@ export function SiteGizmo({
   site, groupRef, partId, ldrawId, phase, sourcePortType = null,
   selectedPort, onPortClick, onPortHover
 }: SiteGizmoProps) {
-  const [siteHovered, setSiteHovered] = useState(false);
-  const neutralRef = useRef<THREE.Mesh>(null);
-
-  // 展开条件：用户悬停该 Site 或当前处于需要选择目标/调节深度的阶段
-  const isExpanded = siteHovered 
-    || phase === InteractionPhase.SOURCE_LOCKED 
-    || phase === InteractionPhase.AXIAL_SLIDING;
-
-  // 静默态：呼吸动画
-  useFrame(({ clock }) => {
-    if (neutralRef.current && !isExpanded) {
-      const scale = 1 + Math.sin(clock.elapsedTime * 2) * 0.15;
-      neutralRef.current.scale.setScalar(scale);
-    }
-  });
-
   const sitePos = site.position as Vec3;
 
   return (
     <group position={sitePos}>
-      {/* 静默态中性球（存在感提示，始终可见） */}
-      <mesh
-        ref={neutralRef}
-        onPointerOver={() => { setSiteHovered(true); }}
-        onPointerOut={() => setSiteHovered(false)}
-      >
-        <sphereGeometry args={[IDLE_SPHERE_RADIUS, 8, 8]} />
-        <meshBasicMaterial
-          color={isExpanded ? '#ffffff' : '#aaaaaa'}
-          toneMapped={false}
-          transparent
-          opacity={isExpanded ? 0.6 : 0.4}
-        />
-      </mesh>
-
-      {/* 展开态：渲染每个 Port 的方向箭头 */}
-      {isExpanded && site.ports.map((port, idx) => {
+      {/* 始终渲染每个 Port 的方向箭头。颜色和事件由 PortArrow 独立代理封装控制 */}
+      {site.ports.map((port, idx) => {
         const compatible = isCompatible(
           phase === InteractionPhase.SOURCE_LOCKED ? sourcePortType : null,
           port
