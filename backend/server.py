@@ -96,6 +96,7 @@ class ForceRequest(BaseModel):
 class LDrawPort(BaseModel):
     name: str
     type: str
+    gender: Optional[str] = None
     position: list
     rotation: list
     is_manually_adjusted: bool = False

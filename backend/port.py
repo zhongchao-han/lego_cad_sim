@@ -46,6 +46,7 @@ class Port:
         return {
             "name": self.name,
             "type": self.port_type,
+            "gender": self.interface.gender.value if self.interface else "UNKNOWN",
             "position": self.position.tolist(),
             "rotation": self.rotation.tolist(),
             "is_manually_adjusted": self.is_manually_adjusted

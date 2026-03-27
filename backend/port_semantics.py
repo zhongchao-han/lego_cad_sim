@@ -77,6 +77,8 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     "peghole.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
     "beamhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
     "connhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "connhol.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+    "npeghol.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
 
     # 十字轴孔：用于锁定轴的旋转
     "axlehole":     ConnectionInterface(Gender.FEMALE, Profile.CROSS,    4.0 * LDU, 20.0 * LDU),
@@ -157,7 +159,7 @@ def get_interface(port_type: str) -> Optional[ConnectionInterface]:
         
     # 3. 前缀模糊匹配 (处理 stud2, tube10, axlehole2 等变体)
     # 优先级顺序：从最具体的向最通用的匹配
-    for prefix in ["axlehole", "peghole", "beamhole", "connhole", "stud", "tube", "pin", "axle", "peg"]:
+    for prefix in ["axlehole", "peghole", "beamhole", "connhole", "npeghol", "connhol", "stud", "tube", "pin", "axle", "peg"]:
         if p_base.startswith(prefix):
             # 尝试查找该前缀对应的标准定义
             if prefix in INTERFACE_REGISTRY:

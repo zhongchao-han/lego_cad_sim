@@ -6,6 +6,7 @@ const API_URL = (import.meta as any).env.VITE_API_URL || 'http://127.0.0.1:8000/
 export interface LDrawPort {
   name: string;
   type: string;
+  gender?: 'MALE' | 'FEMALE' | 'UNKNOWN' | string;
   position: [number, number, number];
   rotation: number[][];
   is_manually_adjusted?: boolean;
@@ -86,7 +87,8 @@ export function useLDrawPart(
         const res = await axios.get(`${API_URL}/ldraw_part/${encodeURIComponent(partId)}`, {
           params: { 
             color: colorCode,
-            include_pending: includePending 
+            include_pending: includePending,
+            _t: Date.now() // [v3.1 Fix] Cache-buster to guarantee we fetch the newest backend data
           },
         });
         if (cancelled) return;

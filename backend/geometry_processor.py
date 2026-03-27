@@ -17,9 +17,10 @@ SEMANTIC_PRIMITIVES = [
     "connect.dat", "beamhole.dat", "connhole.dat", "bush.dat", "crosshole.dat",
     "axlehol8.dat", "axleend2.dat", "fric_pin.dat",
     "stud.dat", "tube.dat", "stud2.dat", "tube2.dat", "stud3.dat", "tube3.dat",
-    "stud4.dat", "tube4.dat", "stud10.dat", "tube10.dat"
+    "stud4.dat", "tube4.dat", "stud10.dat", "tube10.dat",
+    "npeghol2.dat", "npeghol19.dat", "connhol2.dat"
 ]
-CONNECTOR_PREFIXES = ["axle", "pin", "hole", "peg", "confric", "stud", "tube"]
+CONNECTOR_PREFIXES = ["axle", "pin", "hole", "peg", "confric", "stud", "tube", "connhol"]
 
 # 特殊原语的单位步长补偿 (LDU)
 KNOWN_UNIT_LENGTHS = {
@@ -183,12 +184,67 @@ class GeometryProcessor:
             logger.error(f"GLB 导出失败: {e}")
             return False
 
+    def _get_trimesh_for_part(self, filename: str) -> Optional[trimesh.Trimesh]:
+        """(Legacy) 将零件转换为用于射线逻辑识别的临时 Trimesh 对象, 由于精度问题现已停用, 但保留以供他用"""
+        pass
+
+    def _heal_blind_holes(self, ports: List[Dict[str, Any]], root_id: str) -> List[Dict[str, Any]]:
+        """
+        [v3.1 Topology Healer]
+        针对 LDraw 官方由散装面建立导致内孔丢失的模型（例如 Open Center 框架）：
+        检测文件的 Description 描述，若属于开放型框架，则安全地为其侧边周长的盲孔对向分裂出配对的内侧物理端口。
+        """
+        final_ports = []
+        BLIND_HOLES = ["peghole.dat", "halfhole.dat", "npeghol2.dat", "npeghol19.dat"]
+        
+        # 探测是否是框架类零件
+        is_frame = False
+        filepath = self.resolve_path(f"{root_id}.dat")
+        if filepath:
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    first_line = f.readline().lower()
+                    if 'open center' in first_line or 'open centre' in first_line or 'frame' in first_line:
+                        is_frame = True
+            except Exception:
+                pass
+        
+        for port in ports:
+            final_ports.append(port)
+            if is_frame and any(port.get('type', '').endswith(bh) for bh in BLIND_HOLES):
+                pos = np.array(port['position'])
+                rot = np.array(port['rotation'])
+                
+                # Z轴永远垂直孔平面向外，因此 -Z 即为向内探测方向
+                inward_dir = -rot[:, 2]
+                
+                # 侧边孔：法线必须垂直于主梁法向 (Y 轴)，这里只要 Y-component 极小就是在侧面
+                if abs(inward_dir[1]) < 0.1:
+                    paired_dist_si = 20.0 * CoordinateTransformer.LDU_TO_SI
+                    paired_pos = pos + inward_dir * paired_dist_si
+                    
+                    # 翻转 X 和 Z 以保证伴生对齐坐标系的旋向合法性
+                    paired_rot = rot.copy()
+                    paired_rot[:, 0] = -paired_rot[:, 0]
+                    paired_rot[:, 2] = -paired_rot[:, 2]
+                    
+                    final_ports.append({
+                        "name": f"{port['name']}_healed",
+                        "type": port['type'],
+                        "position": paired_pos.tolist(),
+                        "rotation": paired_rot.tolist()
+                    })
+                    logger.debug(f"[{root_id}] Heuristic topology healer generated paired empty-through-hole for {port['name']}.")
+                    
+        return final_ports
+
     def discover_ports(self, filename: str, global_mat: np.ndarray = np.eye(4), root_id: str = None) -> List[Dict[str, Any]]:
         """
         地毯式递归扫描：从零件源文件中发现所有潜在的物理端口。
         """
+        is_root = (root_id is None)
         logger.debug(f"[DEBUG] 进入 discover_ports: filename={filename}, root_id={root_id}")
-        if root_id is None: root_id = filename.replace(".dat", "")
+        if is_root: root_id = filename.replace(".dat", "")
         filepath = self.resolve_path(filename)
         if not filepath: return []
         
@@ -201,8 +257,8 @@ class GeometryProcessor:
             return []
 
         # 分类定义
-        THROUGH_HOLES = ["beamhole.dat", "connhole.dat", "crosshole.dat"]
-        BLIND_HOLES = ["peghole.dat", "halfhole.dat"]
+        THROUGH_HOLES = ["beamhole.dat", "connhole.dat", "crosshole.dat", "connhol2.dat"]
+        BLIND_HOLES = ["peghole.dat", "halfhole.dat", "npeghol2.dat", "npeghol19.dat"]
 
         for line in lines:
             parts = line.strip().split()
@@ -339,4 +395,8 @@ class GeometryProcessor:
             else:
                 # 递归发现子部件端口
                 discovered.extend(self.discover_ports(child_file, current_global_mat, root_id=root_id))
+                
+        if is_root and discovered:
+            discovered = self._heal_blind_holes(discovered, root_id)
+                
         return discovered

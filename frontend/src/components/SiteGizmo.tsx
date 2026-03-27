@@ -36,7 +36,8 @@ const GIZMO_SPHERE_R     = 4 * LDU;    // 展开态：方向箭头根部球
 
 function isHoleType(type: string): boolean {
   const t = type.toLowerCase();
-  return t.includes('hole') || t === 'peghole' || t === 'axlehole';
+  // [v3.1 Fix] Match npeghol and connhol
+  return t.includes('hole') || t.includes('hol') || t === 'peghole' || t === 'axlehole';
 }
 
 function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {

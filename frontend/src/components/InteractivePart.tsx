@@ -157,38 +157,7 @@ export const InteractivePart = memo(({
   const interactionPhase = useStore(s => s.interactionPhase);
   const selectedPort = useStore(s => s.selectedPort);
 
-  // effectivePorts 保留用于向后兼容的 fallback 渲染
-  const effectivePorts = useMemo(() => {
-    const computeQuaternion = (r: number[][]) => {
-      const mat = new THREE.Matrix4().set(
-        r[0][0], r[0][1], r[0][2], 0,
-        r[1][0], r[1][1], r[1][2], 0,
-        r[2][0], r[2][1], r[2][2], 0,
-        0, 0, 0, 1
-      );
-      return new THREE.Quaternion().setFromRotationMatrix(mat);
-    };
 
-    if (ldrawPart.ports && ldrawPart.ports.length > 0) {
-      return ldrawPart.ports.map((p) => {
-        // 宏观兼容性治理：
-        // 如果后端传来的坐标已经转换成了米（数值通常在 0.x 级别），
-        const rawPos = p.position as [number, number, number];
-        
-        // 核心修正：由于后端的 GLB 导出器已经执行了 0.0004 的米制缩放，
-        // 前端渲染层必须直接使用米制原始坐标，严禁再次除以 LDU 导致坐标逃逸。
-        const normalizedPos = rawPos; 
-        
-        return {
-          type: p.type && p.type.toLowerCase().includes('hole') ? 'peghole' : 'peg',
-          localPos: normalizedPos,
-          rot: p.rotation,
-          quaternion: computeQuaternion(p.rotation)
-        };
-      });
-    }
-    return [];
-  }, [ldrawPart.ports]);
 
   const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
 
@@ -231,95 +200,21 @@ export const InteractivePart = memo(({
         </mesh>
       )}
 
-      {/* Site-based Gizmo 渲染（新交互）：优先使用 Site 聚类数据 */}
-      {finalShowPorts && ldrawPart.sites && ldrawPart.sites.length > 0
-        ? ldrawPart.sites.map((site) => (
-            <SiteGizmo
-              key={site.id}
-              site={site}
-              groupRef={groupRef as React.RefObject<THREE.Group>}
-              partId={partId}
-              ldrawId={ldrawId || partId}
-              phase={interactionPhase}
-              sourcePortType={selectedPort?.portType ?? null}
-              selectedPort={selectedPort}
-              onPortClick={onPortClick}
-              onPortHover={onPortHover}
-            />
-          ))
-        : /* Fallback：Sites 不可用时退化为扁平端口渲染 */
-          finalShowPorts && effectivePorts.map((port, idx) => {
-            const isHole = port.type === 'peghole';
-            const isPortSelected = selectedPort &&
-                             selectedPort.partId === partId &&
-                             Math.abs(selectedPort.position[0] - port.localPos[0]) < 0.0001 &&
-                             Math.abs(selectedPort.position[1] - port.localPos[1]) < 0.0001 &&
-                             Math.abs(selectedPort.position[2] - port.localPos[2]) < 0.0001;
-            const baseColor = isHole ? '#2196f3' : '#e040fb';
-            const color = isPortSelected ? '#ff9800' : baseColor;
-            return (
-              <group key={idx} position={port.localPos} quaternion={port.quaternion}>
-                <mesh>
-                  <sphereGeometry args={[isPortSelected ? 6 * LDU : 4 * LDU, 12, 12]} />
-                  <meshBasicMaterial color={color} toneMapped={false} />
-                </mesh>
-                <mesh position={[0, 0, 4 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
-                  <cylinderGeometry args={[0.5 * LDU, 0.5 * LDU, 8 * LDU, 8]} />
-                  <meshBasicMaterial color={color} toneMapped={false} />
-                </mesh>
-                <mesh position={[0, 0, 10 * LDU]} rotation={[Math.PI / 2, 0, 0]}>
-                  <coneGeometry args={[2 * LDU, 4 * LDU, 8]} />
-                  <meshBasicMaterial color={color} toneMapped={false} />
-                </mesh>
-                <mesh
-                  renderOrder={999}
-                  onPointerOver={() => {
-                    document.body.style.cursor = 'pointer';
-                    const worldPos = new THREE.Vector3().copy(new THREE.Vector3(...port.localPos));
-                    const worldQuat = new THREE.Quaternion().copy(port.quaternion);
-                    if (groupRef.current) {
-                      groupRef.current.localToWorld(worldPos);
-                      const groupWorldQuat = new THREE.Quaternion();
-                      groupRef.current.getWorldQuaternion(groupWorldQuat);
-                      worldQuat.premultiply(groupWorldQuat);
-                    }
-                    onPortHover?.({
-                      partId, ldrawId: ldrawId || partId, portType: port.type,
-                      position: port.localPos, rotation: port.rot,
-                      globalPos: [worldPos.x, worldPos.y, worldPos.z],
-                      globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
-                    });
-                  }}
-                  onPointerOut={() => { 
-                    document.body.style.cursor = 'auto'; 
-                    onPortHover?.(null); 
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const worldPos = new THREE.Vector3().copy(new THREE.Vector3(...port.localPos));
-                    const worldQuat = new THREE.Quaternion().copy(port.quaternion);
-                    if (groupRef.current) {
-                      groupRef.current.localToWorld(worldPos);
-                      const groupWorldQuat = new THREE.Quaternion();
-                      groupRef.current.getWorldQuaternion(groupWorldQuat);
-                      worldQuat.premultiply(groupWorldQuat);
-                    }
-                    onPortClick?.({
-                      partId, ldrawId: ldrawId || partId, portType: port.type,
-                      position: port.localPos, rotation: port.rot,
-                      globalPos: [worldPos.x, worldPos.y, worldPos.z],
-                      globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
-                    });
-                  }}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                >
-                  <sphereGeometry args={[12 * LDU, 6, 6]} />
-                  <meshBasicMaterial transparent opacity={0} depthTest={false} />
-                </mesh>
-              </group>
-            );
-          })
-      }
+      {/* Site-based Gizmo 渲染（新交互）：完全依赖后端的 v3.1 Site 聚类数据进行方向推理 */}
+      {finalShowPorts && ldrawPart.sites?.map((site) => (
+        <SiteGizmo
+          key={site.id}
+          site={site}
+          groupRef={groupRef as React.RefObject<THREE.Group>}
+          partId={partId}
+          ldrawId={ldrawId || partId}
+          phase={interactionPhase}
+          sourcePortType={selectedPort?.portType ?? null}
+          selectedPort={selectedPort}
+          onPortClick={onPortClick}
+          onPortHover={onPortHover}
+        />
+      ))}
     </group>
   );
 });
