@@ -24,27 +24,10 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.port_library_manager import PortLibraryManager
+from backend.tests.test_utils import _make_site
 
 
 # ── 辅助工厂 ──────────────────────────────────────────────────────────────────
-
-def _make_site(part_id: str, port_type: str = "peghole.dat") -> dict:
-    """构造最基础的 Site 字典（用于测试输入）。"""
-    return {
-        "id": f"{part_id}_site0",
-        "position": [0.0, 0.0, 0.0],
-        "occupied_by": None,
-        "ports": [
-            {
-                "name": f"{part_id}_p0",
-                "type": port_type,
-                "position": [0.0, 0.0, 0.0],
-                "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                "is_manually_adjusted": False,
-            }
-        ],
-    }
-
 
 def _make_config(status: str = "pending", verified: bool = False) -> dict:
     """构造一个最小化的零件配置字典。"""

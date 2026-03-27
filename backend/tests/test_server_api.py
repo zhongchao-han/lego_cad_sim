@@ -19,7 +19,6 @@ test_server_api.py
   - WebSocket 和 PhysicsEngine 不在本测试范围内。
 """
 
-import json
 import os
 import sys
 import unittest
@@ -28,24 +27,12 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from fastapi.testclient import TestClient
+from backend.tests.test_utils import _make_site
 
 
 # ── 共享夹具数据 ──────────────────────────────────────────────────────────────
 
-_VERIFIED_SITE = {
-    "id": "6558_site0",
-    "position": [0.0, 0.0, 0.0],
-    "occupied_by": None,
-    "ports": [
-        {
-            "name": "6558_p0",
-            "type": "peg.dat",
-            "position": [0.0, 0.0, 0.0],
-            "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-            "is_manually_adjusted": False,
-        }
-    ],
-}
+_VERIFIED_SITE = _make_site("6558", "peg.dat")
 
 _VERIFIED_CFG = {
     "version": "v3.1.sites",
@@ -148,22 +135,7 @@ class TestVerifySave(unittest.TestCase):
     def _build_payload(self, part_id: str = "32316.dat") -> dict:
         return {
             "part_id": part_id,
-            "sites": [
-                {
-                    "id": f"{part_id}_site0",
-                    "position": [0.0, 0.0, 0.0],
-                    "occupied_by": None,
-                    "ports": [
-                        {
-                            "name": f"{part_id}_p0",
-                            "type": "peghole.dat",
-                            "position": [0.0, 0.0, 0.0],
-                            "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                            "is_manually_adjusted": False,
-                        }
-                    ],
-                }
-            ],
+            "sites": [_make_site(part_id, "peghole.dat")],
         }
 
     def test_save_returns_success(self):
@@ -479,20 +451,8 @@ class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
     """
 
     # ── 子文件（`s/` 子目录）的模拟配置 ────────────────────────────────────────
-    _SUBFILE_VERIFIED_SITE = {
-        "id": "23801s01.dat_site0",
-        "position": [0.0, 0.0, 0.0],
-        "occupied_by": None,
-        "ports": [
-            {
-                "name": "23801s01_p0",
-                "type": "peghole.dat",
-                "position": [0.0, 0.0, 0.0],
-                "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                "is_manually_adjusted": False,
-            }
-        ],
-    }
+    _SUBFILE_VERIFIED_SITE = _make_site("23801s01.dat", "peghole.dat")
+    _SUBFILE_VERIFIED_SITE["ports"][0]["name"] = "23801s01_p0"
 
     # glb_path 使用相对路径，与 ldraw_port_configs.json 中的真实格式一致
     _SUBFILE_VERIFIED_CFG = {

@@ -2,11 +2,11 @@ import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import logging
-from typing import Dict, List, Tuple, Any, Optional
+from typing import List, Tuple, Optional
 import uuid
 
 from backend.port import Port
-from backend.connection_edge import ConnectionEdge, JointState
+from backend.connection_edge import ConnectionEdge
 from backend.urdf_exporter import URDFExporter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')

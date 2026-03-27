@@ -4,10 +4,9 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple, List
 
 from backend.port_semantics import (
-    ConnectionInterface, Gender, Profile, FitType,
+    ConnectionInterface, Profile, FitType,
     get_interface, check_fit, derive_joint_params,
 )
-from backend.core_constants import LDU
 
 # 配置日志
 logger = logging.getLogger(__name__)

@@ -15,8 +15,6 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from backend.connection_edge import ConnectionEdge
-from backend.port import Port
-from backend.port_semantics import FitType, get_interface, check_fit
 
 logger = logging.getLogger(__name__)
 

@@ -7,20 +7,9 @@ concurrent sites (shared position), and unknown port type fallback.
 """
 
 import numpy as np
-import pytest
 
 from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
-
-
-# ─── helpers ──────────────────────────────────────────────────────────────────
-
-def _make_port(name: str, ptype: str, pos: list) -> dict:
-    return {
-        "name": name,
-        "type": ptype,
-        "position": pos,
-        "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-    }
+from backend.tests.test_utils import _make_port
 
 
 # ─── tests ────────────────────────────────────────────────────────────────────
