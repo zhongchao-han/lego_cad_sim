@@ -83,7 +83,7 @@ export function PartPreviewOverlay() {
 
           <div className="flex-1 relative bg-slate-100">
              <Canvas
-               camera={{ position: [0.08, 0.08, 0.08], fov: 35 }}
+               camera={{ position: [0.3, 0.3, 0.3], fov: 35, near: 0.001, far: 50 }}
                className="w-full h-full"
              >
                <Suspense fallback={
@@ -100,10 +100,11 @@ export function PartPreviewOverlay() {
                    colorCode={resolvedColor}
                    onPortClick={onPortSelected}
                    isStatic={true}
-                   opacity={0.8} 
+                   opacity={0.8}
+                   autoCenter={true} 
                  />
                  
-                 <CameraControls makeDefault minDistance={0.02} maxDistance={0.5} />
+                 <CameraControls makeDefault minDistance={0.001} maxDistance={5.0} />
                </Suspense>
              </Canvas>
              

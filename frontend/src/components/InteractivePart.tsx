@@ -7,8 +7,9 @@ import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
 import { SiteGizmo } from './SiteGizmo';
 import { RenderErrorBoundary } from './RenderErrorBoundary';
+import { AutoFitCamera } from './AutoFitCamera';
 
-// @ts-expect-error Vite injects env into import.meta
+// Vite injects env into import.meta
 const BACKEND_ORIGIN = (import.meta as unknown as Record<string, { VITE_BACKEND_ORIGIN?: string }>).env?.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
 const encodeModelUrl = (path: string | undefined) => {
@@ -29,6 +30,7 @@ interface InteractivePartProps {
   onDoubleClick?: () => void;
   isStatic?: boolean;
   opacity?: number;
+  autoCenter?: boolean;
 }
 
 export const InteractivePart = memo(({ 
@@ -41,7 +43,8 @@ export const InteractivePart = memo(({
   onHoverChange,
   onDoubleClick,
   isStatic = false,
-  opacity = 1.0
+  opacity = 1.0,
+  autoCenter = false
 }: InteractivePartProps) => {
   const [hovered, setHover] = useState(false);
   const selection = useStore(s => s.selection);
@@ -197,6 +200,9 @@ export const InteractivePart = memo(({
 
   return (
     <group ref={groupRef}>
+      {/* 集中处理自适应对焦，仅在明确指定且网格有效时激活 */}
+      <AutoFitCamera targetRef={groupRef} enabled={autoCenter && shouldRenderMesh} />
+
       {shouldRenderMesh && activeMeshUrl ? (
         <RenderErrorBoundary 
             onCatch={() => setForceFallback(true)}
