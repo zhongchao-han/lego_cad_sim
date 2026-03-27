@@ -225,7 +225,7 @@ class GeometryProcessor:
                         p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                         
                         y_axis_ldu = current_global_mat[:3, 1]
-                        raw_z = y_axis_ldu * dir_flip
+                        raw_z = y_axis_ldu * (-dir_flip)
                         z_norm = np.linalg.norm(raw_z)
                         z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
                         
@@ -257,7 +257,7 @@ class GeometryProcessor:
                     p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                     
                     y_axis_ldu = current_global_mat[:3, 1]
-                    raw_z = y_axis_ldu * -1.0
+                    raw_z = y_axis_ldu * 1.0
                     z_norm = np.linalg.norm(raw_z)
                     z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
                     x_ref_ldu = current_global_mat[:3, 0]
@@ -313,7 +313,7 @@ class GeometryProcessor:
                         p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                         
                         y_axis_ldu = current_global_mat[:3, 1]
-                        raw_z = y_axis_ldu * step_dir
+                        raw_z = y_axis_ldu * (-step_dir)
                         z_norm = np.linalg.norm(raw_z)
                         z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
                         
