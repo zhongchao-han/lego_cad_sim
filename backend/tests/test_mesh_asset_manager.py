@@ -1,5 +1,4 @@
 import os
-import pytest
 from backend.mesh_asset_manager import MeshAssetManager
 
 class TestMeshAssetManager:

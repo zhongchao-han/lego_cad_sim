@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
 from backend.port import Port, Site
-from backend.port_semantics import FitType, Profile
+from backend.port_semantics import FitType
 from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
 from backend.topology_manager import TopologyManager, PartNode, ConnectionEdge
 

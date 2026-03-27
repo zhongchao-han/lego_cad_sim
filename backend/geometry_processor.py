@@ -5,8 +5,7 @@ import re
 import logging
 from typing import List, Dict, Tuple, Optional, Any
 from backend.port_library import PortLibrary
-from backend.core_constants import LDU_TO_SI, LEGO_GRID_METERS
-from backend.math_utils import CoordinateTransformer, purify_rotation_matrix, matrix_to_list
+from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')

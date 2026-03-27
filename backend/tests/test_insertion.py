@@ -2,12 +2,10 @@ import os
 import sys
 import unittest
 import numpy as np
-import pytest
 
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.port_semantics import FitType
 from backend.port import Port
 from backend.connection_edge import ConnectionEdge
 from backend.topology_manager import TopologyManager, PartNode

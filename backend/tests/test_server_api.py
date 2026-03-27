@@ -19,7 +19,6 @@ test_server_api.py
   - WebSocket 和 PhysicsEngine 不在本测试范围内。
 """
 
-import json
 import os
 import sys
 import unittest

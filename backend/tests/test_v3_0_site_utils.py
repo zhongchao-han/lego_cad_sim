@@ -7,7 +7,6 @@ concurrent sites (shared position), and unknown port type fallback.
 """
 
 import numpy as np
-import pytest
 
 from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
 from backend.tests.test_utils import _make_port

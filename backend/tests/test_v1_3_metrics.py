@@ -8,7 +8,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from backend.math_utils import CoordinateTransformer
 from backend.geometry_processor import GeometryProcessor
-from backend.core_constants import LDU_TO_SI
 
 class TestV3_0Metrics(unittest.TestCase):
     """

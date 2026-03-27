@@ -1,9 +1,7 @@
 import pybullet as p
 import pybullet_data
-import time
-import math
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -208,7 +206,6 @@ class PhysicsEngine:
 
 # =========================== Unit testing execution ============================
 if __name__ == "__main__":
-    import math
     
     print("\n--- Phase 3: Physics Engine Integration 验证测试 ---")
     

@@ -5,7 +5,6 @@ from typing import Dict, List, Optional, Any
 import numpy as np
 
 from backend.port import Port
-from backend.core_constants import LDU_TO_SI
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -150,7 +149,6 @@ class PortLibrary:
         return json_ports
 
 if __name__ == "__main__":
-    from core_constants import LDU
     library = PortLibrary()
     test_part = "6558.dat"
     ports = library.parse_dat_file(test_part)

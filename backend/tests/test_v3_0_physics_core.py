@@ -6,7 +6,7 @@ import sys
 # 注入 backend 目录以支持绝对导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.math_utils import purify_rotation_matrix, CoordinateTransformer
+from backend.math_utils import purify_rotation_matrix
 from backend.geometry_processor import GeometryProcessor
 
 class TestV3PhysicsCore(unittest.TestCase):

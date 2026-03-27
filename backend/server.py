@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Dict, Any, Optional, List
+from typing import Optional, List
 
 import numpy as np
 
@@ -16,9 +16,8 @@ from backend.port_library import PortLibrary
 from backend.geometry_processor import GeometryProcessor
 from fastapi.staticfiles import StaticFiles
 from backend.port_library_manager import PortLibraryManager
-from backend.port_semantics import get_interface, check_fit, build_fit_result, FitType, DELTA_FRICTION_MAX
+from backend.port_semantics import get_interface, build_fit_result
 from backend.port import Port
-from backend.core_constants import LDU
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
 from backend.auto_latch_scanner import AutoLatchScanner
