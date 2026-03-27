@@ -10,6 +10,7 @@ import { PartLibraryPanel } from './components/PartLibraryPanel';
 import { StagingTrayPanel } from './components/StagingTrayPanel';
 import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
+import { ThumbnailGenerator } from './ThumbnailGenerator.tsx';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -79,6 +80,11 @@ function LibraryNav() {
 }
 
 function App() {
+  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
+  if (window.location.pathname === '/generator') {
+    return <ThumbnailGenerator />;
+  }
+
   const view = useStore((state) => state.view);
   const setWsConnected = useStore((state) => state.setWsConnected);
   const batchUpdatePartStates = useStore((state) => state.batchUpdatePartStates);

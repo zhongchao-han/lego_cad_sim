@@ -31,7 +31,11 @@ logger = logging.getLogger(__name__)
 # LDRAW_PARTS_ROOT 配置
 LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
 MESH_CACHE_ROOT = os.path.join(os.getcwd(), "data", "custom_assets")
+# 新增缩略图缓存目录依赖
+THUMBNAIL_CACHE_ROOT = os.path.join(MESH_CACHE_ROOT, "thumbnails")
 os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
+os.makedirs(THUMBNAIL_CACHE_ROOT, exist_ok=True)
+
 mesh_manager = MeshAssetManager(MESH_CACHE_ROOT)
 
 # --- 初始化后端核心单例组件 ---
@@ -71,6 +75,8 @@ app.add_middleware(
 )
 
 app.mount("/ldraw_meshes", StaticFiles(directory=MESH_CACHE_ROOT), name="ldraw_meshes")
+# 挂载缩略图静态服务
+app.mount("/api/thumbnails", StaticFiles(directory=THUMBNAIL_CACHE_ROOT), name="thumbnails")
 
 # --- API 数据模型定义 ---
 
@@ -138,6 +144,15 @@ async def get_pending_list():
 async def get_verified_parts():
     """获取物料库所需的已复核零件摘要。"""
     return port_lib_manager.get_verified_parts()
+
+
+# --- 开发与维护离线工具包 (非侵入式热挂载) ---
+try:
+    from backend.dev_tools_api import router as dev_tools_router
+    app.include_router(dev_tools_router, tags=["dev_tools"])
+except ImportError as e:
+    logger.warning(f"开发工具包挂载失败或未启用: {e}")
+
 
 @app.get("/api/verify/search")
 async def search_parts(q: str):
