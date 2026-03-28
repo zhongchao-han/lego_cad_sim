@@ -1,4 +1,5 @@
 import os
+import pytest
 from backend.mesh_asset_manager import MeshAssetManager
 
 class TestMeshAssetManager:
@@ -22,12 +23,12 @@ class TestMeshAssetManager:
         assert manager._get_default_glb_filename(" 39369 ", 7) == "39369_c7.glb"
         assert manager._get_default_glb_filename("39369 .dat", 7) == "39369_c7.glb"
         
-    def test_get_absolute_glb_path(self):
-        manager = MeshAssetManager("/mock_root")
+    def test_get_absolute_glb_path(self, tmp_path):
+        manager = MeshAssetManager(str(tmp_path / "mock_root"))
         
         # 测试缺省情况（生成目标位置）
         abs_path = manager.get_absolute_glb_path("3001.dat", 7)
-        expected = os.path.abspath("/mock_root/3001_c7.glb")
+        expected = os.path.abspath(str(tmp_path / "mock_root/3001_c7.glb"))
         
         # Windows 和 Linux 路径符号容错对比
         assert os.path.normpath(abs_path) == expected
@@ -36,11 +37,11 @@ class TestMeshAssetManager:
         mock_cached_abs = os.path.normpath("/another_disk/model.glb")
         assert manager.get_absolute_glb_path("3001.dat", 7, mock_cached_abs) == mock_cached_abs
         
-    def test_compute_mesh_url(self):
-        manager = MeshAssetManager("/mock_root")
+    def test_compute_mesh_url(self, tmp_path):
+        manager = MeshAssetManager(str(tmp_path / "mock_root"))
         
         # 1. 正常子文件
-        normal_path = os.path.normpath("/mock_root/s/3001_c7.glb")
+        normal_path = os.path.normpath(str(tmp_path / "mock_root/s/3001_c7.glb"))
         url = manager._compute_mesh_url(normal_path)
         assert url == "/ldraw_meshes/s/3001_c7.glb"
         
