@@ -1,5 +1,4 @@
 import os
-import re
 
 files_to_fix = [
     'backend/geometry_processor.py',
@@ -7,32 +6,23 @@ files_to_fix = [
     'backend/physics_engine.py',
     'backend/port.py',
     'backend/port_library_manager.py',
-    'backend/port_semantics.py',
     'backend/server.py',
-    'backend/tests/test_v3_1_full_coverage.py',
-    'backend/topology_manager.py'
+    'backend/topology_manager.py',
+    'backend/tests/test_v3_0_physics_core.py',
+    'backend/port_semantics.py'
 ]
 
 def fix_file(filepath):
-    if not os.path.exists(filepath):
-        return
+    if not os.path.exists(filepath): return
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # fix F821 "Port" string type hint -> 'Port' is fine, we just need to ignore it for ruff or import it
-    # We can add `from typing import TYPE_CHECKING` and `if TYPE_CHECKING: from backend.port import Port`
-    # Or just use `type: ignore` or remove the type hints.
-    if 'geometry_processor.py' in filepath:
-        content = content.replace("def calculate_p2p_alignment(source_port: 'Port', target_port: 'Port') -> np.ndarray:", "def calculate_p2p_alignment(source_port, target_port) -> np.ndarray:")
-
-    # fix E701: `if cond: stmt` -> `if cond:\n    stmt`
-    # We'll use a regex for common patterns like `if something: return` -> `if something:\n    return`
     lines = content.split('\n')
     new_lines = []
 
-    # We will do a simpler line-by-line replacement for E701 / E702 / E722
     for line in lines:
         if 'geometry_processor.py' in filepath:
+            line = line.replace("def calculate_p2p_alignment(source_port: 'Port', target_port: 'Port') -> np.ndarray:", "def calculate_p2p_alignment(source_port, target_port) -> np.ndarray:")
             line = line.replace("if not os.path.exists(config_path): return colors", "if not os.path.exists(config_path):\n            return colors")
             line = line.replace("if '!COLOUR' not in line: continue", "if '!COLOUR' not in line:\n                        continue")
             line = line.replace("if not (code_m and val_m): continue", "if not (code_m and val_m):\n                        continue")
@@ -43,8 +33,6 @@ def fix_file(filepath):
             line = line.replace("except ValueError: pass", "except ValueError:\n                    pass")
             line = line.replace("finally: bfc_invert_next = False", "finally:\n                    bfc_invert_next = False")
             line = line.replace("vertices.extend(v); vertex_colors.extend([rgba] * num_pts)", "vertices.extend(v)\n                    vertex_colors.extend([rgba] * num_pts)")
-            line = line.replace("if is_mirrored:", "if is_mirrored:")
-            line = line.replace("faces.append(np.array([idx, idx+2, idx+1]))", "faces.append(np.array([idx, idx+2, idx+1]))")
             line = line.replace("if num_pts == 4: faces.append(np.array([idx, idx+3, idx+2]))", "if num_pts == 4:\n                            faces.append(np.array([idx, idx+3, idx+2]))")
             line = line.replace("faces.append(np.array([idx, idx+1, idx+2]))", "faces.append(np.array([idx, idx+1, idx+2]))")
             line = line.replace("if num_pts == 4: faces.append(np.array([idx, idx+2, idx+3]))", "if num_pts == 4:\n                            faces.append(np.array([idx, idx+2, idx+3]))")
@@ -79,22 +67,19 @@ def fix_file(filepath):
         if 'topology_manager.py' in filepath:
             line = line.replace("if not line: break", "if not line:\n                break")
 
+        if 'test_v3_0_physics_core.py' in filepath:
+            line = line.replace("baker = UnifiedAssetBaker()", "UnifiedAssetBaker()")
+
+        # port_semantics.py is fixed manually below
         new_lines.append(line)
 
     content = '\n'.join(new_lines)
 
     if 'port_semantics.py' in filepath:
         # F601: Dictionary key literal repeated
-        # The lines are:
-        # "peghole":      ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-        # "peghole.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-        # "beamhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-        # "connhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-        # Note: the problem wasn't that the keys in the *same* dict were repeated in that block,
-        # wait, let me look at the code. If they are in the same dict, maybe they were defined earlier in the dict?
-        # Yes, if they are duplicated, I should just remove the second occurrence.
-        # Actually I will just fix this via python replacing the block.
-        pass
+        content = content.replace('"peghole.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),', '')
+        content = content.replace('"beamhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),', '')
+        content = content.replace('"connhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),', '')
 
     with open(filepath, 'w') as f:
         f.write(content)

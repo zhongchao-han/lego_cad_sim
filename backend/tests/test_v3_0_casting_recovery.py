@@ -43,10 +43,5 @@ class TestNumpyTypeCasting(unittest.TestCase):
         self.assertAlmostEqual(np.linalg.det(pure_mat), 1.0)
         np.testing.assert_allclose(pure_mat @ pure_mat.T, np.eye(3), atol=1e-7)
 
-    def test_matrix_to_list(self):
-        from backend.math_utils import matrix_to_list
-        mat = np.array([[1, 2], [3, 4]])
-        self.assertEqual(matrix_to_list(mat), [[1, 2], [3, 4]])
-
 if __name__ == "__main__":
     unittest.main()

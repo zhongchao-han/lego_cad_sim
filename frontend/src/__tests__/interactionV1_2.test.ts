@@ -43,7 +43,7 @@ describe('Interaction v1.2 交互测试矩阵', () => {
     // 2. 点击锁定源端口
     useStore.getState().handlePortClick({
       partId: 'preview_1', ldrawId: '32524', portType: 'peg', 
-      position: [0,0,0], rotation: [1,0,0,0,1,0,0,0,1], globalPos: [0,0,0]
+      position: [0,0,0], rotation: [1,0,0,0,1,0,0,0,1], globalPos: [0,0,0], globalQuat: [0,0,0,1]
     });
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.SOURCE_LOCKED);
 

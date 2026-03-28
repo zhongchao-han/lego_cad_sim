@@ -74,9 +74,9 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # ── FEMALE（孔）──────────────────────────────────────────────────────────
     # 标准圆孔：半径 6.0 LDU = 2.4mm，孔深 = 梁厚 20 LDU = 8mm
     "peghole":      ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-    "peghole.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-    "beamhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
-    "connhole.dat": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
+
+
+
     "connhol.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
     "npeghol.dat":  ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
 
@@ -121,6 +121,9 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     # 十字轴：锁定旋转
     "axle":         ConnectionInterface(Gender.MALE, Profile.CROSS, 3.9 * LDU, 40.0 * LDU),
     "axle.dat":     ConnectionInterface(Gender.MALE, Profile.CROSS, 3.9 * LDU, 40.0 * LDU),
+
+
+
 
     # 积木管孔 (Tube)：对标 Stud 的母座
     "tube":         ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),

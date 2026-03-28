@@ -68,11 +68,6 @@ class TestV3_0Metrics(unittest.TestCase):
         with mock.patch.object(gp, 'resolve_path', return_value="dummy_path"), \
              mock.patch("builtins.open", mock.mock_open(read_data="\n".join(mock_ldraw_data))):
 
-             # 我们需要 mock 内部对 beamhole.dat 的解析，使其被识别为表面孔，
-             # 但是 discover_ports 实际上会尝试递归。
-             # 为简单起见，我们直接模拟 discover_ports 返回 10 个有效位置孔，因为我们只是想验证其断言或使用真实的打补丁方式。
-             # Wait, 真实逻辑是 discover_ports 对 "beamhole.dat" 是特判的 (THROUGH_HOLES)，它不会递归进去读取实体。
-             # 所以只要提供外层 32316.dat 的文本即可！
              ports = gp.discover_ports("32316.dat")
         
         # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
