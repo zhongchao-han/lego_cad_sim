@@ -31,7 +31,8 @@ class Port:
         工厂方法: 将 LDraw 原始数据转换为归一化 Port。
         """
         interface = get_interface(ldraw_type)
-        if not interface: return None
+        if not interface:
+            return None
         return cls(
             name=name, interface=interface, position=pos, rotation=rot, 
             port_type=ldraw_type, is_manually_adjusted=is_manually_adjusted, part_context=part_context

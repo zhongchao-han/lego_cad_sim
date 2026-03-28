@@ -30,6 +30,7 @@ from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
 from backend.port import Port, Site
 from backend.port_semantics import FitType
 from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
+from backend.tests.test_utils import _build_port, _make_port
 from backend.topology_manager import TopologyManager, PartNode, ConnectionEdge
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,6 @@ logger = logging.getLogger(__name__)
 # 辅助函数
 # ─────────────────────────────────────────────────────────────────────────────
 
-from backend.tests.test_utils import _build_port, _make_port
 
 
 # ─────────────────────────────────────────────────────────────────────────────
