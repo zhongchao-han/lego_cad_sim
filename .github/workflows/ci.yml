@@ -53,7 +53,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install fastapi uvicorn pydantic pybullet networkx trimesh scipy numpy
-        pip install pytest ruff mypy httpx pytest-asyncio
+        pip install pytest ruff mypy httpx pytest-asyncio python-multipart
         
     - name: Lint with Ruff
       run: ruff check backend/
