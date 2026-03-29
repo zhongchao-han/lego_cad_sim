@@ -111,7 +111,19 @@ export function PartLibraryPanel() {
                 }`}
               >
                 <div className="relative w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                  <Box className="w-6 h-6 text-slate-300 transition-colors group-hover:text-blue-400" />
+                  <img 
+                    src={`${BACKEND_ORIGIN}/api/thumbnails/${part.part_id.replace('.dat', '.png')}`}
+                    alt={part.part_id}
+                    className="w-10 h-10 object-contain transition-transform group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block';
+                      }
+                    }}
+                  />
+                  <Box className="w-6 h-6 text-slate-300 transition-colors group-hover:text-blue-400" style={{ display: 'none' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-slate-700 truncate">

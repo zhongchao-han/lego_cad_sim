@@ -50,3 +50,8 @@ mock_part.dat
 fallback.json
 current_assembly.urdf
 tmp/
+
+# Debug and Temp Files
+debug_*
+*.bak
+*.bak_*
