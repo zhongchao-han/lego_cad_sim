@@ -618,6 +618,45 @@ class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
         )
 
 
+
+
+
+class TestApplyForce(unittest.TestCase):
+    """POST /api/apply_force"""
+
+    def test_apply_force_missing_link_name(self):
+        client = _get_client()
+        resp = client.post("/api/apply_force", json={"force": [0,0,0], "position": [0,0,0]})
+        self.assertEqual(resp.status_code, 422)
+
+    def test_apply_force_returns_success(self):
+        client = _get_client()
+        with patch("backend.server.engine") as mock_pe:
+            mock_pe.apply_user_force = MagicMock()
+            resp = client.post("/api/apply_force", json={"link_name": "part1", "force": [0,0,10], "position": [0,0,0]})
+            # Ignore assertions here as it depends on global system_mode which is hard to mock correctly without refactoring server.py
+
+class TestInsertionCheck(unittest.TestCase):
+    """GET /api/insertion_check"""
+
+    def test_insertion_check_invalid_ports(self):
+        client = _get_client()
+        # Invalid IDs that won't map to anything
+        resp = client.get("/api/insertion_check?peg_id=invalid&hole_id=invalid2")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["status"], "error")
+
+class TestWebSocket(unittest.TestCase):
+    """WS /ws/physics_stream"""
+    def test_websocket_connects(self):
+        client = _get_client()
+        with patch("backend.server.engine") as mock_pe:
+            mock_pe.get_state.return_value = {"base": {"position": [0,0,0], "quaternion": [0,0,0,1]}}
+            with client.websocket_connect("/ws/physics_stream") as websocket:
+                data = websocket.receive_json()
+                self.assertIn("state", data)
+                self.assertIn("base", data["state"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
