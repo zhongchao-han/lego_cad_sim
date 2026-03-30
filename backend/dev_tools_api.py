@@ -12,7 +12,6 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LDRAW_PARTS_ROOT = os.path.join(PROJECT_ROOT, "ldraw_lib")
 THUMBNAIL_CACHE_ROOT = os.path.join(PROJECT_ROOT, "data", "custom_assets", "thumbnails")
 
-
 @router.get("/api/all_parts")
 async def get_all_parts():
     """获取本地全量 1900+ 零件清单，用于离线生成器."""
@@ -21,7 +20,6 @@ async def get_all_parts():
         return []
     dat_files = glob.glob(os.path.join(parts_dir, "*.dat"))
     return [os.path.basename(f) for f in dat_files]
-
 
 @router.post("/api/tools/upload_thumbnail")
 async def upload_thumbnail(part_id: str = Form(...), file: UploadFile = File(...)):

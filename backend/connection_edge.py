@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 # JointState — 运行时动态状态
 # ---------------------------------------------------------------------------
 
-
 @dataclass
 class JointState:
     """
@@ -29,15 +28,13 @@ class JointState:
     与 ConnectionEdge 的结构定义解耦，使得 Undo/Redo 或关键帧动画
     只需序列化/反序列化 JointState，不需要重建拓扑。
     """
-
     insertion_depth: float = 0.0  # 沿 Z 轴的插入深度（m）；0 = 完全插到底
-    rotation_angle: float = 0.0  # 绕 Z 轴的旋转角度（rad）；适用于 continuous 关节
+    rotation_angle:  float = 0.0  # 绕 Z 轴的旋转角度（rad）；适用于 continuous 关节
 
 
 # ---------------------------------------------------------------------------
 # ConnectionEdge — 连接边
 # ---------------------------------------------------------------------------
-
 
 class ConnectionEdge:
     """
@@ -51,15 +48,15 @@ class ConnectionEdge:
 
     def __init__(
         self,
-        parent_id: str,
-        child_id: str,
+        parent_id:   str,
+        child_id:    str,
         port_parent: "Port",
-        port_child: "Port",
+        port_child:  "Port",
     ):
-        self.parent_id = parent_id
-        self.child_id = child_id
-        self.port_parent = port_parent  # 父零件侧的端口
-        self.port_child = port_child  # 子零件侧的端口
+        self.parent_id   = parent_id
+        self.child_id    = child_id
+        self.port_parent = port_parent   # 父零件侧的端口
+        self.port_child  = port_child    # 子零件侧的端口
 
         # 运行时动态状态（独立可序列化）
         self.state = JointState()
@@ -76,7 +73,6 @@ class ConnectionEdge:
         检验两端口的物理接口是否可插合（极性互补 + 截面相同 + 无几何干涉）。
         """
         from backend.port_semantics import FitType
-
         fit = self.port_parent.test_fit_with(self.port_child)
         return fit not in (FitType.INCOMPATIBLE, FitType.BLOCKED)
 

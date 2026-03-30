@@ -31,7 +31,6 @@ from backend.port import Port, Site
 from backend.port_semantics import FitType
 from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
 from backend.topology_manager import TopologyManager, PartNode, ConnectionEdge
-from backend.tests.test_utils import _build_port, _make_port
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +39,12 @@ logger = logging.getLogger(__name__)
 # 辅助函数
 # ─────────────────────────────────────────────────────────────────────────────
 
+from backend.tests.test_utils import _build_port, _make_port
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 1: 离线资产管线验证
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class TestSection1_AssetPipeline(unittest.TestCase):
     """对应规范 Section 1：离线资产加工管线验证。"""
@@ -61,12 +61,8 @@ class TestSection1_AssetPipeline(unittest.TestCase):
         p_ldu = np.array([20.0, 24.0, 0.0])
         p_si = CoordinateTransformer.normalize_pos(p_ldu)
 
-        np.testing.assert_allclose(
-            p_si,
-            [0.008, -0.0096, 0.0],
-            atol=1e-7,
-            err_msg="坐标归一化结果与预期不符，检查 Rx180 翻转与 LDU_TO_SI 缩放。",
-        )
+        np.testing.assert_allclose(p_si, [0.008, -0.0096, 0.0], atol=1e-7,
+                                   err_msg="坐标归一化结果与预期不符，检查 Rx180 翻转与 LDU_TO_SI 缩放。")
 
     def test_1_1_y_axis_is_flipped_after_normalization(self):
         """
@@ -93,9 +89,8 @@ class TestSection1_AssetPipeline(unittest.TestCase):
         """
         logger.debug("[Test 1.1.d] 验证零向量归一化。")
         p_si = CoordinateTransformer.normalize_pos(np.zeros(3))
-        np.testing.assert_allclose(
-            p_si, np.zeros(3), atol=1e-10, err_msg="零点归一化结果应仍为零点。"
-        )
+        np.testing.assert_allclose(p_si, np.zeros(3), atol=1e-10,
+                                   err_msg="零点归一化结果应仍为零点。")
 
     def test_1_1_rotation_normalization_identity(self):
         """
@@ -104,9 +99,8 @@ class TestSection1_AssetPipeline(unittest.TestCase):
         """
         logger.debug("[Test 1.1.e] 验证单位矩阵旋转归一化。")
         result = CoordinateTransformer.normalize_rot(np.eye(3))
-        np.testing.assert_allclose(
-            result, np.eye(3), atol=1e-9, err_msg="Rx180 @ I @ Rx180 应等于 I。"
-        )
+        np.testing.assert_allclose(result, np.eye(3), atol=1e-9,
+                                   err_msg="Rx180 @ I @ Rx180 应等于 I。")
 
     # ── Test 1.2: 矩阵提纯与正交化 ───────────────────────────────────────────
 
@@ -115,39 +109,28 @@ class TestSection1_AssetPipeline(unittest.TestCase):
         [Test 1.2.a] 含剪切形变的矩阵提纯后必须正交 (M @ M.T ≈ I)。
         """
         logger.debug("[Test 1.2.a] 剪切矩阵正交化测试。")
-        shear_mat = np.array(
-            [
-                [1.0, 0.1, 0.0],
-                [0.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=np.float64,
-        )
+        shear_mat = np.array([
+            [1.0, 0.1, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ], dtype=np.float64)
         result = purify_rotation_matrix(shear_mat)
-        np.testing.assert_allclose(
-            result @ result.T, np.eye(3), atol=1e-6, err_msg="剪切矩阵提纯后应正交。"
-        )
+        np.testing.assert_allclose(result @ result.T, np.eye(3), atol=1e-6,
+                                   err_msg="剪切矩阵提纯后应正交。")
 
     def test_1_2_purify_result_is_right_handed(self):
         """
         [Test 1.2.b] 提纯后矩阵行列式必须严格等于 +1.0 (右手系)。
         """
         logger.debug("[Test 1.2.b] 验证提纯后行列式为 +1。")
-        arbitrary = np.array(
-            [
-                [0.9, 0.2, 0.1],
-                [0.1, 0.8, 0.3],
-                [0.0, 0.1, 0.9],
-            ],
-            dtype=np.float64,
-        )
+        arbitrary = np.array([
+            [0.9, 0.2, 0.1],
+            [0.1, 0.8, 0.3],
+            [0.0, 0.1, 0.9],
+        ], dtype=np.float64)
         result = purify_rotation_matrix(arbitrary)
-        self.assertAlmostEqual(
-            np.linalg.det(result),
-            1.0,
-            places=6,
-            msg="提纯后矩阵行列式应为 1.0 (右手系)。",
-        )
+        self.assertAlmostEqual(np.linalg.det(result), 1.0, places=6,
+                               msg="提纯后矩阵行列式应为 1.0 (右手系)。")
 
     def test_1_2_purify_preserves_valid_rotation(self):
         """
@@ -155,12 +138,10 @@ class TestSection1_AssetPipeline(unittest.TestCase):
         """
         logger.debug("[Test 1.2.c] 合法矩阵提纯稳定性测试。")
         from scipy.spatial.transform import Rotation
-
         valid_rot = Rotation.from_euler("xyz", [30, 45, 60], degrees=True).as_matrix()
         result = purify_rotation_matrix(valid_rot)
-        np.testing.assert_allclose(
-            result, valid_rot, atol=1e-5, err_msg="合法旋转矩阵提纯后不应偏移。"
-        )
+        np.testing.assert_allclose(result, valid_rot, atol=1e-5,
+                                   err_msg="合法旋转矩阵提纯后不应偏移。")
 
     def test_1_2_purify_nan_input_does_not_crash(self):
         """
@@ -185,19 +166,15 @@ class TestSection1_AssetPipeline(unittest.TestCase):
         logger.debug("[Test 1.3.a] 6558 销钉三 Site 聚类测试。")
         ports = [
             _make_port("p0", "confric6.dat", [-0.004, 0.0, 0.0]),
-            _make_port(
-                "p1", "confric8.dat", [-0.004, 0.0, 0.0]
-            ),  # 与 p0 同位，应同 Site
-            _make_port("p2", "confric6.dat", [0.004, 0.0, 0.0]),  # 不同 Site
+            _make_port("p1", "confric8.dat", [-0.004, 0.0, 0.0]),  # 与 p0 同位，应同 Site
+            _make_port("p2", "confric6.dat", [0.004, 0.0, 0.0]),   # 不同 Site
         ]
         sites = cluster_ports_into_sites(ports, "6558.dat")
         logger.debug(f"[DEBUG] 聚类结果: {len(sites)} 个 Site。")
-        self.assertEqual(
-            len(sites), 2, "6558 端口应被聚类为 2 个 Site (同心孔合并一个)。"
-        )
-        self.assertEqual(
-            len(sites[0].ports), 2, "site0 应包含同心的两个端口 (confric6 + confric8)。"
-        )
+        self.assertEqual(len(sites), 2,
+                         "6558 端口应被聚类为 2 个 Site (同心孔合并一个)。")
+        self.assertEqual(len(sites[0].ports), 2,
+                         "site0 应包含同心的两个端口 (confric6 + confric8)。")
 
     def test_1_3_port_spacing_8mm_creates_separate_sites(self):
         """
@@ -209,9 +186,8 @@ class TestSection1_AssetPipeline(unittest.TestCase):
             _make_port("p1", "peghole.dat", [0.008, 0.0, 0.0]),
         ]
         sites = cluster_ports_into_sites(ports, "32316.dat")
-        self.assertEqual(
-            len(sites), 2, "8mm 间距的端口应被分配到不同 Site, 不应被合并。"
-        )
+        self.assertEqual(len(sites), 2,
+                         "8mm 间距的端口应被分配到不同 Site, 不应被合并。")
 
     def test_1_3_concentric_ports_merge_into_one_site(self):
         """
@@ -232,7 +208,6 @@ class TestSection1_AssetPipeline(unittest.TestCase):
 # Section 2: 空间对齐一致性验证（纯后端可测部分）
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 class TestSection2_SpatialSync(unittest.TestCase):
     """
     对应规范 Section 2。
@@ -250,12 +225,8 @@ class TestSection2_SpatialSync(unittest.TestCase):
         rx180 = CoordinateTransformer.get_rx180()
         expected = rx180 @ p_ldu * CoordinateTransformer.LDU_TO_SI
         actual = CoordinateTransformer.normalize_pos(p_ldu)
-        np.testing.assert_allclose(
-            actual,
-            expected,
-            atol=1e-10,
-            err_msg="normalize_pos 与手算 Rx180@P*LDU_TO_SI 不一致。",
-        )
+        np.testing.assert_allclose(actual, expected, atol=1e-10,
+                                   err_msg="normalize_pos 与手算 Rx180@P*LDU_TO_SI 不一致。")
 
     def test_2_2_normalization_is_deterministic(self):
         """
@@ -266,15 +237,13 @@ class TestSection2_SpatialSync(unittest.TestCase):
         p_ldu = np.array([15.0, 25.0, -5.0])
         result_a = CoordinateTransformer.normalize_pos(p_ldu.copy())
         result_b = CoordinateTransformer.normalize_pos(p_ldu.copy())
-        np.testing.assert_array_equal(
-            result_a, result_b, err_msg="normalize_pos 不是幂等函数，存在非确定性。"
-        )
+        np.testing.assert_array_equal(result_a, result_b,
+                                      err_msg="normalize_pos 不是幂等函数，存在非确定性。")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 3: 交互与拓扑连接验证
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class TestSection3_TopologyAndInteraction(unittest.TestCase):
     """对应规范 Section 3：P2P 对齐与拓扑连接。"""
@@ -288,18 +257,12 @@ class TestSection3_TopologyAndInteraction(unittest.TestCase):
         logger.debug("[Test 3.1] P2P Z 轴反向对齐测试。")
         # 父端口朝 +X 方向（Z 轴 = [1,0,0]）
         rot_parent = np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]], dtype=float)
-        port_parent = Port.from_raw(
-            "parent", "peghole.dat", np.array([0.0, 0.0, 0.0]), rot_parent
-        )
-        self.assertIsNotNone(
-            port_parent, "peghole 端口创建失败，检查 port_semantics 注册。"
-        )
+        port_parent = Port.from_raw("parent", "peghole.dat", np.array([0.0, 0.0, 0.0]), rot_parent)
+        self.assertIsNotNone(port_parent, "peghole 端口创建失败，检查 port_semantics 注册。")
 
         # 子端口朝 -X 方向（Z 轴 = [-1,0,0]），应与父端口反向咬合
         rot_child = np.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]], dtype=float)
-        port_child = Port.from_raw(
-            "child", "peg.dat", np.array([0.008, 0.0, 0.0]), rot_child
-        )
+        port_child = Port.from_raw("child", "peg.dat", np.array([0.008, 0.0, 0.0]), rot_child)
         self.assertIsNotNone(port_child, "peg 端口创建失败，检查 port_semantics 注册。")
 
         # 计算相对变换矩阵
@@ -309,12 +272,10 @@ class TestSection3_TopologyAndInteraction(unittest.TestCase):
 
         # 验证旋转部分是合法的 SO(3) 矩阵
         R = T_rel[:3, :3]
-        np.testing.assert_allclose(
-            R @ R.T, np.eye(3), atol=1e-5, err_msg="变换矩阵旋转部分应为正交矩阵。"
-        )
-        self.assertAlmostEqual(
-            np.linalg.det(R), 1.0, places=5, msg="变换矩阵旋转部分行列式应为 1.0。"
-        )
+        np.testing.assert_allclose(R @ R.T, np.eye(3), atol=1e-5,
+                                   err_msg="变换矩阵旋转部分应为正交矩阵。")
+        self.assertAlmostEqual(np.linalg.det(R), 1.0, places=5,
+                               msg="变换矩阵旋转部分行列式应为 1.0。")
 
     def test_3_2_topology_manager_records_connection(self):
         """
@@ -328,21 +289,16 @@ class TestSection3_TopologyAndInteraction(unittest.TestCase):
         manager.add_part(part_a)
         manager.add_part(part_b)
 
-        port_p = Port.from_raw(
-            "pa", "peghole.dat", np.array([0.0, 0.0, 0.0]), np.eye(3)
-        )
+        port_p = Port.from_raw("pa", "peghole.dat", np.array([0.0, 0.0, 0.0]), np.eye(3))
         port_c = Port.from_raw("pb", "peg.dat", np.array([0.0, 0.0, 0.0]), np.eye(3))
         self.assertIsNotNone(port_p)
         self.assertIsNotNone(port_c)
 
-        edge = ConnectionEdge(
-            parent_id="A", child_id="B", port_parent=port_p, port_child=port_c
-        )
+        edge = ConnectionEdge(parent_id="A", child_id="B", port_parent=port_p, port_child=port_c)
         manager.connect_ports(edge)
 
-        self.assertTrue(
-            manager.graph.has_edge("A", "B"), "connect_ports 后图中应存在 A->B 的边。"
-        )
+        self.assertTrue(manager.graph.has_edge("A", "B"),
+                        "connect_ports 后图中应存在 A->B 的边。")
         self.assertEqual(manager.graph.number_of_nodes(), 2, "图中应有 2 个节点。")
 
     def test_3_2_over_constrained_merged_to_fixed(self):
@@ -355,13 +311,9 @@ class TestSection3_TopologyAndInteraction(unittest.TestCase):
         for pid in ("A", "B"):
             manager.add_part(PartNode(part_id=pid, name=pid))
 
-        port_p1 = Port.from_raw(
-            "p1", "peghole.dat", np.array([0.008, 0.0, 0.0]), np.eye(3)
-        )
+        port_p1 = Port.from_raw("p1", "peghole.dat", np.array([0.008, 0.0, 0.0]), np.eye(3))
         port_c1 = Port.from_raw("c1", "peg.dat", np.array([0.0, 0.0, 0.0]), np.eye(3))
-        port_p2 = Port.from_raw(
-            "p2", "peghole.dat", np.array([-0.008, 0.0, 0.0]), np.eye(3)
-        )
+        port_p2 = Port.from_raw("p2", "peghole.dat", np.array([-0.008, 0.0, 0.0]), np.eye(3))
         port_c2 = Port.from_raw("c2", "peg.dat", np.array([0.0, 0.0, 0.0]), np.eye(3))
 
         for pp, pc in [(port_p1, port_c1), (port_p2, port_c2)]:
@@ -372,10 +324,8 @@ class TestSection3_TopologyAndInteraction(unittest.TestCase):
         # 检查在生成树中 A->B 的边数据确认 is_merged
         edge_data = tree.get_edge_data("A", "B")
         self.assertIsNotNone(edge_data, "生成树中应存在 A->B 的边。")
-        self.assertTrue(
-            edge_data["data"].is_merged,
-            "多连接应触发 is_merged=True (Fixed Joint 合并)。",
-        )
+        self.assertTrue(edge_data["data"].is_merged,
+                        "多连接应触发 is_merged=True (Fixed Joint 合并)。")
 
     def test_3_2_closed_loop_detection(self):
         """
@@ -390,41 +340,18 @@ class TestSection3_TopologyAndInteraction(unittest.TestCase):
         def mk(name: str) -> Port:
             return Port.from_raw(name, "peghole.dat", np.zeros(3), np.eye(3))  # type: ignore[return-value]
 
-        manager.connect_ports(
-            ConnectionEdge(
-                "A",
-                "B",
-                mk("ab_p"),
-                Port.from_raw("ab_c", "peg.dat", np.zeros(3), np.eye(3)),
-            )
-        )  # type: ignore[arg-type]
-        manager.connect_ports(
-            ConnectionEdge(
-                "B",
-                "C",
-                mk("bc_p"),
-                Port.from_raw("bc_c", "peg.dat", np.zeros(3), np.eye(3)),
-            )
-        )  # type: ignore[arg-type]
-        manager.connect_ports(
-            ConnectionEdge(
-                "C",
-                "A",
-                mk("ca_p"),
-                Port.from_raw("ca_c", "peg.dat", np.zeros(3), np.eye(3)),
-            )
-        )  # type: ignore[arg-type]
+        manager.connect_ports(ConnectionEdge("A", "B", mk("ab_p"), Port.from_raw("ab_c", "peg.dat", np.zeros(3), np.eye(3))))  # type: ignore[arg-type]
+        manager.connect_ports(ConnectionEdge("B", "C", mk("bc_p"), Port.from_raw("bc_c", "peg.dat", np.zeros(3), np.eye(3))))  # type: ignore[arg-type]
+        manager.connect_ports(ConnectionEdge("C", "A", mk("ca_p"), Port.from_raw("ca_c", "peg.dat", np.zeros(3), np.eye(3))))  # type: ignore[arg-type]
 
         manager.build_spanning_tree()
-        self.assertGreater(
-            len(manager.closed_loops), 0, "三角形闭环应产生至少 1 条被打断的闭环边。"
-        )
+        self.assertGreater(len(manager.closed_loops), 0,
+                           "三角形闭环应产生至少 1 条被打断的闭环边。")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 4: 物理约束与安全性
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class TestSection4_PhysicsConstraints(unittest.TestCase):
     """对应规范 Section 4：物理约束与安全检测。"""
@@ -438,9 +365,7 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         site = Site(id="test_site")
         self.assertFalse(site.is_occupied(), "新建 Site 默认не должен быть занят。")
         site.occupied_by = "part_B"
-        self.assertTrue(
-            site.is_occupied(), "设置 occupied_by 后 is_occupied 应返回 True。"
-        )
+        self.assertTrue(site.is_occupied(), "设置 occupied_by 后 is_occupied 应返回 True。")
 
     def test_4_2_peg_to_peg_is_incompatible(self):
         """
@@ -450,9 +375,8 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         peg_a = _build_port("peg_a", "peg.dat", [0, 0, 0])
         peg_b = _build_port("peg_b", "peg.dat", [0.008, 0, 0])
         fit = peg_a.test_fit_with(peg_b)
-        self.assertEqual(
-            fit, FitType.INCOMPATIBLE, "两个 Male Peg 配合应被拦截为 INCOMPATIBLE。"
-        )
+        self.assertEqual(fit, FitType.INCOMPATIBLE,
+                         "两个 Male Peg 配合应被拦截为 INCOMPATIBLE。")
 
     def test_4_2_axle_to_peghole_is_incompatible(self):
         """
@@ -462,11 +386,8 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         axle = _build_port("axle", "axle.dat", [0, 0, 0])
         peghole = _build_port("peghole", "peghole.dat", [0.008, 0, 0])
         fit = axle.test_fit_with(peghole)
-        self.assertEqual(
-            fit,
-            FitType.INCOMPATIBLE,
-            "十字轴插入圆孔应因截面不兼容而被拦截为 INCOMPATIBLE。",
-        )
+        self.assertEqual(fit, FitType.INCOMPATIBLE,
+                         "十字轴插入圆孔应因截面不兼容而被拦截为 INCOMPATIBLE。")
 
     def test_4_2_hole_to_hole_is_incompatible(self):
         """
@@ -476,9 +397,8 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         hole_a = _build_port("hole_a", "peghole.dat", [0, 0, 0])
         hole_b = _build_port("hole_b", "peghole.dat", [0.008, 0, 0])
         fit = hole_a.test_fit_with(hole_b)
-        self.assertEqual(
-            fit, FitType.INCOMPATIBLE, "两个 Female Hole 配合应被拦截为 INCOMPATIBLE。"
-        )
+        self.assertEqual(fit, FitType.INCOMPATIBLE,
+                         "两个 Female Hole 配合应被拦截为 INCOMPATIBLE。")
 
     def test_4_2_peg_to_peghole_is_valid(self):
         """
@@ -489,14 +409,10 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         peg = _build_port("peg", "peg.dat", [0, 0, 0])
         hole = _build_port("hole", "peghole.dat", [0.008, 0, 0])
         fit = peg.test_fit_with(hole)
-        self.assertNotEqual(
-            fit, FitType.INCOMPATIBLE, "合法 Peg->PegHole 配合不应返回 INCOMPATIBLE。"
-        )
-        self.assertIn(
-            fit,
-            [FitType.FRICTION, FitType.CLEARANCE],
-            "合法 Peg->PegHole 应返回 FRICTION 或 CLEARANCE。",
-        )
+        self.assertNotEqual(fit, FitType.INCOMPATIBLE,
+                            "合法 Peg->PegHole 配合不应返回 INCOMPATIBLE。")
+        self.assertIn(fit, [FitType.FRICTION, FitType.CLEARANCE],
+                      "合法 Peg->PegHole 应返回 FRICTION 或 CLEARANCE。")
 
     def test_4_3_site_gizmo_compatibility_via_port_fit(self):
         """
@@ -511,26 +427,20 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         fit_incompatible = peg.test_fit_with(axle)
         self.assertEqual(fit_incompatible, FitType.INCOMPATIBLE)
         # 前端逻辑: fit == INCOMPATIBLE -> isCompatible = False
-        is_compatible = fit_incompatible != FitType.INCOMPATIBLE
-        self.assertFalse(
-            is_compatible,
-            "不兼容端口对应的 SiteGizmo 应不可点击 (isCompatible=False)。",
-        )
+        is_compatible = (fit_incompatible != FitType.INCOMPATIBLE)
+        self.assertFalse(is_compatible, "不兼容端口对应的 SiteGizmo 应不可点击 (isCompatible=False)。")
 
         # 场景 2: 兼容 -> gizmo 应高亮
         peg2 = _build_port("peg2", "peg.dat", [0, 0, 0])
         hole2 = _build_port("hole2", "peghole.dat", [0.008, 0, 0])
         fit_valid = peg2.test_fit_with(hole2)
-        is_compatible_2 = fit_valid != FitType.INCOMPATIBLE
-        self.assertTrue(
-            is_compatible_2, "兼容端口对应的 SiteGizmo 应可点击 (isCompatible=True)。"
-        )
+        is_compatible_2 = (fit_valid != FitType.INCOMPATIBLE)
+        self.assertTrue(is_compatible_2, "兼容端口对应的 SiteGizmo 应可点击 (isCompatible=True)。")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 5: 质量回归基准
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class TestSection5_RegressionBaseline(unittest.TestCase):
     """
@@ -566,9 +476,8 @@ class TestSection5_RegressionBaseline(unittest.TestCase):
         for part_id, ports in baseline_ports_map.items():
             with self.subTest(part_id=part_id):
                 sites = cluster_ports_into_sites(ports, part_id)
-                self.assertGreater(
-                    len(sites), 0, f"基准零件 {part_id} 的端口聚类结果不应为空。"
-                )
+                self.assertGreater(len(sites), 0,
+                                   f"基准零件 {part_id} 的端口聚类结果不应为空。")
                 logger.debug(f"[DEBUG] {part_id}: 聚类为 {len(sites)} 个 Site。")
 
     def test_5_0_peg_hole_fit_baseline(self):
@@ -586,21 +495,16 @@ class TestSection5_RegressionBaseline(unittest.TestCase):
                 peg_port = Port.from_raw("p", peg_t, np.zeros(3), np.eye(3))
                 hole_port = Port.from_raw("h", hole_t, np.zeros(3), np.eye(3))
                 if peg_port is None or hole_port is None:
-                    self.skipTest(
-                        f"端口类型 {peg_t} 或 {hole_t} 未在 port_semantics 注册，跳过。"
-                    )
+                    self.skipTest(f"端口类型 {peg_t} 或 {hole_t} 未在 port_semantics 注册，跳过。")
                 fit = peg_port.test_fit_with(hole_port)
-                self.assertNotEqual(
-                    fit,
-                    FitType.INCOMPATIBLE,
-                    f"基准配合 {peg_t}->{hole_t} 不应返回 INCOMPATIBLE (语义回归失败)。",
-                )
+                self.assertNotEqual(fit, FitType.INCOMPATIBLE,
+                                    f"基准配合 {peg_t}->{hole_t} 不应返回 INCOMPATIBLE (语义回归失败)。")
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 6: 边界条件与防御性路径 (Corner Cases & Defensive Guards)
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class TestSection6_CornerCasesAndDefense(unittest.TestCase):
     """
@@ -617,9 +521,8 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         这是 auto_latch_scanner 的核心防御路径。
         """
         logger.debug("[Test 6.1] 未注册端口类型防御测试。")
-        result = Port.from_raw(
-            "ghost", "TOTALLY_UNKNOWN_TYPE.dat", np.zeros(3), np.eye(3)
-        )
+        result = Port.from_raw("ghost", "TOTALLY_UNKNOWN_TYPE.dat",
+                               np.zeros(3), np.eye(3))
         self.assertIsNone(result, "未注册类型应使 from_raw 返回 None，而非崩溃。")
 
     # ── 6.2: Port 序列化往返 (to_dict Round-trip) ────────────────────────────
@@ -652,7 +555,8 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         peg = _build_port("peg", "peg.dat", [0, 0, 0])
         hole = _build_port("hole", "peghole.dat", [0, 0, 0])
         j_type, _, _ = peg.derive_joint(hole, is_merged=True)
-        self.assertEqual(j_type, "fixed", "is_merged=True 应推导出 'fixed' 关节类型。")
+        self.assertEqual(j_type, "fixed",
+                         "is_merged=True 应推导出 'fixed' 关节类型。")
 
     def test_6_3_cross_profile_derived_as_fixed(self):
         """
@@ -665,9 +569,8 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         if axle is None or axle_hole is None:
             self.skipTest("axle.dat 或 axlehole.dat 未在 port_semantics 注册，跳过。")
         j_type, _, _ = axle.derive_joint(axle_hole, is_merged=False)
-        self.assertEqual(
-            j_type, "fixed", "十字截面配合 (CROSS) 应推导为 'fixed' 锁定关节。"
-        )
+        self.assertEqual(j_type, "fixed",
+                         "十字截面配合 (CROSS) 应推导为 'fixed' 锁定关节。")
 
     def test_6_3_cylinder_profile_derived_as_continuous(self):
         """
@@ -680,11 +583,8 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         if peg is None or hole is None:
             self.skipTest("peg.dat 或 peghole.dat 未在 port_semantics 注册，跳过。")
         j_type, _, _ = peg.derive_joint(hole, is_merged=False)
-        self.assertEqual(
-            j_type,
-            "continuous",
-            "圆柱截面配合 (CYLINDER) 应推导为 'continuous' 连续旋转关节。",
-        )
+        self.assertEqual(j_type, "continuous",
+                         "圆柱截面配合 (CYLINDER) 应推导为 'continuous' 连续旋转关节。")
 
     # ── 6.4: Site 占用与释放 (Site Occupation Lifecycle) ─────────────────────
 
@@ -696,7 +596,6 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         """
         logger.debug("[Test 6.4] Site 占用释放生命周期测试。")
         from backend.port import Site
-
         site = Site(id="s0")
         site.occupied_by = "part_X"
         self.assertTrue(site.is_occupied(), "占用后 is_occupied 应返回 True。")
@@ -715,45 +614,24 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         from backend.auto_latch_scanner import AutoLatchScanner, AUTO_LATCH_THRESHOLD_M
 
         scanner = AutoLatchScanner()
-        parent_sites = [
-            {
-                "id": "s_p",
-                "position": [0.0, 0.0, 0.0],
-                "ports": [
-                    {
-                        "name": "hole_p",
-                        "type": "peghole.dat",
-                        "position": [0, 0, 0],
-                        "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                    }
-                ],
-            }
-        ]
-        child_sites = [
-            {
-                "id": "s_c",
-                "position": [0.0, 0.0, 0.0],
-                "ports": [
-                    {
-                        "name": "peg_c",
-                        "type": "peg.dat",
-                        "position": [0, 0, 0],
-                        "rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                    }
-                ],
-            }
-        ]
+        parent_sites = [{
+            "id": "s_p", "position": [0.0, 0.0, 0.0],
+            "ports": [{"name": "hole_p", "type": "peghole.dat",
+                       "position": [0, 0, 0], "rotation": [[1,0,0],[0,1,0],[0,0,1]]}]
+        }]
+        child_sites = [{
+            "id": "s_c", "position": [0.0, 0.0, 0.0],
+            "ports": [{"name": "peg_c", "type": "peg.dat",
+                       "position": [0, 0, 0], "rotation": [[1,0,0],[0,1,0],[0,0,1]]}]
+        }]
         parent_T = np.eye(4)
         # 子零件平移 10mm，远超 1mm 阈值
         child_T = np.eye(4)
         child_T[0, 3] = AUTO_LATCH_THRESHOLD_M * 10.0
 
-        edges = scanner.scan(
-            "beam", "pin", parent_sites, child_sites, parent_T, child_T
-        )
-        self.assertEqual(
-            len(edges), 0, "世界系下距离超过阈值时 Auto-Latch 不应返回任何边。"
-        )
+        edges = scanner.scan("beam", "pin", parent_sites, child_sites, parent_T, child_T)
+        self.assertEqual(len(edges), 0,
+                         "世界系下距离超过阈值时 Auto-Latch 不应返回任何边。")
 
     # ── 6.6: TopologyManager 幂等 add_part ────────────────────────────────────
 
@@ -766,10 +644,9 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         manager = TopologyManager()
         part = PartNode(part_id="dup_part", name="test")
         manager.add_part(part)
-        manager.add_part(part)  # 再次添加，应被忽略
-        self.assertEqual(
-            manager.graph.number_of_nodes(), 1, "重复 add_part 不应使节点数超过 1。"
-        )
+        manager.add_part(part)   # 再次添加，应被忽略
+        self.assertEqual(manager.graph.number_of_nodes(), 1,
+                         "重复 add_part 不应使节点数超过 1。")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,6 @@ from backend.tests.test_utils import _make_port
 
 # ─── tests ────────────────────────────────────────────────────────────────────
 
-
 def test_empty_ports():
     sites = cluster_ports_into_sites([], "test_part.dat")
     assert sites == []

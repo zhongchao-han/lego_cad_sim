@@ -14,7 +14,6 @@ from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-
 class PortLibraryManager:
     """
     管理 ldraw_port_configs.json 的持久化层。
@@ -27,11 +26,7 @@ class PortLibraryManager:
     def __init__(self, config_path: Optional[str] = None):
         if config_path is None:
             # 默认指向项目顶层的 data/ 目录
-            config_path = os.path.normpath(
-                os.path.join(
-                    os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json"
-                )
-            )
+            config_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json"))
         self.config_path = config_path
         self._lock = threading.Lock()
         self._data: Dict[str, Any] = {}
@@ -47,7 +42,7 @@ class PortLibraryManager:
                 return
 
             try:
-                with open(self.config_path, "r", encoding="utf-8") as f:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
                     self._data = json.load(f)
                     logger.info(f"成功加载 {len(self._data)} 个零件配置。")
             except Exception as e:
@@ -66,7 +61,7 @@ class PortLibraryManager:
             temp_path = f"{self.config_path}.tmp"
             try:
                 # 写入临时文件
-                with open(temp_path, "w", encoding="utf-8") as f:
+                with open(temp_path, 'w', encoding='utf-8') as f:
                     json.dump(self._data, f, indent=2, ensure_ascii=False)
 
                 # 在 Windows 上，原子性地替换文件
@@ -75,10 +70,8 @@ class PortLibraryManager:
                 logger.info(f"配置已保存至 {self.config_path}")
             except Exception as e:
                 if os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                    except Exception:
-                        pass
+                    try: os.remove(temp_path)
+                    except: pass
                 logger.error(f"保存配置文件失败: {e}", exc_info=True)
                 raise IOError(f"无法写入端口配置文件: {self.config_path}") from e
 
@@ -90,9 +83,7 @@ class PortLibraryManager:
             config = self._data.get(part_id)
             return json.loads(json.dumps(config)) if config else None
 
-    def update_part(
-        self, part_id: str, data: Dict[str, Any], force: bool = False
-    ) -> bool:
+    def update_part(self, part_id: str, data: Dict[str, Any], force: bool = False) -> bool:
         """
         全量更新或合并更新零件的元数据。
 
@@ -108,9 +99,7 @@ class PortLibraryManager:
         with self._lock:
             existing = self._data.get(part_id, {})
             if existing.get("verified", False) and not force:
-                logger.warning(
-                    f"跳过更新: 零件 {part_id} 已人工核验 (verified)，且未启用 force。"
-                )
+                logger.warning(f"跳过更新: 零件 {part_id} 已人工核验 (verified)，且未启用 force。")
                 return False
 
             # 核心修正：任何写入操作都必须刷新时间戳与版本号，以触发前端/缓存失效
@@ -126,33 +115,22 @@ class PortLibraryManager:
         logger.debug(f"[DEBUG] 进入 get_part_config: part_id={part_id}")
         return self.get_part_data(part_id)
 
-    def update_part_config(
-        self,
-        part_id: str,
-        sites: List[Dict],
-        status: str,
-        confidence: float = 1.0,
-        force: bool = False,
-    ) -> bool:
+    def update_part_config(self, part_id: str, sites: List[Dict], status: str, confidence: float = 1.0, force: bool = False) -> bool:
         """
         [Compatibility] 专门服务于前端复核提交的接口。
         将复核后的 Sites（包含坐标与端口集）与状态打包更新入库。
         """
-        logger.debug(
-            f"[DEBUG] 进入 update_part_config: part_id={part_id}, status={status}, force={force}"
-        )
+        logger.debug(f"[DEBUG] 进入 update_part_config: part_id={part_id}, status={status}, force={force}")
         existing = self.get_part_data(part_id) or {}
         new_payload = existing.copy()
 
         # 应用复核后的层次化 Sites 数据
-        new_payload.update(
-            {
-                "sites": sites,
-                "status": status,
-                "confidence": confidence,
-                "verified": (status == "verified"),
-            }
-        )
+        new_payload.update({
+            "sites": sites,
+            "status": status,
+            "confidence": confidence,
+            "verified": (status == "verified")
+        })
 
         # 如果存在旧的扁平 ports，建议移除或同步更新（此处选择移除以推行新标准）
         if "ports" in new_payload:
@@ -172,13 +150,11 @@ class PortLibraryManager:
                     else:
                         count = len(cfg.get("ports", []))
 
-                    pending.append(
-                        {
-                            "part_id": pid,
-                            "confidence": cfg.get("confidence", 1.0),
-                            "port_count": count,
-                        }
-                    )
+                    pending.append({
+                        "part_id": pid,
+                        "confidence": cfg.get("confidence", 1.0),
+                        "port_count": count
+                    })
 
             # 自信度从小到大排序
             return sorted(pending, key=lambda x: x["confidence"])
@@ -194,14 +170,12 @@ class PortLibraryManager:
                     else:
                         count = len(cfg.get("ports", []))
 
-                    verified.append(
-                        {
-                            "part_id": pid,
-                            "port_count": count,
-                            # 默认颜色设为灰黑色 (color=7) 的 GLB 路径
-                            "mesh_url": f"/ldraw_meshes/{pid.replace('.dat', '')}_c7.glb",
-                        }
-                    )
+                    verified.append({
+                        "part_id": pid,
+                        "port_count": count,
+                        # 默认颜色设为灰黑色 (color=7) 的 GLB 路径
+                        "mesh_url": f"/ldraw_meshes/{pid.replace('.dat', '')}_c7.glb"
+                    })
             return sorted(verified, key=lambda x: x["part_id"])
 
     def delete_part(self, part_id: str) -> bool:

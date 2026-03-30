@@ -29,7 +29,6 @@ from backend.tests.test_utils import _make_site
 
 # ── 辅助工厂 ──────────────────────────────────────────────────────────────────
 
-
 def _make_config(status: str = "pending", verified: bool = False) -> dict:
     """构造一个最小化的零件配置字典。"""
     return {
@@ -42,7 +41,6 @@ def _make_config(status: str = "pending", verified: bool = False) -> dict:
 
 
 # ── 测试套件 ──────────────────────────────────────────────────────────────────
-
 
 class TestPortLibraryManagerLoad(unittest.TestCase):
     """load() 方法测试。"""
@@ -113,9 +111,7 @@ class TestPortLibraryManagerSave(unittest.TestCase):
         """[Save-2] 正常写入后不应留下 .tmp 中间文件。"""
         self.mgr.save()
         tmp_path = f"{self._tmp.name}.tmp"
-        self.assertFalse(
-            os.path.exists(tmp_path), ".tmp 中间文件应在 save() 后被清理。"
-        )
+        self.assertFalse(os.path.exists(tmp_path), ".tmp 中间文件应在 save() 后被清理。")
 
 
 class TestPortLibraryManagerGetPartData(unittest.TestCase):
@@ -147,11 +143,8 @@ class TestPortLibraryManagerGetPartData(unittest.TestCase):
         data = self.mgr.get_part_data("32316.dat")
         self.assertIsNotNone(data)
         data["status"] = "MUTATED"
-        self.assertEqual(
-            self.mgr._data["32316.dat"]["status"],
-            "pending",
-            "外部修改返回值不应影响内部数据存储。",
-        )
+        self.assertEqual(self.mgr._data["32316.dat"]["status"], "pending",
+                         "外部修改返回值不应影响内部数据存储。")
 
     def test_id_normalization_case_insensitive(self):
         """[GetData-4] 零件 ID 大小写归一化：'32316' 和 '32316.DAT' 应等价。"""
@@ -168,7 +161,7 @@ class TestPortLibraryManagerUpdatePart(unittest.TestCase):
         ) as f:
             initial = {
                 "32316.dat": _make_config("pending", False),
-                "6558.dat": _make_config("verified", True),
+                "6558.dat":  _make_config("verified", True),
             }
             json.dump(initial, f)
             self.path = f.name
@@ -186,11 +179,8 @@ class TestPortLibraryManagerUpdatePart(unittest.TestCase):
     def test_update_injects_baked_at_timestamp(self):
         """[Update-2] 任何写入都应自动注入 baked_at 时间戳。"""
         self.mgr.update_part("32316.dat", _make_config("pending"), force=False)
-        self.assertIn(
-            "baked_at",
-            self.mgr._data["32316.dat"],
-            "update_part 应自动注入 baked_at 时间戳。",
-        )
+        self.assertIn("baked_at", self.mgr._data["32316.dat"],
+                      "update_part 应自动注入 baked_at 时间戳。")
 
     def test_update_verified_without_force_is_blocked(self):
         """[Update-3] 不带 force 更新 verified 零件应被拦截（返回 False）。"""
@@ -232,9 +222,7 @@ class TestPortLibraryManagerUpdatePartConfig(unittest.TestCase):
     def test_update_part_config_sets_verified_status(self):
         """[Config-1] 提交复核应将 status 设置为 'verified'，verified=True。"""
         sites = [_make_site("old_part")]
-        result = self.mgr.update_part_config(
-            "old_part.dat", sites, "verified", 1.0, force=True
-        )
+        result = self.mgr.update_part_config("old_part.dat", sites, "verified", 1.0, force=True)
         self.assertTrue(result)
         cfg = self.mgr._data["old_part.dat"]
         self.assertEqual(cfg["status"], "verified")
@@ -244,11 +232,8 @@ class TestPortLibraryManagerUpdatePartConfig(unittest.TestCase):
         """[Config-2] 复核写入后，旧扁平 ports 字段应被清除（强制迁移到 Sites 结构）。"""
         sites = [_make_site("old_part")]
         self.mgr.update_part_config("old_part.dat", sites, "verified", 1.0, force=True)
-        self.assertNotIn(
-            "ports",
-            self.mgr._data["old_part.dat"],
-            "提交复核后旧扁平 ports 字段应从配置中移除。",
-        )
+        self.assertNotIn("ports", self.mgr._data["old_part.dat"],
+                         "提交复核后旧扁平 ports 字段应从配置中移除。")
 
     def test_update_part_config_stores_sites(self):
         """[Config-3] 复核写入的 Sites 数据应被完整保留。"""
@@ -267,24 +252,12 @@ class TestPortLibraryManagerQueryMethods(unittest.TestCase):
             mode="w", suffix=".json", delete=False, encoding="utf-8"
         ) as f:
             initial = {
-                "a.dat": {
-                    "status": "pending",
-                    "confidence": 0.3,
-                    "verified": False,
-                    "sites": [_make_site("a")],
-                },
-                "b.dat": {
-                    "status": "pending",
-                    "confidence": 0.8,
-                    "verified": False,
-                    "sites": [_make_site("b"), _make_site("b")],
-                },
-                "c.dat": {
-                    "status": "verified",
-                    "confidence": 1.0,
-                    "verified": True,
-                    "sites": [_make_site("c")],
-                },
+                "a.dat": {"status": "pending", "confidence": 0.3, "verified": False,
+                           "sites": [_make_site("a")]},
+                "b.dat": {"status": "pending", "confidence": 0.8, "verified": False,
+                           "sites": [_make_site("b"), _make_site("b")]},
+                "c.dat": {"status": "verified", "confidence": 1.0, "verified": True,
+                           "sites": [_make_site("c")]},
             }
             json.dump(initial, f)
             self.path = f.name
@@ -302,9 +275,8 @@ class TestPortLibraryManagerQueryMethods(unittest.TestCase):
     def test_get_pending_parts_sorted_by_confidence_asc(self):
         """[Query-2] get_pending_parts 应按 confidence 升序排列（低置信度优先）。"""
         pending = self.mgr.get_pending_parts()
-        self.assertEqual(
-            pending[0]["part_id"], "a.dat", "confidence=0.3 的零件应排在最前。"
-        )
+        self.assertEqual(pending[0]["part_id"], "a.dat",
+                         "confidence=0.3 的零件应排在最前。")
 
     def test_get_pending_parts_port_count_from_sites(self):
         """[Query-3] port_count 应从 sites 的端口总数计算（b.dat 有 2 个 site, 各 1 port = 2）。"""
@@ -321,9 +293,7 @@ class TestPortLibraryManagerQueryMethods(unittest.TestCase):
         """[Query-5] get_verified_parts 应按 part_id 字母排序。"""
         # 在已有基础上再增加一个
         self.mgr._data["aa.dat"] = {
-            "status": "verified",
-            "confidence": 1.0,
-            "verified": True,
+            "status": "verified", "confidence": 1.0, "verified": True,
             "sites": [_make_site("aa")],
         }
         verified = self.mgr.get_verified_parts()
@@ -376,9 +346,7 @@ class TestPortLibraryManagerConcurrency(unittest.TestCase):
             except Exception as e:  # noqa: BLE001
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=_writer, args=(f"p{i}.dat",)) for i in range(20)
-        ]
+        threads = [threading.Thread(target=_writer, args=(f"p{i}.dat",)) for i in range(20)]
         for t in threads:
             t.start()
         for t in threads:

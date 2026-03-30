@@ -3,7 +3,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class CoordinateTransformer:
     """
     真理来源：处理 LDraw (LDU, RHS, Y-Up) 与本项目物理空间 (Meters, RHS, Y-Up) 之间的归一化。
@@ -15,7 +14,11 @@ class CoordinateTransformer:
     @staticmethod
     def get_rx180() -> np.ndarray:
         """返回 Rx(180) 翻转矩阵：x -> x, y -> -y, z -> -z"""
-        return np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float64)
+        return np.array([
+            [1, 0, 0],
+            [0, -1, 0],
+            [0, 0, -1]
+        ], dtype=np.float64)
 
     @staticmethod
     def normalize_pos(pos_ldu: np.ndarray) -> np.ndarray:
@@ -52,19 +55,15 @@ class CoordinateTransformer:
         # 1. 确保 X 轴向量非零
         vx = m[:, 0]
         norm_x = np.linalg.norm(vx)
-        if norm_x < 1e-6:
-            vx = np.array([1.0, 0, 0])
-        else:
-            vx /= norm_x
+        if norm_x < 1e-6: vx = np.array([1.0, 0, 0])
+        else: vx /= norm_x
 
         # 2. 正交化 Y 轴
         vy = m[:, 1]
         vy = vy - np.dot(vy, vx) * vx
         norm_y = np.linalg.norm(vy)
-        if norm_y < 1e-6:
-            vy = np.array([0, 1.0, 0])
-        else:
-            vy /= norm_y
+        if norm_y < 1e-6: vy = np.array([0, 1.0, 0])
+        else: vy /= norm_y
 
         # 3. 强制右手系 (Z = X cross Y)
         vz = np.cross(vx, vy)
@@ -77,16 +76,13 @@ class CoordinateTransformer:
         """兼容性别名：统一重定向到 purify_rotation_matrix"""
         return CoordinateTransformer.purify_rotation_matrix(m)
 
-
 def purify_rotation_matrix(m: np.ndarray) -> np.ndarray:
     """全局别名：调用 CoordinateTransformer 的右手正交化逻辑"""
     return CoordinateTransformer.purify_rotation_matrix(m)
 
-
 def purify_matrix(m: np.ndarray) -> np.ndarray:
     """全局别名：统一重定向到 CoordinateTransformer.purify_matrix"""
     return CoordinateTransformer.purify_matrix(m)
-
 
 def matrix_to_list(m: np.ndarray) -> list:
     """工具函数：矩阵转嵌套列表"""
