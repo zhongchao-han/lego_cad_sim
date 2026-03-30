@@ -2,26 +2,26 @@ import asyncio
 import json
 import logging
 import os
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from backend.physics_engine import PhysicsEngine
-from backend.topology_manager import TopologyManager, PartNode, ConnectionEdge
-from backend.port_library import PortLibrary
-from backend.geometry_processor import GeometryProcessor
-from fastapi.staticfiles import StaticFiles
-from backend.port_library_manager import PortLibraryManager
-from backend.port_semantics import get_interface, build_fit_result
-from backend.port import Port
-from backend.math_utils import purify_rotation_matrix, matrix_to_list
-from backend.site_utils import cluster_ports_into_sites, sites_to_response
 from backend.auto_latch_scanner import AutoLatchScanner
+from backend.geometry_processor import GeometryProcessor
+from backend.math_utils import matrix_to_list, purify_rotation_matrix
 from backend.mesh_asset_manager import MeshAssetManager
+from backend.physics_engine import PhysicsEngine
+from backend.port import Port
+from backend.port_library import PortLibrary
+from backend.port_library_manager import PortLibraryManager
+from backend.port_semantics import build_fit_result, get_interface
+from backend.site_utils import cluster_ports_into_sites, sites_to_response
+from backend.topology_manager import ConnectionEdge, PartNode, TopologyManager
+
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -167,7 +167,7 @@ async def search_parts(q: str):
                     count = sum(len(s.get("ports", [])) for s in cfg["sites"])
                 else:
                     count = len(cfg.get("ports", []))
-                    
+
                 results.append({
                     "part_id": pid,
                     "status": cfg.get("status", "pending"),
@@ -184,11 +184,12 @@ async def save_verification(req: VerifySaveRequest):
     支持层次化的 Site-Port 结构。
     """
     logger.info(f"收到复核提交: Part ID={req.part_id}, Sites={len(req.sites)}")
-    
+
     def clean_pos(v):
         if isinstance(v, (float, np.floating)):
             return round(float(v), 6)
-        if isinstance(v, list): return [clean_pos(i) for i in v]
+        if isinstance(v, list):
+            return [clean_pos(i) for i in v]
         return v
 
     try:
@@ -196,17 +197,17 @@ async def save_verification(req: VerifySaveRequest):
         for site_req in req.sites:
             site_dict = site_req.model_dump()
             site_dict["position"] = [clean_pos(x) for x in site_dict["position"]]
-            
+
             normalized_ports = []
             for p_req in site_req.ports:
                 p_data = p_req.model_dump()
                 p_data["position"] = [clean_pos(x) for x in p_data["position"]]
-                
+
                 # 核心数学脱敏：入库前强制执行 Gram-Schmidt 正交化
                 raw_rot = np.array(p_data["rotation"])
                 pure_rot = purify_rotation_matrix(raw_rot)
                 p_data["rotation"] = matrix_to_list(pure_rot)
-                
+
                 # 构造 Port 对象以利用 to_dict() 的规范化输出
                 obj = Port.from_config(
                     f"{req.part_id}_v", p_data['type'], np.array(p_data['position']), np.array(p_data['rotation']),
@@ -216,7 +217,7 @@ async def save_verification(req: VerifySaveRequest):
                     normalized_ports.append(obj.to_dict())
                 else:
                     normalized_ports.append(p_data)
-            
+
             site_dict["ports"] = normalized_ports
             final_sites.append(site_dict)
 
@@ -227,13 +228,13 @@ async def save_verification(req: VerifySaveRequest):
             confidence=1.0,
             force=True
         )
-        
+
         if success:
             port_lib_manager.save()
             return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
         else:
             return {"status": "error", "msg": "Failed to update config."}
-            
+
     except Exception as e:
         logger.error(f"保存失败: {e}", exc_info=True)
         return {"status": "error", "msg": str(e)}
@@ -242,17 +243,17 @@ async def save_verification(req: VerifySaveRequest):
 async def toggle_mode(mode: str):
     global system_mode
     mode = mode.upper()
-    
+
     if mode == "SIMULATION":
         if system_mode != "SIMULATION":
             logger.info("接受前端指令，开始转化拓扑并生成 URDF ...")
             tree = topo_manager.build_spanning_tree()
             urdf_path = "current_assembly.urdf"
             topo_manager.export_urdf(tree, urdf_path)
-            
+
             engine.disconnect()
             engine.__init__(mode="DIRECT")
-            
+
             success = engine.load_assembly(urdf_path)
             if success:
                 for loop in topo_manager.closed_loops:
@@ -262,13 +263,13 @@ async def toggle_mode(mode: str):
                 return {"status": "success", "msg": "Simulation started."}
             else:
                 return {"status": "error", "msg": "URDF load failed."}
-                
+
     elif mode == "ASSEMBLY":
         if system_mode != "ASSEMBLY":
             engine.toggle_gravity(False)
             system_mode = "ASSEMBLY"
             return {"status": "success", "msg": "Returned to assembly editor."}
-            
+
     return {"status": "ok", "msg": "No changes made."}
 
 
@@ -282,7 +283,7 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
 
         # 1. 检查持久化层中是否已有烘培好的数据
         cached_data = port_lib_manager.get_part_data(dat_filename)
-        
+
         # 委托 MeshAssetManager 处理物理存在确认和 URL 路由组装
         mesh_url = mesh_manager.ensure_mesh_exists(
             part_id=dat_filename,
@@ -290,7 +291,7 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             geo_processor=geo_proc,
             cached_glb_path=cached_data.get("glb_path") if cached_data else None
         )
-        
+
         # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites
         if cached_data and cached_data.get("status") == "verified":
             logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
@@ -514,16 +515,16 @@ async def physics_stream(websocket: WebSocket):
     try:
         while True:
             await asyncio.sleep(1/60.0)
-            
+
             if system_mode == "SIMULATION":
                 for _ in range(4):
                     engine.step()
-            
+
             state = engine.get_state()
             if state:
                 payload = json.dumps({"mode": system_mode, "state": state})
                 await manager.broadcast(payload)
-                
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:

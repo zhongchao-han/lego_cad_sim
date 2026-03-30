@@ -1,9 +1,9 @@
-import pytest
-import networkx as nx
 import numpy as np
-from backend.topology_manager import TopologyManager, PartNode
-from backend.port import Port
+
 from backend.connection_edge import ConnectionEdge
+from backend.port import Port
+from backend.topology_manager import PartNode, TopologyManager
+
 
 def test_topology_manager_export_urdf(tmpdir, monkeypatch):
     tm = TopologyManager()

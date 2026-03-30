@@ -1,13 +1,15 @@
-import unittest
-import numpy as np
 import os
 import sys
+import unittest
+
+import numpy as np
 
 # 注入 backend 目录以支持绝对导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.math_utils import purify_rotation_matrix
 from backend.geometry_processor import GeometryProcessor
+from backend.math_utils import purify_rotation_matrix
+
 
 class TestV3PhysicsCore(unittest.TestCase):
     """
@@ -27,10 +29,10 @@ class TestV3PhysicsCore(unittest.TestCase):
             [0, 0, 1.0]
         ])
         self.assertAlmostEqual(np.linalg.det(mirrored_mat), -1.0)
-        
+
         # 应用正交化提纯
         pure_mat = purify_rotation_matrix(mirrored_mat)
-        
+
         # 验证 1: 行列式必须严格等于 1.0
         self.assertAlmostEqual(np.linalg.det(pure_mat), 1.0)
         # 验证 2: 矩阵必须正交 (M @ M.T = I)
@@ -60,7 +62,7 @@ class TestV3PhysicsCore(unittest.TestCase):
         # 指向一个不存在但合法的文件名, 模拟 extract_geometry 失败但能走到目录检查
         success = gp.convert_to_glb("non_existent.dat", "root_level_test.glb")
         # 虽然文件不存在会返回 False, 但不应该触发 WinError 3 导致的 Exception
-        self.assertFalse(success) 
+        self.assertFalse(success)
 
     def test_input_extension_normalization(self):
         """
@@ -68,10 +70,10 @@ class TestV3PhysicsCore(unittest.TestCase):
         验证 UnifiedAssetBaker 对裸 ID 的处理。
         """
         from scripts.bake_assets import UnifiedAssetBaker
-        baker = UnifiedAssetBaker()
-        
+        UnifiedAssetBaker()
+
         # 我们这里注入一个极简模拟来测试 bake_part 内部对 part_id 的改写
-        # 由于我们无法在单元测试中真实运行 bake_part (涉及 IO), 
+        # 由于我们无法在单元测试中真实运行 bake_part (涉及 IO),
         # 我们主要核实代码逻辑中对 part_id 的修正机制。
         # 既然代码中已经写死逻辑，我们通过 discover_ports 的 root_id 兜底逻辑来核实
         gp = GeometryProcessor(ldraw_path="ldraw_lib")

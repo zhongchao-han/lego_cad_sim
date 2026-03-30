@@ -1,7 +1,8 @@
-import os
 import json
 import logging
-from typing import Dict, List, Optional, Any
+import os
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 from backend.port import Port
@@ -19,10 +20,10 @@ class PortLibrary:
     - 该类作为系统唯一的“端口语义真理来源”，服务于仿真、渲染和复核。
     - 同时也封装了 LDraw 库的标准文件搜索逻辑。
     """
-    
+
     def __init__(self, ldraw_path: str = "ldraw_lib", data_store: Dict[str, Any] = None):
         self.ldraw_path = ldraw_path
-        
+
         if data_store is not None:
             # 依赖注入：使用外部传入的数据源（如来自 PortLibraryManager 的引用）
             self._data = data_store
@@ -35,7 +36,7 @@ class PortLibrary:
                 self.load_configs(config_path)
             else:
                 logger.warning(f"未找到端口配置文件: {config_path}。系统将无法识别任何连接点。")
-            
+
     def load_configs(self, filepath: str) -> None:
         """加载已复核的端口快照。"""
         try:
@@ -73,7 +74,7 @@ class PortLibrary:
             p = os.path.normpath(os.path.join(root, file_basename))
             if os.path.exists(p):
                 return p
-        
+
         # 兜底：尝试全路径匹配（如果 filename 包含了 parts/xxx 等）
         fallback = os.path.normpath(os.path.join(ldraw_root, filename))
         if os.path.exists(fallback):
@@ -97,14 +98,14 @@ class PortLibrary:
             return []
 
         part_config = self._data[part_name]
-        
+
         # 严格过滤：仿真引擎应过滤掉所有 pending 零件
         if not allow_pending and part_config.get("status") != "verified":
             logger.debug(f"严格模式：跳过未经验证的零件 {part_name}")
             return []
 
         json_ports = []
-        
+
         # 1. 优先加载 Site-Based 结构 (v3.1+)
         if "sites" in part_config:
             for site_idx, site_cfg in enumerate(part_config["sites"]):
@@ -113,39 +114,39 @@ class PortLibrary:
                     # 如果 Port 自身没有 position，则取 Site 的 position
                     p_pos_local = np.array(mp.get("position", site_pos))
                     pos_global = (transform @ np.append(p_pos_local, 1.0))[:3]
-                    
+
                     rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
                     rot_global = transform[:3, :3] @ rot_local
-                    
+
                     p_type = mp.get("type", "peg")
                     is_adj = mp.get("is_manually_adjusted", False)
-                    
+
                     port = Port.from_config(
                         f"{part_name}_s{site_idx}_p{port_idx}", p_type, pos_global, rot_global,
                         is_manually_adjusted=is_adj
                     )
                     if port:
                         json_ports.append(port)
-                        
+
         # 2. 兜底加载扁平 Ports 结构 (向后兼容 v3.0)
         elif "ports" in part_config:
             for i, mp in enumerate(part_config["ports"]):
                 pos_ldu    = np.array(mp.get("position", [0.0, 0.0, 0.0]))
                 pos_global = (transform @ np.append(pos_ldu, 1.0))[:3]
-                
+
                 rot_local  = np.array(mp.get("rotation", np.eye(3).tolist()))
                 rot_global = transform[:3, :3] @ rot_local
-                
+
                 p_type     = mp.get("type", "peg")
                 is_adj     = mp.get("is_manually_adjusted", False)
-                
+
                 port = Port.from_config(
                     f"{part_name}_p{i}", p_type, pos_global, rot_global,
                     is_manually_adjusted=is_adj
                 )
                 if port:
                     json_ports.append(port)
-                    
+
         return json_ports
 
 if __name__ == "__main__":

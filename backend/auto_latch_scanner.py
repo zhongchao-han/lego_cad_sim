@@ -161,9 +161,12 @@ class AutoLatchScanner:
         parent_ports_raw = parent_site.get("ports", [])
         child_ports_raw = child_site.get("ports", [])
         import numpy as _np
-        from backend.port_semantics import FitType as _FitType, get_interface as _gi, check_fit as _cf
-        from backend.port import Port as _Port
+
         from backend.connection_edge import ConnectionEdge as _CE
+        from backend.port import Port as _Port
+        from backend.port_semantics import FitType as _FitType
+        from backend.port_semantics import check_fit as _cf
+        from backend.port_semantics import get_interface as _gi
 
         for pp_raw in parent_ports_raw:
             pp_name = pp_raw.get("name", "")

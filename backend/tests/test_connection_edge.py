@@ -1,8 +1,9 @@
-import pytest
 import numpy as np
+
 from backend.connection_edge import ConnectionEdge
 from backend.port import Port
 from backend.port_semantics import FitType
+
 
 def test_connection_edge_is_physically_compatible(monkeypatch):
     port_parent = Port.from_raw("p1", "pin.dat", np.zeros(3), np.eye(3))
@@ -11,13 +12,13 @@ def test_connection_edge_is_physically_compatible(monkeypatch):
 
     # Mock test_fit_with
     monkeypatch.setattr(Port, "test_fit_with", lambda self, other: FitType.CLEARANCE)
-    assert edge.is_physically_compatible() == True
+    assert edge.is_physically_compatible()
 
     monkeypatch.setattr(Port, "test_fit_with", lambda self, other: FitType.INCOMPATIBLE)
-    assert edge.is_physically_compatible() == False
+    assert not edge.is_physically_compatible()
 
     monkeypatch.setattr(Port, "test_fit_with", lambda self, other: FitType.BLOCKED)
-    assert edge.is_physically_compatible() == False
+    assert not edge.is_physically_compatible()
 
 def test_connection_edge_get_relative_transform(monkeypatch):
     port_parent = Port.from_raw("p1", "pin.dat", np.zeros(3), np.eye(3))

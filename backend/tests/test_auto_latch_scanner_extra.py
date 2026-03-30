@@ -1,8 +1,7 @@
-import pytest
 import numpy as np
+
 from backend.auto_latch_scanner import AutoLatchScanner
-from backend.port import Port
-from backend.connection_edge import ConnectionEdge
+
 
 def test_auto_latch_scanner():
     scanner = AutoLatchScanner(threshold_m=0.001)

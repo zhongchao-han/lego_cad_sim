@@ -5,12 +5,12 @@ port_config_manager.py
 遵循单一责任原则 (SRP)，封装了“元数据锁”逻辑。
 """
 
-import os
 import json
 import logging
+import os
 import threading
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class PortLibraryManager:
     1. verified 状态的数据默认禁止覆盖。
     2. 提供线程安全的读写操作。
     """
-    
+
     def __init__(self, config_path: str = None):
         if config_path is None:
             # 默认指向项目顶层的 data/ 目录
@@ -57,21 +57,23 @@ class PortLibraryManager:
             _p = os.path.abspath(self.config_path)
             _s = self._data.get("6558.dat", {}).get("status", "N/A")
             print(f"[TRACE] Manager 准备落盘: Path={_p}, 6558 Status={_s}")
-            
+
             temp_path = f"{self.config_path}.tmp"
             try:
                 # 写入临时文件
                 with open(temp_path, 'w', encoding='utf-8') as f:
                     json.dump(self._data, f, indent=2, ensure_ascii=False)
-                
+
                 # 在 Windows 上，原子性地替换文件
                 # 使用 os.replace 替代 os.remove + os.rename
                 os.replace(temp_path, self.config_path)
                 logger.info(f"配置已保存至 {self.config_path}")
             except Exception as e:
                 if os.path.exists(temp_path):
-                    try: os.remove(temp_path)
-                    except: pass
+                    try:
+                        os.remove(temp_path)
+                    except Exception:
+                        pass
                 logger.error(f"保存配置文件失败: {e}", exc_info=True)
                 raise IOError(f"无法写入端口配置文件: {self.config_path}") from e
 
@@ -95,7 +97,7 @@ class PortLibraryManager:
         logger.debug(f"[DEBUG] 进入 update_part: part_id={part_id}, force={force}")
         # 强制归一化 ID
         part_id = part_id.lower().replace(".dat", "") + ".dat"
-        
+
         with self._lock:
             existing = self._data.get(part_id, {})
             if existing.get("verified", False) and not force:
@@ -123,7 +125,7 @@ class PortLibraryManager:
         logger.debug(f"[DEBUG] 进入 update_part_config: part_id={part_id}, status={status}, force={force}")
         existing = self.get_part_data(part_id) or {}
         new_payload = existing.copy()
-        
+
         # 应用复核后的层次化 Sites 数据
         new_payload.update({
             "sites": sites,
@@ -131,11 +133,11 @@ class PortLibraryManager:
             "confidence": confidence,
             "verified": (status == "verified")
         })
-        
+
         # 如果存在旧的扁平 ports，建议移除或同步更新（此处选择移除以推行新标准）
         if "ports" in new_payload:
             new_payload.pop("ports")
-        
+
         return self.update_part(part_id, new_payload, force=force)
 
     def get_pending_parts(self) -> List[Dict[str, Any]]:
@@ -149,13 +151,13 @@ class PortLibraryManager:
                         count = sum(len(s.get("ports", [])) for s in cfg["sites"])
                     else:
                         count = len(cfg.get("ports", []))
-                        
+
                     pending.append({
                         "part_id": pid,
                         "confidence": cfg.get("confidence", 1.0),
                         "port_count": count
                     })
-            
+
             # 自信度从小到大排序
             return sorted(pending, key=lambda x: x["confidence"])
 

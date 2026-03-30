@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class MeshAssetManager:
             self.mesh_cache_root = os.path.abspath(os.path.join(os.getcwd(), "data", "custom_assets"))
         else:
             self.mesh_cache_root = os.path.abspath(cache_root)
-            
+
         os.makedirs(self.mesh_cache_root, exist_ok=True)
         self.url_mount_point = "/ldraw_meshes"
 
@@ -30,7 +30,7 @@ class MeshAssetManager:
             base = part_id
         # 为了防范类似 '39369 ' 被替换出带空格的 filename：
         base = base.replace(" ", "")
-        
+
         return f"{base}_c{color_code}.glb"
 
     def get_absolute_glb_path(self, part_id: str, color_code: int, cached_glb_path: Optional[str] = None) -> str:
@@ -38,7 +38,7 @@ class MeshAssetManager:
         根据给定的零件 ID 和 缓存路径记录，计算其最终的本地绝对物理路径。
         """
         raw_path = cached_glb_path or self._get_default_glb_filename(part_id, color_code)
-        
+
         if os.path.isabs(raw_path):
             return raw_path
         return os.path.join(self.mesh_cache_root, raw_path)
@@ -49,14 +49,14 @@ class MeshAssetManager:
             # os.path.relpath 在跨驱动器（Windows）时抛出 ValueError，此时降级策略：返回最末端文件名
             rel_path = os.path.relpath(abs_path, self.mesh_cache_root)
             rel_path = rel_path.replace("\\", "/") # 必须强制将 Windows 斜杠转换为 URL 斜杠的标准化
-            
+
             # 如果 relpath 指出该文件竟爬出了 cache_root (防呆设计保障 SRP)
             if rel_path.startswith(".."):
                logger.warning(f"[MeshAssetManager] {abs_path} 的相对路径跳出了资源根目录, 降级截取 basename。")
                rel_path = os.path.basename(abs_path)
         except ValueError:
             rel_path = os.path.basename(abs_path)
-            
+
         return f"{self.url_mount_point}/{rel_path}"
 
     def ensure_mesh_exists(self, part_id: str, color_code: int, geo_processor, cached_glb_path: Optional[str] = None) -> str:
@@ -71,7 +71,7 @@ class MeshAssetManager:
         :return: String URL，例如 '/ldraw_meshes/3001_c7.glb'
         """
         abs_path = self.get_absolute_glb_path(part_id, color_code, cached_glb_path)
-        
+
         if not os.path.exists(abs_path):
             logger.info(f"[MeshAssetManager] GLB 文件未命中物理缓存: {abs_path}，正在委托烘焙...")
             try:
@@ -81,5 +81,5 @@ class MeshAssetManager:
                 geo_processor.convert_to_glb(dat_filename, abs_path, color_code=color_code)
             except Exception as e:
                 logger.error(f"[MeshAssetManager] 实时生成 GLB 失败 -> {e}")
-                
+
         return self._compute_mesh_url(abs_path)

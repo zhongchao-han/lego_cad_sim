@@ -1,8 +1,9 @@
-import os
 import glob
-import shutil
 import logging
-from fastapi import APIRouter, UploadFile, File, Form
+import os
+import shutil
+
+from fastapi import APIRouter, File, Form, UploadFile
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -34,10 +35,10 @@ async def upload_thumbnail(part_id: str = Form(...), file: UploadFile = File(...
     try:
         with open(target_file, "wb") as f:
             shutil.copyfileobj(file.file, f)
-        
+
         if os.path.exists(backup_file):
             os.remove(backup_file)
-            
+
         return {"status": "success", "msg": f"Oven baked {base_name}.png"}
     except Exception as e:
         logger.error(f"Failed to upload thumbnail {part_id}: {e}")

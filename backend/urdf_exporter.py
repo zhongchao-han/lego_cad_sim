@@ -7,10 +7,10 @@ URDFExporter — 将无环运动学树导出为 URDF 文件。
 TopologyManager.export_urdf() 现委托至此模块，API 不变。
 """
 
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
 import logging
+import xml.etree.ElementTree as ET
 from typing import List
+from xml.dom import minidom
 
 import networkx as nx
 import numpy as np

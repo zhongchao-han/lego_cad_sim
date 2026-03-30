@@ -1,5 +1,7 @@
 import numpy as np
+
 from backend.port import Port
+
 
 def _make_port(name: str, ptype: str, pos: list) -> dict:
     """构造 site_utils 可识别的原始端口字典。"""

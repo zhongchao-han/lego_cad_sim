@@ -17,15 +17,14 @@ test_port_library_manager.py
 import json
 import os
 import sys
-import threading
 import tempfile
+import threading
 import unittest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.port_library_manager import PortLibraryManager
 from backend.tests.test_utils import _make_site
-
 
 # ── 辅助工厂 ──────────────────────────────────────────────────────────────────
 

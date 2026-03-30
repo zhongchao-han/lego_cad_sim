@@ -27,8 +27,8 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from fastapi.testclient import TestClient
-from backend.tests.test_utils import _make_site
 
+from backend.tests.test_utils import _make_site
 
 # ── 共享夹具数据 ──────────────────────────────────────────────────────────────
 

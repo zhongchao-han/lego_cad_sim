@@ -1,11 +1,16 @@
-import numpy as np
 import logging
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Tuple, List
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 from backend.port_semantics import (
-    ConnectionInterface, Profile, FitType,
-    get_interface, check_fit, derive_joint_params,
+    ConnectionInterface,
+    FitType,
+    Profile,
+    check_fit,
+    derive_joint_params,
+    get_interface,
 )
 
 # 配置日志
@@ -25,15 +30,16 @@ class Port:
     part_context: Optional[str] = None
 
     @classmethod
-    def from_raw(cls, name: str, ldraw_type: str, pos: np.ndarray, rot: np.ndarray, 
+    def from_raw(cls, name: str, ldraw_type: str, pos: np.ndarray, rot: np.ndarray,
                  is_manually_adjusted: bool = False, part_context: Optional[str] = None):
         """
         工厂方法: 将 LDraw 原始数据转换为归一化 Port。
         """
         interface = get_interface(ldraw_type)
-        if not interface: return None
+        if not interface:
+            return None
         return cls(
-            name=name, interface=interface, position=pos, rotation=rot, 
+            name=name, interface=interface, position=pos, rotation=rot,
             port_type=ldraw_type, is_manually_adjusted=is_manually_adjusted, part_context=part_context
         )
 
@@ -71,7 +77,7 @@ class Site:
     id: str
     ports: List[Port] = field(default_factory=list)
     occupied_by: Optional[str] = None
-    
+
     @property
     def position(self) -> np.ndarray:
         """返回该坑位的物理中心点坐标 (基于其拥有的首个 Port)"""

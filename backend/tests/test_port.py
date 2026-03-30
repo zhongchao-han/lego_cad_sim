@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+
 from backend.port import Port, Site
 from backend.port_semantics import Profile
+
 
 def test_port_from_raw():
     p = Port.from_raw("p1", "pin.dat", np.zeros(3), np.eye(3))

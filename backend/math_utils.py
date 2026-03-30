@@ -1,5 +1,6 @@
-import numpy as np
 import logging
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -8,9 +9,9 @@ class CoordinateTransformer:
     真理来源：处理 LDraw (LDU, RHS, Y-Up) 与本项目物理空间 (Meters, RHS, Y-Up) 之间的归一化。
     遵守 v3.0 协议：Rx(180) 投影。
     """
-    
+
     LDU_TO_SI = 0.0004  # 1 LDU = 0.4mm
-    
+
     @staticmethod
     def get_rx180() -> np.ndarray:
         """返回 Rx(180) 翻转矩阵：x -> x, y -> -y, z -> -z"""
@@ -51,23 +52,23 @@ class CoordinateTransformer:
         # 补丁：强制转换为 float64 以避免 numpy 对 int32 数组进行原位浮点除法时崩溃
         m = m.astype(np.float64)
         m = np.nan_to_num(m, nan=0.0).copy()
-        
+
         # 1. 确保 X 轴向量非零
         vx = m[:, 0]
         norm_x = np.linalg.norm(vx)
         if norm_x < 1e-6: vx = np.array([1.0, 0, 0])
         else: vx /= norm_x
-        
+
         # 2. 正交化 Y 轴
         vy = m[:, 1]
         vy = vy - np.dot(vy, vx) * vx
         norm_y = np.linalg.norm(vy)
         if norm_y < 1e-6: vy = np.array([0, 1.0, 0])
         else: vy /= norm_y
-        
+
         # 3. 强制右手系 (Z = X cross Y)
         vz = np.cross(vx, vy)
-        
+
         res = np.column_stack((vx, vy, vz))
         return res
 

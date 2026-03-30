@@ -1,12 +1,13 @@
+import logging
+import uuid
+from typing import List, Optional, Tuple
+
 import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import logging
-from typing import List, Tuple, Optional
-import uuid
 
-from backend.port import Port
 from backend.connection_edge import ConnectionEdge
+from backend.port import Port
 from backend.urdf_exporter import URDFExporter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -35,13 +36,13 @@ class TopologyManager:
     功能：检测过约束（多端连接转 Fixed），断绝闭环并提取供 URDF 的生成树，
     推算局部 tf（transform）并且输出 URDF 语法文本。
     """
-    
+
     def __init__(self):
         # 使用多重有向图存储，以容许两零件之间有多个联结边（等待后续过滤与合并）
         self.graph = nx.MultiDiGraph()
         # 记录所有的闭合环，不在生成树里而用于导出额外的 Gazebo 原生物理约束或记录
         self.closed_loops: List[ConnectionEdge] = []
-        
+
     def add_part(self, part: PartNode):
         """向装配空间中压入独立的零件"""
         if not self.graph.has_node(part.part_id):
@@ -118,44 +119,44 @@ class TopologyManager:
         """
         # --- 步骤 1：处理多重连接（防过约束爆裂）---
         simple_graph = nx.DiGraph()
-        
+
         # 提取图里的节点，塞回全新的简略有向图中
         for node_id, data in self.graph.nodes(data=True):
             simple_graph.add_node(node_id, **data)
-            
+
         for u, v in set((u, v) for u, v, _ in self.graph.edges):
             edges_between_uv = self.graph.get_edge_data(u, v)
             if edges_between_uv:
                 edge_list = list(edges_between_uv.values())
                 primary_edge: ConnectionEdge = edge_list[0]['data']
-                
+
                 # 如果这个面上不止一根 Pin 相连，必须并合成一个 Fixed Joint 以避免无穷约束张力。
                 if len(edge_list) > 1:
                     primary_edge.is_merged = True
                     logger.info(f"过约束检测：零部件 {u} 与 {v} 间检测到 {len(edge_list)} 处端口碰撞/连接，合并为 Fixed Joint。")
-                
+
                 # URDF 需要单根关系，我们只把主约束加进新图
                 if not simple_graph.has_edge(u, v):
                     simple_graph.add_edge(u, v, data=primary_edge)
-                    
+
         # --- 步骤 2：解环 (BFS 遍历打断 Cycles) ---
         urdf_tree = nx.DiGraph()
         self.closed_loops.clear()
-        
+
         # 寻找根节点 (假设选取最高入度为 0 的节点或随机一个)
         in_degrees = dict(simple_graph.in_degree())
         if not in_degrees:
             return urdf_tree
-            
+
         root_nodes = [n for n, d in in_degrees.items() if d == 0]
         root = root_nodes[0] if root_nodes else list(simple_graph.nodes)[0]
-        
+
         logger.info(f"挑选 URDF 树根节点为 Base Link: {root}")
-        
+
         # 记录已被 BFS 所触达的元件标记集
         visited = set()
         queue = [root]
-        
+
         while queue:
             current = queue.pop(0)
             if current not in visited:
@@ -163,7 +164,7 @@ class TopologyManager:
                 # 复制节点
                 if not urdf_tree.has_node(current):
                     urdf_tree.add_node(current, data=simple_graph.nodes[current]['data'])
-                
+
                 # 漫游全部直系亲属
                 for neighbor in simple_graph.successors(current):
                     edge_data = simple_graph.get_edge_data(current, neighbor)['data']
@@ -188,18 +189,18 @@ class TopologyManager:
 # =========================== Unit testing execution ============================
 if __name__ == "__main__":
     print("\n--- Phase 2: Topology Manager & URDF Export 单元防崩测试 ---")
-    
+
     manager = TopologyManager()
-    
+
     # 建立 3 个模拟的 LEGO 单元（比如为了构成闭环矩形，再随便找个节点收拢）
     beam_a = PartNode("A", "3x3_beam_L")
     beam_b = PartNode("B", "3x3_beam_R")
     connector_c = PartNode("C", "pin_H")
-    
+
     manager.add_part(beam_a)
     manager.add_part(beam_b)
     manager.add_part(connector_c)
-    
+
     id_rot = np.eye(3)
 
     # 辅助：用 Port.from_raw 构建测试端口（严谨模式）
@@ -223,24 +224,25 @@ if __name__ == "__main__":
     # C->A 回归连接产生闭环测试：
     e3 = ConnectionEdge("C", "A", mk("p", "pin", [0, 0.004, 0]), mk("c", "peghole", [0, -0.004, 0]))
     manager.connect_ports(e3)
-    
+
     # 解算跨越
     tree = manager.build_spanning_tree()
-    
+
     print("\n【URDF 转换树节点状态】")
     print("总节点数:", tree.number_of_nodes())
     print("总边数量:", tree.number_of_edges(), "(应只剩过滤和破环之后的边)")
     print("受限打断环的数量:", len(manager.closed_loops))
-    
+
     urdf_filename = "mock_output.urdf"
     manager.export_urdf(tree, urdf_filename)
-    
+
     # 回显下生成的 URDF 头片段
     with open(urdf_filename, "r") as f:
         print("\n【生成的一瞥 (前25行) URDF内容】")
         for _ in range(25):
             line = f.readline()
-            if not line: break
+            if not line:
+                break
             print(line.strip('\n'))
 
     import os

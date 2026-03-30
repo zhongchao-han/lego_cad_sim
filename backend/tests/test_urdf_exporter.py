@@ -1,14 +1,14 @@
-import pytest
+import os
+from unittest.mock import MagicMock
+
 import networkx as nx
 import numpy as np
-from unittest.mock import MagicMock
+
 from backend.urdf_exporter import URDFExporter, export_urdf
-from backend.connection_edge import ConnectionEdge
-from backend.port import Port
-import os
+
 
 def test_urdf_exporter(tmpdir):
-    exporter = URDFExporter()
+    URDFExporter()
     tree = nx.DiGraph()
 
     mock_part1 = MagicMock()
@@ -55,7 +55,7 @@ def test_urdf_exporter(tmpdir):
     assert 'gazebo' in content
 
 def test_urdf_exporter_fixed_joint(tmpdir):
-    exporter = URDFExporter()
+    URDFExporter()
     tree = nx.DiGraph()
 
     mock_part1 = MagicMock()

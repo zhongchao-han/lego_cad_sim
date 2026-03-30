@@ -80,14 +80,12 @@ function LibraryNav() {
 }
 
 function App() {
-  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
-  if (window.location.pathname === '/generator') {
-    return <ThumbnailGenerator />;
-  }
-
   const view = useStore((state) => state.view);
   const setWsConnected = useStore((state) => state.setWsConnected);
   const batchUpdatePartStates = useStore((state) => state.batchUpdatePartStates);
+
+  const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
+  const interactionPhase = useStore((state) => state.interactionPhase);
 
   useEffect(() => {
     let ws = null;
@@ -112,8 +110,6 @@ function App() {
     return () => { isMounted = false; clearTimeout(reconnectTimer); if (ws) ws.close(); };
   }, [setWsConnected, batchUpdatePartStates]);
 
-  const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
-  const interactionPhase = useStore((state) => state.interactionPhase);
 
   // 键盘全局监听：ESC 取消选中
   useEffect(() => {
@@ -125,6 +121,11 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [abortCurrentInteraction]);
+
+  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
+  if (window.location.pathname === '/generator') {
+    return <ThumbnailGenerator />;
+  }
 
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">

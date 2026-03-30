@@ -1,7 +1,8 @@
-import pytest
-from fastapi.testclient import TestClient
-from backend.server import app
 import os
+
+from fastapi.testclient import TestClient
+
+from backend.server import app
 
 client = TestClient(app)
 
@@ -70,7 +71,6 @@ def test_upload_thumbnail_error(tmpdir, monkeypatch):
     # Need to simulate the failure differently as FastAPI handles exceptions in endpoints
     # Let's mock the shutil.copyfileobj directly
     import shutil
-    old_copyfileobj = shutil.copyfileobj
 
     def bad_copyfileobj(*args, **kwargs):
         raise Exception("Disk full")

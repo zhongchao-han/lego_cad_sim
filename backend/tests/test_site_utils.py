@@ -1,6 +1,11 @@
-import pytest
 import numpy as np
-from backend.site_utils import cluster_ports_into_sites, sites_to_response, _load_port_from_dict
+
+from backend.site_utils import (
+    _load_port_from_dict,
+    cluster_ports_into_sites,
+    sites_to_response,
+)
+
 
 def test_load_port_from_dict():
     p = _load_port_from_dict({
@@ -14,7 +19,7 @@ def test_load_port_from_dict():
 
     assert p is not None
     assert p.name == "test_port"
-    assert p.is_manually_adjusted == True
+    assert p.is_manually_adjusted
     assert p.part_context == "part1"
 
     # Invalid type

@@ -20,9 +20,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.auto_latch_scanner import AutoLatchScanner, AUTO_LATCH_THRESHOLD_M
-from backend.topology_manager import TopologyManager, PartNode
-
+from backend.auto_latch_scanner import AUTO_LATCH_THRESHOLD_M, AutoLatchScanner
+from backend.topology_manager import PartNode, TopologyManager
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 共享测试装置

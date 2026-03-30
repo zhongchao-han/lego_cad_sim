@@ -29,8 +29,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
 from backend.port import Port, Site
 from backend.port_semantics import FitType
-from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
-from backend.topology_manager import TopologyManager, PartNode, ConnectionEdge
+from backend.site_utils import SITE_MERGE_THRESHOLD, cluster_ports_into_sites
+from backend.topology_manager import ConnectionEdge, PartNode, TopologyManager
+from backend.tests.test_utils import _build_port, _make_port
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,6 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # 辅助函数
 # ─────────────────────────────────────────────────────────────────────────────
-
-from backend.tests.test_utils import _build_port, _make_port
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 1: 离线资产管线验证
@@ -611,7 +609,7 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         若子零件平移后 Site 落在阈值外，扫描结果必须为空。
         """
         logger.debug("[Test 6.5] 非单位世界变换矩阵下的 Auto-Latch 扫描测试。")
-        from backend.auto_latch_scanner import AutoLatchScanner, AUTO_LATCH_THRESHOLD_M
+        from backend.auto_latch_scanner import AUTO_LATCH_THRESHOLD_M, AutoLatchScanner
 
         scanner = AutoLatchScanner()
         parent_sites = [{
