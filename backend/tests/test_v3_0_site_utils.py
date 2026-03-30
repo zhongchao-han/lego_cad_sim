@@ -8,10 +8,12 @@ concurrent sites (shared position), and unknown port type fallback.
 
 import numpy as np
 
-from backend.site_utils import SITE_MERGE_THRESHOLD, cluster_ports_into_sites
+from backend.site_utils import cluster_ports_into_sites, SITE_MERGE_THRESHOLD
 from backend.tests.test_utils import _make_port
 
+
 # ─── tests ────────────────────────────────────────────────────────────────────
+
 
 def test_empty_ports():
     sites = cluster_ports_into_sites([], "test_part.dat")

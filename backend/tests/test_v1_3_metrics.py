@@ -1,14 +1,13 @@
+import unittest
+import numpy as np
 import os
 import sys
-import unittest
-
-import numpy as np
 
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.geometry_processor import GeometryProcessor
 from backend.math_utils import CoordinateTransformer
+from backend.geometry_processor import GeometryProcessor
 
 
 class TestV3_0Metrics(unittest.TestCase):
@@ -26,29 +25,29 @@ class TestV3_0Metrics(unittest.TestCase):
         p_si = CoordinateTransformer.normalize_pos(p_ldu)
 
         expected = np.array([0.008, -0.0096, 0.0])
-        np.testing.assert_allclose(p_si, expected, atol=1e-7,
-                                   err_msg="LDU-SI 投影精度偏移！")
+        np.testing.assert_allclose(
+            p_si, expected, atol=1e-7, err_msg="LDU-SI 投影精度偏移！"
+        )
 
     def test_1_2_matrix_purification(self):
         """
         [Test 1.2] 验证矩阵提纯（Gram-Schmidt 正交化）。
         """
         # 一个带有剪切畸变的矩阵
-        dirty_mat = np.array([
-            [1.0, 0.1, 0.0],
-            [0.1, 1.0, 0.0],
-            [0.0, 0.0, 1.0]
-        ])
+        dirty_mat = np.array([[1.0, 0.1, 0.0], [0.1, 1.0, 0.0], [0.0, 0.0, 1.0]])
         pure_mat = CoordinateTransformer.purify_matrix(dirty_mat)
 
         # 1. 验证正交性 (R * R^T = I)
         identity_check = pure_mat @ pure_mat.T
-        np.testing.assert_allclose(identity_check, np.eye(3), atol=1e-7,
-                                   err_msg="矩阵提纯后未达到正交标准！")
+        np.testing.assert_allclose(
+            identity_check, np.eye(3), atol=1e-7, err_msg="矩阵提纯后未达到正交标准！"
+        )
 
         # 2. 验证行列式为 1 (右手系)
         det = np.linalg.det(pure_mat)
-        self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
+        self.assertAlmostEqual(
+            det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！"
+        )
 
     def test_1_3_pitch_sampling_integrity(self):
         """
@@ -69,8 +68,13 @@ class TestV3_0Metrics(unittest.TestCase):
         dist = np.linalg.norm(p1 - p0)
 
         # 容差设为 0.1mm (0.0001m)
-        self.assertAlmostEqual(dist, 0.008, delta=0.0001,
-                               msg=f"梁孔间距不符合乐高 20 LDU 标准！当前: {dist}m")
+        self.assertAlmostEqual(
+            dist,
+            0.008,
+            delta=0.0001,
+            msg=f"梁孔间距不符合乐高 20 LDU 标准！当前: {dist}m",
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

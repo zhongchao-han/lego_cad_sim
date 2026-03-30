@@ -1,14 +1,13 @@
+import unittest
+import numpy as np
 import os
 import sys
-import unittest
-
-import numpy as np
 
 # 注入 backend 目录以支持绝对导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.geometry_processor import GeometryProcessor
 from backend.math_utils import purify_rotation_matrix
+from backend.geometry_processor import GeometryProcessor
 
 
 class TestV3PhysicsCore(unittest.TestCase):
@@ -23,11 +22,7 @@ class TestV3PhysicsCore(unittest.TestCase):
         验证 purify_rotation_matrix 必须强制将其翻转为右手系 (det=1.0)。
         """
         # 1 0 0 | 0 -1 0 | 0 0 1 (这是一个带镜像的矩阵, det=-1)
-        mirrored_mat = np.array([
-            [1.0, 0, 0],
-            [0, -1.0, 0],
-            [0, 0, 1.0]
-        ])
+        mirrored_mat = np.array([[1.0, 0, 0], [0, -1.0, 0], [0, 0, 1.0]])
         self.assertAlmostEqual(np.linalg.det(mirrored_mat), -1.0)
 
         # 应用正交化提纯
@@ -51,7 +46,7 @@ class TestV3PhysicsCore(unittest.TestCase):
         if ports:
             for p in ports:
                 # 必须以 6558_p 开头, 而不是 confric5_p
-                self.assertTrue(p['name'].startswith("6558_p"))
+                self.assertTrue(p["name"].startswith("6558_p"))
 
     def test_path_safety_empty_dirname(self):
         """
@@ -70,6 +65,7 @@ class TestV3PhysicsCore(unittest.TestCase):
         验证 UnifiedAssetBaker 对裸 ID 的处理。
         """
         from scripts.bake_assets import UnifiedAssetBaker
+
         UnifiedAssetBaker()
 
         # 我们这里注入一个极简模拟来测试 bake_part 内部对 part_id 的改写
@@ -82,7 +78,8 @@ class TestV3PhysicsCore(unittest.TestCase):
         # 如果没有 .dat, replace 没生效, 结果依然是 id
         ports = gp.discover_ports("6558.dat", root_id="6558")
         if ports:
-            self.assertEqual(ports[0]['name'], "6558_p0")
+            self.assertEqual(ports[0]["name"], "6558_p0")
+
 
 class TestConvertToGlbSignature(unittest.TestCase):
     """
@@ -109,12 +106,15 @@ class TestConvertToGlbSignature(unittest.TestCase):
         gp = self._make_processor()
         try:
             # 以正确参数名调用；不依赖文件存在，仅验证签名合法性
-            result = gp.convert_to_glb("non_existent_for_sig_test.dat",
-                                       "/tmp/sig_test_output.glb",
-                                       color_code=7)
+            result = gp.convert_to_glb(
+                "non_existent_for_sig_test.dat",
+                "/tmp/sig_test_output.glb",
+                color_code=7,
+            )
             # 文件不存在时 extract_geometry 返回空列表 → convert_to_glb 返回 False（非崩溃）
-            self.assertFalse(result,
-                             "无有效几何体时 convert_to_glb 应返回 False，而非 True 或异常。")
+            self.assertFalse(
+                result, "无有效几何体时 convert_to_glb 应返回 False，而非 True 或异常。"
+            )
         except TypeError as exc:
             self.fail(
                 f"convert_to_glb() 以 color_code= 调用抛出 TypeError，"
@@ -127,8 +127,10 @@ class TestConvertToGlbSignature(unittest.TestCase):
         这是对修复前 Bug 行为的负向验证，保证方法签名严格拦截错误调用。
         """
         gp = self._make_processor()
-        with self.assertRaises(TypeError,
-                               msg="以 `color=` 调用 convert_to_glb 应抛出 TypeError（旧 Bug 路径）。"):
+        with self.assertRaises(
+            TypeError,
+            msg="以 `color=` 调用 convert_to_glb 应抛出 TypeError（旧 Bug 路径）。",
+        ):
             # type: ignore[call-arg]  — 故意传入错误参数名以验证签名拦截
             gp.convert_to_glb("non_existent.dat", "/tmp/wrong_kwarg.glb", color=7)  # type: ignore[call-arg]
 

@@ -13,6 +13,7 @@ def test_site_creation_and_empty_behavior():
     # Test position on empty site returns zero vector
     np.testing.assert_array_equal(site.position, np.zeros(3))
 
+
 def test_site_aggregation_and_position():
     site = Site(id="site_1")
 
@@ -24,11 +25,16 @@ def test_site_aggregation_and_position():
     assert len(site.ports) == 1
     np.testing.assert_array_equal(site.position, np.array([0.004, 0.0, 0.0]))
 
+
 def test_site_ambiguity_resolution():
     site = Site(id="site_concentric")
 
-    port_round = Port.from_raw("p_round", "peghole", np.array([0.008, 0.0, 0.0]), np.eye(3))
-    port_cross = Port.from_raw("p_cross", "axlehole", np.array([0.008, 0.0, 0.0]), np.eye(3))
+    port_round = Port.from_raw(
+        "p_round", "peghole", np.array([0.008, 0.0, 0.0]), np.eye(3)
+    )
+    port_cross = Port.from_raw(
+        "p_cross", "axlehole", np.array([0.008, 0.0, 0.0]), np.eye(3)
+    )
 
     site.add_port(port_round)
     site.add_port(port_cross)
@@ -41,6 +47,7 @@ def test_site_ambiguity_resolution():
     cross_ports = site.get_ports_by_profile(Profile.CROSS)
     assert len(cross_ports) == 1
     assert cross_ports[0].name == "p_cross"
+
 
 def test_site_occupancy():
     site = Site(id="site_occ")
