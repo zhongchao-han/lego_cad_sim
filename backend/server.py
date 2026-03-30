@@ -273,6 +273,8 @@ async def toggle_mode(mode: str):
     global system_mode
     mode = mode.upper()
 
+    global engine
+
     if mode == "SIMULATION":
         if system_mode != "SIMULATION":
             logger.info("接受前端指令，开始转化拓扑并生成 URDF ...")
@@ -281,7 +283,10 @@ async def toggle_mode(mode: str):
             topo_manager.export_urdf(tree, urdf_path)
 
             engine.disconnect()
-            engine.__init__(mode="DIRECT")
+            # Mypy dislikes explicit calls to __init__. It's better to just instantiate a new one
+            # if we are truly re-initializing, or add a method to re-initialize internally.
+            from backend.physics_engine import PhysicsEngine
+            engine = PhysicsEngine(mode="DIRECT")
 
             success = engine.load_assembly(urdf_path)
             if success:

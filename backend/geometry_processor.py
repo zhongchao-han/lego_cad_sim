@@ -106,7 +106,7 @@ class GeometryProcessor:
         return PortLibrary.resolve_path(self.ldraw_path, filename)
 
     def _load_color_table(self) -> dict:
-        colors = {}
+        colors: Dict[int, Tuple[int, int, int, int]] = {}
         config_path = os.path.join(self.ldraw_path, "LDConfig.ldr")
         if not os.path.exists(config_path):
             return colors
@@ -147,13 +147,15 @@ class GeometryProcessor:
         filepath = self.resolve_path(filename)
         if not filepath:
             return [], [], []
-        vertices, faces, vertex_colors = [], [], []
+        vertices: List[np.ndarray] = []
+        faces: List[np.ndarray] = []
+        vertex_colors: List[Tuple[int, int, int, int]] = []
         try:
-            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-                lines = f.readlines()
-        except (FileNotFoundError, IOError, ValueError) as e:
+            with open(filepath, "r", encoding="utf-8", errors="ignore") as f_in:
+                lines = f_in.readlines()
+        except (FileNotFoundError, IOError, ValueError) as err:
             logger.error(
-                f"Failed to extract geometry from {filepath}: {e}", exc_info=True
+                f"Failed to extract geometry from {filepath}: {err}", exc_info=True
             )
             return [], [], []
 
@@ -179,9 +181,9 @@ class GeometryProcessor:
                         parent_color_code if color_code == 16 else color_code
                     )
                     x, y, z = map(float, parts[2:5])
-                    a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
+                    a, b, c, d, e_val, f, g, h, i = map(float, parts[5:14])
                     local_mat = np.array(
-                        [[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]]
+                        [[a, b, c, x], [d, e_val, f, y], [g, h, i, z], [0, 0, 0, 1]]
                     )
                     child_global_mat = global_mat @ local_mat
                     cv, cf, cvc = self.extract_geometry(
@@ -271,11 +273,15 @@ class GeometryProcessor:
                 os.makedirs(dir_name, exist_ok=True)
 
             export_data = trimesh.exchange.gltf.export_glb(scene=trimesh.Scene(mesh))
-            with open(output_path, "wb") as f:
-                f.write(export_data)
-            return True
-        except Exception as e:
-            logger.error(f"GLB 导出失败: {e}")
+            if isinstance(export_data, bytes):
+                with open(output_path, "wb") as f:
+                    f.write(export_data)
+                return True
+            else:
+                logger.error("GLB 导出失败: 不正确的数据类型")
+                return False
+        except Exception as err:
+            logger.error(f"GLB 导出失败: {err}")
             return False
 
     def _get_trimesh_for_part(self, filename: str) -> Optional[trimesh.Trimesh]:
@@ -345,7 +351,7 @@ class GeometryProcessor:
         return final_ports
 
     def discover_ports(
-        self, filename: str, global_mat: np.ndarray = np.eye(4), root_id: str = None
+        self, filename: str, global_mat: np.ndarray = np.eye(4), root_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         地毯式递归扫描：从零件源文件中发现所有潜在的物理端口。
@@ -360,13 +366,13 @@ class GeometryProcessor:
         if not filepath:
             return []
 
-        discovered = []
+        discovered: List[Dict[str, Any]] = []
         try:
-            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-                lines = f.readlines()
-        except (FileNotFoundError, IOError, ValueError) as e:
+            with open(filepath, "r", encoding="utf-8", errors="ignore") as f_in_2:
+                lines = f_in_2.readlines()
+        except (FileNotFoundError, IOError, ValueError) as err2:
             logger.error(
-                f"Failed to discover ports from {filepath}: {e}", exc_info=True
+                f"Failed to discover ports from {filepath}: {err2}", exc_info=True
             )
             return []
 
@@ -385,9 +391,9 @@ class GeometryProcessor:
                 continue
             child_file = parts[-1].lower()
             x, y, z = map(float, parts[2:5])
-            a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
+            a, b, c, d, e_val, f, g, h, i = map(float, parts[5:14])
             local_mat = np.array(
-                [[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]]
+                [[a, b, c, x], [d, e_val, f, y], [g, h, i, z], [0, 0, 0, 1]]
             )
             current_global_mat = global_mat @ local_mat
 
@@ -524,7 +530,7 @@ class GeometryProcessor:
                     )
                     step_dir = -1.0 if is_extruding else 1.0
 
-                    for k in range(num_units):
+                    for idx_k in range(num_units):
                         # 重点修复：起始点偏移 10 LDU (物理中点对齐)，若该模型的轴向是在 0..L 展开
                         # 通常 axle.dat 是居中的 ([-L/2, L/2])，在 LDraw 中若 y_scale <= 10 通常 origin 是中点
                         # 若原点位于端点, offset 应包含 10 LDU 补偿。
@@ -534,14 +540,14 @@ class GeometryProcessor:
                             # 基于中点 0.5 进行左右偏置
                             local_y = (
                                 0.5
-                                + ((k - num_units / 2.0 + 0.5) * 20.0 * step_dir)
+                                + ((idx_k - num_units / 2.0 + 0.5) * 20.0 * step_dir)
                                 / y_scale
                             )
                             lv = np.array([0, local_y, 0, 1])
                         else:
                             # 典型的源点为中点的 axle (e.g. length = num_units * 20, 且scale=1)
                             # 生成点为 -L/2 + 10, -L/2 + 30 ... -> 等效 (k - num_units/2 + 0.5) * 20
-                            offset_y = (k - num_units / 2.0 + 0.5) * 20.0 * step_dir
+                            offset_y = (idx_k - num_units / 2.0 + 0.5) * 20.0 * step_dir
                             lv = np.array([0, offset_y / y_scale, 0, 1])
 
                         p_mat = current_global_mat @ np.array(
@@ -600,7 +606,7 @@ class GeometryProcessor:
                     self.discover_ports(child_file, current_global_mat, root_id=root_id)
                 )
 
-        if is_root and discovered:
+        if is_root and discovered and root_id is not None:
             discovered = self._heal_blind_holes(discovered, root_id)
 
         return discovered

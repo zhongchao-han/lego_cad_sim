@@ -22,7 +22,7 @@ class PortLibrary:
     """
 
     def __init__(
-        self, ldraw_path: str = "ldraw_lib", data_store: Dict[str, Any] = None
+        self, ldraw_path: str = "ldraw_lib", data_store: Optional[Dict[str, Any]] = None
     ):
         self.ldraw_path = ldraw_path
 
@@ -31,7 +31,7 @@ class PortLibrary:
             self._data = data_store
             logger.info("PortLibrary 已联结至共享内存数据源。")
         else:
-            self._data: Dict[str, Any] = {}
+            self._data = {}
             # 强制加载项目顶层 data/ 目录下的真理库
             config_path = os.path.normpath(
                 os.path.join(
