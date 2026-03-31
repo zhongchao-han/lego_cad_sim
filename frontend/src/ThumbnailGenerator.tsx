@@ -122,18 +122,20 @@ export function ThumbnailGenerator() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentMeshUrl, setCurrentMeshUrl] = useState<string | null>(null);
+  const [missingOnly, setMissingOnly] = useState<boolean>(true); // 开启防御性：默认只生成不存在图库的零件
   
   const [logs, setLogs] = useState<string[]>([]);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    axios.get(`${BACKEND_ORIGIN}/api/all_parts`).then(res => {
+    // 强制依赖 missingOnly 并将布尔参数直接传给后端
+    axios.get(`${BACKEND_ORIGIN}/api/all_parts?missing_only=${missingOnly}`).then(res => {
       setParts(res.data);
     }).catch(err => {
       setLogs(p => [...p, `[ERROR] URL Fetch failed: ${err}`]);
     });
-  }, []);
+  }, [missingOnly]);
 
   const addLog = (msg: string) => {
     setLogs(p => [msg, ...p].slice(0, 50));
@@ -221,15 +223,27 @@ export function ThumbnailGenerator() {
       <div className="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-white">GPU Thumbnail Batch Generator</h1>
-          <p className="text-sm text-slate-400 mt-1">Found {parts.length} native LDraw .dat primitives in localized filesystem.</p>
+          <p className="text-sm text-slate-400 mt-1">Found {parts.length} geometries queued for rendering context.</p>
         </div>
-        <button 
-          onClick={startBatch}
-          disabled={isProcessing || parts.length === 0}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-md shadow-lg transition-all"
-        >
-          {isProcessing ? `Rendering... (${currentIndex}/${parts.length})` : 'Start GPU Batch Engine'}
-        </button>
+        <div className="flex items-center space-x-6">
+          <label className="flex items-center space-x-2 text-sm font-semibold text-slate-300 cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              disabled={isProcessing}
+              checked={missingOnly} 
+              onChange={e => setMissingOnly(e.target.checked)}
+              className="w-4 h-4 bg-slate-800 border border-slate-400 rounded focus:ring-blue-500 cursor-pointer transition-colors"
+            />
+            <span>Skip Existing Images (Delta Sync)</span>
+          </label>
+          <button 
+            onClick={startBatch}
+            disabled={isProcessing || parts.length === 0}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-md shadow-lg transition-all"
+          >
+            {isProcessing ? `Rendering... (${currentIndex}/${parts.length})` : 'Start GPU Batch Engine'}
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-8 h-full">

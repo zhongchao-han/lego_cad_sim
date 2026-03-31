@@ -55,3 +55,7 @@ tmp/
 debug_*
 *.bak
 *.bak_*
+
+# Generated 3D Assets and Thumbnails
+*.glb
+data/custom_assets/thumbnails/*.png

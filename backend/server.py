@@ -294,9 +294,21 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
         # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites
         if cached_data and cached_data.get("status") == "verified":
             logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
+            
+            flattened_ports = []
+            if "sites" in cached_data:
+                for s_cfg in cached_data["sites"]:
+                    s_pos = s_cfg.get("position", [0, 0, 0])
+                    for p_cfg in s_cfg.get("ports", []):
+                        if "position" not in p_cfg:
+                            p_cfg["position"] = s_pos
+                        flattened_ports.append(LDrawPort(**p_cfg))
+            elif "ports" in cached_data:
+                flattened_ports = [LDrawPort(**p) for p in cached_data["ports"]]
+
             return LDrawPartResponse(
                 part_id=dat_filename,
-                ports=[LDrawPort(**p) for p in cached_data.get("ports", [])] if "ports" in cached_data else [],
+                ports=flattened_ports,
                 sites=[LDrawSite(**s) for s in cached_data.get("sites", [])],
                 mesh_url=cached_data.get("mesh_url") or mesh_url
             )

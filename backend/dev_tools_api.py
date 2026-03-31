@@ -13,12 +13,22 @@ LDRAW_PARTS_ROOT = os.path.join(PROJECT_ROOT, "ldraw_lib")
 THUMBNAIL_CACHE_ROOT = os.path.join(PROJECT_ROOT, "data", "custom_assets", "thumbnails")
 
 @router.get("/api/all_parts")
-async def get_all_parts():
-    """获取本地全量 1900+ 零件清单，用于离线生成器."""
+async def get_all_parts(missing_only: bool = False) -> list[str]:
+    """获取本地全量零件清单，支持仅查漏差集模式用于离线生成器."""
     parts_dir = os.path.join(LDRAW_PARTS_ROOT, "parts")
     if not os.path.exists(parts_dir):
         return []
+    
     dat_files = glob.glob(os.path.join(parts_dir, "*.dat"))
+    
+    if missing_only:
+        # 基于本地文件系统构建已渲染缓存库的查询哈希集
+        existing_pngs = {
+            os.path.basename(f).lower().replace(".png", ".dat")
+            for f in glob.glob(os.path.join(THUMBNAIL_CACHE_ROOT, "*.png"))
+        }
+        return [os.path.basename(f) for f in dat_files if os.path.basename(f).lower() not in existing_pngs]
+        
     return [os.path.basename(f) for f in dat_files]
 
 @router.post("/api/tools/upload_thumbnail")

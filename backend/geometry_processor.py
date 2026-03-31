@@ -344,54 +344,83 @@ class GeometryProcessor:
                     length_ldu = y_scale * base_unit_len * 20.0 if y_scale <= 10.0 else y_scale
                     num_units = max(1, int(round(length_ldu / 20.0)))
                     
-                    # 只有纯粹的凸起组件（pin、axle、peg等）被视作挤出型。排除了 hole / hol
-                    is_extruding = any(x in child_file for x in ["peg", "pin", "axle", "confric"]) and "hol" not in child_file
-                    step_dir = -1.0 if is_extruding else 1.0
+                    is_axle = "axle" in child_file and "hol" not in child_file
+                    is_pin = any(x in child_file for x in ["peg", "pin", "confric"]) and not is_axle and "hol" not in child_file
+                    is_extruding = is_axle or is_pin
 
                     
-                    for k in range(num_units):
-                        # 重点修复：起始点偏移 10 LDU (物理中点对齐)，若该模型的轴向是在 0..L 展开
-                        # 通常 axle.dat 是居中的 ([-L/2, L/2])，在 LDraw 中若 y_scale <= 10 通常 origin 是中点
-                        # 若原点位于端点, offset 应包含 10 LDU 补偿。
-                        # 采用基于几何域 [0, 1] 中心的对称分布算法：
-                        # LDraw 的线状组件 (scale > 10) 其本地 Y 一般是从 0 延伸到 1。其几何中心在 0.5
+                    step_dir = -1.0 if is_extruding else 1.0
+
+                    if is_axle:
+                        loop_count = num_units * 2 + 1
+                    elif is_pin:
+                        loop_count = num_units + 1
+                    else:
+                        loop_count = num_units + 1
+
+                    for k in range(loop_count):
+                        if is_axle:
+                            offset_val = k * 0.5
+                        elif is_pin:
+                            offset_val = float(k)
+                        else:
+                            offset_val = k - num_units / 2.0
+
                         if y_scale > 10.0:
-                            # 基于中点 0.5 进行左右偏置
-                            local_y = 0.5 + ((k - num_units / 2.0 + 0.5) * 20.0 * step_dir) / y_scale
+                            local_y = 0.5 + (offset_val * 20.0 * step_dir) / y_scale
                             lv = np.array([0, local_y, 0, 1])
                         else:
-                            # 典型的源点为中点的 axle (e.g. length = num_units * 20, 且scale=1)
-                            # 生成点为 -L/2 + 10, -L/2 + 30 ... -> 等效 (k - num_units/2 + 0.5) * 20
-                            offset_y = (k - num_units / 2.0 + 0.5) * 20.0 * step_dir
+                            offset_y = offset_val * 20.0 * step_dir
                             lv = np.array([0, offset_y / y_scale, 0, 1])
 
                         p_mat = current_global_mat @ np.array([[1,0,0,lv[0]], [0,1,0,lv[1]], [0,0,1,lv[2]], [0,0,0,1]])
                         
                         y_axis_ldu = current_global_mat[:3, 1]
-                        raw_z = y_axis_ldu * (-step_dir)
-                        z_norm = np.linalg.norm(raw_z)
-                        z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
-                        
-                        x_ref_ldu = current_global_mat[:3, 0]
-                        if abs(np.dot(x_ref_ldu / (np.linalg.norm(x_ref_ldu) + 1e-9), z_hat)) > 0.9:
-                            x_ref_ldu = np.array([0.0, 0.0, 1.0])
+
+                        # 法线方向：孔的两端必须向外，中间双向
+                        directions = []
+                        if is_extruding:
+                            # 受到 Rot_SI = Rx180 @ Rot_LDU @ Rx180 的数学翻转影响
+                            # 在此空间赋给全局向量局部“向内”，到物理空间才能保持“正向向外”
+                            if k == 0:
+                                directions.append(-1.0) # Base/Collar
+                            elif k == loop_count - 1:
+                                directions.append(1.0)  # Tip
+                            else:
+                                directions.extend([1.0, -1.0]) # Internal boundaries bidirectional
+                        else:
+                            if k == 0:
+                                directions.append(-1.0) 
+                            elif k == num_units:
+                                directions.append(1.0)  
+                            else:
+                                directions.extend([1.0, -1.0]) 
+
+                        for out_dir in directions:
+                            raw_z = y_axis_ldu * out_dir
+                            z_norm = np.linalg.norm(raw_z)
+                            z_hat = raw_z / z_norm if z_norm > 1e-9 else np.array([0.0, 0.0, 1.0])
                             
-                        y_hat = np.cross(z_hat, x_ref_ldu)
-                        y_hat /= np.linalg.norm(y_hat) + 1e-9
-                        x_hat = np.cross(y_hat, z_hat)
-                        x_hat /= np.linalg.norm(x_hat) + 1e-9
-                        
-                        rot_ldu = np.column_stack((x_hat, y_hat, z_hat))
-                        pure_rot_ldu = purify_rotation_matrix(rot_ldu)
-                        final_rot = CoordinateTransformer.normalize_rot(pure_rot_ldu)
-                        
-                        port_name = f"{root_id}_p{len(discovered)}"
-                        discovered.append({
-                            "name": port_name,
-                            "type": child_file,
-                            "position": CoordinateTransformer.normalize_pos(p_mat[:3, 3]).tolist(),
-                            "rotation": final_rot.tolist()
-                        })
+                            x_ref_ldu = current_global_mat[:3, 0]
+                            if abs(np.dot(x_ref_ldu / (np.linalg.norm(x_ref_ldu) + 1e-9), z_hat)) > 0.9:
+                                x_ref_ldu = np.array([0.0, 0.0, 1.0])
+                                
+                            y_hat = np.cross(z_hat, x_ref_ldu)
+                            y_hat /= np.linalg.norm(y_hat) + 1e-9
+                            x_hat = np.cross(y_hat, z_hat)
+                            x_hat /= np.linalg.norm(x_hat) + 1e-9
+                            
+                            rot_ldu = np.column_stack((x_hat, y_hat, z_hat))
+                            pure_rot_ldu = purify_rotation_matrix(rot_ldu)
+                            final_rot = CoordinateTransformer.normalize_rot(pure_rot_ldu)
+                            
+                            port_name = f"{root_id}_p{len(discovered)}"
+                            discovered.append({
+                                "name": port_name,
+                                "type": child_file,
+                                "position": CoordinateTransformer.normalize_pos(p_mat[:3, 3]).tolist(),
+                                "rotation": final_rot.tolist()
+                            })
             else:
                 # 递归发现子部件端口
                 discovered.extend(self.discover_ports(child_file, current_global_mat, root_id=root_id))
