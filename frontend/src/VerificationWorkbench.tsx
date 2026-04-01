@@ -139,7 +139,7 @@ export const VerificationWorkbench: React.FC = () => {
       </div>
 
       <div style={{ flex: 1, position: 'relative' }}>
-        <Canvas camera={{ position: [0.08, 0.08, 0.08], fov: 50, near: 0.0001, far: 10 }} onPointerMissed={() => setSelectedPortIndex(null)}>
+        <Canvas camera={{ position: [0.03, 0.03, 0.03], fov: 45, near: 0.0001, far: 10 }} onPointerMissed={() => setSelectedPortIndex(null)}>
           <Stats /> {/* 添加性能监控方便定位 */}
           <Suspense fallback={<Html center><div className="text-blue-400 animate-pulse">加载 3D 模型中...</div></Html>}>
             <ambientLight intensity={1.5} />

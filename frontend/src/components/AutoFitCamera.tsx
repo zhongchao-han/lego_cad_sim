@@ -41,8 +41,8 @@ export function AutoFitCamera({ targetRef, enabled = true }: AutoFitCameraProps)
       // 只有当有真实物理尺寸加载完成时才触发
       if (size.length() > 0 && typeof (controls as any).fitToBox === 'function') {
         hasFitted.current = true;
-        // 按照对象物理尺寸的 10% 留出留白，而不是硬编码的 0.05 (在 3D 空间中 0.05 相当于 50mm，对小零件太大)
-        const pad = Math.max(size.x, Math.max(size.y, size.z)) * 0.15;
+        // 按照对象物理尺寸的 5% 留出留白，原先是 15% 导致零件整体看起来可能太小
+        const pad = Math.max(size.x, Math.max(size.y, size.z)) * 0.05;
         (controls as any).fitToBox(targetObj, true, { 
           paddingTop: pad, 
           paddingLeft: pad, 

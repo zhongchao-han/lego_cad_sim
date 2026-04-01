@@ -134,7 +134,7 @@ function App() {
       {view === 'ASSEMBLY' ? (
         <div className="w-full h-full">
           <Canvas
-            camera={{ position: [0.3, 0.4, 0.5], fov: 45, near: 0.001, far: 50 }}
+            camera={{ position: [0.15, 0.2, 0.25], fov: 45, near: 0.0001, far: 50 }}
             shadows
             gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
             className="w-full h-full"

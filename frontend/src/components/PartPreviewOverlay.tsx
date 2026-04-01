@@ -82,8 +82,8 @@ export function PartPreviewOverlay() {
           </div>
 
           <div className="flex-1 relative bg-slate-100">
-             <Canvas
-               camera={{ position: [0.3, 0.3, 0.3], fov: 35, near: 0.001, far: 50 }}
+            <Canvas
+               camera={{ position: [0.05, 0.05, 0.05], fov: 35, near: 0.001, far: 50 }}
                className="w-full h-full"
              >
                <Suspense fallback={
@@ -104,7 +104,15 @@ export function PartPreviewOverlay() {
                    autoCenter={true} 
                  />
                  
-                 <CameraControls makeDefault minDistance={0.001} maxDistance={5.0} />
+                 <CameraControls 
+                   makeDefault 
+                   minDistance={0.001} 
+                   maxDistance={5.0} 
+                   dollySpeed={5} 
+                   azimuthRotateSpeed={1.5} 
+                   polarRotateSpeed={1.5} 
+                   smoothTime={0.25} 
+                 />
                </Suspense>
              </Canvas>
              

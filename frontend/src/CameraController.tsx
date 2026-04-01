@@ -22,7 +22,7 @@ interface CameraControllerProps {
 
 export const CameraController: React.FC<CameraControllerProps> = ({ 
   target, 
-  minDistance = 0.001, 
+  minDistance = 0.0001, 
   maxDistance = 1,
   mouseButtons = { left: 1, middle: 0, right: 2, wheel: 8 }
 }) => {
@@ -37,13 +37,18 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   }, [target]);
 
   return (
-    <CameraControls 
+      <CameraControls 
       ref={controlsRef} 
       makeDefault 
       minDistance={minDistance} 
       maxDistance={maxDistance}
       dollyToCursor={true} // 保持人性化的基于指针缩放
+      infinityDolly={true} // 消除逼近 target 时的对数减速限制，允许无限深潜缩放
       mouseButtons={mouseButtons}
+      dollySpeed={5}           // 再次加倍缩放速度
+      azimuthRotateSpeed={1.5} // 加快水平旋转速度
+      polarRotateSpeed={1.5}   // 加快垂直旋转速度
+      smoothTime={0.25}        // 增加镜头阻尼感，提升操控顺滑度
     />
   );
 };
