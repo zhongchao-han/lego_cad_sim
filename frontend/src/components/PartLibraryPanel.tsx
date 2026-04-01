@@ -18,7 +18,7 @@
  *   GET /api/ldraw_part/:id?color=N → GeometryProcessor bakles GLB with vertex colors
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { useStore } from '../store';
 import { Search, Box, ChevronRight } from 'lucide-react';
@@ -38,11 +38,14 @@ export function PartLibraryPanel() {
 
   const previewPart = useStore((s) => s.previewPart);
   const previewPartId = useStore((s) => s.previewPartId);
+  const partUsages = useStore((s) => s.partUsages);
 
   useEffect(() => {
     const fetchParts = async () => {
+      console.debug('[DEBUG] [PartLibraryPanel] fetchParts called');
       try {
         const res = await axios.get(`${BACKEND_ORIGIN}/api/get_verified_parts`);
+        console.debug(`[DEBUG] [PartLibraryPanel] fetchParts resolved with ${res.data?.length || 0} parts`);
         setParts(res.data);
       } catch (err) {
         console.error('Failed to fetch verified parts:', err);
@@ -52,6 +55,18 @@ export function PartLibraryPanel() {
     };
     fetchParts();
   }, []);
+
+  const sortedParts = useMemo(() => {
+    console.debug('[DEBUG] [PartLibraryPanel] Re-calculating sortedParts based on usages');
+    return [...parts].sort((a, b) => {
+      const usageA = partUsages[a.part_id] || 0;
+      const usageB = partUsages[b.part_id] || 0;
+      if (usageA !== usageB) {
+        return usageB - usageA;
+      }
+      return a.part_id.localeCompare(b.part_id);
+    });
+  }, [parts, partUsages]);
 
   return (
     <div className="flex flex-col h-full bg-white/90 backdrop-blur-md border-r shadow-xl w-72 pointer-events-auto overflow-hidden transition-all">
@@ -89,7 +104,7 @@ export function PartLibraryPanel() {
             No verified parts found.
           </div>
         ) : (
-          parts.map((part) => {
+          sortedParts.map((part) => {
             // 预显示该零件默认颜色（根据字典，不传 fallback）
             // 我们在库列表中仅显示经典颜色的角标提示
             const resolvedColor = getDefaultColorCode(part.part_id, 71); // 71 为无命中时的占位灰

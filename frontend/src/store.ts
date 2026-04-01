@@ -72,6 +72,7 @@ interface StoreState {
   interferenceReport: InterferenceReport;
   slideOffset: number;
   cameraTarget: [number, number, number] | null;
+  partUsages: Record<string, number>;
 
   // Actions
   reset: () => void;
@@ -212,6 +213,7 @@ export const useStore = create<StoreState>()(
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
   cameraTarget: null,
+  partUsages: {},
 
   reset: () => {
       get().addLog("Store reset to default state.");
@@ -587,10 +589,21 @@ export const useStore = create<StoreState>()(
   setBlocked: (r) => set({ interferenceReport: r }),
   setPhase: (p) => set({ interactionPhase: p }),
   commitAction: () => set({ interactionPhase: InteractionPhase.IDLE }),
-  previewPart: (id: string | null) => set({ 
-    previewPartId: id,
-    interactionPhase: id ? InteractionPhase.PREVIEWING : InteractionPhase.IDLE 
-  }),
+  previewPart: (id: string | null) => {
+    if (id) {
+        get().addLog(`[DEBUG] Previewing part ${id}, incrementing usage count.`, 'ACTION');
+        set(state => ({
+            partUsages: {
+                ...state.partUsages,
+                [id]: (state.partUsages[id] || 0) + 1
+            }
+        }));
+    }
+    set({ 
+      previewPartId: id,
+      interactionPhase: id ? InteractionPhase.PREVIEWING : InteractionPhase.IDLE 
+    });
+  },
   stagePart: (id) => {
     const p = get().parts[id];
     if (p) {
@@ -635,6 +648,7 @@ export const useStore = create<StoreState>()(
     ) as any, // 暂存为 array，因为 Set 无法序列化
     activeColorCode: state.activeColorCode,
     cameraTarget: state.cameraTarget,
+    partUsages: state.partUsages,
   }),
   // Rehydrate 时需要把 connections 里的 Array 转回 Set
   merge: (persistedState: any, currentState: StoreState) => {

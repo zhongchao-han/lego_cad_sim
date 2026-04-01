@@ -172,39 +172,37 @@ function PortArrow({
         <meshBasicMaterial color={color} toneMapped={false} opacity={opacity} transparent />
       </mesh>
       {/* 独立封装的完美方向性碰撞热区 (Directional Hitbox) */}
-      <group>
-        <mesh
-          position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}
-          quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}
-          renderOrder={999}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            document.body.style.cursor = 'pointer';
-            setHovered(true);
-            onPortHover?.(buildPortInfo());
-          }}
-          onPointerOut={(e) => {
-            e.stopPropagation();
-            document.body.style.cursor = 'auto';
-            setHovered(false);
-            onPortHover?.(null);
-          }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            console.debug('[SiteGizmo:PortArrow] 精确捕获点击目标', { port, isCompatiblePort });
-            if (!isCompatiblePort) {
-              console.debug('[SiteGizmo:PortArrow] 端口兼容性校验失败，丢弃点击事件');
-              return;
-            }
-            onPortClick?.(buildPortInfo());
-          }}
-          onDoubleClick={(e) => e.stopPropagation()}
-        >
-          {/* 热区圆柱体：半径放大以方便点击，长度覆盖整个箭头 */}
-          <cylinderGeometry args={[10 * LDU, 10 * LDU, ARROW_LENGTH, 12]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-        </mesh>
-      </group>
+      {isCompatiblePort && (
+        <group>
+          <mesh
+            position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}
+            quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}
+            renderOrder={999}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              document.body.style.cursor = 'pointer';
+              setHovered(true);
+              onPortHover?.(buildPortInfo());
+            }}
+            onPointerOut={(e) => {
+              e.stopPropagation();
+              document.body.style.cursor = 'auto';
+              setHovered(false);
+              onPortHover?.(null);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              console.debug('[SiteGizmo:PortArrow] 精确捕获点击目标', { port, isCompatiblePort });
+              onPortClick?.(buildPortInfo());
+            }}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+            {/* 热区圆柱体：半径放大以方便点击，长度覆盖整个箭头 */}
+            <cylinderGeometry args={[10 * LDU, 10 * LDU, ARROW_LENGTH, 12]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }
