@@ -67,8 +67,6 @@ class TestV3PhysicsCore(unittest.TestCase):
         [纠正 4]: 输入后缀自动纠偏。
         验证 UnifiedAssetBaker 对裸 ID 的处理。
         """
-        from scripts.bake_assets import UnifiedAssetBaker
-        baker = UnifiedAssetBaker()
         
         # 我们这里注入一个极简模拟来测试 bake_part 内部对 part_id 的改写
         # 由于我们无法在单元测试中真实运行 bake_part (涉及 IO), 

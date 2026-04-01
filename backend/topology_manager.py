@@ -240,7 +240,8 @@ if __name__ == "__main__":
         print("\n【生成的一瞥 (前25行) URDF内容】")
         for _ in range(25):
             line = f.readline()
-            if not line: break
+            if not line:
+                break
             print(line.strip('\n'))
 
     import os

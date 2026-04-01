@@ -26,6 +26,7 @@ import numpy as np
 # 注入项目根目录以支持绝对 backend 导入
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from backend.tests.test_utils import _build_port, _make_port
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
 from backend.port import Port, Site
 from backend.port_semantics import FitType
@@ -39,7 +40,6 @@ logger = logging.getLogger(__name__)
 # 辅助函数
 # ─────────────────────────────────────────────────────────────────────────────
 
-from backend.tests.test_utils import _build_port, _make_port
 
 
 # ─────────────────────────────────────────────────────────────────────────────

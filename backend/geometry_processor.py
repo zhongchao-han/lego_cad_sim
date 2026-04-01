@@ -3,9 +3,12 @@ import trimesh
 import numpy as np
 import re
 import logging
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, TYPE_CHECKING
 from backend.port_library import PortLibrary
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
+
+if TYPE_CHECKING:
+    from backend.port import Port
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -72,14 +75,17 @@ class GeometryProcessor:
     def _load_color_table(self) -> dict:
         colors = {}
         config_path = os.path.join(self.ldraw_path, "LDConfig.ldr")
-        if not os.path.exists(config_path): return colors
+        if not os.path.exists(config_path):
+            return colors
         try:
             with open(config_path, 'r', encoding='utf-8', errors='ignore') as f:
                 for line in f:
-                    if '!COLOUR' not in line: continue
+                    if '!COLOUR' not in line:
+                        continue
                     code_m = re.search(r'CODE\s+(\d+)', line)
                     val_m = re.search(r'VALUE\s+#([0-9A-Fa-f]{6})', line)
-                    if not (code_m and val_m): continue
+                    if not (code_m and val_m):
+                        continue
                     code, hx = int(code_m.group(1)), val_m.group(1)
                     r, g, b = int(hx[0:2], 16), int(hx[2:4], 16), int(hx[4:6], 16)
                     alpha_m = re.search(r'ALPHA\s+(\d+)', line)
@@ -98,7 +104,8 @@ class GeometryProcessor:
         """
         logger.debug(f"[DEBUG] 进入 extract_geometry: filename={filename}, color={parent_color_code}, inverted={inverted}")
         filepath = self.resolve_path(filename)
-        if not filepath: return [], [], []
+        if not filepath:
+            return [], [], []
         vertices, faces, vertex_colors = [], [], []
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -113,7 +120,8 @@ class GeometryProcessor:
         
         for line in lines:
             parts = line.strip().split()
-            if not parts: continue
+            if not parts:
+                continue
             line_type = parts[0]
             if line_type == '0':
                 if len(parts) >= 3 and parts[1] == 'BFC' and parts[2] == 'INVERTNEXT': 
@@ -131,10 +139,14 @@ class GeometryProcessor:
                     child_global_mat = global_mat @ local_mat
                     cv, cf, cvc = self.extract_geometry(child_file, child_global_mat, effective_color, inverted=bfc_invert_next)
                     offset = len(vertices)
-                    vertices.extend(cv); vertex_colors.extend(cvc)
-                    for face in cf: faces.append(np.array(face) + offset)
-                except ValueError: pass
-                finally: bfc_invert_next = False
+                    vertices.extend(cv)
+                    vertex_colors.extend(cvc)
+                    for face in cf:
+                        faces.append(np.array(face) + offset)
+                except ValueError:
+                    pass
+                finally:
+                    bfc_invert_next = False
                 
             elif line_type in ['3', '4']:
                 try:
@@ -145,16 +157,21 @@ class GeometryProcessor:
                     for k in range(2, 2 + num_pts * 3, 3):
                         p = np.array([float(parts[k]), float(parts[k+1]), float(parts[k+2]), 1.0])
                         v.append((global_mat @ p)[:3])
-                    vertices.extend(v); vertex_colors.extend([rgba] * num_pts)
+                    vertices.extend(v)
+                    vertex_colors.extend([rgba] * num_pts)
                     idx = len(vertices) - num_pts
                     if is_mirrored:
                         faces.append(np.array([idx, idx+2, idx+1]))
-                        if num_pts == 4: faces.append(np.array([idx, idx+3, idx+2]))
+                        if num_pts == 4:
+                            faces.append(np.array([idx, idx+3, idx+2]))
                     else:
                         faces.append(np.array([idx, idx+1, idx+2]))
-                        if num_pts == 4: faces.append(np.array([idx, idx+2, idx+3]))
-                except ValueError: pass
-                finally: bfc_invert_next = False
+                        if num_pts == 4:
+                            faces.append(np.array([idx, idx+2, idx+3]))
+                except ValueError:
+                    pass
+                finally:
+                    bfc_invert_next = False
         return vertices, faces, vertex_colors
 
     def convert_to_glb(self, dat_filename: str, output_path: str, color_code: int = 7) -> bool:
@@ -163,7 +180,8 @@ class GeometryProcessor:
         """
         logger.debug(f"[DEBUG] 进入 convert_to_glb: dat_filename={dat_filename}, output={output_path}, color={color_code}")
         vertices, faces, vertex_colors = self.extract_geometry(dat_filename, parent_color_code=color_code)
-        if not vertices or not faces: return False
+        if not vertices or not faces:
+            return False
         try:
             verts_arr = np.array(vertices)
             # Rx180 翻转 + SI 缩放
@@ -175,10 +193,12 @@ class GeometryProcessor:
             
             # 路径安全检查
             dir_name = os.path.dirname(output_path)
-            if dir_name: os.makedirs(dir_name, exist_ok=True)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
             
             export_data = trimesh.exchange.gltf.export_glb(scene=trimesh.Scene(mesh))
-            with open(output_path, 'wb') as f: f.write(export_data)
+            with open(output_path, 'wb') as f:
+                f.write(export_data)
             return True
         except Exception as e:
             logger.error(f"GLB 导出失败: {e}")
@@ -244,9 +264,11 @@ class GeometryProcessor:
         """
         is_root = (root_id is None)
         logger.debug(f"[DEBUG] 进入 discover_ports: filename={filename}, root_id={root_id}")
-        if is_root: root_id = filename.replace(".dat", "")
+        if is_root:
+            root_id = filename.replace(".dat", "")
         filepath = self.resolve_path(filename)
-        if not filepath: return []
+        if not filepath:
+            return []
         
         discovered = []
         try:
@@ -262,7 +284,8 @@ class GeometryProcessor:
 
         for line in lines:
             parts = line.strip().split()
-            if not parts or parts[0] != '1': continue
+            if not parts or parts[0] != '1':
+                continue
             child_file = parts[-1].lower()
             x, y, z = map(float, parts[2:5])
             a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
@@ -339,7 +362,8 @@ class GeometryProcessor:
                     base_unit_len = 1.0
                     for k, v in KNOWN_UNIT_LENGTHS.items():
                         if k in child_file:
-                            base_unit_len = v; break
+                            base_unit_len = v
+                            break
                     
                     length_ldu = y_scale * base_unit_len * 20.0 if y_scale <= 10.0 else y_scale
                     num_units = max(1, int(round(length_ldu / 20.0)))
