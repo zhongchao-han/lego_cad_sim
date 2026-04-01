@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import axios from 'axios';
 import { 
   InteractionPhase, 
@@ -177,7 +178,9 @@ function getConnectedGroup(connections: ConnectionGraph, startId: string, exclud
 
 const _history = new HistoryStack(50);
 
-export const useStore = create<StoreState>((set, get) => ({
+export const useStore = create<StoreState>()(
+  persist(
+    (set, get) => ({
   mode: 'ASSEMBLY',
   view: 'ASSEMBLY',
   parts: {},
@@ -212,7 +215,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
   reset: () => {
       get().addLog("Store reset to default state.");
+      get().stagingGrid.clearAll();
       set({
+        parts: {},
+        connections: {},
         interactionPhase: InteractionPhase.IDLE,
         selectedPort: null,
         hoveredPort: null,
@@ -618,6 +624,41 @@ export const useStore = create<StoreState>((set, get) => ({
             });
             return { connections: newConns };
         });
+    }
+  }
+}), {
+  name: 'lego-cad-assembly-storage',
+  partialize: (state) => ({
+    parts: state.parts,
+    connections: Object.fromEntries(
+      Object.entries(state.connections).map(([k, v]) => [k, Array.from(v)])
+    ) as any, // 暂存为 array，因为 Set 无法序列化
+    activeColorCode: state.activeColorCode,
+    cameraTarget: state.cameraTarget,
+  }),
+  // Rehydrate 时需要把 connections 里的 Array 转回 Set
+  merge: (persistedState: any, currentState: StoreState) => {
+    const mergedConnections: ConnectionGraph = {};
+    if (persistedState.connections) {
+      Object.entries(persistedState.connections).forEach(([k, arr]) => {
+        mergedConnections[k] = new Set(arr as string[]);
+      });
+    }
+    return {
+      ...currentState,
+      ...persistedState,
+      connections: mergedConnections,
+    };
+  },
+  onRehydrateStorage: () => (state) => {
+    if (state) {
+      state.stagingGrid.clearAll();
+      Object.entries(state.parts).forEach(([id, p]) => {
+        if (p.zone === ZoneType.STAGED) {
+          state.stagingGrid.assign(id);
+        }
+      });
+      state.addLog('State rehydrated from local storage.');
     }
   }
 }));
