@@ -5,6 +5,7 @@ import os
 from typing import Optional, List
 
 import numpy as np
+import meilisearch
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -155,8 +156,8 @@ except ImportError as e:
 
 
 @app.get("/api/verify/search")
-async def search_parts(q: str):
-    """在全文库中搜索零件（包括已复核和未复核）。"""
+async def search_parts_legacy(q: str):
+    """在全文库中搜索零件（包括已复核和未复核）- 遗留的内存级查找。"""
     results = []
     q = q.lower()
     with port_lib_manager._lock:
@@ -175,6 +176,30 @@ async def search_parts(q: str):
                     "port_count": count
                 })
     return results[:50]
+
+@app.get("/api/search/key")
+async def get_search_key():
+    """返回 Meilisearch 的只读 Search API Key，供前端直接连接7700端口高速查库。"""
+    host = os.getenv("MEILI_HOST", "http://localhost:7700")
+    master_key = os.getenv("MEILI_MASTER_KEY", "Lego_CAD_Sim_Meili_Master_Key_2026")
+    try:
+        client = meilisearch.Client(host, master_key)
+        
+        # 获取所有的 keys，寻找带有 search 权限的 key
+        keys = client.get_keys()
+        for k in keys.results:
+            # Default Search API Key 通常只拥有 search 权限
+            if "search" in k.actions and len(k.actions) == 1:
+                return {
+                    "status": "success", 
+                    "host": host, 
+                    "search_key": k.key
+                }
+                
+        return {"status": "error", "msg": "Default Search Key not found in Meilisearch."}
+    except Exception as e:
+        logger.error(f"Cannot retrieve MeiliSearch key: {e}", exc_info=True)
+        return {"status": "error", "msg": "MeiliSearch server is unreachable or misconfigured."}
 
 @app.post("/api/verify_part")
 @app.post("/api/verify/save")
@@ -230,6 +255,40 @@ async def save_verification(req: VerifySaveRequest):
         
         if success:
             port_lib_manager.save()
+            
+            # [Add] Real-time MeiliSearch Incremental Sync
+            try:
+                logger.debug(f"[DEBUG] save_verification() 执行 MeiliSearch 热同步: part_id={req.part_id}")
+                meili_host = os.getenv("MEILI_HOST", "http://localhost:7700")
+                meili_master = os.getenv("MEILI_MASTER_KEY", "Lego_CAD_Sim_Meili_Master_Key_2026")
+                from backend.sync_meili import get_part_name
+                
+                client = meilisearch.Client(meili_host, meili_master)
+                doc_id = req.part_id.lower().replace('.dat', '').replace('-', '_').replace(' ', '_').replace('/', '_')
+                part_num = req.part_id.lower().replace('.dat', '')
+                
+                # Fetch full config via site data just saved
+                latest_cfg = port_lib_manager.get_part_data(req.part_id) or {}
+                
+                doc = {
+                    'id': doc_id,
+                    'part_num': part_num,
+                    'name': get_part_name(req.part_id),
+                    'status': 'verified',
+                    'confidence': 1.0,
+                    'thumbnail_url': f"/api/thumbnails/{part_num}.png",
+                    'has_sites': "sites" in latest_cfg
+                }
+                
+                # add_documents will add or replace the document
+                client.index('parts').add_documents([doc])
+                logger.debug(f"[DEBUG] save_verification() MeiliSearch 提交成功: doc={doc}")
+                logger.info(f"成功将 {req.part_id} 热同步至 MeiliSearch。")
+            except Exception as ml_err:
+                logger.error(f"警告：数据库更新成功，但向 MeiliSearch 同步失败: {ml_err}")
+                logger.debug(f"[DEBUG] save_verification() MeiliSearch 热同步抛出异常: {ml_err}")
+                
+            logger.debug(f"[DEBUG] save_verification() 返回成功响应: {req.part_id}")
             return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
         else:
             return {"status": "error", "msg": "Failed to update config."}

@@ -1,4 +1,4 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,6 +11,7 @@ import { StagingTrayPanel } from './components/StagingTrayPanel';
 import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
 import { ThumbnailGenerator } from './ThumbnailGenerator.tsx';
+import { PartSearchDialog } from './components/PartSearchDialog';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -114,17 +115,40 @@ function App() {
 
   const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
   const interactionPhase = useStore((state) => state.interactionPhase);
+  const addStagedPart = useStore((state) => state.addStagedPart);
+  const previewPart = useStore((state) => state.previewPart);
 
-  // 键盘全局监听：ESC 取消选中
+  // 全局搜索面板状态
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // 键盘全局监听：ESC / Cmd+K
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Cmd+K 或 Ctrl+K 呼出快速搜索面板
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+      
       if (e.key === 'Escape') {
-        abortCurrentInteraction();
+        // 如果搜索面板开着，优先关闭搜索面板
+        if (isSearchOpen) {
+           setIsSearchOpen(false);
+        } else {
+           abortCurrentInteraction();
+        }
       }
     };
+    
+    const handleOpenSearch = () => setIsSearchOpen(true);
+    
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [abortCurrentInteraction]);
+    window.addEventListener('open-part-search', handleOpenSearch);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('open-part-search', handleOpenSearch);
+    };
+  }, [abortCurrentInteraction, isSearchOpen]);
 
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">
@@ -156,7 +180,24 @@ function App() {
         </div>
       )}
       
+      
       <LogPanel />
+
+      <PartSearchDialog 
+        isOpen={isSearchOpen} 
+        onClose={() => setIsSearchOpen(false)} 
+        onSelectPart={(partNum) => {
+          if (view === 'ASSEMBLY') {
+            const partId = partNum + ".dat";
+            // 添加到暂存区，并同时激活大弹窗预览模式
+            addStagedPart?.({ part_id: partId });
+            previewPart?.(partId);
+          } else {
+            console.log(`[Verify View] Selected Part: ${partNum}`);
+            // TODO: 如果需要可以切换库校验面板到选中的零件
+          }
+        }}
+      />
     </div>
   );
 }

@@ -35,7 +35,6 @@ interface VerifiedPart {
 export function PartLibraryPanel() {
   const [parts, setParts] = useState<VerifiedPart[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
 
   const previewPart = useStore((s) => s.previewPart);
   const previewPartId = useStore((s) => s.previewPartId);
@@ -54,10 +53,6 @@ export function PartLibraryPanel() {
     fetchParts();
   }, []);
 
-  const filteredParts = parts.filter(p =>
-    p.part_id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
     <div className="flex flex-col h-full bg-white/90 backdrop-blur-md border-r shadow-xl w-72 pointer-events-auto overflow-hidden transition-all">
       {/* 标题栏 */}
@@ -69,15 +64,15 @@ export function PartLibraryPanel() {
 
 
 
-        {/* 搜索框 */}
+        {/* 搜索框 (点击呼出全局全量级 Semantic Search 面板) */}
         <div className="relative mt-3">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search parts (e.g. 6558)..."
-            className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            readOnly
+            placeholder="Search parts (Cmd+K)..."
+            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-100 border border-slate-200 rounded-md cursor-pointer hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-500 font-medium tracking-wide"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-part-search'))}
           />
         </div>
       </div>
@@ -89,12 +84,12 @@ export function PartLibraryPanel() {
              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
              <span className="text-xs font-medium">Loading catalog...</span>
           </div>
-        ) : filteredParts.length === 0 ? (
+        ) : parts.length === 0 ? (
           <div className="text-center py-10 text-slate-400 text-sm">
             No verified parts found.
           </div>
         ) : (
-          filteredParts.map((part) => {
+          parts.map((part) => {
             // 预显示该零件默认颜色（根据字典，不传 fallback）
             // 我们在库列表中仅显示经典颜色的角标提示
             const resolvedColor = getDefaultColorCode(part.part_id, 71); // 71 为无命中时的占位灰
