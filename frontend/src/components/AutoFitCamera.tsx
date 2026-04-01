@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 interface AutoFitCameraProps {
@@ -14,7 +14,6 @@ interface AutoFitCameraProps {
  * 并驱动现有的 CameraControls 进行平滑的视角缩放与平移，使其完美包裹对象。
  */
 export function AutoFitCamera({ targetRef, enabled = true }: AutoFitCameraProps) {
-  const { controls } = useThree();
   const hasFitted = useRef(false);
 
   // 依赖变化时重置适配状态
@@ -24,7 +23,8 @@ export function AutoFitCamera({ targetRef, enabled = true }: AutoFitCameraProps)
 
   // 利用逐帧检测，等待模型被完全解析并且挂载在场景图中 (bounding box 非空且尺寸有效) 时进行对焦。
   // 这避免了 setTimeout 导致的硬阻塞、时序竞争和 bounding box 空值问题。
-  useFrame(() => {
+  useFrame((state) => {
+    const controls = state.controls;
     if (!enabled || !controls || !targetRef.current || hasFitted.current) return;
 
     const targetObj = targetRef.current;
@@ -41,12 +41,13 @@ export function AutoFitCamera({ targetRef, enabled = true }: AutoFitCameraProps)
       // 只有当有真实物理尺寸加载完成时才触发
       if (size.length() > 0 && typeof (controls as any).fitToBox === 'function') {
         hasFitted.current = true;
-        // 利用 CameraControls 的内置方法实现动画对焦，按照需求留出 5% 的可视边缘留白
+        // 按照对象物理尺寸的 10% 留出留白，而不是硬编码的 0.05 (在 3D 空间中 0.05 相当于 50mm，对小零件太大)
+        const pad = Math.max(size.x, Math.max(size.y, size.z)) * 0.15;
         (controls as any).fitToBox(targetObj, true, { 
-          paddingTop: 0.05, 
-          paddingLeft: 0.05, 
-          paddingBottom: 0.05, 
-          paddingRight: 0.05 
+          paddingTop: pad, 
+          paddingLeft: pad, 
+          paddingBottom: pad, 
+          paddingRight: pad 
         });
       }
     }
