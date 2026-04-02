@@ -112,6 +112,7 @@ export default function Scene() {
     const parts = useStore((s) => s.parts);
     const debugMode = useStore((s) => s.debugMode);
     const cameraTarget = useStore((s) => s.cameraTarget);
+    const hiddenParts = useStore((s) => s.hiddenParts);
 
     return (
         <>
@@ -144,7 +145,7 @@ export default function Scene() {
 
             <CameraController target={cameraTarget} />
 
-            {Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA).map(id => (
+            {Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA && !hiddenParts.has(id)).map(id => (
                 <LegoPart key={id} id={id} />
             ))}
 

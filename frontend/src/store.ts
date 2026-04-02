@@ -15,7 +15,7 @@ import {
 } from './types';
 import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
-import { HistoryStack, createSnapCommand } from './historyStack';
+import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
 import { calculateSnapPose, calculatePortRotationPose } from './utils/snapMath';
 import { getDefaultColorCode } from './utils/partColorDefaults';
 
@@ -69,6 +69,8 @@ interface StoreState {
     allConnectedIds: string[];
     excludedIds: string[];
   };
+  clipboard: { id: string; state: PartState }[];
+  hiddenParts: Set<string>;
   interferenceReport: InterferenceReport;
   slideOffset: number;
   cameraTarget: [number, number, number] | null;
@@ -107,6 +109,15 @@ interface StoreState {
   toggleLogPanel: (show?: boolean) => void;
 
   // v1.2 Actions
+  deleteSelected: () => void;
+  copySelected: () => void;
+  pasteClipboard: () => void;
+  duplicateSelected: () => void;
+  setHiddenSelected: (hide: boolean) => void;
+  showAll: () => void;
+  selectAll: () => void;
+  deselectAll: () => void;
+
   addParts: (ids: string[]) => void;
   removeParts: (ids: string[]) => void;
   connectParts: (a: string, pa: string, b: string, pb: string) => void;
@@ -210,6 +221,8 @@ export const useStore = create<StoreState>()(
   showLogPanel: false,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
+  clipboard: [],
+  hiddenParts: new Set(),
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
   cameraTarget: null,
@@ -225,6 +238,8 @@ export const useStore = create<StoreState>()(
         selectedPort: null,
         hoveredPort: null,
         selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
+        clipboard: [],
+        hiddenParts: new Set(),
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
         slideOffset: 0,
         cameraTarget: null
@@ -488,6 +503,172 @@ export const useStore = create<StoreState>()(
   clearLogs: () => set({ logs: [] }),
   toggleLogPanel: (show) => set(s => ({ showLogPanel: show !== undefined ? show : !s.showLogPanel })),
 
+  deleteSelected: () => {
+    const { parts, connections, selection } = get();
+    const idsToDelete = selection.allConnectedIds;
+    if (idsToDelete.length === 0) return;
+
+    const removedParts: Record<string, PartState> = {};
+    const removedConns: Array<{ from: string; to: string }> = [];
+    
+    idsToDelete.forEach(id => {
+      if (parts[id]) {
+        removedParts[id] = parts[id];
+        if (connections[id]) {
+          connections[id].forEach(target => {
+            if (!removedConns.find(c => (c.from === target && c.to === id) || (c.from === id && c.to === target))) {
+              removedConns.push({ from: id, to: target });
+            }
+          });
+        }
+      }
+    });
+
+    const snap: TopologySnapshot = { addedParts: {}, removedParts, addedConnections: [], removedConnections: removedConns };
+    
+    const doRemove = (ids: string[]) => {
+      set(s => {
+        const np = { ...s.parts };
+        const nc = { ...s.connections };
+        ids.forEach(id => {
+          delete np[id];
+          delete nc[id];
+          Object.keys(nc).forEach(target => {
+            if (nc[target].has(id)) {
+              const nextSet = new Set(nc[target]);
+              nextSet.delete(id);
+              nc[target] = nextSet;
+            }
+          });
+        });
+        return { parts: np, connections: nc };
+      });
+    };
+
+    const doAdd = (pa: Record<string, PartState>, conns: Array<{from: string; to: string}>) => {
+      set(s => {
+        const np = { ...s.parts, ...pa };
+        const nc = { ...s.connections };
+        conns.forEach(c => {
+          if (!nc[c.from]) nc[c.from] = new Set();
+          if (!nc[c.to]) nc[c.to] = new Set();
+          nc[c.from].add(c.to);
+          nc[c.to].add(c.from);
+        });
+        return { parts: np, connections: nc };
+      });
+    };
+
+    const cmd = createTopologyCommand('DELETE', snap, 
+      () => doRemove(idsToDelete),
+      (s) => doAdd(s.removedParts, s.removedConnections)
+    );
+
+    doRemove(idsToDelete);
+    set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    get().addLog(`Deleted ${idsToDelete.length} parts.`, 'ACTION');
+  },
+
+  copySelected: () => {
+    const { parts, selection } = get();
+    const idsToCopy = selection.allConnectedIds;
+    if (idsToCopy.length === 0) return;
+    
+    const clipData = idsToCopy.map(id => ({ id, state: JSON.parse(JSON.stringify(parts[id])) }));
+    set({ clipboard: clipData });
+    get().addLog(`Copied ${idsToCopy.length} parts.`, 'ACTION');
+  },
+
+  pasteClipboard: () => {
+    const { clipboard } = get();
+    if (!clipboard || clipboard.length === 0) return;
+
+    const baseOffset = 0.05; 
+    const addedParts: Record<string, PartState> = {};
+    const newIds: string[] = [];
+
+    clipboard.forEach(clip => {
+      const newId = clip.id.split('_')[0] + '_' + window.crypto.randomUUID().substring(0,8);
+      newIds.push(newId);
+      
+      const st = JSON.parse(JSON.stringify(clip.state));
+      st.position = [st.position[0] + baseOffset, st.position[1] + baseOffset, st.position[2] + baseOffset];
+      st.zone = ZoneType.ACTIVE_ARENA;
+      addedParts[newId] = st as PartState;
+    });
+
+    const snap: TopologySnapshot = { addedParts, removedParts: {}, addedConnections: [], removedConnections: [] };
+    
+    const doAdd = (pa: Record<string, PartState>) => {
+      set(s => ({ parts: { ...s.parts, ...pa } }));
+    };
+    const doRemove = (ids: string[]) => {
+      set(s => {
+        const np = { ...s.parts };
+        ids.forEach(id => delete np[id]);
+        return { parts: np };
+      });
+    };
+
+    const cmd = createTopologyCommand('PASTE', snap, 
+      () => doAdd(addedParts),
+      () => doRemove(newIds)
+    );
+
+    doAdd(addedParts);
+    _history.push(cmd);
+    set({ 
+      canUndo: _history.canUndo, 
+      canRedo: _history.canRedo,
+      selection: { primaryId: newIds[0], level: SelectionLevel.GROUP, allConnectedIds: newIds, excludedIds: [] }
+    });
+    get().addLog(`Pasted ${newIds.length} parts.`, 'ACTION');
+  },
+
+  duplicateSelected: () => {
+    get().copySelected();
+    get().pasteClipboard();
+  },
+
+  setHiddenSelected: (hide: boolean) => {
+    const { selection, hiddenParts } = get();
+    const ids = selection.allConnectedIds;
+    if (ids.length === 0) return;
+    
+    const newHidden = new Set(hiddenParts);
+    ids.forEach(id => {
+      if (hide) newHidden.add(id);
+      else newHidden.delete(id);
+    });
+    set({ hiddenParts: newHidden });
+    get().addLog(`${hide ? 'Hidden' : 'Showed'} ${ids.length} parts.`, 'ACTION');
+  },
+
+  showAll: () => {
+    set({ hiddenParts: new Set() });
+    get().addLog(`Showed all parts.`, 'ACTION');
+  },
+
+  selectAll: () => {
+    const { parts, hiddenParts } = get();
+    const activeIds = Object.keys(parts).filter(k => parts[k].zone === ZoneType.ACTIVE_ARENA && !hiddenParts.has(k));
+    set({ 
+      selection: { 
+        primaryId: activeIds.length > 0 ? activeIds[0] : null, 
+        level: SelectionLevel.GROUP, 
+        allConnectedIds: activeIds, 
+        excludedIds: [] 
+      }
+    });
+    get().addLog(`Selected all ${activeIds.length} visible parts.`, 'ACTION');
+  },
+
+  deselectAll: () => {
+    set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
+  },
+
   addParts: (ids) => set(s => {
     get().addLog(`Add parts to scene: ${ids.join(', ')}`, 'ACTION');
     const np = { ...s.parts };
@@ -645,23 +826,26 @@ export const useStore = create<StoreState>()(
     parts: state.parts,
     connections: Object.fromEntries(
       Object.entries(state.connections).map(([k, v]) => [k, Array.from(v)])
-    ) as any, // 暂存为 array，因为 Set 无法序列化
+    ) as unknown as ConnectionGraph, // 暂存为 array，因为 Set 无法序列化
     activeColorCode: state.activeColorCode,
     cameraTarget: state.cameraTarget,
     partUsages: state.partUsages,
+    hiddenParts: Array.from(state.hiddenParts) as unknown as Set<string>,
   }),
   // Rehydrate 时需要把 connections 里的 Array 转回 Set
-  merge: (persistedState: any, currentState: StoreState) => {
+  merge: (persistedState: unknown, currentState: StoreState) => {
+    const pState = persistedState as Partial<StoreState> & { connections?: Record<string, string[]>, hiddenParts?: string[] };
     const mergedConnections: ConnectionGraph = {};
-    if (persistedState.connections) {
-      Object.entries(persistedState.connections).forEach(([k, arr]) => {
+    if (pState.connections) {
+      Object.entries(pState.connections).forEach(([k, arr]) => {
         mergedConnections[k] = new Set(arr as string[]);
       });
     }
     return {
       ...currentState,
-      ...persistedState,
+      ...pState,
       connections: mergedConnections,
+      hiddenParts: pState.hiddenParts ? new Set(pState.hiddenParts) : new Set(),
     };
   },
   onRehydrateStorage: () => (state) => {

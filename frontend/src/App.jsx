@@ -12,6 +12,7 @@ import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
 import { ThumbnailGenerator } from './ThumbnailGenerator.tsx';
 import { PartSearchDialog } from './components/PartSearchDialog';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -121,7 +122,10 @@ function App() {
   // 全局搜索面板状态
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  // 键盘全局监听：ESC / Cmd+K
+  // 挂载全局 3D 快捷键监听
+  useKeyboardShortcuts();
+
+  // 键盘全局监听：专属的 Cmd+K 和 自定义事件
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Cmd+K 或 Ctrl+K 呼出快速搜索面板
@@ -129,14 +133,11 @@ function App() {
         e.preventDefault();
         setIsSearchOpen(true);
       }
-      
-      if (e.key === 'Escape') {
-        // 如果搜索面板开着，优先关闭搜索面板
-        if (isSearchOpen) {
-           setIsSearchOpen(false);
-        } else {
-           abortCurrentInteraction();
-        }
+      // 搜索面板打开时，Esc 键关面板
+      if (e.key === 'Escape' && isSearchOpen) {
+         e.preventDefault(); // 阻断传递给 useKeyboardShortcuts，这里用 stopPropagation 可能不行因为是分别绑在 window 的，依赖执行顺序。
+         // 不过 React setState 本身处理无碍
+         setIsSearchOpen(false);
       }
     };
     
@@ -148,7 +149,7 @@ function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('open-part-search', handleOpenSearch);
     };
-  }, [abortCurrentInteraction, isSearchOpen]);
+  }, [isSearchOpen]);
 
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">

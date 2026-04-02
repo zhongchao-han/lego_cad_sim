@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { HistoryStack, createSnapCommand, type ActionCommand, type SnapSnapshot } from '../historyStack';
+import { HistoryStack, createSnapCommand, createTopologyCommand, type ActionCommand, type SnapSnapshot, type TopologySnapshot } from '../historyStack';
 
 // ---------------------------------------------------------------------------
 // 辅助：构建测试用命令
@@ -235,5 +235,48 @@ describe('createSnapCommand', () => {
     h.push(createSnapCommand(makeSnapshot(), vi.fn(), revertFn));
     h.undo();
     expect(revertFn).toHaveBeenCalledOnce();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createTopologyCommand
+// ---------------------------------------------------------------------------
+
+import type { PartState } from '../types';
+
+describe('createTopologyCommand', () => {
+  function makeTopologySnapshot(): TopologySnapshot {
+    return {
+      addedParts: { 'PART_A': {} as PartState },
+      removedParts: { 'PART_B': {} as PartState },
+      addedConnections: [{ from: 'PART_A', to: 'PART_C' }],
+      removedConnections: [{ from: 'PART_B', to: 'PART_D' }],
+    };
+  }
+
+  it('type matches input', () => {
+    const cmd = createTopologyCommand('PASTE', makeTopologySnapshot(), vi.fn(), vi.fn());
+    expect(cmd.type).toBe('PASTE');
+  });
+
+  it('snapshot is stored', () => {
+    const snap = makeTopologySnapshot();
+    const cmd = createTopologyCommand('DELETE', snap, vi.fn(), vi.fn());
+    expect(cmd.snapshot).toBe(snap);
+  });
+
+  it('execute calls applyFn', () => {
+    const applyFn = vi.fn();
+    const cmd = createTopologyCommand('PASTE', makeTopologySnapshot(), applyFn, vi.fn());
+    cmd.execute();
+    expect(applyFn).toHaveBeenCalledOnce();
+  });
+
+  it('undo calls revertFn with the snapshot', () => {
+    const snap = makeTopologySnapshot();
+    const revertFn = vi.fn();
+    const cmd = createTopologyCommand('PASTE', snap, vi.fn(), revertFn);
+    cmd.undo();
+    expect(revertFn).toHaveBeenCalledWith(snap);
   });
 });

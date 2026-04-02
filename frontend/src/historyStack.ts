@@ -107,3 +107,38 @@ export function createSnapCommand(
     undo: () => revertFn(snapshot),
   };
 }
+
+// ---------------------------------------------------------------------------
+// TopologyCommand (增删零件/连接)
+// ---------------------------------------------------------------------------
+
+import type { PartState } from './types';
+
+export interface TopologySnapshot {
+  addedParts: Record<string, PartState>;     // 新增的零件字典
+  removedParts: Record<string, PartState>;   // 被移除的零件字典
+  addedConnections: Array<{ from: string; to: string }>;
+  removedConnections: Array<{ from: string; to: string }>;
+}
+
+/**
+ * 构建一个可撤销的 Topology 命令 (用于 Add, Delete, Clone, Paste)
+ *
+ * @param type     - 命令分类 (如 'ADD', 'DELETE', 'PASTE')
+ * @param snapshot - 包含了新增/删除实体结构的差异
+ * @param applyFn  - 执行/重做: 将对应的零件加入/移除
+ * @param revertFn - 撤销: 逆转 applyFn 的操作
+ */
+export function createTopologyCommand(
+  type: string,
+  snapshot: TopologySnapshot,
+  applyFn: () => void,
+  revertFn: (snap: TopologySnapshot) => void,
+): ActionCommand<TopologySnapshot> {
+  return {
+    type,
+    snapshot,
+    execute: applyFn,
+    undo: () => revertFn(snapshot),
+  };
+}
