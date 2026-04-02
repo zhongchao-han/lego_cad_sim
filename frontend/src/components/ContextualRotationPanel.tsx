@@ -30,6 +30,7 @@ export const ContextualRotationPanel: React.FC = () => {
     return (
         <Html position={globalPos} center zIndexRange={[100, 0]}>
             <div style={{
+                transform: 'translateY(-60px)', // 向上偏移，防止遮挡鼠标点击吸附端口
                 background: 'rgba(30,30,30,0.85)',
                 backdropFilter: 'blur(4px)',
                 padding: '6px 12px',

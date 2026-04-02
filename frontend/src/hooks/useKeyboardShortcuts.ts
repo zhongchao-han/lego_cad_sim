@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
+import { InteractionPhase } from '../types';
 
 /**
  * 监听全局 CAD 标准快捷键的 Hook。
@@ -17,6 +18,10 @@ export function useKeyboardShortcuts() {
   const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
   const setHiddenSelected = useStore((state) => state.setHiddenSelected);
   const showAll = useStore((state) => state.showAll);
+  
+  const rotateSelectedPart = useStore((state) => state.rotateSelectedPart);
+  const interactionPhase = useStore((state) => state.interactionPhase);
+  const selectedPort = useStore((state) => state.selectedPort);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -91,6 +96,24 @@ export function useKeyboardShortcuts() {
             e.preventDefault();
             setHiddenSelected(true);
             break;
+          case '[':
+          case 'ArrowLeft':
+            if (selectedPort && 
+               (interactionPhase === InteractionPhase.SOURCE_LOCKED || interactionPhase === InteractionPhase.AXIAL_SLIDING) &&
+               !selectedPort.portType.includes('axle')) {
+                 e.preventDefault();
+                 rotateSelectedPart(-Math.PI / 2); // 逆时针 90度
+            }
+            break;
+          case ']':
+          case 'ArrowRight':
+            if (selectedPort && 
+               (interactionPhase === InteractionPhase.SOURCE_LOCKED || interactionPhase === InteractionPhase.AXIAL_SLIDING) &&
+               !selectedPort.portType.includes('axle')) {
+                 e.preventDefault();
+                 rotateSelectedPart(Math.PI / 2); // 顺时针 90度
+            }
+            break;
           default:
             break;
         }
@@ -121,5 +144,8 @@ export function useKeyboardShortcuts() {
     abortCurrentInteraction,
     setHiddenSelected,
     showAll,
+    rotateSelectedPart,
+    interactionPhase,
+    selectedPort
   ]);
 }
