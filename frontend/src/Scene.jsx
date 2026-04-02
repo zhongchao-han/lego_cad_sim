@@ -3,7 +3,7 @@ import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } 
 import { useStore } from './store';
 import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
-import { ContextualRotationPanel } from './components/ContextualRotationPanel';
+
 import { InteractionPhase, ZoneType } from './types';
 import { calculateSnapPose } from './utils/snapMath';
 
@@ -148,9 +148,7 @@ export default function Scene() {
             {Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA && !hiddenParts.has(id)).map(id => (
                 <LegoPart key={id} id={id} />
             ))}
-
             <PlacementGhost />
-            <ContextualRotationPanel />
 
             <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
