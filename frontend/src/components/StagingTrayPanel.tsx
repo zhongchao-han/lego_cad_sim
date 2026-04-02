@@ -1,5 +1,7 @@
 import { useStore } from '../store';
-import { Package, Trash2, ArrowLeftCircle } from 'lucide-react';
+import { Package } from 'lucide-react';
+
+const BACKEND_ORIGIN: string = ((import.meta as unknown as Record<string, Record<string, string>>).env?.['VITE_BACKEND_ORIGIN']) || 'http://127.0.0.1:8000';
 
 export function StagingTrayPanel() {
   const stagingGrid = useStore((s) => s.stagingGrid);
@@ -32,22 +34,34 @@ export function StagingTrayPanel() {
           </div>
         ) : (
           stagingGrid.slots.map((slot) => {
-            const partId = slot.occupiedBy;
+            const partId = slot.occupiedBy; // 实例ID
             const part = partId ? parts[partId] : null;
-            if (!part) return null; // 列表模式下不显示空槽位，以保持紧凑 (类似已选列表)
+            if (!part || !partId) return null; // 列表模式下不显示空槽位，以保持紧凑 (类似已选列表)
 
             return (
               <button
                 key={slot.index}
-                onClick={() => partId && previewPart(partId)}
+                onClick={() => part && previewPart(part.ldrawId)}
                 className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
-                  previewPartId === partId 
+                  previewPartId === part.ldrawId 
                     ? 'bg-blue-50 border-blue-200 shadow-sm' 
                     : 'bg-white border-transparent hover:bg-white/80 hover:border-slate-200'
                 }`}
               >
-                <div className="w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                   <Package className={`w-6 h-6 transition-colors ${previewPartId === partId ? 'text-blue-500' : 'text-slate-300 group-hover:text-blue-400'}`} />
+                <div className="relative w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                  <img 
+                    src={`${BACKEND_ORIGIN}/api/thumbnails/${part.ldrawId.replace('.dat', '.png')}`}
+                    alt={part.ldrawId}
+                    className="w-10 h-10 object-contain transition-transform group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block';
+                      }
+                    }}
+                  />
+                  <Package className={`w-6 h-6 transition-colors ${previewPartId === part.ldrawId ? 'text-blue-500' : 'text-slate-300 group-hover:text-blue-400'}`} style={{ display: 'none' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-slate-700 truncate">
@@ -57,7 +71,7 @@ export function StagingTrayPanel() {
                     INSTANCE: {partId.slice(-4).toUpperCase()}
                   </div>
                 </div>
-                {previewPartId === partId && (
+                {previewPartId === part.ldrawId && (
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
                 )}
               </button>
