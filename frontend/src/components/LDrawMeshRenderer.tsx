@@ -20,6 +20,7 @@ import * as THREE from 'three';
 interface LDrawMeshRendererProps {
   url: string;
   onDoubleClick?: (e: unknown) => void;
+  onPointerDown?: (e: unknown) => void;
   highlightColor?: string | null;
   highlightIntensity?: number;
   opacity?: number;
@@ -46,6 +47,7 @@ const createABSPlasticMaterial = (
 export function LDrawMeshRenderer({
   url,
   onDoubleClick,
+  onPointerDown,
   highlightColor = null,
   highlightIntensity = 0,
   opacity = 1.0,
@@ -108,6 +110,7 @@ export function LDrawMeshRenderer({
     <primitive
       object={visual}
       onDoubleClick={onDoubleClick}
+      onPointerDown={onPointerDown}
     />
   );
 }

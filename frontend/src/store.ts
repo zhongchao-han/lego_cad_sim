@@ -70,6 +70,7 @@ interface StoreState {
     excludedIds: string[];
   };
   clipboard: { id: string; state: PartState }[];
+  freePlacingPayload: { id: string; state: PartState }[];
   hiddenParts: Set<string>;
   interferenceReport: InterferenceReport;
   slideOffset: number;
@@ -121,7 +122,7 @@ interface StoreState {
   addParts: (ids: string[]) => void;
   removeParts: (ids: string[]) => void;
   connectParts: (a: string, pa: string, b: string, pb: string) => void;
-  selectPart: (id: string | null, level?: SelectionLevel) => void;
+  selectPart: (id: string | null, level?: SelectionLevel, append?: boolean) => void;
   updateSelection: (level: SelectionLevel) => void;
   updateSlideOffset: (offset: number) => void;
   rotateSelectedPart: (angleRads: number) => void;
@@ -130,6 +131,8 @@ interface StoreState {
   previewPart: (id: string | null) => void;
   stagePart: (id: string) => void;
   commitAxialSliding: () => void;
+  focusCameraOnSelected: () => void;
+  commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
 }
 
 const quatNormalize = (q: [number, number, number, number]): Quat => {
@@ -222,6 +225,7 @@ export const useStore = create<StoreState>()(
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
+  freePlacingPayload: [],
   hiddenParts: new Set(),
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
@@ -239,6 +243,7 @@ export const useStore = create<StoreState>()(
         hoveredPort: null,
         selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
         clipboard: [],
+        freePlacingPayload: [],
         hiddenParts: new Set(),
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
         slideOffset: 0,
@@ -585,18 +590,47 @@ export const useStore = create<StoreState>()(
     const { clipboard } = get();
     if (!clipboard || clipboard.length === 0) return;
 
-    const baseOffset = 0.05; 
+    // 计算剪贴板包围盒中心，使得复制出的“幽灵”始终位于鼠标正中央
+    let cx = 0, cy = 0, cz = 0;
+    clipboard.forEach(clip => {
+      cx += clip.state.position[0];
+      cy += clip.state.position[1];
+      cz += clip.state.position[2];
+    });
+    cx /= clipboard.length;
+    cy /= clipboard.length;
+    cz /= clipboard.length;
+
+    const payload = clipboard.map(clip => {
+      const newId = clip.id.split('_')[0] + '_' + window.crypto.randomUUID().substring(0,8);
+      const st = JSON.parse(JSON.stringify(clip.state));
+      st.position = [st.position[0] - cx, st.position[1] - cy, st.position[2] - cz];
+      st.zone = ZoneType.ACTIVE_ARENA;
+      return { id: newId, state: st as PartState };
+    });
+
+    set({ 
+      freePlacingPayload: payload,
+      interactionPhase: InteractionPhase.FREE_PLACING 
+    });
+    get().addLog(`Started placing ${payload.length} parts from clipboard.`, 'ACTION');
+  },
+
+  commitFreePlacing: (finalStates?: Record<string, PartState>) => {
+    const { freePlacingPayload } = get();
+    if (!freePlacingPayload || freePlacingPayload.length === 0) return;
+
+    if (!finalStates) {
+      // Aborted or cancelled
+      set({ freePlacingPayload: [], interactionPhase: InteractionPhase.IDLE });
+      return;
+    }
+
     const addedParts: Record<string, PartState> = {};
     const newIds: string[] = [];
-
-    clipboard.forEach(clip => {
-      const newId = clip.id.split('_')[0] + '_' + window.crypto.randomUUID().substring(0,8);
-      newIds.push(newId);
-      
-      const st = JSON.parse(JSON.stringify(clip.state));
-      st.position = [st.position[0] + baseOffset, st.position[1] + baseOffset, st.position[2] + baseOffset];
-      st.zone = ZoneType.ACTIVE_ARENA;
-      addedParts[newId] = st as PartState;
+    Object.entries(finalStates).forEach(([id, state]) => {
+      addedParts[id] = state;
+      newIds.push(id);
     });
 
     const snap: TopologySnapshot = { addedParts, removedParts: {}, addedConnections: [], removedConnections: [] };
@@ -622,9 +656,11 @@ export const useStore = create<StoreState>()(
     set({ 
       canUndo: _history.canUndo, 
       canRedo: _history.canRedo,
-      selection: { primaryId: newIds[0], level: SelectionLevel.GROUP, allConnectedIds: newIds, excludedIds: [] }
+      selection: { primaryId: newIds[0], level: SelectionLevel.GROUP, allConnectedIds: newIds, excludedIds: [] },
+      freePlacingPayload: [],
+      interactionPhase: InteractionPhase.IDLE
     });
-    get().addLog(`Pasted ${newIds.length} parts.`, 'ACTION');
+    get().addLog(`Committed ${newIds.length} parts.`, 'ACTION');
   },
 
   duplicateSelected: () => {
@@ -669,6 +705,28 @@ export const useStore = create<StoreState>()(
     set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
   },
 
+  focusCameraOnSelected: () => {
+    const { parts, selection } = get();
+    const ids = selection.allConnectedIds;
+    if (ids.length === 0) return;
+    
+    let cx = 0, cy = 0, cz = 0;
+    let count = 0;
+    ids.forEach(id => {
+      const p = parts[id];
+      if (p) {
+        cx += p.position[0];
+        cy += p.position[1];
+        cz += p.position[2];
+        count++;
+      }
+    });
+    if (count > 0) {
+      set({ cameraTarget: [cx / count, cy / count, cz / count] });
+      get().addLog(`Focused camera on ${count} selected parts.`, 'ACTION');
+    }
+  },
+
   addParts: (ids) => set(s => {
     get().addLog(`Add parts to scene: ${ids.join(', ')}`, 'ACTION');
     const np = { ...s.parts };
@@ -695,28 +753,43 @@ export const useStore = create<StoreState>()(
     nc[a_id].add(b_id); nc[b_id].add(a_id);
     return { connections: nc };
   }),
-  selectPart: (id, level = SelectionLevel.GROUP) => {
-      get().addLog(`Selecting part: ${id} (Level: ${level})`, 'ACTION');
+  selectPart: (id, level = SelectionLevel.GROUP, append = false) => {
+      get().addLog(`Selecting part: ${id} (Level: ${level}, append: ${append})`, 'ACTION');
       
       const prevSelection = get().selection;
       let targetLevel = level;
       
-      // 这里的逻辑：如果已经选中了该零件（GROUP），再次选择则钻取到 INDIVIDUAL
-      if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.GROUP && level === SelectionLevel.GROUP) {
+      // 这里的逻辑：如果已经选中了该零件（GROUP），再次选择则钻取到 INDIVIDUAL (仅非append模式时生效)
+      if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.GROUP && level === SelectionLevel.GROUP && !append) {
           targetLevel = SelectionLevel.INDIVIDUAL;
       }
 
-      let allConnectedIds: string[] = [];
+      let newIds: string[] = [];
       if (id && targetLevel === SelectionLevel.GROUP) {
-          allConnectedIds = getConnectedGroup(get().connections, id, "");
+          newIds = getConnectedGroup(get().connections, id, "");
       } else if (id) {
-          allConnectedIds = [id];
+          newIds = [id];
+      }
+
+      let allConnectedIds: string[] = [];
+      if (append && id) {
+          const currentSet = new Set(prevSelection.allConnectedIds);
+          // Toggle mechanics: if all new ones are already in, remove them. Otherwise add them.
+          const isAllSelected = newIds.every(n => currentSet.has(n));
+          if (isAllSelected) {
+              newIds.forEach(n => currentSet.delete(n));
+          } else {
+              newIds.forEach(n => currentSet.add(n));
+          }
+          allConnectedIds = Array.from(currentSet);
+      } else {
+          allConnectedIds = newIds;
       }
 
       set({ 
           selection: { 
               ...prevSelection, 
-              primaryId: id, 
+              primaryId: append ? (allConnectedIds.length > 0 ? allConnectedIds[allConnectedIds.length - 1] : null) : id, 
               level: targetLevel,
               allConnectedIds
           } 

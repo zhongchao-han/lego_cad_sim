@@ -57,15 +57,29 @@ export const InteractivePart = memo(({
   const [pulse, setPulse] = useState(0);
   const currentPhase = useStore(s => s.interactionPhase);
   const slidingTarget = useStore(s => s.slidingTarget);
+  const selectPart = useStore(s => s.selectPart);
+  const duplicateSelected = useStore(s => s.duplicateSelected);
   const updateSlideOffset = useStore(s => s.updateSlideOffset);
   const commitAxialSliding = useStore(s => s.commitAxialSliding);
   const { mouse, raycaster, camera } = useThree();
+
+  const handlePointerDown = (e: any) => {
+    e.stopPropagation();
+    // Multi-selection logic
+    const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
+    selectPart(partId, SelectionLevel.GROUP, isMultiSelect);
+
+    // Alt-Drag instant clone logic
+    if (e.altKey && !isMultiSelect && currentPhase === InteractionPhase.IDLE) {
+      duplicateSelected();
+    }
+  };
 
   // --- 沿轴滑动 (Axial Sliding) 全局手势处理 ---
   useEffect(() => {
     if (currentPhase !== InteractionPhase.AXIAL_SLIDING || !isSelected || !slidingTarget) return;
 
-    const handlePointerMove = () => {
+    const handlePointerMove = (e: PointerEvent) => {
       // 1. 定义滑动轴线 (Z-axis in world space)
       const targetPos = new THREE.Vector3(...slidingTarget.globalPos);
       const targetQuat = new THREE.Quaternion(...slidingTarget.globalQuat);
@@ -85,17 +99,20 @@ export const InteractivePart = memo(({
       // 使用 THREE.Ray.distanceSqToRay 或类似的几何方法
       // 简便方法：求解两条射线的最短距离点
       // @ts-expect-error extended math function
-      const distSq = mouseRay.distanceSqToRay(axisRay, closestPointOnMouseRay, closestPointOnAxis);
+      mouseRay.distanceSqToRay(axisRay, closestPointOnMouseRay, closestPointOnAxis);
       
       // 3. 计算位移值 (点与原点的带符号投影距离)
       const diff = new THREE.Vector3().subVectors(closestPointOnAxis, targetPos);
       const offset = diff.dot(axis);
       
       // 4. 应用物理限位 (MVP: +/- 0.5 stud)
-      const CLAMP_LIMIT = 20 * LDU; // 一个完整格
-      const clampedOffset = Math.max(-CLAMP_LIMIT, Math.min(CLAMP_LIMIT, offset));
+      let finalOffset = offset;
+      if (!e.shiftKey) { // Shift 键屏蔽物理碰撞和限位
+          const CLAMP_LIMIT = 20 * LDU; // 一个完整格
+          finalOffset = Math.max(-CLAMP_LIMIT, Math.min(CLAMP_LIMIT, offset));
+      }
       
-      updateSlideOffset(clampedOffset);
+      updateSlideOffset(finalOffset);
     };
 
     const handlePointerUp = () => {
@@ -179,6 +196,7 @@ export const InteractivePart = memo(({
             <LDrawMeshRenderer
               url={activeMeshUrl}
               onDoubleClick={onDoubleClick}
+              onPointerDown={handlePointerDown}
               highlightColor={highlight.color}
               highlightIntensity={highlight.intensity}
               opacity={finalOpacity}
@@ -187,6 +205,7 @@ export const InteractivePart = memo(({
       ) : (
         <mesh
           onDoubleClick={onDoubleClick}
+          onPointerDown={handlePointerDown}
         >
           {/* 红色警告表示加载彻底失败，灰色表示仅数据拉取中或正常占位 */}
           <boxGeometry args={[10 * LDU, 10 * LDU, 10 * LDU]} />

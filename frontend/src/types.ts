@@ -15,6 +15,7 @@ export enum InteractionPhase {
   SOURCE_LOCKED = 'SOURCE_LOCKED',     // 已锁定源端口
   AXIAL_SLIDING = 'AXIAL_SLIDING',     // 沿轴滑动调节深度
   ANIMATING_SNAP = 'ANIMATING_SNAP',   // 正在播放对齐动画
+  FREE_PLACING = 'FREE_PLACING',       // 悬浮放置（跟随鼠标）
 }
 
 // --- 选择深度 (Drill-down) ---

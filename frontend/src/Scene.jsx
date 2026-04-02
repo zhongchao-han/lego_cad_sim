@@ -1,4 +1,6 @@
-import React, { Suspense, memo } from 'react';
+import React, { Suspense, memo, useRef, useEffect } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } from '@react-three/drei';
 import { useStore } from './store';
 import { InteractivePart } from './components/InteractivePart';
@@ -107,6 +109,94 @@ const PlacementGhost = () => {
         </group>
     );
 };
+const FreePlacerGhost = () => {
+    const phase = useStore(s => s.interactionPhase);
+    const payload = useStore(s => s.freePlacingPayload);
+    const commitFreePlacing = useStore(s => s.commitFreePlacing);
+    const groupRef = useRef(null);
+    const { raycaster, mouse, camera, scene } = useThree();
+
+    const isPlacing = phase === InteractionPhase.FREE_PLACING && payload && payload.length > 0;
+
+    useFrame(() => {
+        if (!isPlacing || !groupRef.current) return;
+        raycaster.setFromCamera(mouse, camera);
+        
+        // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
+        const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
+            let p = h.object;
+            while(p) {
+                if (p === groupRef.current) return false;
+                p = p.parent;
+            }
+            return true;
+        });
+
+        if (hits.length > 0) {
+            groupRef.current.position.copy(hits[0].point);
+        } else {
+            // 兜底悬浮于空中
+            raycaster.ray.at(10, groupRef.current.position);
+        }
+    });
+
+    useEffect(() => {
+        if (!isPlacing) return;
+        
+        // 利用全局拦截处理左键确认放置和右键/Esc取消放置
+        const handleClick = (e) => {
+            // 忽略非画布点击
+            if (e.target.tagName !== 'CANVAS') return;
+            if (!groupRef.current) return;
+            
+            if (e.button === 0) { // 左键放置
+                const finalStates = {};
+                const pos = groupRef.current.position;
+                payload.forEach(item => {
+                    finalStates[item.id] = {
+                        ...item.state,
+                        position: [item.state.position[0] + pos.x, item.state.position[1] + pos.y, item.state.position[2] + pos.z]
+                    };
+                });
+                commitFreePlacing(finalStates);
+            } else if (e.button === 2) { // 右键取消
+                commitFreePlacing(undefined);
+            }
+        };
+
+        const handleKey = (e) => {
+            if (e.key === 'Escape') commitFreePlacing(undefined);
+        };
+
+        // 捕获阶段拦截，防止点击到下面的零件
+        window.addEventListener('mousedown', handleClick, { capture: true });
+        window.addEventListener('keydown', handleKey);
+        return () => {
+            window.removeEventListener('mousedown', handleClick, { capture: true });
+            window.removeEventListener('keydown', handleKey);
+        };
+    }, [isPlacing, payload, commitFreePlacing]);
+
+    if (!isPlacing) return null;
+
+    return (
+        <group ref={groupRef}>
+            {payload.map(item => (
+                <group key={item.id} position={item.state.position} quaternion={item.state.quaternion}>
+                    <InteractivePart
+                        partId={`ghost_${item.id}`}
+                        ldrawId={item.state.ldrawId}
+                        colorCode={item.state.colorCode}
+                        opacity={0.6}
+                        transparent={true}
+                        showPorts={false}
+                        isStatic={true}
+                    />
+                </group>
+            ))}
+        </group>
+    );
+};
 
 export default function Scene() {
     const parts = useStore((s) => s.parts);
@@ -149,6 +239,7 @@ export default function Scene() {
                 <LegoPart key={id} id={id} />
             ))}
             <PlacementGhost />
+            <FreePlacerGhost />
 
             <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />

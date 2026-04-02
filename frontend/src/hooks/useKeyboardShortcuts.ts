@@ -22,6 +22,7 @@ export function useKeyboardShortcuts() {
   const rotateSelectedPart = useStore((state) => state.rotateSelectedPart);
   const interactionPhase = useStore((state) => state.interactionPhase);
   const selectedPort = useStore((state) => state.selectedPort);
+  const focusCameraOnSelected = useStore((state) => state.focusCameraOnSelected);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -96,6 +97,11 @@ export function useKeyboardShortcuts() {
             e.preventDefault();
             setHiddenSelected(true);
             break;
+          case 'f':
+          case 'F':
+            e.preventDefault();
+            focusCameraOnSelected();
+            break;
           case '[':
           case 'ArrowLeft':
             if (selectedPort && 
@@ -146,6 +152,7 @@ export function useKeyboardShortcuts() {
     showAll,
     rotateSelectedPart,
     interactionPhase,
-    selectedPort
+    selectedPort,
+    focusCameraOnSelected
   ]);
 }
