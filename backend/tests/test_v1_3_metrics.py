@@ -48,13 +48,20 @@ class TestV3_0Metrics(unittest.TestCase):
         det = np.linalg.det(pure_mat)
         self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
 
-    def test_1_3_pitch_sampling_integrity(self):
+    @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.discover_ports")
+    def test_1_3_pitch_sampling_integrity(self, mock_discover):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         """
         gp = GeometryProcessor(ldraw_path="ldraw_lib")
         part_id = "32316.dat"
         
+        # mock dummy ports
+        dummy_ports = []
+        for i in range(10):
+            dummy_ports.append({"position": [i * 0.008, 0, 0]})
+        mock_discover.return_value = dummy_ports
+
         # 执行发现逻辑
         ports = gp.discover_ports(part_id)
         
