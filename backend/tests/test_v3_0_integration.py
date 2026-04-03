@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import numpy as np
 import os
 import sys
@@ -24,9 +25,9 @@ class TestV3_0Integration(unittest.TestCase):
         self.test_output = "tmp/test_assets"
         os.makedirs(self.test_output, exist_ok=True)
 
-    @unittest.mock.patch("trimesh.load")
-    @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.discover_ports")
-    @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.convert_to_glb")
+    @mock.patch("trimesh.load")
+    @mock.patch("backend.geometry_processor.GeometryProcessor.discover_ports")
+    @mock.patch("backend.geometry_processor.GeometryProcessor.convert_to_glb")
     def test_2_1_spatial_sync_glb_json(self, mock_convert, mock_discover, mock_trimesh_load):
         """
         [Test 2.1] 验证模型顶点与端口解析在 Y-Up 归一化坐标系下的强同步。

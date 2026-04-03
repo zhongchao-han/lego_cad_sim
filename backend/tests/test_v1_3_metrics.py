@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import numpy as np
 import os
 import sys
@@ -48,8 +49,8 @@ class TestV3_0Metrics(unittest.TestCase):
         det = np.linalg.det(pure_mat)
         self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
 
-    @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.resolve_path")
-    @unittest.mock.patch("builtins.open", new_callable=unittest.mock.mock_open)
+    @mock.patch("backend.geometry_processor.GeometryProcessor.resolve_path")
+    @mock.patch("builtins.open", new_callable=mock.mock_open)
     def test_1_3_pitch_sampling_integrity(self, mock_file, mock_resolve_path):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (模拟 5L 梁)。
