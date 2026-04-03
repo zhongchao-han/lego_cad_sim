@@ -213,7 +213,8 @@ async def save_verification(req: VerifySaveRequest):
     def clean_pos(v):
         if isinstance(v, (float, np.floating)):
             return round(float(v), 6)
-        if isinstance(v, list): return [clean_pos(i) for i in v]
+        if isinstance(v, list):
+            return [clean_pos(i) for i in v]
         return v
 
     try:

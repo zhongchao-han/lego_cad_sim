@@ -12,9 +12,7 @@ from backend.port_semantics import (
     ConnectionInterface,
     Gender,
     Profile,
-    FitType,
-    DELTA_FRICTION_MAX,
-    DELTA_BLOCKED_MIN
+    FitType
 )
 from backend.core_constants import LDU
 

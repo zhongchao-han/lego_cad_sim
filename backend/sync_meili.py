@@ -36,7 +36,7 @@ def get_part_name(part_id: str) -> str:
     return part_id
 
 def sync_to_meilisearch() -> None:
-    logger.debug(f"[DEBUG] sync_to_meilisearch() 调用: 开始执行数据同步...")
+    logger.debug("[DEBUG] sync_to_meilisearch() 调用: 开始执行数据同步...")
     if not os.path.exists(DATA_FILE):
         logger.error(f"配置文件未找到: {DATA_FILE}")
         logger.debug(f"[DEBUG] sync_to_meilisearch() 退出: 找不到数据文件 {DATA_FILE}")
@@ -96,10 +96,10 @@ def sync_to_meilisearch() -> None:
             index.add_documents(documents)
             
             logger.info("文档同步任务已全部提交！")
-            logger.debug(f"[DEBUG] sync_to_meilisearch() 分支: 提交完毕")
+            logger.debug("[DEBUG] sync_to_meilisearch() 分支: 提交完毕")
         else:
             logger.warning("没有需要同步的文档。")
-            logger.debug(f"[DEBUG] sync_to_meilisearch() 分支: 文档为空，跳过提交")
+            logger.debug("[DEBUG] sync_to_meilisearch() 分支: 文档为空，跳过提交")
             
     except Exception as e:
         logger.error(f"同步至 MeiliSearch 时发生错误: {e}")

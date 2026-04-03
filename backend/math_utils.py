@@ -55,15 +55,19 @@ class CoordinateTransformer:
         # 1. 确保 X 轴向量非零
         vx = m[:, 0]
         norm_x = np.linalg.norm(vx)
-        if norm_x < 1e-6: vx = np.array([1.0, 0, 0])
-        else: vx /= norm_x
+        if norm_x < 1e-6:
+            vx = np.array([1.0, 0, 0])
+        else:
+            vx /= norm_x
         
         # 2. 正交化 Y 轴
         vy = m[:, 1]
         vy = vy - np.dot(vy, vx) * vx
         norm_y = np.linalg.norm(vy)
-        if norm_y < 1e-6: vy = np.array([0, 1.0, 0])
-        else: vy /= norm_y
+        if norm_y < 1e-6:
+            vy = np.array([0, 1.0, 0])
+        else:
+            vy /= norm_y
         
         # 3. 强制右手系 (Z = X cross Y)
         vz = np.cross(vx, vy)

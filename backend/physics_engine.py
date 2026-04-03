@@ -157,7 +157,8 @@ class PhysicsEngine:
 
     def apply_user_force(self, link_name: str, force: List[float], pos: List[float] = [0,0,0]):
         """提供给用户在前端使用鼠标“拽拉”实体时的力反馈外部映射"""
-        if self.robot_id is None: return
+        if self.robot_id is None:
+            return
         link_idx = self.link_name_to_index.get(link_name, -1)
         p.applyExternalForce(objectUniqueId=self.robot_id,
                              linkIndex=link_idx,
@@ -188,7 +189,8 @@ class PhysicsEngine:
         
         # 子关节相对参数或者直接获取每个网格对象的全域坐标
         for name, idx in self.link_name_to_index.items():
-            if idx == -1: continue # base_link
+            if idx == -1:
+                continue # base_link
             
             # 使用 getLinkState 我们可以拿到直接灌输到 three.js Object3d 的最终位姿以避免前端计算 IK
             link_state = p.getLinkState(self.robot_id, idx, physicsClientId=self.client_id)

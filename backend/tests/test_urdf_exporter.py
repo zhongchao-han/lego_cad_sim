@@ -8,7 +8,6 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.urdf_exporter import URDFExporter, export_urdf
-from backend.connection_edge import ConnectionEdge
 
 class TestURDFExporter(unittest.TestCase):
     def test_export_success(self):
