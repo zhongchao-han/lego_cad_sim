@@ -6,7 +6,6 @@ import sys
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from unittest.mock import patch, mock_open
 from backend.math_utils import CoordinateTransformer
 from backend.geometry_processor import GeometryProcessor
 
@@ -49,41 +48,23 @@ class TestV3_0Metrics(unittest.TestCase):
         det = np.linalg.det(pure_mat)
         self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
 
-    @patch("backend.geometry_processor.PortLibrary.resolve_path")
-    def test_1_3_pitch_sampling_integrity(self, mock_resolve):
+    def test_1_3_pitch_sampling_integrity(self):
         """
-        [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 5L 梁)。
+        [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         """
         gp = GeometryProcessor(ldraw_path="ldraw_lib")
         part_id = "32316.dat"
         
-        # 伪造 5L 梁，包含 5 个孔 (beamhole.dat)
-        # 每个通孔有两个面，总计 10 个端口
-        # LDU 单位间距是 20
-        # X 轴上排布: -40, -20, 0, 20, 40
-        mock_data = """0 5L Beam
-1 16 -40 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat
-1 16 -20 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat
-1 16   0 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat
-1 16  20 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat
-1 16  40 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat
-"""
-        mock_resolve.return_value = "dummy_32316.dat"
-
-        from unittest.mock import mock_open, patch
-        with patch("builtins.open", mock_open(read_data=mock_data)):
-            # 执行发现逻辑
-            ports = gp.discover_ports(part_id)
+        # 执行发现逻辑
+        ports = gp.discover_ports(part_id)
         
         # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
         self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
         
-        # 2. 间距验证: 找到属于两个相邻孔的端口，距离应该是 20 LDU = 0.008m
-        # 因为前两个端口都是 x=-40 的，我们需要找到不同孔的端口。
-        # 找到所有唯一的 position (基于 x 坐标)
-        unique_xs = sorted(list(set([round(p["position"][0], 5) for p in ports])))
-
-        dist = abs(unique_xs[1] - unique_xs[0])
+        # 2. 间距验证: 每两个相邻孔的间距应为 20 LDU = 0.008m
+        p0 = np.array(ports[0]["position"])
+        p1 = np.array(ports[1]["position"])
+        dist = np.linalg.norm(p1 - p0)
         
         # 容差设为 0.1mm (0.0001m)
         self.assertAlmostEqual(dist, 0.008, delta=0.0001, 

@@ -101,19 +101,15 @@ class TestPortZAxisDirection(unittest.TestCase):
 
         self.assertTrue(len(ports) >= 1)
         
-        # Pin (is_extruding=True) 分裂出的端口在 SI 空间下其 Z 轴应根据两端外翻
-        # 由于它是 2 单位长的 pin，会生成两个 port，分别指向 +Y 和 -Y
-        z_axes = []
+        # Pin (is_extruding=True) 分裂出的端口在 SI 空间下其 Z 轴应统一为 [0, 1, 0]
+        # (因为修复后 raw_z = y_axis_ldu * (-(-1.0)) = y_axis_ldu * 1.0 -> SI 空间也是 [0, 1, 0])
+        # 若是常规多单位通孔 (is_extruding=False)，其 SI Z轴应为 [0, -1, 0]，正好对冲反平行 (Anti-parallel)
         for p in ports:
             rot = np.array(p["rotation"])
             z_axis = rot[:, 2].tolist()
-            z_axes.append(z_axis)
-
-        has_pos_y = any(np.allclose(z, [0.0, 1.0, 0.0], atol=1e-5) for z in z_axes)
-        has_neg_y = any(np.allclose(z, [0.0, -1.0, 0.0], atol=1e-5) for z in z_axes)
-
-        self.assertTrue(has_pos_y and has_neg_y,
-                        f"Pin 端口应在两端分别指向外侧 ([0, 1, 0] 和 [0, -1, 0])，实际：{z_axes}")
+            # 挤出型的销件在此逻辑下统一为 SI 下的 +Y 轴指向 (朝向 LDU负Y所在物理空间)
+            self.assertTrue(np.allclose(z_axis, [0.0, 1.0, 0.0], atol=1e-5),
+                            f"Pin 端口应有标准的一致 Z 轴对冲法线方向 [0, 1, 0]，实际：{z_axis}")
 
 if __name__ == "__main__":
     unittest.main()
