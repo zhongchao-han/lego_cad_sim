@@ -82,14 +82,19 @@ function LibraryNav() {
 }
 
 function App() {
-  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
-  if (window.location.pathname === '/generator') {
-    return <ThumbnailGenerator />;
-  }
-
   const view = useStore((state) => state.view);
   const setWsConnected = useStore((state) => state.setWsConnected);
   const batchUpdatePartStates = useStore((state) => state.batchUpdatePartStates);
+  const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
+  const interactionPhase = useStore((state) => state.interactionPhase);
+  const addStagedPart = useStore((state) => state.addStagedPart);
+  const previewPart = useStore((state) => state.previewPart);
+
+  // 全局搜索面板状态
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // 挂载全局 3D 快捷键监听
+  useKeyboardShortcuts();
 
   useEffect(() => {
     let ws = null;
@@ -113,17 +118,6 @@ function App() {
     connect();
     return () => { isMounted = false; clearTimeout(reconnectTimer); if (ws) ws.close(); };
   }, [setWsConnected, batchUpdatePartStates]);
-
-  const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
-  const interactionPhase = useStore((state) => state.interactionPhase);
-  const addStagedPart = useStore((state) => state.addStagedPart);
-  const previewPart = useStore((state) => state.previewPart);
-
-  // 全局搜索面板状态
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-
-  // 挂载全局 3D 快捷键监听
-  useKeyboardShortcuts();
 
   // 键盘全局监听：专属的 Cmd+K 和 自定义事件
   useEffect(() => {
@@ -150,6 +144,11 @@ function App() {
       window.removeEventListener('open-part-search', handleOpenSearch);
     };
   }, [isSearchOpen]);
+
+  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
+  if (window.location.pathname === '/generator') {
+    return <ThumbnailGenerator />;
+  }
 
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">
