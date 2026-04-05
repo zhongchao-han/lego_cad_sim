@@ -8,6 +8,7 @@ import trimesh
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from unittest.mock import patch, mock_open
 from backend.geometry_processor import GeometryProcessor
 from backend.port import Port
 from backend.port_semantics import FitType
@@ -24,7 +25,10 @@ class TestV3_0Integration(unittest.TestCase):
         self.test_output = "tmp/test_assets"
         os.makedirs(self.test_output, exist_ok=True)
 
-    def test_2_1_spatial_sync_glb_json(self):
+    @patch("backend.geometry_processor.PortLibrary.resolve_path")
+    @patch("trimesh.load")
+    @patch("trimesh.Trimesh.export")
+    def test_2_1_spatial_sync_glb_json(self, mock_export, mock_load, mock_resolve):
         """
         [Test 2.1] 验证模型顶点与端口解析在 Y-Up 归一化坐标系下的强同步。
         目标: 32316.dat (3L 梁)
@@ -32,10 +36,35 @@ class TestV3_0Integration(unittest.TestCase):
         part_id = "32316.dat"
         glb_path = os.path.join(self.test_output, "32316.glb")
         
-        # 1. 运行核心转换管线 (v3.0)
-        self.gp.convert_to_glb(part_id, glb_path)
-        ports = self.gp.discover_ports(part_id)
+        # Mock file system contents dictionary
+        mock_fs = {
+            "dummy_32316.dat": "0 5L Beam\n1 16 -40 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat\n",
+            "dummy_beamhole.dat": "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n" # just a dummy quad to stop recursion
+        }
         
+        def mock_resolve_side_effect(path, fname):
+            return f"dummy_{os.path.basename(fname)}"
+        mock_resolve.side_effect = mock_resolve_side_effect
+
+        class MockGeometry:
+            vertices = np.array([[0, 0, 0], [0, 0.01, 0]])
+        class MockScene:
+            geometry = {"mesh_0": MockGeometry()}
+            def export(self, *args, **kwargs):
+                pass
+        mock_load.return_value = MockScene()
+
+        def custom_mock_open(filename, *args, **kwargs):
+            fname = os.path.basename(filename)
+            content = mock_fs.get(fname, "")
+            return mock_open(read_data=content)()
+
+        with patch("builtins.open", new=custom_mock_open):
+            ports = self.gp.discover_ports(part_id)
+
+            # 1. 运行核心转换管线 (v3.0)
+            self.gp.convert_to_glb(part_id, glb_path)
+
         # 2. 读取导出的模型并提取几何特征
         scene = trimesh.load(glb_path)
         # 获取场景中的主网格

@@ -107,7 +107,8 @@ class PhysicsEngine:
                                     controlMode=p.VELOCITY_CONTROL, 
                                     force=0, physicsClientId=self.client_id)
                                     
-            if joint_type == p.JOINT_CONTINUOUS or joint_type == p.JOINT_REVOLUTE:
+            # pybullet does not have a JOINT_CONTINUOUS constant. continuous is usually just represented as revolute with no limits
+            if joint_type == p.JOINT_REVOLUTE:
                 # 设定摩擦销或者轴的 Clutch Power (摩擦阻尼系数)
                 # 我们可以根据销/孔类型来精细决定 jointFrictionForce，比如灰色无阻尼销给予 0，而黑色阻力销给予一个阻力。
                 clutch_force = 1.5 if "friction" in joint_name.lower() else 0.05
