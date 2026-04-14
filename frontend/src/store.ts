@@ -125,6 +125,7 @@ interface StoreState {
   showAll: () => void;
   selectAll: () => void;
   deselectAll: () => void;
+  setMarqueeSelection: (ids: string[]) => void;
 
   addParts: (ids: string[]) => void;
   removeParts: (ids: string[]) => void;
@@ -752,6 +753,22 @@ export const useStore = create<StoreState>()(
 
   deselectAll: () => {
     set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
+  },
+
+  setMarqueeSelection: (ids: string[]) => {
+    if (ids.length === 0) {
+      set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
+    } else {
+      set({ 
+        selection: { 
+          primaryId: ids[0], 
+          level: SelectionLevel.GROUP, 
+          allConnectedIds: ids, 
+          excludedIds: [] 
+        } 
+      });
+      get().addLog(`Marquee selected ${ids.length} parts.`, 'ACTION');
+    }
   },
 
   focusCameraOnSelected: () => {

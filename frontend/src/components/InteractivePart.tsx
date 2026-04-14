@@ -8,6 +8,7 @@ import { LDrawMeshRenderer } from './LDrawMeshRenderer';
 import { SiteGizmo } from './SiteGizmo';
 import { RenderErrorBoundary } from './RenderErrorBoundary';
 import { AutoFitCamera } from './AutoFitCamera';
+import { Select } from '@react-three/postprocessing';
 
 // Vite injects env into import.meta
 const BACKEND_ORIGIN = (import.meta as unknown as Record<string, { VITE_BACKEND_ORIGIN?: string }>).env?.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
@@ -141,8 +142,11 @@ export const InteractivePart = memo(({
     // 比事件系统更可靠：
     //   - 无子网格切换"空窗"导致的虚假 onPointerLeave
     //   - 无 stopPropagation / 事件冒泡链的复杂性
-    //   - 精度到三角面级别，无包围球近似误差
-    if (!isStatic && groupRef.current) {
+    // 性能治理：强制节流（Throttle）密集射线的几何学穿透运算。
+    // R3F 默认渲染为 60/120 FPS，如果数百个零件每帧都在触发射线 BVH 扫描，相当于 O(N * M) 级爆破。
+    // 限定为最多 10 帧检测一次 (近似 100ms 刷新率)
+    if (!isStatic && groupRef.current && (clock.elapsedTime - lastHoverCheckRef.current > 0.1)) {
+      lastHoverCheckRef.current = clock.elapsedTime;
       const hits = raycaster.intersectObject(groupRef.current, true);
       const isNowHovered = hits.length > 0;
       if (isNowHovered !== hoveredRef.current) {
@@ -154,11 +158,11 @@ export const InteractivePart = memo(({
   });
 
   const highlight = useMemo(() => {
-    if (isBlocked) return { color: '#ff3d00', intensity: pulse };
-    if (isSelected) return { color: '#2979ff', intensity: 0.8 };
-    if (isGroupMember) return { color: '#2979ff', intensity: 0.25 };
-    if (hovered) return { color: '#ffffff', intensity: 0.15 };
-    return { color: null, intensity: 0 };
+    if (isBlocked) return { color: '#ff3d00', intensity: pulse, outline: true };
+    if (isSelected) return { color: null, intensity: 0, outline: true };
+    if (isGroupMember) return { color: null, intensity: 0, outline: true };
+    if (hovered) return { color: null, intensity: 0, outline: true };
+    return { color: null, intensity: 0, outline: false };
   }, [isSelected, isGroupMember, isBlocked, pulse, hovered]);
 
   const [forceFallback, setForceFallback] = useState(false);
@@ -166,6 +170,7 @@ export const InteractivePart = memo(({
   const groupRef = useRef<THREE.Group>(null);
   // 用 ref 追踪上一帧的 hover 结果，避免每帧不必要地触发 setState
   const hoveredRef = useRef(false);
+  const lastHoverCheckRef = useRef(0);
 
   // 宏观考量：如果元数据层面报错，直接标记强制降级
   const isDataError = !!ldrawPart.error;
@@ -189,35 +194,36 @@ export const InteractivePart = memo(({
       {/* 集中处理自适应对焦，仅在明确指定且网格有效时激活 */}
       <AutoFitCamera targetRef={groupRef} enabled={autoCenter && shouldRenderMesh} />
 
-      {shouldRenderMesh && activeMeshUrl ? (
-        <RenderErrorBoundary 
-            onCatch={() => setForceFallback(true)}
-        >
-            <LDrawMeshRenderer
-              url={activeMeshUrl}
-              onDoubleClick={onDoubleClick}
-              onPointerDown={handlePointerDown}
-              highlightColor={highlight.color}
-              highlightIntensity={highlight.intensity}
+      <Select enabled={highlight.outline}>
+        {shouldRenderMesh && activeMeshUrl ? (
+          <RenderErrorBoundary 
+              onCatch={() => setForceFallback(true)}
+          >
+              <LDrawMeshRenderer
+                url={activeMeshUrl}
+                onDoubleClick={onDoubleClick}
+                onPointerDown={handlePointerDown}
+                highlightColor={highlight.color}
+                highlightIntensity={highlight.intensity}
+                opacity={finalOpacity}
+              />
+          </RenderErrorBoundary>
+        ) : (
+          <mesh
+            onDoubleClick={onDoubleClick}
+            onPointerDown={handlePointerDown}
+          >
+            <boxGeometry args={[10 * LDU, 10 * LDU, 10 * LDU]} />
+            <meshStandardMaterial 
+              color={forceFallback || isDataError ? '#ff5252' : (highlight.color || '#b0bec5')} 
+              emissive={forceFallback || isDataError ? '#b71c1c' : (highlight.color || '#000000')}
+              emissiveIntensity={forceFallback || isDataError ? pulse : highlight.intensity}
+              transparent={finalOpacity < 1}
               opacity={finalOpacity}
             />
-        </RenderErrorBoundary>
-      ) : (
-        <mesh
-          onDoubleClick={onDoubleClick}
-          onPointerDown={handlePointerDown}
-        >
-          {/* 红色警告表示加载彻底失败，灰色表示仅数据拉取中或正常占位 */}
-          <boxGeometry args={[10 * LDU, 10 * LDU, 10 * LDU]} />
-          <meshStandardMaterial 
-            color={forceFallback || isDataError ? '#ff5252' : (highlight.color || (hovered ? '#ff9800' : '#b0bec5'))} 
-            emissive={forceFallback || isDataError ? '#b71c1c' : '#000000'}
-            emissiveIntensity={forceFallback || isDataError ? pulse : 0}
-            transparent={finalOpacity < 1}
-            opacity={finalOpacity}
-          />
-        </mesh>
-      )}
+          </mesh>
+        )}
+      </Select>
 
       {/* Site-based Gizmo 渲染（新交互）：完全依赖后端的 v3.1 Site 聚类数据进行方向推理 */}
       {finalShowPorts && ldrawPart.sites?.map((site) => (

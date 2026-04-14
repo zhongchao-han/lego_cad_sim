@@ -2,9 +2,11 @@ import React, { Suspense, memo, useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } from '@react-three/drei';
+import { Perf } from 'r3f-perf';
 import { useStore } from './store';
 import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
+import { MarqueeSelectionOverlay } from './components/MarqueeSelectionOverlay';
 
 import { InteractionPhase, ZoneType } from './types';
 import { calculateSnapPose } from './utils/snapMath';
@@ -198,6 +200,8 @@ const FreePlacerGhost = () => {
     );
 };
 
+import { EffectComposer, Outline, Selection } from '@react-three/postprocessing';
+
 export default function Scene() {
     const parts = useStore((s) => s.parts);
     const debugMode = useStore((s) => s.debugMode);
@@ -205,7 +209,13 @@ export default function Scene() {
     const hiddenParts = useStore((s) => s.hiddenParts);
 
     return (
-        <>
+        <Selection>
+            <Perf position="top-left" minimal={false} />
+            
+            <EffectComposer autoClear={false} multisampling={0}>
+                <Outline visibleEdgeColor={0xffffff} hiddenEdgeColor={0xffffff} edgeStrength={3.0} blur />
+            </EffectComposer>
+
             {/* 宏观治理：使用程序化虚拟现实工作室，彻底脱离在线 CDN 依赖 */}
             <Environment frames={1} resolution={256}>
               <group>
@@ -240,6 +250,7 @@ export default function Scene() {
             ))}
             <PlacementGhost />
             <FreePlacerGhost />
+            <MarqueeSelectionOverlay />
 
             <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
@@ -249,6 +260,6 @@ export default function Scene() {
             )}
 
             <BakeShadows />
-        </>
+        </Selection>
     );
 }
