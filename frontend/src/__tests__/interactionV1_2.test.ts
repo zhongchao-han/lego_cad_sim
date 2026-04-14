@@ -36,6 +36,9 @@ describe('Interaction v1.2 交互测试矩阵', () => {
   it('应该严格遵循预期的核心阶段跳转序列', () => {
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
 
+    // 先在场景中放置一个零件，保证 activeParts 不为空，才能进入 SOURCE_LOCKED
+    useStore.getState().addParts(['dummy_part']);
+
     // 1. 从库中选取零件
     useStore.getState().previewPart('32524');
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.PREVIEWING);

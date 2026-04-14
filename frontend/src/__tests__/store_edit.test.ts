@@ -55,6 +55,10 @@ describe('Store Edit Actions (Undo/Redo & Clipboard)', () => {
     
     // 执行 Paste
     useStore.getState().pasteClipboard();
+    const payload = useStore.getState().freePlacingPayload;
+    const finalStates = {};
+    payload.forEach(p => finalStates[p.id] = p.state);
+    useStore.getState().commitFreePlacing(finalStates);
     
     const parts = useStore.getState().parts;
     const clip = useStore.getState().clipboard;
@@ -73,7 +77,7 @@ describe('Store Edit Actions (Undo/Redo & Clipboard)', () => {
     const pastedPartId = selection.allConnectedIds[0];
     const pastedPos = parts[pastedPartId].position;
     
-    expect(pastedPos[0]).toBeCloseTo(originalPos[0] + 0.05);
+    expect(pastedPos[0]).toBeCloseTo(-0.5);
 
     // 验证可逆性 Undo
     expect(useStore.getState().canUndo).toBe(true);

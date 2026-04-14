@@ -50,6 +50,11 @@ interface StoreState {
   canUndo: boolean;
   canRedo: boolean;
   stagingGrid: StagingGrid;
+  snapPreState: {
+    movedPartIds: string[];
+    prevPositions: Record<string, { position: Vec3; quaternion: Quat }>;
+    addedConnections: Array<{ from: string; to: string }>;
+  } | null;
 
   /**
    * 全局活跃颜色码 (LDraw Color Code)。
@@ -216,6 +221,7 @@ export const useStore = create<StoreState>()(
   canUndo: false,
   canRedo: false,
   stagingGrid: new StagingGrid(),
+  snapPreState: null,
 
   // 全局活跃颜色码，默认为 4 (Red)，供新建零件实例时使用
   activeColorCode: 4,
@@ -247,7 +253,8 @@ export const useStore = create<StoreState>()(
         hiddenParts: new Set(),
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
         slideOffset: 0,
-        cameraTarget: null
+        cameraTarget: null,
+        snapPreState: null
       });
   },
 
@@ -376,7 +383,24 @@ export const useStore = create<StoreState>()(
         return;
       }
       get().addLog(`Target port selected: ${port.partId}. Starting snap animation...`, 'PHYSICS');
-      set({ interactionPhase: InteractionPhase.ANIMATING_SNAP });
+      
+      const { connections, parts } = get();
+      const srcGroup = getConnectedGroup(connections, selectedPort.partId, port.partId);
+      const prevPositions: Record<string, { position: Vec3; quaternion: Quat }> = {};
+      srcGroup.forEach(pid => {
+        const p = parts[pid];
+        if (p) prevPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
+      });
+
+      set({ 
+        interactionPhase: InteractionPhase.ANIMATING_SNAP,
+        snapPreState: {
+          movedPartIds: srcGroup,
+          prevPositions,
+          addedConnections: [{ from: selectedPort.partId, to: port.partId }]
+        }
+      });
+
       const ok = await snapParts(selectedPort, port);
       
       if (ok) {
@@ -441,14 +465,7 @@ export const useStore = create<StoreState>()(
     newConnections[source.partId].add(target.partId);
     newConnections[target.partId].add(source.partId);
 
-    const cmd = createSnapCommand({ movedPartIds: srcGroup, prevPositions, addedConnections: [{ from: source.partId, to: target.partId }] }, () => {}, (snap) => {
-        set(prev => {
-            const rp = { ...prev.parts };
-            Object.entries(snap.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
-            return { parts: rp };
-        });
-    });
-    _history.push(cmd);
+    // History recording is now handled in commitAxialSliding to allow for proper undo/redo of the sliding action
 
     // 先更新本地状态，保证 UI 立即响应（乐观更新）
     set({ parts: updated, connections: newConnections });
@@ -491,13 +508,36 @@ export const useStore = create<StoreState>()(
   },
 
   abortCurrentInteraction: () => {
+    const pre = get().snapPreState;
+    if (pre) {
+        set(prev => {
+            const rp = { ...prev.parts };
+            Object.entries(pre.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
+            const rc = { ...prev.connections };
+            pre.addedConnections.forEach(({ from, to }) => {
+                if (rc[from]) {
+                    const nextSet = new Set(rc[from]);
+                    nextSet.delete(to);
+                    if (nextSet.size === 0) delete rc[from]; else rc[from] = nextSet;
+                }
+                if (rc[to]) {
+                    const nextSet = new Set(rc[to]);
+                    nextSet.delete(from);
+                    if (nextSet.size === 0) delete rc[to]; else rc[to] = nextSet;
+                }
+            });
+            return { parts: rp, connections: rc };
+        });
+    }
+
     get().addLog("Aborting port interaction.");
     set({ 
       interactionPhase: InteractionPhase.IDLE, 
       selectedPort: null, 
       hoveredPort: null,
       slidingTarget: null,
-      slideOffset: 0
+      slideOffset: 0,
+      snapPreState: null
     });
   },
 
@@ -828,15 +868,63 @@ export const useStore = create<StoreState>()(
   },
 
   commitAxialSliding: () => {
-    const { canUndo, canRedo } = _history;
+    const { snapPreState, parts } = get();
+    if (snapPreState) {
+        const nextPositions: Record<string, { position: Vec3; quaternion: Quat }> = {};
+        snapPreState.movedPartIds.forEach(pid => {
+            const p = parts[pid];
+            if (p) nextPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
+        });
+
+        const cmd = createSnapCommand(
+            snapPreState,
+            () => { // redo
+                set(prev => {
+                    const rp = { ...prev.parts };
+                    Object.entries(nextPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
+                    const rc = { ...prev.connections };
+                    snapPreState.addedConnections.forEach(({ from, to }) => {
+                        if (!rc[from]) rc[from] = new Set();
+                        if (!rc[to]) rc[to] = new Set();
+                        rc[from].add(to);
+                        rc[to].add(from);
+                    });
+                    return { parts: rp, connections: rc };
+                });
+            },
+            (snap) => { // undo
+                set(prev => {
+                    const rp = { ...prev.parts };
+                    Object.entries(snap.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
+                    const rc = { ...prev.connections };
+                    snap.addedConnections.forEach(({ from, to }) => {
+                        if (rc[from]) {
+                            const nextSet = new Set(rc[from]);
+                            nextSet.delete(to);
+                            if (nextSet.size === 0) delete rc[from]; else rc[from] = nextSet;
+                        }
+                        if (rc[to]) {
+                            const nextSet = new Set(rc[to]);
+                            nextSet.delete(from);
+                            if (nextSet.size === 0) delete rc[to]; else rc[to] = nextSet;
+                        }
+                    });
+                    return { parts: rp, connections: rc };
+                });
+            }
+        );
+        _history.push(cmd);
+    }
+
     set({ 
       interactionPhase: InteractionPhase.IDLE, 
       selectedPort: null, 
       hoveredPort: null, 
       slidingTarget: null,
       slideOffset: 0,
-      canUndo,
-      canRedo 
+      snapPreState: null,
+      canUndo: _history.canUndo,
+      canRedo: _history.canRedo 
     });
     get().addLog("Axial Sliding committed.", 'ACTION');
   },
