@@ -13,6 +13,7 @@ import { LogPanel } from './components/LogPanel';
 import { ThumbnailGenerator } from './ThumbnailGenerator.tsx';
 import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
+import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // ---------------------------------------------------------------------------
@@ -89,6 +90,7 @@ function App() {
   }
 
   const view = useStore((state) => state.view);
+  const isContextLost = useStore((state) => state.isContextLost);
   const setWsConnected = useStore((state) => state.setWsConnected);
   const batchUpdatePartStates = useStore((state) => state.batchUpdatePartStates);
 
@@ -172,6 +174,7 @@ function App() {
             }}
           >
             <Suspense fallback={<Html center><span>Loading…</span></Html>}>
+              <WebGLRecoveryWatcher />
               <Scene />
             </Suspense>
           </Canvas>
@@ -219,6 +222,24 @@ function App() {
           }}
         />
       </RenderErrorBoundary>
+
+      {isContextLost && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#1a1a1c]/95 backdrop-blur-md text-white">
+          <div className="bg-amber-950/80 p-8 rounded-3xl border border-amber-500/50 shadow-2xl max-w-md text-center">
+            <svg className="w-16 h-16 text-amber-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <h2 className="text-2xl font-black text-amber-400 mb-3 tracking-wider uppercase">WebGL Context Lost</h2>
+            <p className="text-amber-200/80 text-sm mb-8 leading-relaxed font-medium">
+              由于超出浏览器显存分配阈值限制，3D 画布渲染上下文已崩溃。
+              为了防止脏数据写入，操作总线已强制挂起。
+            </p>
+            <button onClick={() => window.location.reload()} className="px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded-xl shadow-lg transition-all tracking-widest font-black uppercase text-xs">
+              重启渲染管线
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -73,6 +73,26 @@ export function LDrawMeshRenderer({
     return c;
   }, [scene]);
 
+  // 严格底层的垃圾回收：由于我们在 useMemo 里为 clone 出来的 Mesh 注入了全新的 Material，
+  // 我们必须严格在组件卸载或 visual 重建时显式 dispose 它们。如果不这样做，会导致严重的 Context Lost 系统崩溃。
+  useEffect(() => {
+    return () => {
+      visual.traverse((child: THREE.Object3D) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          if (mesh.geometry) mesh.geometry.dispose();
+          if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(m => m.dispose());
+            } else {
+              mesh.material.dispose();
+            }
+          }
+        }
+      });
+    };
+  }, [visual]);
+
   // 命令式更新高亮 emissive，不触发 visual 重建
   useEffect(() => {
     visual.traverse((child: THREE.Object3D) => {

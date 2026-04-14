@@ -66,6 +66,7 @@ interface StoreState {
   // 日志系统
   logs: StoreLog[];
   showLogPanel: boolean;
+  isContextLost: boolean;
 
   // v1.2 State
   selection: {
@@ -113,6 +114,7 @@ interface StoreState {
   addLog: (msg: string, type?: StoreLog['type']) => void;
   clearLogs: () => void;
   toggleLogPanel: (show?: boolean) => void;
+  setContextLost: (lost: boolean) => void;
 
   // v1.2 Actions
   deleteSelected: () => void;
@@ -228,6 +230,7 @@ export const useStore = create<StoreState>()(
   
   logs: [],
   showLogPanel: false,
+  isContextLost: false,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
@@ -254,7 +257,8 @@ export const useStore = create<StoreState>()(
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
         slideOffset: 0,
         cameraTarget: null,
-        snapPreState: null
+        snapPreState: null,
+        isContextLost: false
       });
   },
 
@@ -547,6 +551,11 @@ export const useStore = create<StoreState>()(
 
   clearLogs: () => set({ logs: [] }),
   toggleLogPanel: (show) => set(s => ({ showLogPanel: show !== undefined ? show : !s.showLogPanel })),
+  
+  setContextLost: (lost: boolean) => {
+      get().addLog(`WebGL Context ${lost ? 'Lost' : 'Restored'}`, lost ? 'ERROR' : 'INFO');
+      set({ isContextLost: lost });
+  },
 
   deleteSelected: () => {
     const { parts, connections, selection } = get();
