@@ -64,6 +64,12 @@ export function usePartSearch() {
   const [isLlmThinking, setIsLlmThinking] = useState(false);
   const [rewrittenQuery, setRewrittenQuery] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fatalInitError, setFatalInitError] = useState<Error | null>(null);
+
+  // 云原生容错设计 (Fail-Fast): 防止隐式失效
+  if (fatalInitError) {
+    throw fatalInitError;
+  }
   
   const [llmConfig, setLlmConfig] = useState<LLMConfig>(() => {
     const saved = localStorage.getItem('lego_llm_config');
@@ -89,23 +95,38 @@ export function usePartSearch() {
     let isMounted = true;
     
     const initializeClient = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/search/key');
-        if (!res.ok) throw new Error('Network response was not ok');
-        const data = await res.json();
-        
-        if (data.status === 'success' && isMounted) {
-          clientRef.current = new Meilisearch({
-            host: data.host || 'http://localhost:7700',
-            apiKey: data.search_key,
-          });
-        } else if (isMounted) {
-          setError(data.msg || 'Failed to obtain Search API Key');
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Failed to initialize MeiliSearch client:", err);
-          setError("无法连接到搜索引擎凭证服务，搜索降级不可用");
+      const delays = [100, 500, 1000]; // 指数级退避间隔
+      let attempt = 0;
+
+      while (isMounted && attempt <= delays.length) {
+        try {
+          const res = await fetch('http://localhost:8000/api/search/key');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          if (data.status === 'success' && isMounted) {
+            clientRef.current = new Meilisearch({
+              host: data.host || 'http://localhost:7700',
+              apiKey: data.search_key,
+            });
+            setError(null);
+            return; // 初始化成功
+          } else if (isMounted) {
+            throw new Error(data.msg || '后端未返回成功的凭证');
+          }
+        } catch (err: any) {
+          if (attempt < delays.length) {
+            console.warn(`[Meilisearch] 搜素引擎探针获取凭证失败，准备发起第 ${attempt + 1} 次重试...`);
+            await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+            attempt++;
+          } else {
+            console.error("Failed to initialize MeiliSearch client after retries:", err);
+            // 三次重试枯竭，触发致命异常
+            if (isMounted) {
+              setFatalInitError(new Error(`Fatal: Meilisearch 搜索引擎初始化失败，核心依赖熔断！[${err.message}]`));
+            }
+            break;
+          }
         }
       }
     };
@@ -128,7 +149,7 @@ export function usePartSearch() {
     }
 
     if (!clientRef.current) {
-      setError("搜索引擎未初始化就绪。");
+      setFatalInitError(new Error("Fatal: Meilisearch 搜索引擎未初始化完成即被并发调用，核心依赖流转异常！"));
       setIsLoading(false);
       return;
     }

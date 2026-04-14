@@ -12,6 +12,7 @@ import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
 import { ThumbnailGenerator } from './ThumbnailGenerator.tsx';
 import { PartSearchDialog } from './components/PartSearchDialog';
+import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 // ---------------------------------------------------------------------------
@@ -184,21 +185,40 @@ function App() {
       
       <LogPanel />
 
-      <PartSearchDialog 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-        onSelectPart={(partNum) => {
-          if (view === 'ASSEMBLY') {
-            const partId = partNum + ".dat";
-            // 添加到暂存区，并同时激活大弹窗预览模式
-            addStagedPart?.({ part_id: partId });
-            previewPart?.(partId);
-          } else {
-            console.log(`[Verify View] Selected Part: ${partNum}`);
-            // TODO: 如果需要可以切换库校验面板到选中的零件
-          }
-        }}
-      />
+      <RenderErrorBoundary 
+        fallback={
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#2a2a2e]/90 backdrop-blur-sm text-white">
+            <div className="bg-red-950/80 p-8 rounded-2xl border border-red-500/50 shadow-2xl max-w-md text-center">
+              <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <h2 className="text-xl font-bold text-red-500 mb-2 tracking-wide">核心依赖熔断</h2>
+              <p className="text-red-200 text-sm mb-6 leading-relaxed">
+                Meilisearch 搜索引擎未能通过启动验证或连接凭证失效，为防止意外副作用，该模块已被阻断。
+              </p>
+              <button onClick={() => window.location.reload()} className="px-6 py-2 bg-red-600/80 text-red-100 rounded hover:bg-red-500 transition-colors tracking-wide font-medium">
+                强制刷新上下文
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <PartSearchDialog 
+          isOpen={isSearchOpen} 
+          onClose={() => setIsSearchOpen(false)} 
+          onSelectPart={(partNum) => {
+            if (view === 'ASSEMBLY') {
+              const partId = partNum + ".dat";
+              // 添加到暂存区，并同时激活大弹窗预览模式
+              addStagedPart?.({ part_id: partId });
+              previewPart?.(partId);
+            } else {
+              console.log(`[Verify View] Selected Part: ${partNum}`);
+              // TODO: 如果需要可以切换库校验面板到选中的零件
+            }
+          }}
+        />
+      </RenderErrorBoundary>
     </div>
   );
 }
