@@ -107,6 +107,7 @@ const PlacementGhost = () => {
                 opacity={0.4}
                 transparent={true}
                 showPorts={false}
+                disableEvents={true}
             />
         </group>
     );
@@ -200,7 +201,7 @@ const FreePlacerGhost = () => {
     );
 };
 
-import { EffectComposer, Outline, Selection } from '@react-three/postprocessing';
+import { EffectComposer, Outline } from '@react-three/postprocessing';
 
 export default function Scene() {
     const parts = useStore((s) => s.parts);
@@ -209,11 +210,12 @@ export default function Scene() {
     const hiddenParts = useStore((s) => s.hiddenParts);
 
     return (
-        <Selection>
-            <Perf position="top-left" minimal={false} />
+        <>
+            <Perf position="top-left" style={{ top: '24px', left: '300px' }} minimal={true} />
             
             <EffectComposer autoClear={false} multisampling={0}>
-                <Outline visibleEdgeColor={0xffffff} hiddenEdgeColor={0xffffff} edgeStrength={3.0} blur />
+                {/* 使用纯原生的 Three.js Layer 来规避 @react-three/postprocessing Selection Context 死锁 */}
+                <Outline visibleEdgeColor={0xffffff} hiddenEdgeColor={0xffffff} edgeStrength={3.0} blur selectionLayer={10} />
             </EffectComposer>
 
             {/* 宏观治理：使用程序化虚拟现实工作室，彻底脱离在线 CDN 依赖 */}
@@ -260,6 +262,6 @@ export default function Scene() {
             )}
 
             <BakeShadows />
-        </Selection>
+        </>
     );
 }

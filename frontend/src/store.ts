@@ -1047,3 +1047,9 @@ export const useStore = create<StoreState>()(
     }
   }
 }));
+
+// 为 E2E 测试环境暴露入口
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.__STORE__ = useStore;
+}

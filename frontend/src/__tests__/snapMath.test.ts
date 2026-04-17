@@ -11,8 +11,8 @@
  *   pin.dat  (MALE)  → Rx(+90°): [[1,0,0],[0,0,-1],[0,1,0]]，Z 列 = [0,-1,0]
  *   peghole  (FEMALE)→ Rx(-90°): [[1,0,0],[0,0,1],[0,-1,0]]，Z 列 = [0, 1,0]
  */
-
 import { describe, it, expect } from 'vitest';
+import { calculateClampedOffset } from '../utils/snapMath';
 
 // ---------------------------------------------------------------------------
 // 复制 store.ts 中的纯数学工具（与源文件保持完全一致，用于隔离测试）
@@ -126,5 +126,31 @@ describe('snapParts: baseAxis Z-axis convention', () => {
       expect(Math.abs(pinAxis[1])).toBeCloseTo(0);   // no Y component — wrong
       expect(Math.abs(holeAxis[1])).toBeCloseTo(0);  // no Y component — wrong
     });
+  });
+});
+
+describe('calculateClampedOffset (TS-6.3 狂暴穿模验证)', () => {
+  it('TS-6.3-A: 没有 shiftKey 时，超出限位会被 clamp', () => {
+    // 假设限制 8，传入 15，应当被卡在 8
+    const offset = calculateClampedOffset(15, false, 8);
+    expect(offset).toBe(8);
+
+    // 假设限制 8，传入 -15，应当被卡在 -8
+    const offsetNeg = calculateClampedOffset(-15, false, 8);
+    expect(offsetNeg).toBe(-8);
+  });
+
+  it('TS-6.3-B: 携带 shiftKey=true 时，无视 clamp 限制实现穿模', () => {
+    // 假设限制 8，传入 25，因为按了 shift，直接返回 25
+    const offset = calculateClampedOffset(25, true, 8);
+    expect(offset).toBe(25);
+
+    const offsetNeg = calculateClampedOffset(-100, true, 8);
+    expect(offsetNeg).toBe(-100);
+  });
+
+  it('TS-6.3-C: 没有 shiftKey 但未超出限位时，正常返回', () => {
+    const offset = calculateClampedOffset(5, false, 8);
+    expect(offset).toBe(5);
   });
 });

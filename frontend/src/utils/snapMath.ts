@@ -1,6 +1,15 @@
 import * as THREE from 'three';
 
 /**
+ * 沿轴滑动时的物理限位计算 (Collision Clamping)
+ * TS-6.3: 携带 shiftKey 能够无视物理限位直接穿模
+ */
+export function calculateClampedOffset(offset: number, shiftKey: boolean, limit: number = 20 * 0.4): number {
+    if (shiftKey) return offset; // Shift 键屏蔽物理碰撞和限位
+    return Math.max(-limit, Math.min(limit, offset));
+}
+
+/**
  * 核心对齐算法 (Point-to-Point Snap Engine)
  * 目标：将 Source 端口 重合于 Target 端口，且 Z 轴对扣，主轴（Y/X）对齐平滑。
  * 

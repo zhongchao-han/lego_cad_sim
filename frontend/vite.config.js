@@ -14,6 +14,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // e2e/ 目录下是 Playwright 测试文件，使用独立运行器（npx playwright test）
+    // 必须将其从 Vitest 的 glob 扫描范围中排除，防止 Playwright API 与 Vitest 运行器发生冲突
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
   },
 })
 

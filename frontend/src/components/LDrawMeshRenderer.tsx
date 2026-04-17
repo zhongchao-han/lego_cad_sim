@@ -23,6 +23,8 @@ interface LDrawMeshRendererProps {
   onPointerDown?: (e: unknown) => void;
   highlightColor?: string | null;
   highlightIntensity?: number;
+  highlightOutline?: boolean;
+  disableRaycast?: boolean;
   opacity?: number;
 }
 
@@ -50,6 +52,8 @@ export function LDrawMeshRenderer({
   onPointerDown,
   highlightColor = null,
   highlightIntensity = 0,
+  highlightOutline = false,
+  disableRaycast = false,
   opacity = 1.0,
 }: LDrawMeshRendererProps) {
   const gltf = useGLTF(url, true) as unknown as { scene: THREE.Group | THREE.Group[] };
@@ -67,11 +71,14 @@ export function LDrawMeshRenderer({
         mesh.material = createABSPlasticMaterial(origColor, hasVC);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        // GLB 子网格保留射线检测能力，供 InteractivePart 的 useFrame 逐帧检测使用
+        // 如果传入了 disableRaycast，则完全禁用该克隆网格的物理射线检测（适用于 Ghost）
+        if (disableRaycast) {
+          mesh.raycast = () => null;
+        }
       }
     });
     return c;
-  }, [scene]);
+  }, [scene, disableRaycast]);
 
   // 严格底层的垃圾回收：由于我们在 useMemo 里为 clone 出来的 Mesh 注入了全新的 Material，
   // 我们必须严格在组件卸载或 visual 重建时显式 dispose 它们。如果不这样做，会导致严重的 Context Lost 系统崩溃。
@@ -105,6 +112,20 @@ export function LDrawMeshRenderer({
       }
     });
   }, [visual, highlightColor, highlightIntensity]);
+
+  // 命令式更新后处理 Outline 识别图层 (Layer 10)
+  // 彻底摒弃 @react-three/postprocessing 的 Select Provider 产生的 Context Cascade 死锁
+  useEffect(() => {
+    visual.traverse((child: THREE.Object3D) => {
+      if ((child as THREE.Mesh).isMesh) {
+        if (highlightOutline) {
+          child.layers.enable(10);
+        } else {
+          child.layers.disable(10);
+        }
+      }
+    });
+  }, [visual, highlightOutline]);
 
   // 命令式更新透明度，不触发 visual 重建
   useEffect(() => {

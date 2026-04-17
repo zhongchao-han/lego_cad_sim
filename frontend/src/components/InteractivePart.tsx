@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState, useEffect } from 'react';
+import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useStore } from '../store';
@@ -8,7 +8,9 @@ import { LDrawMeshRenderer } from './LDrawMeshRenderer';
 import { SiteGizmo } from './SiteGizmo';
 import { RenderErrorBoundary } from './RenderErrorBoundary';
 import { AutoFitCamera } from './AutoFitCamera';
-import { Select } from '@react-three/postprocessing';
+import { calculateClampedOffset } from '../utils/snapMath';
+import { useHoverState } from '../hooks/useHoverState';
+import React from 'react';
 
 // Vite injects env into import.meta
 const BACKEND_ORIGIN = (import.meta as unknown as Record<string, { VITE_BACKEND_ORIGIN?: string }>).env?.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
@@ -30,30 +32,39 @@ interface InteractivePartProps {
   onHoverChange?: (h: boolean) => void;
   onDoubleClick?: () => void;
   isStatic?: boolean;
+  disableEvents?: boolean;
   opacity?: number;
   autoCenter?: boolean;
+  transparent?: boolean;
+  position?: [number, number, number];
+  quaternion?: [number, number, number, number];
+  rotation?: [number, number, number];
 }
 
-export const InteractivePart = memo(({ 
+export const InteractivePart = memo(({
   partId,
   ldrawId,
-  colorCode = 7, 
-  onPortClick, 
+  colorCode = 7,
+  onPortClick,
   onPortHover,
-  showPorts = true, 
+  showPorts = true,
   onHoverChange,
   onDoubleClick,
   isStatic = false,
+  disableEvents = false,
   opacity = 1.0,
-  autoCenter = false
+  autoCenter = false,
 }: InteractivePartProps) => {
-  const [hovered, setHover] = useState(false);
+  const [isPortHovered, setIsPortHovered] = useState(false);
   const selection = useStore(s => s.selection);
   const interference = useStore(s => s.interferenceReport);
-  
-  const isSelected = selection.primaryId === partId;
+  const addLog = useStore((s) => s.addLog);
+
+  const isSelected = selection.primaryId === partId || (
+    selection.level === SelectionLevel.GROUP && selection.allConnectedIds.includes(partId)
+  );
   const isGroupMember = selection.level === SelectionLevel.GROUP && selection.allConnectedIds.includes(partId);
-  const isBlocked = isSelected && interference.isBlocked;
+  const isBlocked = (selection.primaryId === partId) && interference.isBlocked;
 
   const [pulse, setPulse] = useState(0);
   const currentPhase = useStore(s => s.interactionPhase);
@@ -64,168 +75,136 @@ export const InteractivePart = memo(({
   const commitAxialSliding = useStore(s => s.commitAxialSliding);
   const { mouse, raycaster, camera } = useThree();
 
+  const [forceFallback, setForceFallback] = useState(false);
+  const ldrawPart = useLDrawPart(ldrawId || partId, colorCode);
+  const groupRef = useRef<THREE.Group>(null);
+  const meshHitboxRef = useRef<THREE.Group>(null);
+
+  // ── Hover 状态管理（SRP：独立 Hook） ───────────────────────────────────────
+  const { hovered, handlePointerOver, handlePointerOut } = useHoverState({
+    partId,
+    ldrawId: ldrawId || partId,
+    disableEvents,
+    isStatic,
+    onHoverChange,
+    addLog,
+    groupRef,
+  });
+
+  // ── 选择/克隆交互 ─────────────────────────────────────────────────────────
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
-    // Multi-selection logic
     const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
     selectPart(partId, SelectionLevel.GROUP, isMultiSelect);
-
-    // Alt-Drag instant clone logic
     if (e.altKey && !isMultiSelect && currentPhase === InteractionPhase.IDLE) {
       duplicateSelected();
     }
   };
 
-  // --- 沿轴滑动 (Axial Sliding) 全局手势处理 ---
+  // ── 沿轴滑动全局手势处理 ──────────────────────────────────────────────────
   useEffect(() => {
     if (currentPhase !== InteractionPhase.AXIAL_SLIDING || !isSelected || !slidingTarget) return;
 
     const handlePointerMove = (e: PointerEvent) => {
-      // 1. 定义滑动轴线 (Z-axis in world space)
       const targetPos = new THREE.Vector3(...slidingTarget.globalPos);
       const targetQuat = new THREE.Quaternion(...slidingTarget.globalQuat);
       const axis = new THREE.Vector3(0, 0, 1).applyQuaternion(targetQuat).normalize();
-
-      // 2. 获取射线与轴线的最近点
-      // 构造轴线射线
       const axisRay = new THREE.Ray(targetPos, axis);
       raycaster.setFromCamera(mouse, camera);
       const mouseRay = raycaster.ray;
-
-      // 计算两条无限长直线的公垂线基点。这里我们寻找 mouseRay 上最接近 axisRay 的点，
-      // 然后投影到 axisRay 上。
       const closestPointOnAxis = new THREE.Vector3();
       const closestPointOnMouseRay = new THREE.Vector3();
-      
-      // 使用 THREE.Ray.distanceSqToRay 或类似的几何方法
-      // 简便方法：求解两条射线的最短距离点
-      // @ts-expect-error extended math function
-      mouseRay.distanceSqToRay(axisRay, closestPointOnMouseRay, closestPointOnAxis);
-      
-      // 3. 计算位移值 (点与原点的带符号投影距离)
+      axisRay.distanceSqToRay(mouseRay, closestPointOnAxis, closestPointOnMouseRay);
       const diff = new THREE.Vector3().subVectors(closestPointOnAxis, targetPos);
       const offset = diff.dot(axis);
-      
-      // 4. 应用物理限位 (MVP: +/- 0.5 stud)
-      let finalOffset = offset;
-      if (!e.shiftKey) { // Shift 键屏蔽物理碰撞和限位
-          const CLAMP_LIMIT = 20 * LDU; // 一个完整格
-          finalOffset = Math.max(-CLAMP_LIMIT, Math.min(CLAMP_LIMIT, offset));
-      }
-      
+      const finalOffset = calculateClampedOffset(offset, e.shiftKey, 20 * LDU);
       updateSlideOffset(finalOffset);
     };
 
-    const handlePointerUp = () => {
-      commitAxialSliding();
-    };
-
+    const handlePointerUp = () => { commitAxialSliding(); };
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [currentPhase, isSelected, slidingTarget, raycaster, mouse, camera, updateSlideOffset, commitAxialSliding]);
 
-  useFrame(({ clock, raycaster }) => {
-    // Pulse 动画（干涉状态）
+  // ── 脉冲动画（干涉状态） ──────────────────────────────────────────────────
+  useFrame(({ clock }) => {
     if (isBlocked) {
       setPulse(Math.sin(clock.elapsedTime * 12) * 0.4 + 0.6);
     } else if (pulse !== 0) {
       setPulse(0);
     }
-
-    // 逐帧射线检测 Hover 状态：
-    // 使用 R3F 当前帧的 raycaster（已由 R3F 更新到当前鼠标位置）直接对 group 做检测。
-    // 比事件系统更可靠：
-    //   - 无子网格切换"空窗"导致的虚假 onPointerLeave
-    //   - 无 stopPropagation / 事件冒泡链的复杂性
-    // 性能治理：强制节流（Throttle）密集射线的几何学穿透运算。
-    // R3F 默认渲染为 60/120 FPS，如果数百个零件每帧都在触发射线 BVH 扫描，相当于 O(N * M) 级爆破。
-    // 限定为最多 10 帧检测一次 (近似 100ms 刷新率)
-    if (!isStatic && groupRef.current && (clock.elapsedTime - lastHoverCheckRef.current > 0.1)) {
-      lastHoverCheckRef.current = clock.elapsedTime;
-      const hits = raycaster.intersectObject(groupRef.current, true);
-      const isNowHovered = hits.length > 0;
-      if (isNowHovered !== hoveredRef.current) {
-        hoveredRef.current = isNowHovered;
-        setHover(isNowHovered);
-        onHoverChange?.(isNowHovered);
-      }
-    }
   });
 
+  // ── SiteGizmo 端口 hover 本地代理 ─────────────────────────────────────────
+  const handlePortHoverLocal = useCallback((info: SelectedPortInfo | null) => {
+    setIsPortHovered(!!info);
+    onPortHover?.(info);
+  }, [onPortHover]);
+
+  // ── 高亮计算 ──────────────────────────────────────────────────────────────
   const highlight = useMemo(() => {
     if (isBlocked) return { color: '#ff3d00', intensity: pulse, outline: true };
     if (isSelected) return { color: null, intensity: 0, outline: true };
     if (isGroupMember) return { color: null, intensity: 0, outline: true };
-    if (hovered) return { color: null, intensity: 0, outline: true };
+    if (hovered || isPortHovered) return { color: null, intensity: 0, outline: true };
     return { color: null, intensity: 0, outline: false };
-  }, [isSelected, isGroupMember, isBlocked, pulse, hovered]);
-
-  const [forceFallback, setForceFallback] = useState(false);
-  const ldrawPart = useLDrawPart(ldrawId || partId, colorCode);
-  const groupRef = useRef<THREE.Group>(null);
-  // 用 ref 追踪上一帧的 hover 结果，避免每帧不必要地触发 setState
-  const hoveredRef = useRef(false);
-  const lastHoverCheckRef = useRef(0);
-
-  // 宏观考量：如果元数据层面报错，直接标记强制降级
-  const isDataError = !!ldrawPart.error;
-  const shouldRenderMesh = !!ldrawPart.meshUrl && !isDataError && !forceFallback;
+  }, [isSelected, isGroupMember, isBlocked, pulse, hovered, isPortHovered]);
 
   const interactionPhase = useStore(s => s.interactionPhase);
   const selectedPort = useStore(s => s.selectedPort);
-
-
-
   const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
 
   if (ldrawPart.loading) return null;
 
-  const isRenderingActive = hovered || isSelected || isStatic;
+  // ── 渲染 ──────────────────────────────────────────────────────────────────
+  const isRenderingActive = hovered || isPortHovered || isSelected || isStatic;
   const finalOpacity = isRenderingActive ? (opacity < 1 ? opacity : 0.5) : 1.0;
   const finalShowPorts = showPorts && isRenderingActive;
 
   return (
-    <group ref={groupRef}>
-      {/* 集中处理自适应对焦，仅在明确指定且网格有效时激活 */}
-      <AutoFitCamera targetRef={groupRef} enabled={autoCenter && shouldRenderMesh} />
+    <group
+      ref={groupRef}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+    >
+      <AutoFitCamera targetRef={groupRef} enabled={autoCenter && !!ldrawPart.meshUrl && !forceFallback} />
 
-      <Select enabled={highlight.outline}>
-        {shouldRenderMesh && activeMeshUrl ? (
-          <RenderErrorBoundary 
-              onCatch={() => setForceFallback(true)}
-          >
-              <LDrawMeshRenderer
-                url={activeMeshUrl}
-                onDoubleClick={onDoubleClick}
-                onPointerDown={handlePointerDown}
-                highlightColor={highlight.color}
-                highlightIntensity={highlight.intensity}
-                opacity={finalOpacity}
-              />
+      <group ref={meshHitboxRef}>
+        {ldrawPart.meshUrl && activeMeshUrl && !forceFallback ? (
+          <RenderErrorBoundary onCatch={() => setForceFallback(true)}>
+            <LDrawMeshRenderer
+              url={activeMeshUrl}
+              onDoubleClick={isStatic || disableEvents ? undefined : onDoubleClick}
+              onPointerDown={isStatic || disableEvents ? undefined : handlePointerDown}
+              highlightColor={highlight.color}
+              highlightIntensity={highlight.intensity}
+              highlightOutline={highlight.outline}
+              disableRaycast={disableEvents}
+              opacity={finalOpacity}
+            />
           </RenderErrorBoundary>
         ) : (
           <mesh
-            onDoubleClick={onDoubleClick}
-            onPointerDown={handlePointerDown}
+            onDoubleClick={isStatic || disableEvents ? undefined : onDoubleClick}
+            onPointerDown={isStatic || disableEvents ? undefined : handlePointerDown}
+            raycast={disableEvents ? () => null : undefined}
           >
             <boxGeometry args={[10 * LDU, 10 * LDU, 10 * LDU]} />
-            <meshStandardMaterial 
-              color={forceFallback || isDataError ? '#ff5252' : (highlight.color || '#b0bec5')} 
-              emissive={forceFallback || isDataError ? '#b71c1c' : (highlight.color || '#000000')}
-              emissiveIntensity={forceFallback || isDataError ? pulse : highlight.intensity}
+            <meshStandardMaterial
+              color={forceFallback || !!ldrawPart.error ? '#ff5252' : (highlight.color || '#b0bec5')}
+              emissive={forceFallback || !!ldrawPart.error ? '#b71c1c' : (highlight.color || '#000000')}
+              emissiveIntensity={forceFallback || !!ldrawPart.error ? pulse : highlight.intensity}
               transparent={finalOpacity < 1}
               opacity={finalOpacity}
             />
           </mesh>
         )}
-      </Select>
+      </group>
 
-      {/* Site-based Gizmo 渲染（新交互）：完全依赖后端的 v3.1 Site 聚类数据进行方向推理 */}
       {finalShowPorts && ldrawPart.sites?.map((site) => (
         <SiteGizmo
           key={site.id}
@@ -237,7 +216,7 @@ export const InteractivePart = memo(({
           sourcePortType={selectedPort?.portType ?? null}
           selectedPort={selectedPort}
           onPortClick={onPortClick}
-          onPortHover={onPortHover}
+          onPortHover={handlePortHoverLocal}
         />
       ))}
     </group>

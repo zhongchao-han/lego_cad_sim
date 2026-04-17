@@ -146,9 +146,26 @@ function PortArrow({
     return () => {
       if (hovered) {
         document.body.style.cursor = 'auto';
+        // 关键泄漏修复：如果组件在悬停状态下被强行卸载（例如快捷键、阶段切换、层级阻断等），
+        // 必须同步通知父组件取消端口悬停状态，否则会引发永久性的 isPortHovered = true 僵尸悬停死锁
+        onPortHover?.(null);
       }
     };
-  }, [hovered]);
+  }, [hovered, onPortHover]);
+
+  const handlePointerOver = useCallback((e: any) => {
+    e.stopPropagation(); // 阻止向下传递和多次触发
+    if (!isCompatiblePort) return;
+    setHovered(true);
+    document.body.style.cursor = 'pointer';
+    onPortHover?.(buildPortInfo());
+  }, [isCompatiblePort, onPortHover, buildPortInfo]);
+
+  const handlePointerOut = useCallback((e: any) => {
+    setHovered(false);
+    document.body.style.cursor = 'auto';
+    onPortHover?.(null);
+  }, [onPortHover]);
 
   return (
     // 使用 renderPos（站点局部偏移）定位箭头，保证视觉准确
@@ -178,18 +195,8 @@ function PortArrow({
             position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}
             quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}
             renderOrder={999}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              document.body.style.cursor = 'pointer';
-              setHovered(true);
-              onPortHover?.(buildPortInfo());
-            }}
-            onPointerOut={(e) => {
-              e.stopPropagation();
-              document.body.style.cursor = 'auto';
-              setHovered(false);
-              onPortHover?.(null);
-            }}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
             onPointerDown={(e) => {
               e.stopPropagation();
               console.debug('[SiteGizmo:PortArrow] 精确捕获点击目标', { port, isCompatiblePort });

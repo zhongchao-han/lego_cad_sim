@@ -402,3 +402,114 @@ describe('Bug-5: SiteGizmo 展开状态机', () => {
     expect(gizmo.isExpanded).toBe(true); // 仍因 phase 展开
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bug-6 回归：Hover 互斥压制（当鼠标处于 PortGizmo 隐藏热区时，立刻阻断底层 Part Mesh 的 Hover 高亮，分离两者的碰撞实体）
+// ═══════════════════════════════════════════════════════════════════════════
+
+class InteractivePartSimulator {
+  public meshHitboxHits: number = 0;
+  public isPortHovered: boolean = false;
+  // 此处 meshHovered 仅代表是否有物理射线交叉（保持 Gizmo 不卸载）
+  public meshHovered: boolean = false;
+  // 新架构下，外发光/边缘高光是由组合状态推导的
+  public get isOutlineActive() {
+    return this.meshHovered && !this.isPortHovered;
+  }
+  private onChange: (h: boolean) => void;
+
+  constructor(onChange: (h: boolean) => void) {
+    this.onChange = onChange;
+  }
+
+  // 模拟从 SiteGizmo 收到的局部 hover 回调 (传递端口 info)
+  handlePortHoverLocal(info: object | null) {
+    this.isPortHovered = !!info;
+  }
+
+  // 模拟 useFrame 里的射线穿透扫描 (包含分离在单独 group 中的 Mesh hitbox)
+  useFrameTick(hitCount: number) {
+    this.meshHitboxHits = hitCount;
+    // 只要有射线扫中外壳，不论有没有扫中端口，MeshHover 都是 true（为了保留 Gizmo）
+    const isNowHovered = this.meshHitboxHits > 0;
+    
+    if (isNowHovered !== this.meshHovered) {
+      this.meshHovered = isNowHovered;
+      this.onChange(isNowHovered);
+    }
+  }
+}
+
+describe('Bug-6: Hover 互斥机制（插销高亮时零件主体剥离高亮）', () => {
+  it('未悬停任何对象时，两者皆非 hovered', () => {
+    const onChange = vi.fn();
+    const sim = new InteractivePartSimulator(onChange);
+    
+    sim.useFrameTick(0);
+    expect(sim.meshHovered).toBe(false);
+    expect(sim.isPortHovered).toBe(false);
+    expect(sim.isOutlineActive).toBe(false);
+    expect(onChange).toHaveBeenCalledTimes(0);
+  });
+
+  it('仅射线扫中分离后的主体被检测到（Hit>0），主体点亮', () => {
+    const onChange = vi.fn();
+    const sim = new InteractivePartSimulator(onChange);
+    
+    sim.useFrameTick(1); // 射线打中单独 hitbox
+    expect(sim.meshHovered).toBe(true);
+    expect(sim.isOutlineActive).toBe(true);
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it('当同时触发射线打中主体并且落在插槽内（有info），主体外发光被【强制压制】不点亮，但逻辑 Hover 必须保留以便稳定 Gizmo', () => {
+    const onChange = vi.fn();
+    const sim = new InteractivePartSimulator(onChange);
+    
+    sim.handlePortHoverLocal({ id: 'dummy_port_info' });
+    sim.useFrameTick(1); 
+    
+    expect(sim.isPortHovered).toBe(true);
+    expect(sim.meshHovered).toBe(true); 
+    expect(sim.isOutlineActive).toBe(false); // 外发光熄灭 !
+    expect(onChange).toHaveBeenCalledTimes(1); 
+  });
+
+  it('当鼠标划过零件网格（高亮）后平移进入插槽包围盒，网格高亮会被立即浇灭（残光修复）', () => {
+    const onChange = vi.fn();
+    const sim = new InteractivePartSimulator(onChange);
+    
+    // 阶段1：鼠标进入零件表面
+    sim.useFrameTick(1);
+    expect(sim.isOutlineActive).toBe(true);
+    
+    // 阶段2：鼠标滑入到内部附属的端口 Gizmo 的大球壳热区上方
+    sim.handlePortHoverLocal({ id: 'dummy_port_info' });
+    
+    expect(sim.isPortHovered).toBe(true);
+    
+    // 阶段3：R3F 在随后的 requestAnimationFrame 中触发射线扫描
+    sim.useFrameTick(1);
+
+    expect(sim.meshHovered).toBe(true); // 保证逻辑不断
+    expect(sim.isOutlineActive).toBe(false); // 此时完成强制置零（脱落）
+  });
+  
+  it('离开端口包围区（info=null）并依然留在零件外壳上时，应恢复主体高亮', () => {
+    const onChange = vi.fn();
+    const sim = new InteractivePartSimulator(onChange);
+    
+    // 初始化直接进端口热区
+    sim.handlePortHoverLocal({ portType: 'F' });
+    sim.useFrameTick(1);
+    expect(sim.isOutlineActive).toBe(false);
+    
+    // 鼠标移出端口热区（返回空），并仍在主体范围内（射线 Hit 继续存在）
+    sim.handlePortHoverLocal(null);
+    sim.useFrameTick(1);
+    
+    expect(sim.isPortHovered).toBe(false);
+    expect(sim.meshHovered).toBe(true);
+    expect(sim.isOutlineActive).toBe(true); // 恢复点亮
+  });
+});
