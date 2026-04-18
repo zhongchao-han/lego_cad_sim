@@ -56,14 +56,54 @@ export function PartLibraryPanel() {
     fetchParts();
   }, []);
 
+const HIGH_PRIORITY_PARTS = [
+  // 经典常用销 (Pins)
+  '2780.dat',    // Blue friction pin (default color)
+  '3673.dat',    // Light gray pin
+  '43093.dat',   // Blue axle pin friction
+  '11214.dat',   // 3L axle pin
+  '6558.dat',    // 3L blue friction pin
+  '32002.dat',   // 3/4 pin
+  
+  // 经典车轴 (Axles)
+  '32062.dat',   // 2L notched axle (red)
+  '4519.dat',    // 3L axle
+  '3705.dat',    // 4L axle
+  
+  // 特殊件 / 电子件 / 大面板
+  '10089c01.dat',// Motor
+  '10090.dat',   // Motor / hub alternative
+  '39369.dat',   // 11x19 Baseplate
+  '71709.dat',   // Main hub or large panel
+];
+
   const sortedParts = useMemo(() => {
     console.debug('[DEBUG] [PartLibraryPanel] Re-calculating sortedParts based on usages');
     return [...parts].sort((a, b) => {
       const usageA = partUsages[a.part_id] || 0;
       const usageB = partUsages[b.part_id] || 0;
+      
+      // 1. 最高优先级：当前 Session 被使用过的零件优先（用得越多越靠前）
       if (usageA !== usageB) {
         return usageB - usageA;
       }
+      
+      // 2. 次高优先级：预设的经典高频零件吸顶
+      const pIndexA = HIGH_PRIORITY_PARTS.indexOf(a.part_id);
+      const pIndexB = HIGH_PRIORITY_PARTS.indexOf(b.part_id);
+      
+      const isHighA = pIndexA !== -1;
+      const isHighB = pIndexB !== -1;
+
+      if (isHighA && !isHighB) return -1;
+      if (!isHighA && isHighB) return 1;
+      
+      // 如果两个都是高优件，按照我们在 HIGH_PRIORITY_PARTS 中定义的顺序排
+      if (isHighA && isHighB) {
+         return pIndexA - pIndexB;
+      }
+
+      // 3. 兜底逻辑：普通零件按 ID 字母序排
       return a.part_id.localeCompare(b.part_id);
     });
   }, [parts, partUsages]);
