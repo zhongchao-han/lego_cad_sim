@@ -118,6 +118,7 @@ function App() {
   }, [setWsConnected, batchUpdatePartStates]);
 
   const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
+  const deselectAll = useStore((state) => state.deselectAll);
   const interactionPhase = useStore((state) => state.interactionPhase);
   const addStagedPart = useStore((state) => state.addStagedPart);
   const previewPart = useStore((state) => state.previewPart);
@@ -166,10 +167,15 @@ function App() {
             shadows
             gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
             className="w-full h-full"
-            onPointerMissed={() => {
-                // 如果当前正在锁定源端口，点击空白处则释放
-                if (interactionPhase !== 'IDLE') {
-                    abortCurrentInteraction();
+            onPointerMissed={(e) => {
+                // 只响应鼠标左键点击底板空白处
+                if (e.button === 0) {
+                    // 如果当前正在锁定源端口，点击空白处则释放
+                    if (interactionPhase !== 'IDLE') {
+                        abortCurrentInteraction();
+                    }
+                    // 无论处于什么状态，点击空白处都应全局清空零件选中高亮状态
+                    deselectAll();
                 }
             }}
           >
