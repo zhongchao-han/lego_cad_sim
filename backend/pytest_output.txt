@@ -1,0 +1,319 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.13, pytest-9.0.3, pluggy-1.6.0
+rootdir: /app/backend
+plugins: asyncio-1.3.0, cov-7.1.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 128 items
+
+tests/test_auto_latch_scanner.py ...........                             [  8%]
+tests/test_geometry_processor_holes.py F                                 [  9%]
+tests/test_insertion.py ..                                               [ 10%]
+tests/test_mesh_asset_manager.py ..FF                                    [ 14%]
+tests/test_port_library_manager.py ........................              [ 32%]
+tests/test_port_z_axis.py .F.                                            [ 35%]
+tests/test_server_api.py ........................                        [ 53%]
+tests/test_v1_3_metrics.py ..F                                           [ 56%]
+tests/test_v3_0_casting_recovery.py .                                    [ 57%]
+tests/test_v3_0_integration.py F..                                       [ 59%]
+tests/test_v3_0_physics_core.py ......                                   [ 64%]
+tests/test_v3_0_site.py ....                                             [ 67%]
+tests/test_v3_0_site_utils.py ........                                   [ 73%]
+tests/test_v3_1_full_coverage.py ..................................      [100%]
+
+=================================== FAILURES ===================================
+_____________ TestGeometryProcessorHoles.test_axlehol_scaled_ports _____________
+
+self = <backend.tests.test_geometry_processor_holes.TestGeometryProcessorHoles object at 0x7fcfb4b62e70>
+mock_resolve = <MagicMock name='resolve_path' id='140529860990576'>
+processor = <backend.geometry_processor.GeometryProcessor object at 0x7fcfa871d460>
+
+    @patch("backend.port_library.PortLibrary.resolve_path")
+    def test_axlehol_scaled_ports(self, mock_resolve, processor):
+        """
+        [Interaction v1.2 TDD] 验证 axlehol 被放放后的通孔表现：
+        必须在两端（边界截面）生成两倍的抓取端口，并且方向对冲向外。
+        """
+        # mock basic axlehol file
+        mock_resolve.return_value = "mocked_path"
+
+        # We simulate that the parent file has one line, scaling axlehol6.dat by 20 on Y-axis
+        # '1 16 0 0 10 1 0 0 0 -20 0 0 0 1 axlehol6.dat'
+        # local Y goes from 0..1, scaled by 20 -> length 20
+        # Wait, the discover_ports reads from file. We must mock the open().
+
+        mock_data = "1 16 0 0 10 -1 0 0 0 0 -1 0 -20 0 axlehol6.dat\n"
+        # primitive data
+        prim_data = "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n"
+
+        file_contents = {
+            "mocked_32269.dat": mock_data,
+            "mocked_axlehol6.dat": prim_data
+        }
+
+        def resolve_side_effect(base_path, fname):
+            return f"mocked_{os.path.basename(fname)}"
+
+        import os
+        mock_resolve.side_effect = resolve_side_effect
+
+        from unittest.mock import mock_open
+        import backend.geometry_processor as gp
+
+        def mock_open_file(filepath, *args, **kwargs):
+            return mock_open(read_data=file_contents.get(filepath, ""))()
+
+        with patch("builtins.open", new=mock_open_file):
+            ports = processor.discover_ports("32269.dat")
+
+            # Since num_units = 1, it should generate 2 ports at faces
+            # The original logic generated 1 port.
+            assert len(ports) == 2, f"Expected 2 surface ports for axle hole, got {len(ports)}"
+
+            # They should be at exactly global Z=10 and Z=-10
+            # Since matrix has +10 Z translation and Y is [0, 0, -20]
+            # Face 0 (y=0) -> global [0,0,10], pointing out -Y -> +20 Z -> z_hat=[0,0,1]
+            # Face 1 (y=1) -> global [0,0,-10], pointing out +Y -> -20 Z -> z_hat=[0,0,-1]
+
+            p0 = ports[0]
+            p1 = ports[1]
+
+            from backend.math_utils import CoordinateTransformer
+            exp_p0 = CoordinateTransformer.normalize_pos([0, 0, 10])
+            exp_p1 = CoordinateTransformer.normalize_pos([0, 0, -10])
+
+            assert np.allclose(p0['position'], exp_p0), f"P0 at {p0['position']}"
+            assert np.allclose(p1['position'], exp_p1), f"P1 at {p1['position']}"
+
+            rot0 = np.array(p0['rotation'])
+            rot1 = np.array(p1['rotation'])
+            z_hat0 = rot0[:, 2]
+            z_hat1 = rot1[:, 2]
+
+            # P0 at Z=+0.004 (which is mapped from LDU starting position 10).
+            # The outward normal should face AWAY from Z=0. So z_hat should be -Z! No wait!
+            # P0 was at `Z=0.004` or `Z=-0.004`?
+            # normalize_pos([0, 0, 10]) = [0, 0, -0.004]. Face 0 is at -0.004 locally.
+            # To face away from gear, its normal must be -Z (-1.0).
+>           assert np.allclose(z_hat0, [0, 0, -1]), f"P0 z_hat is {z_hat0}"
+E           AssertionError: P0 z_hat is [0. 0. 1.]
+E           assert False
+E            +  where False = <function allclose at 0x7fcfc4559070>(array([0., 0., 1.]), [0, 0, -1])
+E            +    where <function allclose at 0x7fcfc4559070> = np.allclose
+
+tests/test_geometry_processor_holes.py:79: AssertionError
+_______________ TestMeshAssetManager.test_get_absolute_glb_path ________________
+
+self = <backend.tests.test_mesh_asset_manager.TestMeshAssetManager object at 0x7fcfa95ca5a0>
+
+    def test_get_absolute_glb_path(self):
+>       manager = MeshAssetManager("/mock_root")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_mesh_asset_manager.py:26:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+mesh_asset_manager.py:20: in __init__
+    os.makedirs(self.mesh_cache_root, exist_ok=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = '/mock_root', mode = 511, exist_ok = True
+
+>   ???
+E   PermissionError: [Errno 13] Permission denied: '/mock_root'
+
+<frozen os>:225: PermissionError
+__________________ TestMeshAssetManager.test_compute_mesh_url __________________
+
+self = <backend.tests.test_mesh_asset_manager.TestMeshAssetManager object at 0x7fcfa95ca840>
+
+    def test_compute_mesh_url(self):
+>       manager = MeshAssetManager("/mock_root")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_mesh_asset_manager.py:40:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+mesh_asset_manager.py:20: in __init__
+    os.makedirs(self.mesh_cache_root, exist_ok=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+name = '/mock_root', mode = 511, exist_ok = True
+
+>   ???
+E   PermissionError: [Errno 13] Permission denied: '/mock_root'
+
+<frozen os>:225: PermissionError
+_________ TestPortZAxisDirection.test_multi_unit_pin_z_axis_alignment __________
+
+self = <backend.tests.test_port_z_axis.TestPortZAxisDirection testMethod=test_multi_unit_pin_z_axis_alignment>
+mock_resolve = <MagicMock name='resolve_path' id='140529861350736'>
+
+    @patch("backend.geometry_processor.PortLibrary.resolve_path")
+    def test_multi_unit_pin_z_axis_alignment(self, mock_resolve):
+        """[Test-Z-3] 验证多单元离散销（pin.dat 等）与孔的法向是否有互反特性（便于直接无旋转插接）。"""
+        root_data = "1 16 0 0 0  1 0 0  0 1 0  0 0 1  pin.dat\n"
+        mock_resolve.return_value = "dummy.dat"
+
+        with patch("builtins.open", mock_open(read_data=root_data)):
+            ports = self.processor.discover_ports("dummy.dat")
+
+        self.assertTrue(len(ports) >= 1)
+
+        # Pin (is_extruding=True) 分裂出的端口在 SI 空间下其 Z 轴应统一为 [0, 1, 0]
+        # (因为修复后 raw_z = y_axis_ldu * (-(-1.0)) = y_axis_ldu * 1.0 -> SI 空间也是 [0, 1, 0])
+        # 若是常规多单位通孔 (is_extruding=False)，其 SI Z轴应为 [0, -1, 0]，正好对冲反平行 (Anti-parallel)
+        for p in ports:
+            rot = np.array(p["rotation"])
+            z_axis = rot[:, 2].tolist()
+            # 挤出型的销件在此逻辑下统一为 SI 下的 +Y 轴指向 (朝向 LDU负Y所在物理空间)
+>           self.assertTrue(np.allclose(z_axis, [0.0, 1.0, 0.0], atol=1e-5),
+                            f"Pin 端口应有标准的一致 Z 轴对冲法线方向 [0, 1, 0]，实际：{z_axis}")
+E           AssertionError: False is not true : Pin 端口应有标准的一致 Z 轴对冲法线方向 [0, 1, 0]，实际：[0.0, -1.0, 0.0]
+
+tests/test_port_z_axis.py:111: AssertionError
+______________ TestV3_0Metrics.test_1_3_pitch_sampling_integrity _______________
+
+self = <backend.tests.test_v1_3_metrics.TestV3_0Metrics testMethod=test_1_3_pitch_sampling_integrity>
+
+    def test_1_3_pitch_sampling_integrity(self):
+        """
+        [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
+        """
+        gp = GeometryProcessor(ldraw_path="ldraw_lib")
+        part_id = "32316.dat"
+
+        # 执行发现逻辑
+        ports = gp.discover_ports(part_id)
+
+        # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
+>       self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
+E       AssertionError: 0 != 10 : 32316.dat 端口数量异常: 0
+
+tests/test_v1_3_metrics.py:62: AssertionError
+______________ TestV3_0Integration.test_2_1_spatial_sync_glb_json ______________
+
+self = <backend.tests.test_v3_0_integration.TestV3_0Integration testMethod=test_2_1_spatial_sync_glb_json>
+
+    def test_2_1_spatial_sync_glb_json(self):
+        """
+        [Test 2.1] 验证模型顶点与端口解析在 Y-Up 归一化坐标系下的强同步。
+        目标: 32316.dat (3L 梁)
+        """
+        part_id = "32316.dat"
+        glb_path = os.path.join(self.test_output, "32316.glb")
+
+        # 1. 运行核心转换管线 (v3.0)
+        self.gp.convert_to_glb(part_id, glb_path)
+        ports = self.gp.discover_ports(part_id)
+
+        # 2. 读取导出的模型并提取几何特征
+>       scene = trimesh.load(glb_path)
+                ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_v3_0_integration.py:40:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/trimesh/exchange/load.py:111: in load
+    loaded = load_scene(
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/trimesh/exchange/load.py:216: in load_scene
+    mesh_loaders[arg.file_type](
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+file_obj = <_io.BufferedReader name='/app/backend/tmp/test_assets/32316.glb'>
+resolver = <trimesh.resolvers.FilePathResolver object at 0x7fcf9e061490>
+ignore_broken = False, merge_primitives = False, skip_materials = False
+mesh_kwargs = {'file_type': 'glb', 'metadata': None}, head_data = b''
+head = array([], dtype=uint32)
+
+    def load_glb(
+        file_obj: Stream,
+        resolver: Optional[ResolverLike] = None,
+        ignore_broken: bool = False,
+        merge_primitives: bool = False,
+        skip_materials: bool = False,
+        **mesh_kwargs,
+    ):
+        """
+        Load a GLTF file in the binary GLB format into a trimesh.Scene.
+
+        Implemented from specification:
+        https://github.com/KhronosGroup/glTF/tree/master/specification/2.0
+
+        Parameters
+        ------------
+        file_obj : file- like object
+          Containing GLB data
+        resolver : trimesh.visual.Resolver
+          Object which can be used to load other files by name
+        ignore_broken : bool
+          If there is a mesh we can't load and this
+          is True don't raise an exception but return
+          a partial result
+        merge_primitives : bool
+          If True, each GLTF 'mesh' will correspond to a
+          single Trimesh object.
+        skip_materials : bool
+          If true, will not load materials (if present).
+
+        Returns
+        ------------
+        kwargs : dict
+          Kwargs to instantiate a trimesh.Scene
+        """
+        # read the first 20 bytes which contain section lengths
+        head_data = file_obj.read(20)
+        head = np.frombuffer(head_data, dtype="<u4")
+
+        # check to make sure first index is gltf magic header
+>       if head[0] != _magic["gltf"]:
+           ^^^^^^^
+E       IndexError: index 0 is out of bounds for axis 0 with size 0
+
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/trimesh/exchange/gltf/__init__.py:392: IndexError
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.13-final-0 _______________
+
+Name                                     Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------
+__init__.py                                  0      0   100%
+auto_latch_scanner.py                       76      5    93%   173, 180, 193-194, 210
+connection_edge.py                          22      5    77%   75-77, 88, 97
+core_constants.py                            8      0   100%
+dev_tools_api.py                            38     24    37%   18-32, 37-56
+geometry_processor.py                      283    110    61%   49-50, 76-90, 93, 102-158, 167-185, 189, 208-210, 215-237, 255-257, 289, 320, 342, 355, 363, 390, 397, 406, 426
+math_utils.py                               45      1    98%   85
+mesh_asset_manager.py                       44      5    89%   43, 55-58
+physics_engine.py                          111     75    32%   54-55, 62-79, 83-95, 99-124, 129-133, 140-156, 160-162, 171, 178-201, 205, 210-259
+port.py                                     48      0   100%
+port_library.py                             79     51    35%   31-37, 41-46, 75, 80, 93-149, 152-155
+port_library_manager.py                    101     10    90%   71-76, 115-116, 151, 171
+port_semantics.py                          113     58    49%   158, 165-168, 192-195, 221, 226, 234-237, 251-260, 284-334
+rebuild_port_db.py                          51     51     0%   1-70
+server.py                                  332    100    70%   154-155, 170, 183-202, 216-217, 243, 285-286, 294-298, 306-323, 327-329, 363, 365-366, 383, 387, 405-408, 467-481, 490-492, 509-543, 552-555, 564-566, 569-570, 573-578, 584-602, 606-608
+site_utils.py                               49      2    96%   87, 120
+sync_meili.py                               66     47    29%   24-36, 39-106, 109
+tests/__init__.py                            0      0   100%
+tests/test_auto_latch_scanner.py            90      1    99%   295
+tests/test_geometry_processor_holes.py      38      1    97%   80
+tests/test_insertion.py                     34      1    97%   82
+tests/test_mesh_asset_manager.py            29     12    59%   29-37, 43-54
+tests/test_port_library_manager.py         193      3    98%   346-347, 361
+tests/test_port_z_axis.py                   61      1    98%   115
+tests/test_server_api.py                   223      3    99%   409-413, 622
+tests/test_utils.py                         11      1    91%   17
+tests/test_v1_3_metrics.py                  31      5    84%   65-70, 74
+tests/test_v3_0_casting_recovery.py         20      3    85%   36-37, 47
+tests/test_v3_0_integration.py              37      5    86%   42-48, 78
+tests/test_v3_0_physics_core.py             47      6    87%   50-52, 83, 116-117, 135
+tests/test_v3_0_site.py                     32      0   100%
+tests/test_v3_0_site_utils.py               43      0   100%
+tests/test_v3_1_full_coverage.py           284      6    98%   156-157, 498, 570, 584, 653
+topology_manager.py                        134     49    63%   54-55, 78-81, 99, 108-111, 148, 185, 190-248
+urdf_exporter.py                            57     44    23%   53-132, 149
+----------------------------------------------------------------------
+TOTAL                                     2830    685    76%
+=========================== short test summary info ============================
+FAILED tests/test_geometry_processor_holes.py::TestGeometryProcessorHoles::test_axlehol_scaled_ports
+FAILED tests/test_mesh_asset_manager.py::TestMeshAssetManager::test_get_absolute_glb_path
+FAILED tests/test_mesh_asset_manager.py::TestMeshAssetManager::test_compute_mesh_url
+FAILED tests/test_port_z_axis.py::TestPortZAxisDirection::test_multi_unit_pin_z_axis_alignment
+FAILED tests/test_v1_3_metrics.py::TestV3_0Metrics::test_1_3_pitch_sampling_integrity
+FAILED tests/test_v3_0_integration.py::TestV3_0Integration::test_2_1_spatial_sync_glb_json
+======================== 6 failed, 122 passed in 8.99s =========================
