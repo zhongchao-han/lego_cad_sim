@@ -438,7 +438,7 @@ export const useStore = create<StoreState>()(
 
     const srcGroup = getConnectedGroup(connections, source.partId, target.partId);
     let sourcePart = parts[source.partId] || {
-      ldrawId: source.ldrawId, position: [0, 0, 0] as Vec3, quaternion: [0, 0, 0, 1] as Quat, colorCode: 7, zone: ZoneType.ACTIVE_ARENA
+      ldrawId: source.ldrawId, position: [0, 0, 0] as Vec3, quaternion: [0, 0, 0, 1] as Quat, colorCode: getDefaultColorCode(source.ldrawId || source.partId, get().activeColorCode), zone: ZoneType.ACTIVE_ARENA
     };
 
     const prevPositions: Record<string, { position: Vec3; quaternion: Quat }> = {};

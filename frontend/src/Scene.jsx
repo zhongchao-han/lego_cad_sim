@@ -48,10 +48,13 @@ const LegoPart = memo(({ id }) => {
 /**
  * 实时对齐幽灵 (PlacementGhost)
  */
+import { getDefaultColorCode } from './utils/partColorDefaults';
+
 const PlacementGhost = () => {
     const selectedPort = useStore(s => s.selectedPort);
     const hoveredPort = useStore(s => s.hoveredPort);
     const phase = useStore(s => s.interactionPhase);
+    const activeColorCode = useStore(s => s.activeColorCode);
 
     if (phase !== InteractionPhase.SOURCE_LOCKED || !selectedPort || !hoveredPort) return null;
 
@@ -98,12 +101,14 @@ const PlacementGhost = () => {
         hoveredPort.globalQuat
     );
 
+    const ghostColor = getDefaultColorCode(selectedPort.ldrawId || selectedPort.partId, activeColorCode);
+
     return (
         <group position={previewPose.position} quaternion={previewPose.quaternion}>
             <InteractivePart
                 partId="ghost"
                 ldrawId={selectedPort.ldrawId}
-                colorCode={7}
+                colorCode={ghostColor}
                 opacity={0.4}
                 transparent={true}
                 showPorts={false}
@@ -211,7 +216,7 @@ export default function Scene() {
 
     return (
         <>
-            <Perf position="top-left" style={{ top: '24px', left: '300px' }} minimal={true} />
+            {debugMode && <Perf position="top-left" style={{ top: '24px', left: '300px' }} minimal={true} />}
             
             <EffectComposer autoClear={false} multisampling={0}>
                 {/* 使用纯原生的 Three.js Layer 来规避 @react-three/postprocessing Selection Context 死锁 */}

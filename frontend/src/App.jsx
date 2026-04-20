@@ -15,6 +15,7 @@ import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { DebugOverlay } from './components/DebugOverlay';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -193,6 +194,7 @@ function App() {
       
       
       <LogPanel />
+      <DebugOverlay />
 
       <RenderErrorBoundary 
         fallback={

@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { Terminal, Copy, Trash2, X, ChevronDown, ChevronUp, AlertCircle, Activity } from 'lucide-react';
 
 export const LogPanel: React.FC = () => {
-    const { logs, showLogPanel, toggleLogPanel, clearLogs } = useStore();
+    const { logs, showLogPanel, toggleLogPanel, clearLogs, debugMode } = useStore();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // 自动滚动到底部
@@ -11,7 +11,7 @@ export const LogPanel: React.FC = () => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [logs, showLogPanel]);
+    }, [logs, showLogPanel, debugMode]);
 
     const copyToClipboard = () => {
         const text = logs.map(l => `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.type}: ${l.message}`).join('\n');
@@ -19,7 +19,7 @@ export const LogPanel: React.FC = () => {
         alert('Logs copied to clipboard!');
     };
 
-    if (!showLogPanel) {
+    if (!showLogPanel && !debugMode) {
         return (
             <button 
                 onClick={() => toggleLogPanel(true)}

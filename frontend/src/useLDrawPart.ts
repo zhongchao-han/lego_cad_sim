@@ -39,6 +39,11 @@ export function clearPartCache(partId: string) {
   }
 }
 
+/** 清除所有颜色缓存，重置 LDraw 抓取状态 */
+export function clearAllPartCache() {
+  partCache.clear();
+}
+
 export function useLDrawPart(
   partId: string | null | undefined, 
   colorCode: number = 7, 
