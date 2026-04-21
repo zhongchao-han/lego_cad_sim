@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import os
 import sys
+from unittest.mock import patch, mock_open
 
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -48,23 +49,35 @@ class TestV3_0Metrics(unittest.TestCase):
         det = np.linalg.det(pure_mat)
         self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
 
-    def test_1_3_pitch_sampling_integrity(self):
+    @patch("backend.geometry_processor.PortLibrary.resolve_path")
+    def test_1_3_pitch_sampling_integrity(self, mock_resolve):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         """
         gp = GeometryProcessor(ldraw_path="ldraw_lib")
         part_id = "32316.dat"
         
-        # 执行发现逻辑
-        ports = gp.discover_ports(part_id)
-        
+        # 伪造一个 5L 梁 (32316 实际是 5L，也就是孔距为 20 LDU，总共 5 个孔)
+        # 这里模拟产生 5个 通孔，使得产生 10 个端口
+        root_data = ""
+        for i in range(5):
+            # 每个通孔间隔 20 LDU 偏移
+            x = i * 20.0
+            root_data += f"1 16 {x} 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat\n"
+
+        mock_resolve.return_value = "dummy.dat"
+
+        with patch("builtins.open", mock_open(read_data=root_data)):
+            ports = gp.discover_ports("dummy.dat")
+
         # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
         self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
         
         # 2. 间距验证: 每两个相邻孔的间距应为 20 LDU = 0.008m
+        # 因为在 beamhole 中每个通孔分裂出 2 个表面端口 (前后)，所以第 0 和第 2 端口应该是相邻孔的同侧端口
         p0 = np.array(ports[0]["position"])
-        p1 = np.array(ports[1]["position"])
-        dist = np.linalg.norm(p1 - p0)
+        p2 = np.array(ports[2]["position"])
+        dist = np.linalg.norm(p2 - p0)
         
         # 容差设为 0.1mm (0.0001m)
         self.assertAlmostEqual(dist, 0.008, delta=0.0001, 

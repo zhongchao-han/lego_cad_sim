@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+pybullet
+networkx
+trimesh
+scipy
+numpy
+meilisearch
+python-multipart
+pytest
+pytest-cov
+pytest-mock
+mock
