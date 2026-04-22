@@ -41,7 +41,7 @@ class AutoLatchScanner:
     def __init__(self, threshold_m: float = AUTO_LATCH_THRESHOLD_M) -> None:
         self._threshold = threshold_m
         logger.debug(
-            f"[DEBUG] AutoLatchScanner 初始化: threshold={self._threshold*1000:.1f}mm"
+            f"[DEBUG] AutoLatchScanner 初始化: threshold={self._threshold * 1000:.1f}mm"
         )
 
     # ── 公共接口 ─────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ class AutoLatchScanner:
                 )
                 logger.debug(
                     f"[DEBUG] Site 对 ({p_site_data['id']} ↔ {c_site_data['id']}) "
-                    f"距离={dist*1000:.3f}mm"
+                    f"距离={dist * 1000:.3f}mm"
                 )
 
                 if dist > self._threshold:
@@ -139,11 +139,13 @@ class AutoLatchScanner:
             # 转为齐次坐标并应用变换
             local_h = np.array([local_pos[0], local_pos[1], local_pos[2], 1.0])
             world_pos = (world_transform @ local_h)[:3]
-            result.append({
-                "id": site.get("id", "unknown"),
-                "raw": site,
-                "world_pos": world_pos,
-            })
+            result.append(
+                {
+                    "id": site.get("id", "unknown"),
+                    "raw": site,
+                    "world_pos": world_pos,
+                }
+            )
             logger.debug(
                 f"[DEBUG] Site '{site.get('id')}' 本地位置={local_pos.round(5).tolist()} "
                 f"-> 世界位置={world_pos.round(5).tolist()}"
@@ -161,7 +163,11 @@ class AutoLatchScanner:
         parent_ports_raw = parent_site.get("ports", [])
         child_ports_raw = child_site.get("ports", [])
         import numpy as _np
-        from backend.port_semantics import FitType as _FitType, get_interface as _gi, check_fit as _cf
+        from backend.port_semantics import (
+            FitType as _FitType,
+            get_interface as _gi,
+            check_fit as _cf,
+        )
         from backend.port import Port as _Port
         from backend.connection_edge import ConnectionEdge as _CE
 
@@ -198,13 +204,35 @@ class AutoLatchScanner:
                 else:
                     continue
 
-                plug_pos = _np.array(plug_raw.get("position", [0.0, 0.0, 0.0]), dtype=float)
-                plug_rot = _np.array(plug_raw.get("rotation", [[1,0,0],[0,1,0],[0,0,1]]), dtype=float).reshape(3, 3)
-                socket_pos = _np.array(socket_raw.get("position", [0.0, 0.0, 0.0]), dtype=float)
-                socket_rot = _np.array(socket_raw.get("rotation", [[1,0,0],[0,1,0],[0,0,1]]), dtype=float).reshape(3, 3)
+                plug_pos = _np.array(
+                    plug_raw.get("position", [0.0, 0.0, 0.0]), dtype=float
+                )
+                plug_rot = _np.array(
+                    plug_raw.get("rotation", [[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+                    dtype=float,
+                ).reshape(3, 3)
+                socket_pos = _np.array(
+                    socket_raw.get("position", [0.0, 0.0, 0.0]), dtype=float
+                )
+                socket_rot = _np.array(
+                    socket_raw.get("rotation", [[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+                    dtype=float,
+                ).reshape(3, 3)
 
-                port_plug   = _Port.from_raw(plug_raw["name"],   plug_raw["type"],   plug_pos,   plug_rot,   part_context=plug_id)
-                port_socket = _Port.from_raw(socket_raw["name"], socket_raw["type"], socket_pos, socket_rot, part_context=socket_id)
+                port_plug = _Port.from_raw(
+                    plug_raw["name"],
+                    plug_raw["type"],
+                    plug_pos,
+                    plug_rot,
+                    part_context=plug_id,
+                )
+                port_socket = _Port.from_raw(
+                    socket_raw["name"],
+                    socket_raw["type"],
+                    socket_pos,
+                    socket_rot,
+                    part_context=socket_id,
+                )
 
                 if port_plug is None or port_socket is None:
                     continue
@@ -217,4 +245,3 @@ class AutoLatchScanner:
                 )
 
         return None
-

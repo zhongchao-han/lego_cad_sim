@@ -5,6 +5,7 @@ import numpy as np
 # Add backend to path if needed (pytest takes care of it usually)
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.geometry_processor import GeometryProcessor
@@ -15,7 +16,7 @@ class TestPortZAxisDirection(unittest.TestCase):
     """
     回归测试：验证 GeometryProcessor.discover_ports 针对孔洞和轴销件生成的
     端口法向量（Z 轴）在 SI 空间中是否按预期指向物理外侧（Outward）。
-    
+
     背景：
     由于 LDU 空间转 SI 空间的归一化旋转矩阵变换规则（Rx180 @ Rot_LDU @ Rx180）
     会在数学上引发 3 轴反转（Z_SI 实际等效于 -Rx180 @ Z_LDU）。
@@ -37,19 +38,19 @@ class TestPortZAxisDirection(unittest.TestCase):
             ports = self.processor.discover_ports("dummy.dat")
 
         self.assertEqual(len(ports), 2, "通孔应该在正反面各分裂出 1 个端口，共 2 个。")
-        
+
         # 验证这 2 个端口在 SI 空间下的位置和 Z 轴
         # 通孔在 LDU 中的长度是从 Y=-10 到 Y=+10 (即 20 LDU 长，原点在中间)
         # 根据修复代码：
         # +10 LDU (物理偏移 +Y) -> 对应 SI 空间的 -Y 轴 (由于 Rx180 翻转)。其 SI 法向应指向 -Y，即 [0, -1, 0]
         # -10 LDU (物理偏移 -Y) -> 对应 SI 空间的 +Y 轴。其 SI 法向应指向 +Y，即 [0, 1, 0]
-        
+
         si_const = CoordinateTransformer.LDU_TO_SI
         expected_pos_1 = [0.0, -10.0 * si_const, 0.0]  # 对于 +10 LDU
         expected_z_1 = [0.0, -1.0, 0.0]  # 指向 -Y 外侧
 
-        expected_pos_2 = [0.0, 10.0 * si_const, 0.0]   # 对于 -10 LDU
-        expected_z_2 = [0.0, 1.0, 0.0]   # 指向 +Y 外侧
+        expected_pos_2 = [0.0, 10.0 * si_const, 0.0]  # 对于 -10 LDU
+        expected_z_2 = [0.0, 1.0, 0.0]  # 指向 +Y 外侧
 
         # 校验（考虑到浮点数精度截断或排序，允许一定容差并按位置匹配）
         matched = 0
@@ -59,10 +60,16 @@ class TestPortZAxisDirection(unittest.TestCase):
             z_axis = rot[:, 2].tolist()
 
             if np.allclose(pos, expected_pos_1, atol=1e-5):
-                self.assertTrue(np.allclose(z_axis, expected_z_1, atol=1e-5), f"位置 {pos} 的端口 Z 轴应为 {expected_z_1}，实际为 {z_axis}")
+                self.assertTrue(
+                    np.allclose(z_axis, expected_z_1, atol=1e-5),
+                    f"位置 {pos} 的端口 Z 轴应为 {expected_z_1}，实际为 {z_axis}",
+                )
                 matched += 1
             elif np.allclose(pos, expected_pos_2, atol=1e-5):
-                self.assertTrue(np.allclose(z_axis, expected_z_2, atol=1e-5), f"位置 {pos} 的端口 Z 轴应为 {expected_z_2}，实际为 {z_axis}")
+                self.assertTrue(
+                    np.allclose(z_axis, expected_z_2, atol=1e-5),
+                    f"位置 {pos} 的端口 Z 轴应为 {expected_z_2}，实际为 {z_axis}",
+                )
                 matched += 1
 
         self.assertEqual(matched, 2, "未能精确匹配到通孔的前后两个端口特征。")
@@ -77,7 +84,7 @@ class TestPortZAxisDirection(unittest.TestCase):
             ports = self.processor.discover_ports("dummy.dat")
 
         self.assertEqual(len(ports), 1, "盲孔仅应产生 1 个端口。")
-        
+
         # 盲孔原点就是开口截面 (Y=0)
         # peghole 原文定义：实体为 Y=0 到 Y=8。外面位于负 Y（LDU），即指向 LDU 空间的 [0, -1, 0]
         # 若以 SI 空间表达：LDU的 -Y对应 SI的 +Y。所以 SI 下的开口法面应指向 +Y: [0, 1, 0]
@@ -87,8 +94,10 @@ class TestPortZAxisDirection(unittest.TestCase):
         z_axis = rot[:, 2].tolist()
 
         self.assertTrue(np.allclose(pos, [0.0, 0.0, 0.0], atol=1e-5))
-        self.assertTrue(np.allclose(z_axis, [0.0, 1.0, 0.0], atol=1e-5), 
-                        f"盲孔在 SI 空间的端口法向应该向外（+Y，[0, 1, 0]），实际获取到 {z_axis}")
+        self.assertTrue(
+            np.allclose(z_axis, [0.0, 1.0, 0.0], atol=1e-5),
+            f"盲孔在 SI 空间的端口法向应该向外（+Y，[0, 1, 0]），实际获取到 {z_axis}",
+        )
 
     @patch("backend.geometry_processor.PortLibrary.resolve_path")
     def test_multi_unit_pin_z_axis_alignment(self, mock_resolve):
@@ -100,15 +109,18 @@ class TestPortZAxisDirection(unittest.TestCase):
             ports = self.processor.discover_ports("dummy.dat")
 
         self.assertTrue(len(ports) >= 1)
-        
+
         # Pin (is_extruding=True) 分裂出的端口在 SI 空间下其 Z 轴应统一为 [0, 1, 0] 或者 [0, -1, 0]
         # Depending on how the LDU space handles orientation. The important part is that
         # the magnitude should be along the Y-axis.
         for p in ports:
             rot = np.array(p["rotation"])
             z_axis = rot[:, 2].tolist()
-            self.assertTrue(np.allclose(np.abs(z_axis), [0.0, 1.0, 0.0], atol=1e-5),
-                            f"Pin 端口应有标准的一致 Z 轴法线方向 (沿着Y轴)，实际：{z_axis}")
+            self.assertTrue(
+                np.allclose(np.abs(z_axis), [0.0, 1.0, 0.0], atol=1e-5),
+                f"Pin 端口应有标准的一致 Z 轴法线方向 (沿着Y轴)，实际：{z_axis}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

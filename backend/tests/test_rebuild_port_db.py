@@ -1,8 +1,8 @@
-import pytest
 import os
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from backend.rebuild_port_db import process_single_part, rebuild_all
+
 
 def test_process_single_part_success():
     with patch("backend.rebuild_port_db.GeometryProcessor") as MockGP:
@@ -16,6 +16,7 @@ def test_process_single_part_success():
         assert result["confidence"] == 1.0
         assert result["ports"] == [{"name": "p1"}]
 
+
 def test_process_single_part_exception():
     with patch("backend.rebuild_port_db.GeometryProcessor") as MockGP:
         instance = MockGP.return_value
@@ -25,6 +26,7 @@ def test_process_single_part_exception():
 
         assert part_name == "part1.dat"
         assert result is None
+
 
 def test_rebuild_all(tmpdir):
     ldraw_dir = os.path.join(str(tmpdir), "ldraw_lib")
@@ -39,19 +41,30 @@ def test_rebuild_all(tmpdir):
     # Pre-existing config
     existing_config = {
         "part2.dat": {"status": "pending", "ports": []},
-        "part3.dat": {"status": "manual", "ports": [{"name": "p3"}]}
+        "part3.dat": {"status": "manual", "ports": [{"name": "p3"}]},
     }
     with open(config_path, "w") as f:
         json.dump(existing_config, f)
 
     def mock_process_single_part(part_name, ldir):
         if part_name == "part1.dat":
-            return part_name, {"status": "verified", "confidence": 1.0, "ports": [{"name": "p1"}]}
+            return part_name, {
+                "status": "verified",
+                "confidence": 1.0,
+                "ports": [{"name": "p1"}],
+            }
         elif part_name == "part2.dat":
-            return part_name, {"status": "verified", "confidence": 1.0, "ports": [{"name": "p2"}]}
+            return part_name, {
+                "status": "verified",
+                "confidence": 1.0,
+                "ports": [{"name": "p2"}],
+            }
         return part_name, None
 
-    with patch("backend.rebuild_port_db.process_single_part", side_effect=mock_process_single_part):
+    with patch(
+        "backend.rebuild_port_db.process_single_part",
+        side_effect=mock_process_single_part,
+    ):
         rebuild_all(ldraw_dir, config_path)
 
     with open(config_path, "r") as f:

@@ -1,7 +1,7 @@
-import pytest
 import pybullet as p
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from backend.physics_engine import PhysicsEngine
+
 
 @patch("pybullet.connect")
 @patch("pybullet.setAdditionalSearchPath")
@@ -9,7 +9,14 @@ from backend.physics_engine import PhysicsEngine
 @patch("pybullet.setTimeStep")
 @patch("pybullet.loadURDF")
 @patch("pybullet.changeDynamics")
-def test_physics_engine_init(mock_change_dyn, mock_load_urdf, mock_set_time, mock_set_grav, mock_set_path, mock_connect):
+def test_physics_engine_init(
+    mock_change_dyn,
+    mock_load_urdf,
+    mock_set_time,
+    mock_set_grav,
+    mock_set_path,
+    mock_connect,
+):
     mock_connect.return_value = 1
     mock_load_urdf.return_value = 2
 
@@ -23,6 +30,7 @@ def test_physics_engine_init(mock_change_dyn, mock_load_urdf, mock_set_time, moc
     mock_change_dyn.assert_called_with(2, -1, lateralFriction=1.0)
     assert pe.client_id == 1
     assert pe.plane_id == 2
+
 
 @patch("backend.physics_engine.p")
 def test_physics_engine_load_assembly(mock_p):
@@ -40,14 +48,20 @@ def test_physics_engine_load_assembly(mock_p):
         (0, b"joint_0", mock_p.JOINT_REVOLUTE, 0, 0, 0, 0, 0, 0, 0, 0, 0, b"link_0"),
         (1, b"joint_1", mock_p.JOINT_FIXED, 0, 0, 0, 0, 0, 0, 0, 0, 0, b"link_1"),
         (0, b"joint_0", mock_p.JOINT_REVOLUTE, 0, 0, 0, 0, 0, 0, 0, 0, 0, b"link_0"),
-        (1, b"joint_1", mock_p.JOINT_FIXED, 0, 0, 0, 0, 0, 0, 0, 0, 0, b"link_1")
+        (1, b"joint_1", mock_p.JOINT_FIXED, 0, 0, 0, 0, 0, 0, 0, 0, 0, b"link_1"),
     ]
 
     pe = PhysicsEngine(mode="DIRECT")
     pe.load_assembly("dummy.urdf", start_pos=[0, 0, 0])
 
     flags = mock_p.URDF_USE_INERTIA_FROM_FILE | mock_p.URDF_USE_SELF_COLLISION
-    mock_p.loadURDF.assert_any_call("dummy.urdf", basePosition=[0, 0, 0], useFixedBase=False, flags=flags, physicsClientId=pe.client_id)
+    mock_p.loadURDF.assert_any_call(
+        "dummy.urdf",
+        basePosition=[0, 0, 0],
+        useFixedBase=False,
+        flags=flags,
+        physicsClientId=pe.client_id,
+    )
     assert pe.robot_id == 42
     assert pe.num_joints == 2
     assert pe.joint_name_to_index["joint_0"] == 0
@@ -55,6 +69,7 @@ def test_physics_engine_load_assembly(mock_p):
     assert pe.link_name_to_index["link_0"] == 0
     assert pe.link_name_to_index["link_1"] == 1
     mock_p.changeDynamics.assert_called()
+
 
 @patch("backend.physics_engine.p")
 def test_physics_engine_add_closed_loop_constraint(mock_p):
@@ -67,10 +82,17 @@ def test_physics_engine_add_closed_loop_constraint(mock_p):
 
     pe.add_closed_loop_constraint("parent_link", "child_link")
     mock_p.createConstraint.assert_called_with(
-        parentBodyUniqueId=42, parentLinkIndex=0, childBodyUniqueId=42, childLinkIndex=1,
-        jointType=mock_p.JOINT_FIXED, jointAxis=[0,0,0], parentFramePosition=[0,0,0], childFramePosition=[0,0,0],
-        physicsClientId=pe.client_id
+        parentBodyUniqueId=42,
+        parentLinkIndex=0,
+        childBodyUniqueId=42,
+        childLinkIndex=1,
+        jointType=mock_p.JOINT_FIXED,
+        jointAxis=[0, 0, 0],
+        parentFramePosition=[0, 0, 0],
+        childFramePosition=[0, 0, 0],
+        physicsClientId=pe.client_id,
     )
+
 
 @patch("backend.physics_engine.p")
 def test_physics_engine_step_and_get_state(mock_p):
@@ -89,7 +111,7 @@ def test_physics_engine_step_and_get_state(mock_p):
     # 4: linkWorldPosition, 5: linkWorldOrientation
     mock_p.getLinkState.side_effect = [
         (0, 0, 0, 0, [1, 1, 1], [0, 0, 0, 1]),
-        (0, 0, 0, 0, [2, 2, 2], [0, 0, 0, 1])
+        (0, 0, 0, 0, [2, 2, 2], [0, 0, 0, 1]),
     ]
 
     pe.step()
@@ -103,6 +125,7 @@ def test_physics_engine_step_and_get_state(mock_p):
     assert "link_1" in state
     assert state["link_1"]["position"] == [2, 2, 2]
 
+
 @patch("backend.physics_engine.p")
 def test_physics_engine_apply_user_force(mock_p):
     mock_p.DIRECT = 0
@@ -113,8 +136,14 @@ def test_physics_engine_apply_user_force(mock_p):
 
     pe.apply_user_force("link_0", [1, 2, 3], [0, 0, 0])
     mock_p.applyExternalForce.assert_called_with(
-        objectUniqueId=42, linkIndex=0, forceObj=[1, 2, 3], posObj=[0, 0, 0], flags=mock_p.LINK_FRAME, physicsClientId=pe.client_id
+        objectUniqueId=42,
+        linkIndex=0,
+        forceObj=[1, 2, 3],
+        posObj=[0, 0, 0],
+        flags=mock_p.LINK_FRAME,
+        physicsClientId=pe.client_id,
     )
+
 
 @patch("backend.physics_engine.p")
 def test_physics_engine_toggle_gravity(mock_p):
@@ -127,6 +156,7 @@ def test_physics_engine_toggle_gravity(mock_p):
 
     pe.toggle_gravity(True)
     mock_p.setGravity.assert_called_with(0, 0, -9.81, physicsClientId=pe.client_id)
+
 
 @patch("backend.physics_engine.p")
 def test_physics_engine_disconnect(mock_p):

@@ -61,10 +61,12 @@ _MOCK_DATA: dict = {
 def _get_client() -> TestClient:
     """每次测试获取一个干净的 TestClient（避免模块级单例污染）。"""
     import backend.server as srv
+
     return TestClient(srv.app)
 
 
 # ── 测试套件 ──────────────────────────────────────────────────────────────────
+
 
 class TestGetVerifiedParts(unittest.TestCase):
     """GET /api/get_verified_parts"""
@@ -171,13 +173,13 @@ class TestSnapParts(unittest.TestCase):
         flat_eye = [1, 0, 0, 0, 1, 0, 0, 0, 1]
         return {
             "parent_id": "6558.dat",
-            "child_id":  "32316.dat",
+            "child_id": "32316.dat",
             "port_type_p": "peg.dat",
             "port_type_c": "peghole.dat",
             "parent_origin": [0.0, 0.0, 0.0],
-            "parent_rot":    flat_eye,
-            "child_origin":  [0.004, 0.0, 0.0],
-            "child_rot":     flat_eye,
+            "parent_rot": flat_eye,
+            "child_origin": [0.004, 0.0, 0.0],
+            "child_rot": flat_eye,
         }
 
     def test_snap_without_world_pos_returns_success(self):
@@ -188,14 +190,17 @@ class TestSnapParts(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["status"], "success")
-        self.assertEqual(body["auto_latched_count"], 0,
-                         "无 world_pos 时 AutoLatch 应跳过，auto_latched_count 必须为 0。")
+        self.assertEqual(
+            body["auto_latched_count"],
+            0,
+            "无 world_pos 时 AutoLatch 应跳过，auto_latched_count 必须为 0。",
+        )
 
     def test_snap_with_world_pos_triggers_auto_latch_path(self):
         """[Snap-2] 携带 world_pos 的 Snap 请求应进入 AutoLatch 扫描路径并返回成功。"""
         payload = self._base_payload()
         payload["parent_world_pos"] = [0.0, 0.0, 0.0]
-        payload["child_world_pos"]  = [0.004, 0.0, 0.0]
+        payload["child_world_pos"] = [0.004, 0.0, 0.0]
 
         with patch("backend.server.port_lib_manager._data", _MOCK_DATA):
             client = _get_client()
@@ -211,12 +216,14 @@ class TestSnapParts(unittest.TestCase):
             client = _get_client()
             resp = client.post("/api/snap_parts", json=payload)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()["status"], "error",
-                         "无法识别的端口类型应返回 error 而非崩溃。")
+        self.assertEqual(
+            resp.json()["status"], "error", "无法识别的端口类型应返回 error 而非崩溃。"
+        )
 
     def test_snap_registers_nodes_in_topology(self):
         """[Snap-4] Snap 成功后，拓扑图中应该能查到两个节点。"""
         import backend.server as srv
+
         # 清空拓扑图，确保测试隔离
         srv.topo_manager.graph.clear()
 
@@ -255,20 +262,23 @@ class TestToggleMode(unittest.TestCase):
     def test_toggle_mode_route_exists(self):
         """[Mode-1] /api/toggle_mode 路由应存在（之前的 Bug：前端调用缺 /api/ 前缀）。"""
         import backend.server as srv
+
         # 重置模式，避免副作用
         srv.system_mode = "ASSEMBLY"
         client = _get_client()
         # 切换到 ASSEMBLY（当前已经是 ASSEMBLY, 应返回 ok/no change）
         resp = client.post("/api/toggle_mode?mode=ASSEMBLY")
-        self.assertEqual(resp.status_code, 200,
-                         "/api/toggle_mode 路由应存在，不应返回 404。")
+        self.assertEqual(
+            resp.status_code, 200, "/api/toggle_mode 路由应存在，不应返回 404。"
+        )
 
     def test_toggle_mode_wrong_prefix_returns_404(self):
         """[Mode-2] 缺少 /api/ 前缀的路由 /toggle_mode 应返回 404（验证修复必要性）。"""
         client = _get_client()
         resp = client.post("/toggle_mode?mode=ASSEMBLY")
-        self.assertEqual(resp.status_code, 404,
-                         "不含 /api/ 前缀的路由路径不应被后端响应。")
+        self.assertEqual(
+            resp.status_code, 404, "不含 /api/ 前缀的路由路径不应被后端响应。"
+        )
 
 
 class TestGetLdrawPartCacheBranching(unittest.TestCase):
@@ -296,8 +306,11 @@ class TestGetLdrawPartCacheBranching(unittest.TestCase):
             client = _get_client()
             resp = client.get("/api/ldraw_part/totally_unknown_part.dat")
         # 实时解析因缺乏 LDraw 文件会抛 500，但路由本身应存在
-        self.assertIn(resp.status_code, [200, 500],
-                      "未知零件应走实时解析路径（可能 500），但路由本身必须存在（非 404）。")
+        self.assertIn(
+            resp.status_code,
+            [200, 500],
+            "未知零件应走实时解析路径（可能 500），但路由本身必须存在（非 404）。",
+        )
 
 
 class TestGetLdrawPartGlbFallback(unittest.TestCase):
@@ -329,20 +342,18 @@ class TestGetLdrawPartGlbFallback(unittest.TestCase):
             client = _get_client()
             resp = client.get("/api/ldraw_part/6558.dat?color=7")
 
-        self.assertEqual(resp.status_code, 200,
-                         "GLB 补全路径下接口仍应返回 200。")
+        self.assertEqual(resp.status_code, 200, "GLB 补全路径下接口仍应返回 200。")
 
         # 核心断言：验证 server.py 以正确的关键字参数调用 convert_to_glb
-        self.assertTrue(mock_convert.called,
-                        "GLB 文件缺失时 convert_to_glb 应被调用。")
+        self.assertTrue(mock_convert.called, "GLB 文件缺失时 convert_to_glb 应被调用。")
         _, call_kwargs = mock_convert.call_args
         self.assertIn(
-            "color_code", call_kwargs,
-            "convert_to_glb 必须以 'color_code=' 关键字调用（回归 Bug 修复：color= → color_code=）。"
+            "color_code",
+            call_kwargs,
+            "convert_to_glb 必须以 'color_code=' 关键字调用（回归 Bug 修复：color= → color_code=）。",
         )
         self.assertNotIn(
-            "color", call_kwargs,
-            "convert_to_glb 不应再使用旧的错误参数名 'color='。"
+            "color", call_kwargs, "convert_to_glb 不应再使用旧的错误参数名 'color='。"
         )
 
     def test_glb_missing_convert_fails_gracefully_returns_cached_sites(self):
@@ -354,7 +365,9 @@ class TestGetLdrawPartGlbFallback(unittest.TestCase):
           - convert_to_glb 内部抛出 RuntimeError 模拟补全失败。
           - 接口捕获异常后，仍以 200 返回缓存中的 Sites 结构。
         """
-        mock_convert = MagicMock(side_effect=RuntimeError("Simulated GLB export failure"))
+        mock_convert = MagicMock(
+            side_effect=RuntimeError("Simulated GLB export failure")
+        )
         with (
             patch("backend.server.port_lib_manager._data", dict(_MOCK_DATA)),
             patch("os.path.exists", return_value=False),
@@ -364,12 +377,16 @@ class TestGetLdrawPartGlbFallback(unittest.TestCase):
             resp = client.get("/api/ldraw_part/6558.dat")
 
         # 降级策略：补全失败不应导致整个接口崩溃
-        self.assertEqual(resp.status_code, 200,
-                         "GLB 补全失败时接口应降级返回 200，而非传播 500 错误。")
+        self.assertEqual(
+            resp.status_code,
+            200,
+            "GLB 补全失败时接口应降级返回 200，而非传播 500 错误。",
+        )
         body = resp.json()
         # 已核验零件的缓存 Sites 仍应被返回
-        self.assertIsInstance(body.get("sites"), list,
-                              "降级路径下仍应返回缓存的 sites 字段。")
+        self.assertIsInstance(
+            body.get("sites"), list, "降级路径下仍应返回缓存的 sites 字段。"
+        )
 
 
 class TestGetLdrawPartLiveParseBranch(unittest.TestCase):
@@ -414,14 +431,13 @@ class TestGetLdrawPartLiveParseBranch(unittest.TestCase):
 
         _, call_kwargs = mock_convert.call_args
         self.assertIn(
-            "color_code", call_kwargs,
-            "[Gap-D] 实时解析路径：convert_to_glb 必须以 'color_code=' 传参（回归 Bug 修复）。"
+            "color_code",
+            call_kwargs,
+            "[Gap-D] 实时解析路径：convert_to_glb 必须以 'color_code=' 传参（回归 Bug 修复）。",
         )
         self.assertNotIn(
-            "color", call_kwargs,
-            "[Gap-D] 实时解析路径：不应再使用旧参数名 'color='。"
+            "color", call_kwargs, "[Gap-D] 实时解析路径：不应再使用旧参数名 'color='。"
         )
-
 
 
 class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
@@ -620,4 +636,3 @@ class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-

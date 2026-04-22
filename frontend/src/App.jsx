@@ -84,12 +84,7 @@ function LibraryNav() {
     );
 }
 
-function App() {
-  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
-  if (window.location.pathname === '/generator') {
-    return <ThumbnailGenerator />;
-  }
-
+function MainApp() {
   const view = useStore((state) => state.view);
   const isContextLost = useStore((state) => state.isContextLost);
   const setWsConnected = useStore((state) => state.setWsConnected);
@@ -250,6 +245,15 @@ function App() {
       )}
     </div>
   );
+}
+
+function App() {
+  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
+  if (window.location.pathname === '/generator') {
+    return <ThumbnailGenerator />;
+  }
+
+  return <MainApp />;
 }
 
 export default App;

@@ -1,4 +1,3 @@
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import patch
@@ -9,11 +8,13 @@ app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
 
+
 def test_get_all_parts_no_dir(tmpdir):
     with patch("backend.dev_tools_api.LDRAW_PARTS_ROOT", str(tmpdir)):
         response = client.get("/api/all_parts")
         assert response.status_code == 200
         assert response.json() == []
+
 
 def test_get_all_parts_with_dir(tmpdir):
     parts_dir = os.path.join(str(tmpdir), "parts")
@@ -30,6 +31,7 @@ def test_get_all_parts_with_dir(tmpdir):
         assert "part1.dat" in parts
         assert "part2.dat" in parts
 
+
 def test_get_all_parts_missing_only(tmpdir):
     parts_dir = os.path.join(str(tmpdir), "parts")
     os.makedirs(parts_dir)
@@ -40,13 +42,16 @@ def test_get_all_parts_missing_only(tmpdir):
     os.makedirs(thumb_dir)
     open(os.path.join(thumb_dir, "part1.png"), "w").close()
 
-    with patch("backend.dev_tools_api.LDRAW_PARTS_ROOT", str(tmpdir)), \
-         patch("backend.dev_tools_api.THUMBNAIL_CACHE_ROOT", thumb_dir):
+    with (
+        patch("backend.dev_tools_api.LDRAW_PARTS_ROOT", str(tmpdir)),
+        patch("backend.dev_tools_api.THUMBNAIL_CACHE_ROOT", thumb_dir),
+    ):
         response = client.get("/api/all_parts?missing_only=true")
         assert response.status_code == 200
         parts = response.json()
         assert len(parts) == 1
         assert "part2.dat" in parts
+
 
 def test_upload_thumbnail(tmpdir):
     thumb_dir = os.path.join(str(tmpdir), "thumbnails")
@@ -58,7 +63,7 @@ def test_upload_thumbnail(tmpdir):
         response = client.post(
             "/api/tools/upload_thumbnail",
             data={"part_id": "part1.dat"},
-            files={"file": ("part1.png", dummy_content, "image/png")}
+            files={"file": ("part1.png", dummy_content, "image/png")},
         )
         assert response.status_code == 200
         assert response.json() == {"status": "success", "msg": "Oven baked part1.png"}
@@ -69,17 +74,20 @@ def test_upload_thumbnail(tmpdir):
         with open(target_file, "rb") as f:
             assert f.read() == dummy_content
 
+
 def test_upload_thumbnail_exception(tmpdir):
     thumb_dir = os.path.join(str(tmpdir), "thumbnails")
     os.makedirs(thumb_dir)
 
-    with patch("backend.dev_tools_api.THUMBNAIL_CACHE_ROOT", thumb_dir), \
-         patch("shutil.copyfileobj", side_effect=Exception("mocked error")):
+    with (
+        patch("backend.dev_tools_api.THUMBNAIL_CACHE_ROOT", thumb_dir),
+        patch("shutil.copyfileobj", side_effect=Exception("mocked error")),
+    ):
         dummy_content = b"dummy image content"
         response = client.post(
             "/api/tools/upload_thumbnail",
             data={"part_id": "part1.dat"},
-            files={"file": ("part1.png", dummy_content, "image/png")}
+            files={"file": ("part1.png", dummy_content, "image/png")},
         )
         assert response.status_code == 200
         assert response.json()["status"] == "error"

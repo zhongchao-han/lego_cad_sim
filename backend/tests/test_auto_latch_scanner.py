@@ -28,6 +28,7 @@ from backend.topology_manager import TopologyManager, PartNode
 # 共享测试装置
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _make_site(
     site_id: str,
     port_name: str,
@@ -85,7 +86,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         子: peg (MALE) 位于世界 [0, 0, 0] (子零件原点 [0,0,0] + 零平移变换)
         """
         parent_sites = [_make_site("s_p", "hole_p", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "peg_c",  "peg.dat",     [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "peg_c", "peg.dat", [0.0, 0.0, 0.0])]
 
         edges = self.scanner.scan(
             parent_id="beam",
@@ -99,7 +100,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         # 双向修复后，MALE 侧（peg_c/pin）成为 plug parent，child 方向可以是 beam 或 pin
         ids = {edges[0].parent_id, edges[0].child_id}
         self.assertIn("beam", ids, "beam 应参与该连接。")
-        self.assertIn("pin",  ids, "pin 应参与该连接。")
+        self.assertIn("pin", ids, "pin 应参与该连接。")
 
     def test_two_compatible_pairs_both_within_threshold(self):
         """
@@ -107,11 +108,11 @@ class TestAutoLatchScanner(unittest.TestCase):
         父零件有两个 Site，子零件也在同样的位置各有一个 peg Site。
         """
         parent_sites = [
-            _make_site("s_p0", "hole_0", "peghole.dat", [0.0,  0.0, 0.0]),
+            _make_site("s_p0", "hole_0", "peghole.dat", [0.0, 0.0, 0.0]),
             _make_site("s_p1", "hole_1", "peghole.dat", [0.008, 0.0, 0.0]),
         ]
         child_sites = [
-            _make_site("s_c0", "peg_0", "peg.dat", [0.0,  0.0, 0.0]),
+            _make_site("s_c0", "peg_0", "peg.dat", [0.0, 0.0, 0.0]),
             _make_site("s_c1", "peg_1", "peg.dat", [0.008, 0.0, 0.0]),
         ]
         edges = self.scanner.scan(
@@ -131,7 +132,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         [Case 3] 主连接端口对应被排除（幂等性），不重复注册 → 返回 0 条边。
         """
         parent_sites = [_make_site("s_p", "hole_main", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "peg_main",  "peg.dat",     [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "peg_main", "peg.dat", [0.0, 0.0, 0.0])]
 
         edges = self.scanner.scan(
             parent_id="beam",
@@ -152,7 +153,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         [Case 4] 孔对孔（Female-Female）语义不兼容 → 返回 0 条边。
         """
         parent_sites = [_make_site("s_p", "hole_p", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "hole_c", "peghole.dat", [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "hole_c", "peghole.dat", [0.0, 0.0, 0.0])]
 
         edges = self.scanner.scan(
             parent_id="beam_a",
@@ -169,7 +170,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         [Case 4b] 十字轴插圆孔（Profile Mismatch）→ 返回 0 条边。
         """
         parent_sites = [_make_site("s_p", "axle_p", "axle.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "hole_c", "peghole.dat", [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "hole_c", "peghole.dat", [0.0, 0.0, 0.0])]
 
         edges = self.scanner.scan(
             parent_id="axle_part",
@@ -189,7 +190,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         子零件偏移 10mm，远超 1mm 阈值。
         """
         parent_sites = [_make_site("s_p", "hole_p", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "peg_c",  "peg.dat",     [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "peg_c", "peg.dat", [0.0, 0.0, 0.0])]
 
         # 子零件世界位置偏移 10mm
         child_T = _translate_transform(0.010, 0.0, 0.0)
@@ -210,7 +211,7 @@ class TestAutoLatchScanner(unittest.TestCase):
         边界条件验证: dist > threshold 才跳过（使用严格大于符号）。
         """
         parent_sites = [_make_site("s_p", "hole_p", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "peg_c",  "peg.dat",     [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "peg_c", "peg.dat", [0.0, 0.0, 0.0])]
 
         # 子零件世界位置恰好等于阈值
         child_T = _translate_transform(AUTO_LATCH_THRESHOLD_M, 0.0, 0.0)
@@ -257,17 +258,16 @@ class TestTopologyManagerBatchConnect(unittest.TestCase):
         """
         scanner = AutoLatchScanner()
         parent_sites = [_make_site("s_p", "hole_p", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "peg_c",  "peg.dat",     [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "peg_c", "peg.dat", [0.0, 0.0, 0.0])]
         edges = scanner.scan("A", "B", parent_sites, child_sites, np.eye(4), np.eye(4))
 
         self.assertEqual(len(edges), 1)
         count = self.manager.batch_connect(edges)
         self.assertEqual(count, 1, "应成功注册 1 条边。")
         # 双向修复后，MALE peg_c(B) 成为 parent: 图中应有 B→A 边
-        actual_edge_present = (
-            self.manager.graph.has_edge("A", "B")
-            or self.manager.graph.has_edge("B", "A")
-        )
+        actual_edge_present = self.manager.graph.has_edge(
+            "A", "B"
+        ) or self.manager.graph.has_edge("B", "A")
         self.assertTrue(actual_edge_present, "图中应存在 A-B 之间的边（任意方向）。")
 
     def test_batch_connect_skips_unknown_nodes(self):
@@ -276,7 +276,7 @@ class TestTopologyManagerBatchConnect(unittest.TestCase):
         """
         scanner = AutoLatchScanner()
         parent_sites = [_make_site("s_p", "hole_p", "peghole.dat", [0.0, 0.0, 0.0])]
-        child_sites  = [_make_site("s_c", "peg_c",  "peg.dat",     [0.0, 0.0, 0.0])]
+        child_sites = [_make_site("s_c", "peg_c", "peg.dat", [0.0, 0.0, 0.0])]
         # "X" 节点不存在于图中
         edges = scanner.scan("A", "X", parent_sites, child_sites, np.eye(4), np.eye(4))
 
