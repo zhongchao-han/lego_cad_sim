@@ -49,29 +49,53 @@ class TestV3_0Metrics(unittest.TestCase):
             det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！"
         )
 
-    @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.discover_ports")
-    def test_1_3_pitch_sampling_integrity(self, mock_discover):
+    @unittest.mock.patch("backend.geometry_processor.PortLibrary.resolve_path")
+    def test_1_3_pitch_sampling_integrity(self, mock_resolve):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
+        通过在 y 轴以 20 LDU（0.008m）步长放置 5 个 beamhole 原语来验证。
+        每个 beamhole 分为正面和反面两个 port，共 10 个 ports。
         """
-        # Mock discover_ports to return 10 valid ports with spacing 0.008m
-        mock_ports = []
-        for i in range(10):
-            mock_ports.append({"name": f"p{i}", "position": [i * 0.008, 0, 0]})
-        mock_discover.return_value = mock_ports
-
         gp = GeometryProcessor(ldraw_path="ldraw_lib")
         part_id = "32316.dat"
 
-        # 执行发现逻辑
-        ports = gp.discover_ports(part_id)
+        def resolve_side_effect(base_path, fname):
+            return f"mocked_{os.path.basename(fname)}"
+
+        mock_resolve.side_effect = resolve_side_effect
+
+        # Create mock data mimicking a 5L beam. We need 5 beamholes separated by 20 LDU on the X axis? Wait, the typical axis is Y.
+        # Let's say 5 beamholes. They are scaled by 1, so the transform should have translation
+        mock_32316_data = ""
+        for i in range(5):
+            # translation along y axis by 20 * i
+            mock_32316_data += f"1 16 0 {i*20} 0 1 0 0 0 1 0 0 0 1 beamhole.dat\n"
+
+        file_contents = {
+            "mocked_32316.dat": mock_32316_data,
+            # dummy primitive data for beamhole so it doesn't try to parse further if it wasn't special cased,
+            # but beamhole is a special cased file in geometry_processor
+            "mocked_beamhole.dat": "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n"
+        }
+
+        def mock_open_file(filepath, *args, **kwargs):
+            from unittest.mock import mock_open
+            # It might request without mocked_ if we are not careful
+            content = file_contents.get(filepath, "")
+            return mock_open(read_data=content)()
+
+        with unittest.mock.patch("builtins.open", new=mock_open_file):
+            # 执行发现逻辑
+            ports = gp.discover_ports(part_id)
 
         # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
         self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
 
         # 2. 间距验证: 每两个相邻孔的间距应为 20 LDU = 0.008m
+        # 提取其中一组同向的孔位置并排序（比如正向孔）
+        # beamhole parses into 2 ports, so index 0 and 2 are the same face of adjacent holes
         p0 = np.array(ports[0]["position"])
-        p1 = np.array(ports[1]["position"])
+        p1 = np.array(ports[2]["position"])
         dist = np.linalg.norm(p1 - p0)
 
         # 容差设为 0.1mm (0.0001m)

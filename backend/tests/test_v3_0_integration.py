@@ -32,7 +32,8 @@ class TestV3_0Integration(unittest.TestCase):
         self.temp_dir.cleanup()
 
     @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.convert_to_glb")
-    def test_2_1_spatial_sync_glb_json(self, mock_convert):
+    @unittest.mock.patch("backend.geometry_processor.PortLibrary.resolve_path")
+    def test_2_1_spatial_sync_glb_json(self, mock_resolve, mock_convert):
         """
         [Test 2.1] 验证模型顶点与端口解析在 Y-Up 归一化坐标系下的强同步。
         目标: 32316.dat (3L 梁)
@@ -44,13 +45,25 @@ class TestV3_0Integration(unittest.TestCase):
         mesh = trimesh.Trimesh(vertices=[[0, 0, 0], [0, 0.01, 0]], faces=[[0, 1, 0]])
         mesh.export(glb_path)
 
+        def resolve_side_effect(base_path, fname):
+            return f"mocked_{os.path.basename(fname)}"
+
+        mock_resolve.side_effect = resolve_side_effect
+
         # 1. 运行核心转换管线 (v3.0)
         self.gp.convert_to_glb(part_id, glb_path)
 
-        with unittest.mock.patch(
-            "backend.geometry_processor.GeometryProcessor.discover_ports"
-        ) as mock_discover:
-            mock_discover.return_value = [{"name": "p1", "position": [0, 0, 0]}]
+        file_contents = {
+            "mocked_32316.dat": "1 16 0 0 0 1 0 0 0 1 0 0 0 1 beamhole.dat\n",
+            "mocked_beamhole.dat": "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n"
+        }
+
+        def mock_open_file(filepath, *args, **kwargs):
+            from unittest.mock import mock_open
+            content = file_contents.get(filepath, "")
+            return mock_open(read_data=content)()
+
+        with unittest.mock.patch("builtins.open", new=mock_open_file):
             ports = self.gp.discover_ports(part_id)
 
         # 2. 读取导出的模型并提取几何特征
@@ -68,13 +81,31 @@ class TestV3_0Integration(unittest.TestCase):
                 f"端口 {p['name']} 超出模型 Y 轴包围盒！可能是归一化翻转未对齐。",
             )
 
-    def test_2_2_idempotency(self):
+    @unittest.mock.patch("backend.geometry_processor.PortLibrary.resolve_path")
+    def test_2_2_idempotency(self, mock_resolve):
         """
         [Test 2.2] 验证资产重建的幂等性。
         """
         part_id = "2780.dat"  # 常见黑色销钉
-        p1 = self.gp.discover_ports(part_id)
-        p2 = self.gp.discover_ports(part_id)
+
+        def resolve_side_effect(base_path, fname):
+            return f"mocked_{os.path.basename(fname)}"
+
+        mock_resolve.side_effect = resolve_side_effect
+
+        file_contents = {
+            "mocked_2780.dat": "1 16 0 0 0 1 0 0 0 1 0 0 0 1 pin.dat\n",
+            "mocked_pin.dat": "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n"
+        }
+
+        def mock_open_file(filepath, *args, **kwargs):
+            from unittest.mock import mock_open
+            content = file_contents.get(filepath, "")
+            return mock_open(read_data=content)()
+
+        with unittest.mock.patch("builtins.open", new=mock_open_file):
+            p1 = self.gp.discover_ports(part_id)
+            p2 = self.gp.discover_ports(part_id)
 
         # 两次运行结果生成的 JSON 必须字符级一致
         self.assertEqual(
