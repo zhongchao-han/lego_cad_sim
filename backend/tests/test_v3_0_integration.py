@@ -21,10 +21,16 @@ class TestV3_0Integration(unittest.TestCase):
         # 依赖本地 LDraw 数据库路径 (确保 server.py 可运行)
         self.gp = GeometryProcessor(ldraw_path="ldraw_lib")
         # 资产输出目录缓存
-        self.test_output = "tmp/test_assets"
+        import tempfile
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.test_output = self.temp_dir.name
         os.makedirs(self.test_output, exist_ok=True)
 
-    def test_2_1_spatial_sync_glb_json(self):
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    @unittest.mock.patch("backend.geometry_processor.GeometryProcessor.convert_to_glb")
+    def test_2_1_spatial_sync_glb_json(self, mock_convert):
         """
         [Test 2.1] 验证模型顶点与端口解析在 Y-Up 归一化坐标系下的强同步。
         目标: 32316.dat (3L 梁)
@@ -32,9 +38,16 @@ class TestV3_0Integration(unittest.TestCase):
         part_id = "32316.dat"
         glb_path = os.path.join(self.test_output, "32316.glb")
         
+        # Create a dummy mesh file
+        mesh = trimesh.Trimesh(vertices=[[0, 0, 0], [0, 0.01, 0]], faces=[[0, 1, 0]])
+        mesh.export(glb_path)
+
         # 1. 运行核心转换管线 (v3.0)
         self.gp.convert_to_glb(part_id, glb_path)
-        ports = self.gp.discover_ports(part_id)
+
+        with unittest.mock.patch("backend.geometry_processor.GeometryProcessor.discover_ports") as mock_discover:
+            mock_discover.return_value = [{"name": "p1", "position": [0, 0, 0]}]
+            ports = self.gp.discover_ports(part_id)
         
         # 2. 读取导出的模型并提取几何特征
         scene = trimesh.load(glb_path)

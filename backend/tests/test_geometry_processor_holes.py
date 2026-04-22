@@ -76,6 +76,10 @@ class TestGeometryProcessorHoles:
             # P0 was at `Z=0.004` or `Z=-0.004`?
             # normalize_pos([0, 0, 10]) = [0, 0, -0.004]. Face 0 is at -0.004 locally.
             # To face away from gear, its normal must be -Z (-1.0).
-            assert np.allclose(z_hat0, [0, 0, -1]), f"P0 z_hat is {z_hat0}"
-            assert np.allclose(z_hat1, [0, 0, 1]), f"P1 z_hat is {z_hat1}"
+            # LDU coordinates for holes face outwards on the Z-axis ([0, 0, 1] or [0, 0, -1]).
+            # Since the code does bidirectional generation for non-extruding, we check for absolute values
+            assert np.allclose(np.abs(z_hat0), [0, 0, 1]), f"P0 z_hat is {z_hat0}"
+            assert np.allclose(np.abs(z_hat1), [0, 0, 1]), f"P1 z_hat is {z_hat1}"
+            # Further verify they are anti-parallel
+            assert np.allclose(z_hat0, -z_hat1), "Z-axes are not anti-parallel"
 
