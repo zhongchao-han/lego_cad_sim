@@ -11,7 +11,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def process_single_part(part_name: str, ldraw_dir: str):
+from typing import Tuple, Optional, Any, Dict
+
+def process_single_part(part_name: str, ldraw_dir: str) -> Tuple[str, Optional[Dict[str, Any]]]:
     try:
         gp = GeometryProcessor(ldraw_dir)
         ports = gp.discover_ports(part_name)
@@ -21,7 +23,7 @@ def process_single_part(part_name: str, ldraw_dir: str):
         return part_name, None
 
 
-def rebuild_all(ldraw_dir: str, config_path: str):
+def rebuild_all(ldraw_dir: str, config_path: str) -> None:
     parts_folder = os.path.join(ldraw_dir, "parts")
     dat_files = glob.glob(os.path.join(parts_folder, "*.dat"))
 
@@ -39,11 +41,11 @@ def rebuild_all(ldraw_dir: str, config_path: str):
             logger.info(f"Progress: {i + 1}/{total} ({(i + 1) / total * 100:.1f}%)")
 
     # Load existing to preserve any metadata if necessary, but here we enforce the rewrite of ports
-    existing = {}
+    existing: Dict[str, Any] = {}
     if os.path.exists(config_path):
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, "r", encoding="utf-8") as f_read:
             try:
-                existing = json.load(f)
+                existing = json.load(f_read)
             except Exception:
                 pass
 
@@ -56,8 +58,8 @@ def rebuild_all(ldraw_dir: str, config_path: str):
             existing[p]["status"] = "verified"
             existing[p]["confidence"] = 1.0
 
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(existing, f, indent=2)
+    with open(config_path, "w", encoding="utf-8") as f_write:
+        json.dump(existing, f_write, indent=2)
 
     logger.info(f"Successfully rebuilt port configurations and saved to {config_path}")
 

@@ -1,8 +1,9 @@
 import numpy as np
+from typing import List, Dict, Any
 from backend.port import Port
 
 
-def _make_port(name: str, ptype: str, pos: list) -> dict:
+def _make_port(name: str, ptype: str, pos: List[float]) -> Dict[str, Any]:
     """构造 site_utils 可识别的原始端口字典。"""
     return {
         "name": name,
@@ -12,7 +13,7 @@ def _make_port(name: str, ptype: str, pos: list) -> dict:
     }
 
 
-def _build_port(name: str, ptype: str, pos: list) -> Port:
+def _build_port(name: str, ptype: str, pos: List[float]) -> Port:
     """构造强类型 Port 对象。"""
     p = Port.from_raw(name, ptype, np.array(pos, dtype=float), np.eye(3))
     if p is None:
@@ -22,7 +23,7 @@ def _build_port(name: str, ptype: str, pos: list) -> Port:
 
 def _make_site(
     part_id: str, port_type: str = "peghole.dat", site_index: int = 0
-) -> dict:
+) -> Dict[str, Any]:
     """构造最基础的 Site 字典（用于测试输入）。"""
     return {
         "id": f"{part_id}_site{site_index}",

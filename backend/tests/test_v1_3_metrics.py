@@ -15,7 +15,7 @@ class TestV3_0Metrics(unittest.TestCase):
     [v3.0 归一化架构] 数学底层与采样准度验证套件 (Unit Tests)
     """
 
-    def test_1_1_pos_normalization_accuracy(self):
+    def test_1_1_pos_normalization_accuracy(self) -> None:
         """
         [Test 1.1] 验证 LDU -> SI 的米制转换与 Rx180 翻转。
         数据点: [20, 24, 0] LDU
@@ -29,7 +29,7 @@ class TestV3_0Metrics(unittest.TestCase):
             p_si, expected, atol=1e-7, err_msg="LDU-SI 投影精度偏移！"
         )
 
-    def test_1_2_matrix_purification(self):
+    def test_1_2_matrix_purification(self) -> None:
         """
         [Test 1.2] 验证矩阵提纯（Gram-Schmidt 正交化）。
         """
@@ -50,7 +50,7 @@ class TestV3_0Metrics(unittest.TestCase):
         )
 
     @unittest.mock.patch("backend.geometry_processor.PortLibrary.resolve_path")
-    def test_1_3_pitch_sampling_integrity(self, mock_resolve):
+    def test_1_3_pitch_sampling_integrity(self, mock_resolve: unittest.mock.MagicMock) -> None:
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         通过在 y 轴以 20 LDU（0.008m）步长放置 5 个 beamhole 原语来验证。

@@ -131,7 +131,7 @@ class TestConvertToGlbSignature(unittest.TestCase):
             TypeError,
             msg="以 `color=` 调用 convert_to_glb 应抛出 TypeError（旧 Bug 路径）。",
         ):
-            # type: ignore[call-arg]  — 故意传入错误参数名以验证签名拦截
+            # 故意传入错误参数名以验证签名拦截
             gp.convert_to_glb("non_existent.dat", "/tmp/wrong_kwarg.glb", color=7)  # type: ignore[call-arg]
 
 

@@ -12,7 +12,9 @@ class MeshAssetManager:
     确保系统所有脚本输出路径一致。
     """
 
-    def __init__(self, cache_root: str = None):
+    mesh_cache_root: str
+
+    def __init__(self, cache_root: Optional[str] = None):
         if cache_root is None:
             # 默认：始终相对于工程的 data/custom_assets 进行挂载
             self.mesh_cache_root = os.path.abspath(
