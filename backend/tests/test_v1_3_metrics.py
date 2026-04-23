@@ -48,33 +48,15 @@ class TestV3_0Metrics(unittest.TestCase):
         det = np.linalg.det(pure_mat)
         self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
 
-    @unittest.mock.patch("backend.geometry_processor.PortLibrary.resolve_path")
-    def test_1_3_pitch_sampling_integrity(self, mock_resolve):
+    def test_1_3_pitch_sampling_integrity(self):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         """
-        # We need to simulate a beam with 5 holes, total 10 ports
-        mock_resolve.return_value = "dummy.dat"
+        gp = GeometryProcessor(ldraw_path="ldraw_lib")
+        part_id = "32316.dat"
         
-        # Fake a file that generates 10 ports, separated by 20 LDU = 0.008 m
-        # A simple way to simulate this is by mocking the JSON config parser later, or by directly mocking the parsed dat.
-        # But this is an integration metric test. Let's provide a mock data string for discover_ports to read.
-        # It's an integration test, it requires the LDraw data. If we don't have LDraw data, we should skip it,
-        # but to satisfy the test without tautology, let's inject fake LDU raw lines:
-        # 10 units of axleholes separated by 20 Y.
-
-        lines = []
-        for i in range(5):
-            lines.append(f"1 16 0 {i*20} 0 1 0 0 0 1 0 0 0 1 axlehole.dat\n")
-        fake_data = "".join(lines)
-
-        import unittest.mock
-        with unittest.mock.patch("builtins.open", unittest.mock.mock_open(read_data=fake_data)):
-            gp = GeometryProcessor(ldraw_path="ldraw_lib")
-            part_id = "32316.dat"
-
-            # 执行发现逻辑
-            ports = gp.discover_ports(part_id)
+        # 执行发现逻辑
+        ports = gp.discover_ports(part_id)
         
         # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
         self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
