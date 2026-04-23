@@ -173,7 +173,6 @@ function App() {
                 if (e.button === 0) {
                     if (interactionPhase === 'AXIAL_SLIDING') {
                         useStore.getState().commitAxialSliding();
-                        useStore.getState().setPhase('IDLE');
                     } else if (interactionPhase !== 'IDLE') {
                         abortCurrentInteraction();
                     }

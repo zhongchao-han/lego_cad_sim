@@ -36,8 +36,7 @@ export function useKeyboardShortcuts() {
 
       if (isInputFocused) return;
 
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      const cmdOrCtrl = e.metaKey || e.ctrlKey;
 
       if (cmdOrCtrl) {
         switch (e.key.toLowerCase()) {
@@ -106,7 +105,6 @@ export function useKeyboardShortcuts() {
             if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
               e.preventDefault();
               useStore.getState().commitAxialSliding();
-              useStore.getState().setPhase(InteractionPhase.IDLE);
               useStore.getState().deselectAll();
             }
             break;

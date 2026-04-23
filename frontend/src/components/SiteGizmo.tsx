@@ -258,7 +258,7 @@ export function SiteGizmo({
     <group position={sitePos}>
       {site.ports.map((port, idx) => {
         const compatible = isCompatible(
-          phase === InteractionPhase.SOURCE_LOCKED ? sourcePortType : null,
+          sourcePortType,
           port
         );
 

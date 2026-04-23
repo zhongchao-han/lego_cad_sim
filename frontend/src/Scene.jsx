@@ -54,9 +54,17 @@ const PlacementGhost = () => {
     const selectedPort = useStore(s => s.selectedPort);
     const hoveredPort = useStore(s => s.hoveredPort);
     const phase = useStore(s => s.interactionPhase);
+    const continuousPlacementSource = useStore(s => s.continuousPlacementSource);
     const activeColorCode = useStore(s => s.activeColorCode);
 
-    if (phase !== InteractionPhase.SOURCE_LOCKED || !selectedPort || !hoveredPort) return null;
+    const isActivePhase = phase === InteractionPhase.SOURCE_LOCKED || (phase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource);
+    if (!isActivePhase || !hoveredPort) return null;
+
+    const source = (phase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource) 
+      ? continuousPlacementSource 
+      : selectedPort;
+
+    if (!source) return null;
 
     // 采用工业级稳健解算器，相信后端已完成旋向纠偏，但前端需具备处理任意正交阵的能力
     const getQuatFromMat = (m) => {
@@ -95,19 +103,19 @@ const PlacementGhost = () => {
     };
 
     const previewPose = calculateSnapPose(
-        selectedPort.position,
-        getQuatFromMat(selectedPort.rotation),
+        source.position,
+        getQuatFromMat(source.rotation),
         hoveredPort.globalPos,
         hoveredPort.globalQuat
     );
 
-    const ghostColor = getDefaultColorCode(selectedPort.ldrawId || selectedPort.partId, activeColorCode);
+    const ghostColor = getDefaultColorCode(source.ldrawId || source.partId, activeColorCode);
 
     return (
         <group position={previewPose.position} quaternion={previewPose.quaternion}>
             <InteractivePart
                 partId="ghost"
-                ldrawId={selectedPort.ldrawId}
+                ldrawId={source.ldrawId}
                 colorCode={ghostColor}
                 opacity={0.4}
                 transparent={true}
@@ -206,7 +214,7 @@ const FreePlacerGhost = () => {
     );
 };
 
-import { EffectComposer, Outline } from '@react-three/postprocessing';
+import { EffectComposer } from '@react-three/postprocessing';
 
 export default function Scene() {
     const parts = useStore((s) => s.parts);
@@ -218,10 +226,7 @@ export default function Scene() {
         <>
             {debugMode && <Perf position="top-left" style={{ top: '24px', left: '300px' }} minimal={true} />}
             
-            <EffectComposer autoClear={false} multisampling={0}>
-                {/* 使用纯原生的 Three.js Layer 来规避 @react-three/postprocessing Selection Context 死锁 */}
-                <Outline visibleEdgeColor={0xffffff} hiddenEdgeColor={0xffffff} edgeStrength={3.0} blur selectionLayer={10} />
-            </EffectComposer>
+            {/* Outline Effect removed due to react-three/postprocessing Selection context infinite loop bug */}
 
             {/* 宏观治理：使用程序化虚拟现实工作室，彻底脱离在线 CDN 依赖 */}
             <Environment frames={1} resolution={256}>

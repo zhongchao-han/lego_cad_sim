@@ -15,3 +15,11 @@
 | TS-6.1 | Camera Auto Focus 平均包围核弹 | store 选中了两块相距 20 个身位的左右护甲 | 使用 F 快捷键驱动 `focusCameraOnSelected()` | `cameraTarget` 数据流被更新为双方距离的正中心 (10方位)，不偏不倚照亮居中空间。 |
 | TS-6.2 | Multi-Select 开拓防漏模式 | store 原本选中了 A。 | 当下带着 `append=true` 的意志调用 selectPart传入 B | allConnectedIds 里囊括了 A 且加入了 B（集合无重容合并）。而不是发生以往替换式的丢弃行径。 |
 | TS-6.3 | 狂暴穿模验证 | 在沿原积木插槽的轴上正用鼠标滑动位移 | 该手势操作携带 `shiftKey=true` 信息 | 系统不将其值送入 `Math.max(clamp)` 进行设点卡喉，直接原始输出 offset 差值使其穿插。 |
+
+## 用例集 TS-7：图章与流水线装配 (Continuous Stamp Assembly)
+
+| 用例 ID | 测试目标 | 前置条件 | 操作步骤 | 预期结果 (Assertion) |
+| --- | --- | --- | --- | --- |
+| TS-7.1 | 连续图章激活 | 用户从零件库预览面板中选择某个零件的端口 (如 `2780` 科技销) | 系统携带 `isFromPreview: true` 标记触发 `handlePortClick` | Store 状态机将 `continuousPlacementSource` 置为源端口数据，进入 `SOURCE_LOCKED`。 |
+| TS-7.2 | 无缝滑动接力 | 第一个 `2780` 已被放入场景的孔中，系统处于 `AXIAL_SLIDING` | 不提交滑动，直接移动鼠标悬停在旁边另一个合法的孔位上 | 系统成功通过极性过滤（仅基于 `continuousPlacementSource` 的类型筛选），向用户展现 `PlacementGhost` 幽灵预览，表示下一个销即将落位。 |
+| TS-7.3 | 连点静默提交 | 与 7.2 相同，处于悬停预览状态 | 单击鼠标左键 | 上一个滑动自动被 `commitAxialSliding` 静默提交写入 `parts`，同时产生一个新的 `InstanceID` 被挂载在当前点击处并直接吸附，系统无缝重入新的 `AXIAL_SLIDING`。 |

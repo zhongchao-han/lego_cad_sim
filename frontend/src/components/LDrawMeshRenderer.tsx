@@ -60,8 +60,10 @@ export function LDrawMeshRenderer({
   const scene: THREE.Group | null = Array.isArray(gltf.scene) ? gltf.scene[0] : gltf.scene;
 
   // 仅依赖 scene（GLB 文件）时重建，避免 hover 状态变化触发不必要的重建。
-  const visual = useMemo(() => {
-    if (!scene) return new THREE.Group();
+  // 同时计算出完美的纯局部包围盒尺寸（此时完全没有受父级变换影响）
+  const { visual, localBoxSize, localBoxCenter } = useMemo(() => {
+    if (!scene) return { visual: new THREE.Group(), localBoxSize: new THREE.Vector3(), localBoxCenter: new THREE.Vector3() };
+    
     const c = scene.clone(true);
     c.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -71,23 +73,32 @@ export function LDrawMeshRenderer({
         mesh.material = createABSPlasticMaterial(origColor, hasVC);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        // 如果传入了 disableRaycast，则完全禁用该克隆网格的物理射线检测（适用于 Ghost）
         if (disableRaycast) {
           mesh.raycast = () => null;
         }
       }
     });
-    return c;
+
+    // 强制更新矩阵（此时 c 未被挂载到任何组中，matrixWorld 必然为纯净的自身矩阵）
+    c.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(c);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    
+    return { visual: c, localBoxSize: size, localBoxCenter: center };
   }, [scene, disableRaycast]);
 
-  // 严格底层的垃圾回收：由于我们在 useMemo 里为 clone 出来的 Mesh 注入了全新的 Material，
-  // 我们必须严格在组件卸载或 visual 重建时显式 dispose 它们。如果不这样做，会导致严重的 Context Lost 系统崩溃。
+  // 严格底层的垃圾回收：我们在 useMemo 里为 clone 出来的 Mesh 注入了全新的 Material，
+  // 必须严格在组件卸载或 visual 重建时显式 dispose Material。
+  // 警告：千万不要 dispose geometry！因为 geometry 是由 LDrawLoader 缓存并在所有 clone 间共享的！
+  // 随意 dispose shared geometry 会立刻导致严重的 WebGL Context Lost 崩溃！
   useEffect(() => {
     return () => {
       visual.traverse((child: THREE.Object3D) => {
         if ((child as THREE.Mesh).isMesh) {
           const mesh = child as THREE.Mesh;
-          if (mesh.geometry) mesh.geometry.dispose();
           if (mesh.material) {
             if (Array.isArray(mesh.material)) {
               mesh.material.forEach(m => m.dispose());
@@ -113,20 +124,6 @@ export function LDrawMeshRenderer({
     });
   }, [visual, highlightColor, highlightIntensity]);
 
-  // 命令式更新后处理 Outline 识别图层 (Layer 10)
-  // 彻底摒弃 @react-three/postprocessing 的 Select Provider 产生的 Context Cascade 死锁
-  useEffect(() => {
-    visual.traverse((child: THREE.Object3D) => {
-      if ((child as THREE.Mesh).isMesh) {
-        if (highlightOutline) {
-          child.layers.enable(10);
-        } else {
-          child.layers.disable(10);
-        }
-      }
-    });
-  }, [visual, highlightOutline]);
-
   // 命令式更新透明度，不触发 visual 重建
   useEffect(() => {
     visual.traverse((child: THREE.Object3D) => {
@@ -147,11 +144,31 @@ export function LDrawMeshRenderer({
     });
   }, [visual, opacity]);
 
+  // 生成完美跟随的局部包围盒 (Local Bounding Box)
+  const boxHelper = useMemo(() => {
+    if (!highlightOutline || localBoxSize.length() === 0) return null;
+    
+    // 根据最初缓存的局部包围盒尺寸创建一个线框几何体
+    const boxGeom = new THREE.BoxGeometry(localBoxSize.x, localBoxSize.y, localBoxSize.z);
+    const edgesGeom = new THREE.EdgesGeometry(boxGeom);
+    const material = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true });
+    
+    const lines = new THREE.LineSegments(edgesGeom, material);
+    lines.position.copy(localBoxCenter); // 修正到局部质心
+    
+    // 此局部线框将作为子节点与 visual 同级挂载，完美继承父级的任何平移、旋转
+    return lines;
+  }, [localBoxSize, localBoxCenter, highlightOutline]);
+
   return (
-    <primitive
-      object={visual}
-      onDoubleClick={onDoubleClick}
-      onPointerDown={onPointerDown}
-    />
+    <>
+      <primitive
+        object={visual}
+        onDoubleClick={onDoubleClick}
+        onPointerDown={onPointerDown}
+      />
+      {/* 独立渲染包围盒，与原零件完全解耦 */}
+      {boxHelper && <primitive object={boxHelper} />}
+    </>
   );
 }

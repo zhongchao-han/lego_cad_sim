@@ -55,7 +55,9 @@ interface StoreState {
     movedPartIds: string[];
     prevPositions: Record<string, { position: Vec3; quaternion: Quat }>;
     addedConnections: Array<{ from: string; to: string }>;
+    addedPartIds?: string[];
   } | null;
+  continuousPlacementSource: SelectedPortInfo | null; // 用于记录正在连续放置（复制）的源端口信息
 
   /**
    * 全局活跃颜色码 (LDraw Color Code)。
@@ -228,6 +230,7 @@ export const useStore = create<StoreState>()(
   canRedo: false,
   stagingGrid: new StagingGrid(),
   snapPreState: null,
+  continuousPlacementSource: null,
 
   // 全局活跃颜色码，默认为 4 (Red)，供新建零件实例时使用
   activeColorCode: 4,
@@ -262,6 +265,7 @@ export const useStore = create<StoreState>()(
         slideOffset: 0,
         cameraTarget: null,
         snapPreState: null,
+        continuousPlacementSource: null,
         isContextLost: false
       });
   },
@@ -277,7 +281,7 @@ export const useStore = create<StoreState>()(
     try {
       // 路由与后端 FastAPI 定义保持一致：/api/toggle_mode
       await axios.post(`${API_URL}/api/toggle_mode?mode=${nextMode}`);
-      set({ mode: nextMode, selectedPort: null, interactionPhase: InteractionPhase.IDLE });
+      set({ mode: nextMode, selectedPort: null, interactionPhase: InteractionPhase.IDLE, continuousPlacementSource: null });
     } catch (e) {
       get().addLog(`Failed to toggle mode: ${e}`, 'ERROR');
     }
@@ -389,7 +393,12 @@ export const useStore = create<StoreState>()(
     const currentPhase = get().interactionPhase;
     if (currentPhase === InteractionPhase.IDLE || currentPhase === InteractionPhase.PREVIEWING) {
       get().addLog(`Source port locked: ${port.partId}`);
-      set({ selectedPort: port, interactionPhase: InteractionPhase.SOURCE_LOCKED, previewPartId: null });
+      set({ 
+        selectedPort: port, 
+        interactionPhase: InteractionPhase.SOURCE_LOCKED, 
+        previewPartId: null,
+        continuousPlacementSource: port.isFromPreview ? port : null // 开启连续放置模式
+      });
       return;
     }
     if (currentPhase === InteractionPhase.SOURCE_LOCKED && selectedPort) {
@@ -403,9 +412,11 @@ export const useStore = create<StoreState>()(
       const { connections, parts } = get();
       const srcGroup = getConnectedGroup(connections, selectedPort.partId, port.partId);
       const prevPositions: Record<string, { position: Vec3; quaternion: Quat }> = {};
+      const addedPartIds: string[] = [];
       srcGroup.forEach(pid => {
         const p = parts[pid];
         if (p) prevPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
+        else addedPartIds.push(pid);
       });
 
       set({ 
@@ -413,7 +424,8 @@ export const useStore = create<StoreState>()(
         snapPreState: {
           movedPartIds: srcGroup,
           prevPositions,
-          addedConnections: [{ from: selectedPort.partId, to: port.partId }]
+          addedConnections: [{ from: selectedPort.partId, to: port.partId }],
+          addedPartIds
         }
       });
 
@@ -434,8 +446,9 @@ export const useStore = create<StoreState>()(
   },
 
   setHoveredPort: (port) => {
-    const { interactionPhase } = get();
-    if (interactionPhase === InteractionPhase.SOURCE_LOCKED) {
+    const { interactionPhase, continuousPlacementSource } = get();
+    if (interactionPhase === InteractionPhase.SOURCE_LOCKED || 
+       (interactionPhase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource)) {
       set({ hoveredPort: port });
     } else {
       if (get().hoveredPort !== null) set({ hoveredPort: null });
@@ -528,6 +541,9 @@ export const useStore = create<StoreState>()(
     if (pre) {
         set(prev => {
             const rp = { ...prev.parts };
+            if (pre.addedPartIds) {
+                pre.addedPartIds.forEach(id => delete rp[id]);
+            }
             Object.entries(pre.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
             const rc = { ...prev.connections };
             pre.addedConnections.forEach(({ from, to }) => {
@@ -553,7 +569,8 @@ export const useStore = create<StoreState>()(
       hoveredPort: null,
       slidingTarget: null,
       slideOffset: 0,
-      snapPreState: null
+      snapPreState: null,
+      continuousPlacementSource: null
     });
   },
 
@@ -616,8 +633,8 @@ export const useStore = create<StoreState>()(
         const np = { ...s.parts, ...pa };
         const nc = { ...s.connections };
         conns.forEach(c => {
-          if (!nc[c.from]) nc[c.from] = new Set();
-          if (!nc[c.to]) nc[c.to] = new Set();
+          nc[c.from] = nc[c.from] ? new Set(nc[c.from]) : new Set();
+          nc[c.to] = nc[c.to] ? new Set(nc[c.to]) : new Set();
           nc[c.from].add(c.to);
           nc[c.to].add(c.from);
         });
@@ -932,6 +949,9 @@ export const useStore = create<StoreState>()(
             (snap) => { // undo
                 set(prev => {
                     const rp = { ...prev.parts };
+                    if (snap.addedPartIds) {
+                        snap.addedPartIds.forEach(id => delete rp[id]);
+                    }
                     Object.entries(snap.prevPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
                     const rc = { ...prev.connections };
                     snap.addedConnections.forEach(({ from, to }) => {
@@ -953,17 +973,35 @@ export const useStore = create<StoreState>()(
         _history.push(cmd);
     }
 
-    set({ 
-      interactionPhase: InteractionPhase.IDLE, 
-      selectedPort: null, 
-      hoveredPort: null, 
-      slidingTarget: null,
-      slideOffset: 0,
-      snapPreState: null,
-      canUndo: _history.canUndo,
-      canRedo: _history.canRedo 
-    });
-    get().addLog("Axial Sliding committed.", 'ACTION');
+    const cp = get().continuousPlacementSource;
+    if (cp) {
+      // 连续放置模式：生成新的 instanceId 保持对齐状态
+      const newInstanceId = `${cp.ldrawId}_${window.crypto.randomUUID().substring(0,8)}`;
+      const newSelectedPort = { ...cp, partId: newInstanceId };
+      set({
+        interactionPhase: InteractionPhase.SOURCE_LOCKED,
+        selectedPort: newSelectedPort,
+        hoveredPort: null,
+        slidingTarget: null,
+        slideOffset: 0,
+        snapPreState: null,
+        canUndo: _history.canUndo,
+        canRedo: _history.canRedo
+      });
+      get().addLog("Axial Sliding committed. Ready for next continuous placement.", 'ACTION');
+    } else {
+      set({ 
+        interactionPhase: InteractionPhase.IDLE, 
+        selectedPort: null, 
+        hoveredPort: null, 
+        slidingTarget: null,
+        slideOffset: 0,
+        snapPreState: null,
+        canUndo: _history.canUndo,
+        canRedo: _history.canRedo 
+      });
+      get().addLog("Axial Sliding committed.", 'ACTION');
+    }
   },
   setBlocked: (r) => set({ interferenceReport: r }),
   setPhase: (p) => set({ interactionPhase: p }),
@@ -980,7 +1018,8 @@ export const useStore = create<StoreState>()(
     }
     set({ 
       previewPartId: id,
-      interactionPhase: id ? InteractionPhase.PREVIEWING : InteractionPhase.IDLE 
+      interactionPhase: id ? InteractionPhase.PREVIEWING : InteractionPhase.IDLE,
+      continuousPlacementSource: null // 清除连续放置状态
     });
   },
   stagePart: (id) => {

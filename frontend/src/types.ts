@@ -83,4 +83,5 @@ export interface SelectedPortInfo {
   rotation: Mat3;
   globalPos: Vec3;
   globalQuat: Quat;
+  isFromPreview?: boolean; // 用于标记此端口是否刚从零件库选出，以开启连续拼接(Stamp)模式
 }

@@ -52,11 +52,12 @@ export function PartPreviewOverlay() {
 
   const onPortSelected = async (portInfo: any) => {
     // 为即将加入场景的零件生成唯一标识位 (InstanceID)
-    const instanceId = `${previewPartId}_${Date.now()}`;
+    const instanceId = `${previewPartId}_${window.crypto.randomUUID().substring(0,8)}`;
     await handlePortClick({
       ...portInfo,
       partId: instanceId,
       ldrawId: previewPartId, // 保存原始材质 ID
+      isFromPreview: true // 标记来源，用于激活连续插入(Stamp)模式
     });
   };
 

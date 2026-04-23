@@ -95,6 +95,13 @@ export const InteractivePart = memo(({
   // ── 选择/克隆交互 ─────────────────────────────────────────────────────────
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
+
+    // 如果在连续图章模式或单次放置阶段（AXIAL_SLIDING），点击零件实体应该等同于点击背景，优先提交当前深度！
+    if (currentPhase === InteractionPhase.AXIAL_SLIDING) {
+      commitAxialSliding();
+      return;
+    }
+
     const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
     selectPart(partId, SelectionLevel.GROUP, isMultiSelect);
     if (e.altKey && !isMultiSelect && currentPhase === InteractionPhase.IDLE) {
@@ -121,16 +128,27 @@ export const InteractivePart = memo(({
 
   // ── 高亮计算 ──────────────────────────────────────────────────────────────
   const highlight = useMemo(() => {
-    if (isBlocked) return { color: '#ff3d00', intensity: pulse, outline: true };
+    // 穿模报错保持刺眼红光和高闪烁
+    if (isBlocked) return { color: '#ff3d00', intensity: pulse, outline: false };
+    
+    // 选中状态：使用 CAD 级局部包围盒 (BoxHelper 线框)
     if (isSelected) return { color: null, intensity: 0, outline: true };
     if (isGroupMember) return { color: null, intensity: 0, outline: true };
-    if (hovered || isPortHovered) return { color: null, intensity: 0, outline: true };
+    
+    // 彻底贯彻“盲操”与极简美学：Hover 时不触发任何发光或高亮
     return { color: null, intensity: 0, outline: false };
-  }, [isSelected, isGroupMember, isBlocked, pulse, hovered, isPortHovered]);
+  }, [isSelected, isGroupMember, isBlocked, pulse]);
 
   const interactionPhase = useStore(s => s.interactionPhase);
   const selectedPort = useStore(s => s.selectedPort);
+  const continuousPlacementSource = useStore(s => s.continuousPlacementSource);
   const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
+
+  const effectiveSourcePortType = useMemo(() => {
+    if (interactionPhase === InteractionPhase.SOURCE_LOCKED) return selectedPort?.portType ?? null;
+    if (interactionPhase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource) return continuousPlacementSource.portType;
+    return null;
+  }, [interactionPhase, selectedPort, continuousPlacementSource]);
 
   if (ldrawPart.loading) return null;
 
@@ -142,7 +160,12 @@ export const InteractivePart = memo(({
     ? (opacity < 1 ? opacity : 0.5) 
     : opacity;
     
-  const finalShowPorts = showPorts && isRenderingActive;
+  // 端口指示器（箭头）显示逻辑：
+  // 1. 如果处于全局 Debug 模式，且满足渲染条件，则强制显示。
+  // 2. 如果是非 Debug 模式，遵循“极简盲操”原则：只有被正式选中的零件，才会暴露其自身的端口。纯悬停（Hover）不再暴露视觉噪音。
+  const finalShowPorts = debugShowPorts 
+    ? (showPorts && isRenderingActive)
+    : (showPorts && (isSelected || isStatic));
 
   return (
     <group
@@ -195,7 +218,7 @@ export const InteractivePart = memo(({
           partId={partId}
           ldrawId={ldrawId || partId}
           phase={interactionPhase}
-          sourcePortType={selectedPort?.portType ?? null}
+          sourcePortType={effectiveSourcePortType}
           selectedPort={selectedPort}
           showVisuals={finalShowPorts}
           onPortClick={onPortClick}
