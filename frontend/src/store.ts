@@ -986,6 +986,14 @@ export const useStore = create<StoreState>()(
   stagePart: (id) => {
     const p = get().parts[id];
     if (p) {
+        // 记录操作前的状态，以便撤销
+        const prevPartState = JSON.parse(JSON.stringify(p)) as PartState;
+        const prevConnections = get().connections[id] ? Array.from(get().connections[id]) : [];
+        const removedConns: Array<{ from: string; to: string }> = [];
+        prevConnections.forEach(target => {
+            removedConns.push({ from: id, to: target });
+        });
+
         get().addLog(`Staging part: ${id}`);
         const slot = get().stagingGrid.assign(id);
         if (!slot) {
@@ -995,7 +1003,45 @@ export const useStore = create<StoreState>()(
 
         const newPos = slot.worldPosition;
         
-        // 更新区域、位置并清除所有连接关系
+        const executeStage = () => {
+            const currentSlot = get().stagingGrid.assign(id);
+            if (currentSlot) {
+                get().updatePartState(id, { 
+                    zone: ZoneType.STAGED,
+                    position: currentSlot.worldPosition as Vec3,
+                    quaternion: [0, 0, 0, 1] as Quat
+                });
+            }
+            set(state => {
+                const newConns = { ...state.connections };
+                delete newConns[id];
+                Object.keys(newConns).forEach(targetId => {
+                    if (newConns[targetId].has(id)) {
+                        const nextSet = new Set(newConns[targetId]);
+                        nextSet.delete(id);
+                        newConns[targetId] = nextSet;
+                    }
+                });
+                return { connections: newConns };
+            });
+        };
+
+        const undoStage = () => {
+            get().stagingGrid.releaseSlot(id);
+            get().updatePartState(id, prevPartState);
+            set(state => {
+                const newConns = { ...state.connections };
+                removedConns.forEach(c => {
+                    if (!newConns[c.from]) newConns[c.from] = new Set();
+                    if (!newConns[c.to]) newConns[c.to] = new Set();
+                    newConns[c.from].add(c.to);
+                    newConns[c.to].add(c.from);
+                });
+                return { connections: newConns };
+            });
+        };
+
+        // 立即执行并入栈
         get().updatePartState(id, { 
             zone: ZoneType.STAGED,
             position: newPos as Vec3,
@@ -1016,6 +1062,16 @@ export const useStore = create<StoreState>()(
             });
             return { connections: newConns };
         });
+
+        const snap: TopologySnapshot = {
+            addedParts: {},
+            removedParts: {},
+            addedConnections: [],
+            removedConnections: removedConns
+        };
+        const cmd = createTopologyCommand('STAGE', snap, executeStage, undoStage);
+        _history.push(cmd);
+        set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
     }
   }
 }), {
