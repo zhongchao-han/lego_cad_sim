@@ -171,8 +171,10 @@ function App() {
             onPointerMissed={(e) => {
                 // 只响应鼠标左键点击底板空白处
                 if (e.button === 0) {
-                    // 如果当前正在锁定源端口，点击空白处则释放
-                    if (interactionPhase !== 'IDLE') {
+                    if (interactionPhase === 'AXIAL_SLIDING') {
+                        useStore.getState().commitAxialSliding();
+                        useStore.getState().setPhase('IDLE');
+                    } else if (interactionPhase !== 'IDLE') {
                         abortCurrentInteraction();
                     }
                     // 无论处于什么状态，点击空白处都应全局清空零件选中高亮状态

@@ -102,6 +102,30 @@ export function useKeyboardShortcuts() {
             e.preventDefault();
             focusCameraOnSelected();
             break;
+          case 'Enter':
+            if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
+              e.preventDefault();
+              useStore.getState().commitAxialSliding();
+              useStore.getState().setPhase(InteractionPhase.IDLE);
+              useStore.getState().deselectAll();
+            }
+            break;
+          case 'ArrowUp':
+            if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
+              e.preventDefault();
+              const offset = useStore.getState().slideOffset;
+              const step = e.shiftKey ? 10 : 1; // LDU units
+              useStore.getState().updateSlideOffset(offset + step);
+            }
+            break;
+          case 'ArrowDown':
+            if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
+              e.preventDefault();
+              const offset = useStore.getState().slideOffset;
+              const step = e.shiftKey ? 10 : 1;
+              useStore.getState().updateSlideOffset(offset - step);
+            }
+            break;
           case '[':
           case 'ArrowLeft':
             if (selectedPort && 

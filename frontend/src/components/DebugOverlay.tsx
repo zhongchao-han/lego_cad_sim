@@ -4,7 +4,7 @@ import { clearAllPartCache } from '../useLDrawPart';
 import { Bug, Trash2, Cpu } from 'lucide-react';
 
 export const DebugOverlay: React.FC = () => {
-    const { debugMode, setDebugMode, addLog } = useStore();
+    const { debugMode, setDebugMode, addLog, debugShowPorts, setDebugShowPorts } = useStore();
 
     if (!debugMode) {
         return (
@@ -53,6 +53,15 @@ export const DebugOverlay: React.FC = () => {
                 
                 <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/10">
                     <span className="text-slate-400">Overlays Active</span>
+                    <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-white/5 rounded transition-colors">
+                        <input 
+                            type="checkbox" 
+                            checked={debugShowPorts}
+                            onChange={(e) => setDebugShowPorts(e.target.checked)}
+                            className="accent-rose-500 w-4 h-4"
+                        />
+                        <span className={debugShowPorts ? "text-rose-400 font-bold" : "text-slate-300"}>Show All Ports (Blind Override)</span>
+                    </label>
                     <div className="flex items-center gap-2 text-emerald-400">
                         <Cpu size={14} />
                         <span>Perf Monitor (Top-Left)</span>

@@ -46,6 +46,7 @@ interface StoreState {
   enableSSAO: boolean;
   enableContactShadows: boolean;
   debugMode: boolean;
+  debugShowPorts: boolean;
   previewPartId: string | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -97,6 +98,7 @@ interface StoreState {
   setEnableSSAO: (value: boolean) => void;
   setEnableContactShadows: (value: boolean) => void;
   setDebugMode: (value: boolean) => void;
+  setDebugShowPorts: (value: boolean) => void;
   setPartZone: (partId: string, zone: ZoneType) => void;
 
   /** 全局颜色选择：更新 activeColorCode，后续所有零件实例使用此颜色 */
@@ -220,6 +222,7 @@ export const useStore = create<StoreState>()(
   enableSSAO: true,
   enableContactShadows: true,
   debugMode: false,
+  debugShowPorts: false,
   previewPartId: null,
   canUndo: false,
   canRedo: false,
@@ -326,6 +329,7 @@ export const useStore = create<StoreState>()(
       get().addLog(`Debug mode: ${value}`);
       set({ debugMode: value });
   },
+  setDebugShowPorts: (value) => set({ debugShowPorts: value }),
   setPartZone: (partId, zone) => get().updatePartState(partId, { zone }),
 
   setActiveColorCode: (code) => {
@@ -348,6 +352,11 @@ export const useStore = create<StoreState>()(
   handlePortClick: async (port: SelectedPortInfo) => {
     const { interactionPhase, selectedPort, snapParts, parts } = get();
     get().addLog(`Port clicked: ${port.partId} (${port.ldrawId})`, 'ACTION');
+    
+    // 如果当前正在滑动，任意点击都应先静默提交滑动状态
+    if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
+      get().commitAxialSliding();
+    }
     
     const activeParts = Object.values(parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA);
     if (activeParts.length === 0 && (interactionPhase === InteractionPhase.IDLE || interactionPhase === InteractionPhase.PREVIEWING)) {
@@ -376,12 +385,14 @@ export const useStore = create<StoreState>()(
       return;
     }
 
-    if (interactionPhase === InteractionPhase.IDLE || interactionPhase === InteractionPhase.PREVIEWING) {
+    // 现在 interactionPhase 可能是 IDLE (如果刚才由于提交而转为 IDLE)
+    const currentPhase = get().interactionPhase;
+    if (currentPhase === InteractionPhase.IDLE || currentPhase === InteractionPhase.PREVIEWING) {
       get().addLog(`Source port locked: ${port.partId}`);
       set({ selectedPort: port, interactionPhase: InteractionPhase.SOURCE_LOCKED, previewPartId: null });
       return;
     }
-    if (interactionPhase === InteractionPhase.SOURCE_LOCKED && selectedPort) {
+    if (currentPhase === InteractionPhase.SOURCE_LOCKED && selectedPort) {
       if (port.partId === selectedPort.partId) {
         get().addLog("Clicked another port on same part, switching source.");
         set({ selectedPort: port }); // 切换源端口，不中止

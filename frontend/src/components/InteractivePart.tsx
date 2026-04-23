@@ -59,6 +59,7 @@ export const InteractivePart = memo(({
   const selection = useStore(s => s.selection);
   const interference = useStore(s => s.interferenceReport);
   const addLog = useStore((s) => s.addLog);
+  const debugShowPorts = useStore(s => s.debugShowPorts);
 
   const isSelected = selection.primaryId === partId || (
     selection.level === SelectionLevel.GROUP && selection.allConnectedIds.includes(partId)
@@ -101,35 +102,8 @@ export const InteractivePart = memo(({
     }
   };
 
-  // ── 沿轴滑动全局手势处理 ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (currentPhase !== InteractionPhase.AXIAL_SLIDING || !isSelected || !slidingTarget) return;
-
-    const handlePointerMove = (e: PointerEvent) => {
-      const targetPos = new THREE.Vector3(...slidingTarget.globalPos);
-      const targetQuat = new THREE.Quaternion(...slidingTarget.globalQuat);
-      const axis = new THREE.Vector3(0, 0, 1).applyQuaternion(targetQuat).normalize();
-      const axisRay = new THREE.Ray(targetPos, axis);
-      raycaster.setFromCamera(mouse, camera);
-      const mouseRay = raycaster.ray;
-      const closestPointOnAxis = new THREE.Vector3();
-      const closestPointOnMouseRay = new THREE.Vector3();
-      axisRay.distanceSqToRay(mouseRay, closestPointOnAxis, closestPointOnMouseRay);
-      const diff = new THREE.Vector3().subVectors(closestPointOnAxis, targetPos);
-      const offset = diff.dot(axis);
-      const finalOffset = calculateClampedOffset(offset, e.shiftKey, 20 * LDU);
-      updateSlideOffset(finalOffset);
-    };
-
-    const handlePointerUp = () => { commitAxialSliding(); };
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [currentPhase, isSelected, slidingTarget, raycaster, mouse, camera, updateSlideOffset, commitAxialSliding]);
-
+  // ── 沿轴滑动由纯键盘接管（useKeyboardShortcuts） ─────────────────────────
+  // 这里不再需要绑定 pointermove 和 pointerup。
   // ── 脉冲动画（干涉状态） ──────────────────────────────────────────────────
   useFrame(({ clock }) => {
     if (isBlocked) {
@@ -162,7 +136,12 @@ export const InteractivePart = memo(({
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
   const isRenderingActive = hovered || isPortHovered || isSelected || isStatic;
-  const finalOpacity = isRenderingActive ? (opacity < 1 ? opacity : 0.5) : 1.0;
+  
+  // 盲操模式下取消 Hover 导致的半透明，除非开启了 Debug 开关
+  const finalOpacity = (debugShowPorts && (hovered || isPortHovered || isSelected)) 
+    ? (opacity < 1 ? opacity : 0.5) 
+    : opacity;
+    
   const finalShowPorts = showPorts && isRenderingActive;
 
   return (
@@ -205,7 +184,10 @@ export const InteractivePart = memo(({
         )}
       </group>
 
-      {finalShowPorts && ldrawPart.sites?.map((site) => (
+      {/* 始终渲染 SiteGizmo。这是纯几何无感 Hover 的核心：
+          利用其内部不可见的大球壳（7 LDU）拦截穿过孔洞（6 LDU）的射线，彻底消灭穿模闪烁 Bug。
+          箭头的显示与隐藏由 showVisuals 属性代理。 */}
+      {ldrawPart.sites?.map((site) => (
         <SiteGizmo
           key={site.id}
           site={site}
@@ -215,6 +197,7 @@ export const InteractivePart = memo(({
           phase={interactionPhase}
           sourcePortType={selectedPort?.portType ?? null}
           selectedPort={selectedPort}
+          showVisuals={finalShowPorts}
           onPortClick={onPortClick}
           onPortHover={handlePortHoverLocal}
         />
