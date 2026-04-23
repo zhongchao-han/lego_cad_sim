@@ -1,7 +1,5 @@
-import pytest
 import os
-import json
-from unittest.mock import mock_open, patch, MagicMock
+from unittest.mock import mock_open, patch
 import numpy as np
 from backend.port_library import PortLibrary
 

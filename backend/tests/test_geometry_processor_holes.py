@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import numpy as np
 from backend.geometry_processor import GeometryProcessor
 
@@ -39,7 +39,6 @@ class TestGeometryProcessorHoles:
         mock_resolve.side_effect = resolve_side_effect
         
         from unittest.mock import mock_open
-        import backend.geometry_processor as gp
         
         def mock_open_file(filepath, *args, **kwargs):
             return mock_open(read_data=file_contents.get(filepath, ""))()

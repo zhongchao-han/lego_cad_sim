@@ -1,4 +1,3 @@
-import pytest
 from backend.port_semantics import (
     Gender, Profile, FitType, ConnectionInterface,
     get_interface, check_fit, derive_joint_params, build_fit_result

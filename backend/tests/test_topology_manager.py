@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
 from backend.topology_manager import PartNode, TopologyManager

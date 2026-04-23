@@ -1,5 +1,3 @@
-import pytest
-import os
 from unittest.mock import patch, mock_open, MagicMock
 from backend.rebuild_port_db import process_single_part, rebuild_all
 

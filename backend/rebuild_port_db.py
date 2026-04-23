@@ -3,7 +3,6 @@ import glob
 import json
 import logging
 import sys
-from concurrent.futures import ProcessPoolExecutor
 from backend.geometry_processor import GeometryProcessor
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

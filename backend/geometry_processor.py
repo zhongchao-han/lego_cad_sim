@@ -3,8 +3,11 @@ import trimesh
 import numpy as np
 import re
 import logging
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, TYPE_CHECKING
 from backend.port_library import PortLibrary
+
+if TYPE_CHECKING:
+    from backend.port import Port
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
 
 # 配置日志

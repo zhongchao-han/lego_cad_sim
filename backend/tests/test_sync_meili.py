@@ -1,5 +1,3 @@
-import pytest
-import os
 from unittest.mock import patch, mock_open, MagicMock
 from backend.sync_meili import get_part_name, sync_to_meilisearch
 
