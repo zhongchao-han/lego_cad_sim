@@ -1,6 +1,5 @@
 import os
 from backend.mesh_asset_manager import MeshAssetManager
-from unittest.mock import patch
 
 class TestMeshAssetManager:
     
@@ -23,8 +22,7 @@ class TestMeshAssetManager:
         assert manager._get_default_glb_filename(" 39369 ", 7) == "39369_c7.glb"
         assert manager._get_default_glb_filename("39369 .dat", 7) == "39369_c7.glb"
         
-    @patch("os.makedirs")
-    def test_get_absolute_glb_path(self, mock_makedirs):
+    def test_get_absolute_glb_path(self):
         manager = MeshAssetManager("/mock_root")
         
         # 测试缺省情况（生成目标位置）
@@ -38,8 +36,7 @@ class TestMeshAssetManager:
         mock_cached_abs = os.path.normpath("/another_disk/model.glb")
         assert manager.get_absolute_glb_path("3001.dat", 7, mock_cached_abs) == mock_cached_abs
         
-    @patch("os.makedirs")
-    def test_compute_mesh_url(self, mock_makedirs):
+    def test_compute_mesh_url(self):
         manager = MeshAssetManager("/mock_root")
         
         # 1. 正常子文件
