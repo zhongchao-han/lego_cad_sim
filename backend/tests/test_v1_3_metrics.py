@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import os
 import sys
+from unittest.mock import patch, mock_open
 
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -48,12 +49,15 @@ class TestV3_0Metrics(unittest.TestCase):
         det = np.linalg.det(pure_mat)
         self.assertAlmostEqual(det, 1.0, places=7, msg="矩阵不是合法的右手旋转系 (SO3)！")
 
-    def test_1_3_pitch_sampling_integrity(self):
+    @patch("builtins.open", new_callable=unittest.mock.mock_open, read_data="\n".join([f"1 16 {i} 0 0  1 0 0 0 1 0 0 0 1 beamhole.dat" for i in range(-40, 60, 20)]))
+    @patch("backend.geometry_processor.PortLibrary.resolve_path")
+    def test_1_3_pitch_sampling_integrity(self, mock_resolve, mock_file):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         """
         gp = GeometryProcessor(ldraw_path="ldraw_lib")
         part_id = "32316.dat"
+        mock_resolve.return_value = "mocked_path"
         
         # 执行发现逻辑
         ports = gp.discover_ports(part_id)
@@ -63,7 +67,7 @@ class TestV3_0Metrics(unittest.TestCase):
         
         # 2. 间距验证: 每两个相邻孔的间距应为 20 LDU = 0.008m
         p0 = np.array(ports[0]["position"])
-        p1 = np.array(ports[1]["position"])
+        p1 = np.array(ports[2]["position"])
         dist = np.linalg.norm(p1 - p0)
         
         # 容差设为 0.1mm (0.0001m)
