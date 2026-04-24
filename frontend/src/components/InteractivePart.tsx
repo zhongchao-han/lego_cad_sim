@@ -103,11 +103,20 @@ export const InteractivePart = memo(({
     }
 
     const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
-    // 默认点击首先选中单个零件，再次点击才扩大到整个 Group，提升操作效率
+    // 左键单击永远只进行精准的单体选择
     selectPart(partId, SelectionLevel.INDIVIDUAL, isMultiSelect);
     if (e.altKey && !isMultiSelect && currentPhase === InteractionPhase.IDLE) {
       duplicateSelected();
     }
+  };
+
+  const handleDoubleClick = (e: any) => {
+    e.stopPropagation();
+    if (currentPhase === InteractionPhase.AXIAL_SLIDING) return;
+    
+    // 原生极速双击触发全选
+    selectPart(partId, SelectionLevel.GROUP, false);
+    onDoubleClick?.(); // 兼容外部传入的钩子
   };
 
   // ── 沿轴滑动由纯键盘接管（useKeyboardShortcuts） ─────────────────────────
@@ -182,7 +191,7 @@ export const InteractivePart = memo(({
           <RenderErrorBoundary onCatch={() => setForceFallback(true)}>
             <LDrawMeshRenderer
               url={activeMeshUrl}
-              onDoubleClick={isStatic || disableEvents ? undefined : onDoubleClick}
+              onDoubleClick={isStatic || disableEvents ? undefined : handleDoubleClick}
               onPointerDown={isStatic || disableEvents ? undefined : handlePointerDown}
               highlightColor={highlight.color}
               highlightIntensity={highlight.intensity}
@@ -194,7 +203,7 @@ export const InteractivePart = memo(({
           </RenderErrorBoundary>
         ) : (
           <mesh
-            onDoubleClick={isStatic || disableEvents ? undefined : onDoubleClick}
+            onDoubleClick={isStatic || disableEvents ? undefined : handleDoubleClick}
             onPointerDown={isStatic || disableEvents ? undefined : handlePointerDown}
             raycast={disableEvents ? () => null : undefined}
           >

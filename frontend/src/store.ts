@@ -873,16 +873,6 @@ export const useStore = create<StoreState>()(
       
       const prevSelection = get().selection;
       let targetLevel = level;
-      
-      // 这里的逻辑反转：如果当前请求是 INDIVIDUAL，且该零件已经是 INDIVIDUAL 选中状态，
-      // 再次点击则扩大选择范围到 GROUP (仅非append模式时生效)。
-      // 从而实现：一击选中单体，二击全选整体。
-      if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.INDIVIDUAL && level === SelectionLevel.INDIVIDUAL && !append) {
-          targetLevel = SelectionLevel.GROUP;
-      } else if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.GROUP && level === SelectionLevel.GROUP && !append) {
-          // 兼容原有逻辑，如果传进来就是 GROUP 且已经是 GROUP，则降级为 INDIVIDUAL
-          targetLevel = SelectionLevel.INDIVIDUAL;
-      }
 
       let newIds: string[] = [];
       if (id && targetLevel === SelectionLevel.GROUP) {

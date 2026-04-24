@@ -91,8 +91,8 @@ function PortArrow({
   const isLocallyActive = hovered || isSelected;
   const debugShowPorts = useStore(s => s.debugShowPorts);
   
-  // 核心盲操逻辑：即使选中，也只在 Debug 开关打开时才显示视觉效果
-  const shouldShowVisuals = showVisuals && isLocallyActive && debugShowPorts;
+  // 解除封印：只要父组件认为该端口热区处于激活态（showVisuals = true），视觉箭头就应当光明正大显示出来，不再要求悬停和 Debug
+  const shouldShowVisuals = showVisuals;
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
   let color = '#888888';
@@ -178,7 +178,7 @@ function PortArrow({
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
       onPointerDown={(e) => {
-        if (!isCompatiblePort || !showVisuals) return;
+        if (!isCompatiblePort) return;
         e.stopPropagation();
         onPortClick?.(buildPortInfo());
       }}
@@ -219,7 +219,7 @@ function PortArrow({
       </mesh>
 
       {/* 独立封装的完美方向性碰撞热区 (Directional Hitbox)：仅激活时渲染并接受点击 */}
-      {isCompatiblePort && shouldShowVisuals && (
+      {isCompatiblePort && showVisuals && (
         <mesh
           position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}
           quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}
