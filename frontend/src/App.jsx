@@ -16,6 +16,7 @@ import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { DebugOverlay } from './components/DebugOverlay';
+import { StatusBar } from './components/StatusBar';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -53,7 +54,7 @@ function AssemblyUI() {
         </div>
       </div>
 
-      <div className="absolute inset-y-0 left-0 flex pointer-events-none">
+      <div className="absolute top-0 bottom-7 left-0 flex pointer-events-none z-10">
         <div className="pointer-events-auto flex flex-col w-72 shadow-2xl bg-white border-r border-slate-200 h-full overflow-hidden">
           <div className="flex-1 min-h-0 border-b border-slate-100 overflow-y-auto">
              <PartLibraryPanel />
@@ -66,6 +67,9 @@ function AssemblyUI() {
 
       {/* 零件预览弹窗：挂载在根级确保 absolute inset-0 覆盖全视口 */}
       <PartPreviewOverlay />
+
+      {/* 全局底部状态栏 */}
+      <StatusBar />
     </div>
   );
 }
