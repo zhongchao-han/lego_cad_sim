@@ -189,6 +189,7 @@ export const InteractivePart = memo(({
               highlightOutline={highlight.outline}
               disableRaycast={disableEvents}
               opacity={finalOpacity}
+              exactBoundingBox={ldrawPart.exactBoundingBox}
             />
           </RenderErrorBoundary>
         ) : (

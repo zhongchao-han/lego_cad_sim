@@ -2,15 +2,6 @@
  * LDrawMeshRenderer.tsx
  * =====================
  * 负责将 GLB 模型克隆并渲染为 ABS 塑料材质的 Three.js 场景图。
- *
- * Hover 检测职责说明：
- *   本组件只负责视觉渲染和高亮/透明度的命令式更新。
- *   InteractivePart 的 hover 状态由上层的 useFrame 逐帧射线检测负责，
- *   此处无需任何 onPointerOver/Out 事件注册。
- *   仅保留 onDoubleClick（用于双击交互）。
- *
- * 高亮/透明度更新：
- *   使用独立 useEffect 命令式更新材质属性，避免 cloned 重建触发任何副作用。
  */
 
 import { useGLTF } from '@react-three/drei';
@@ -26,6 +17,7 @@ interface LDrawMeshRendererProps {
   highlightOutline?: boolean;
   disableRaycast?: boolean;
   opacity?: number;
+  exactBoundingBox?: { size: [number, number, number]; center: [number, number, number] };
 }
 
 const createABSPlasticMaterial = (
@@ -55,14 +47,13 @@ export function LDrawMeshRenderer({
   highlightOutline = false,
   disableRaycast = false,
   opacity = 1.0,
+  exactBoundingBox,
 }: LDrawMeshRendererProps) {
   const gltf = useGLTF(url, true) as unknown as { scene: THREE.Group | THREE.Group[] };
   const scene: THREE.Group | null = Array.isArray(gltf.scene) ? gltf.scene[0] : gltf.scene;
 
-  // 仅依赖 scene（GLB 文件）时重建，避免 hover 状态变化触发不必要的重建。
-  // 同时计算出完美的纯局部包围盒尺寸（此时完全没有受父级变换影响）
-  const { visual, localBoxSize, localBoxCenter } = useMemo(() => {
-    if (!scene) return { visual: new THREE.Group(), localBoxSize: new THREE.Vector3(), localBoxCenter: new THREE.Vector3() };
+  const visual = useMemo(() => {
+    if (!scene) return new THREE.Group();
     
     const c = scene.clone(true);
     c.traverse((child: THREE.Object3D) => {
@@ -79,21 +70,9 @@ export function LDrawMeshRenderer({
       }
     });
 
-    // 强制更新矩阵（此时 c 未被挂载到任何组中，matrixWorld 必然为纯净的自身矩阵）
-    c.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(c);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    
-    return { visual: c, localBoxSize: size, localBoxCenter: center };
+    return c;
   }, [scene, disableRaycast]);
 
-  // 严格底层的垃圾回收：我们在 useMemo 里为 clone 出来的 Mesh 注入了全新的 Material，
-  // 必须严格在组件卸载或 visual 重建时显式 dispose Material。
-  // 警告：千万不要 dispose geometry！因为 geometry 是由 LDrawLoader 缓存并在所有 clone 间共享的！
-  // 随意 dispose shared geometry 会立刻导致严重的 WebGL Context Lost 崩溃！
   useEffect(() => {
     return () => {
       visual.traverse((child: THREE.Object3D) => {
@@ -111,7 +90,6 @@ export function LDrawMeshRenderer({
     };
   }, [visual]);
 
-  // 命令式更新高亮 emissive，不触发 visual 重建
   useEffect(() => {
     visual.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -124,7 +102,6 @@ export function LDrawMeshRenderer({
     });
   }, [visual, highlightColor, highlightIntensity]);
 
-  // 命令式更新透明度，不触发 visual 重建
   useEffect(() => {
     visual.traverse((child: THREE.Object3D) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -144,21 +121,20 @@ export function LDrawMeshRenderer({
     });
   }, [visual, opacity]);
 
-  // 生成完美跟随的局部包围盒 (Local Bounding Box)
+  // 严格执行 Scheme 1 元数据驱动架构：完全信任后端下发的 exactBoundingBox。
+  // 前端仅作为无状态的渲染终点 (Dumb Component)，不再进行任何遍历和顶点计算。
   const boxHelper = useMemo(() => {
-    if (!highlightOutline || localBoxSize.length() === 0) return null;
+    if (!highlightOutline || !exactBoundingBox) return null;
     
-    // 根据最初缓存的局部包围盒尺寸创建一个线框几何体
-    const boxGeom = new THREE.BoxGeometry(localBoxSize.x, localBoxSize.y, localBoxSize.z);
+    const boxGeom = new THREE.BoxGeometry(exactBoundingBox.size[0], exactBoundingBox.size[1], exactBoundingBox.size[2]);
     const edgesGeom = new THREE.EdgesGeometry(boxGeom);
     const material = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true });
     
     const lines = new THREE.LineSegments(edgesGeom, material);
-    lines.position.copy(localBoxCenter); // 修正到局部质心
+    lines.position.set(exactBoundingBox.center[0], exactBoundingBox.center[1], exactBoundingBox.center[2]);
     
-    // 此局部线框将作为子节点与 visual 同级挂载，完美继承父级的任何平移、旋转
     return lines;
-  }, [localBoxSize, localBoxCenter, highlightOutline]);
+  }, [exactBoundingBox, highlightOutline]);
 
   return (
     <>
@@ -167,7 +143,6 @@ export function LDrawMeshRenderer({
         onDoubleClick={onDoubleClick}
         onPointerDown={onPointerDown}
       />
-      {/* 独立渲染包围盒，与原零件完全解耦 */}
       {boxHelper && <primitive object={boxHelper} />}
     </>
   );

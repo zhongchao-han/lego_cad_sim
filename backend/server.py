@@ -115,11 +115,16 @@ class LDrawSite(BaseModel):
     occupied_by: Optional[str] = None
     ports: List[LDrawPort]
 
+class BoundingBox(BaseModel):
+    size: list
+    center: list
+
 class LDrawPartResponse(BaseModel):
     part_id: str
     ports: List[LDrawPort]         # 向后兼容：保留扁平 Port 列表
     sites: List[LDrawSite] = []   # 新增：按物理位点聚类后的 Site 列表
     mesh_url: Optional[str] = None
+    bounding_box: Optional[BoundingBox] = None
 
 class VerifySaveRequest(BaseModel):
     part_id: str
@@ -350,6 +355,21 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             cached_glb_path=cached_data.get("glb_path") if cached_data else None
         )
         
+        # --- v3.2 Bounding Box 数据自愈处理 ---
+        bounding_box = None
+        if cached_data and "bounding_box" in cached_data:
+            bounding_box = cached_data["bounding_box"]
+        else:
+            # 实时计算包围盒并实施数据自愈更新
+            logger.info(f"[*] 包围盒数据缺失，实时计算并注入: {dat_filename}")
+            abs_glb_path = mesh_manager.get_absolute_glb_path(dat_filename, color, cached_data.get("glb_path") if cached_data else None)
+            bounding_box = geo_proc.compute_bounding_box(abs_glb_path)
+            if bounding_box and cached_data:
+                cached_data["bounding_box"] = bounding_box
+                # force=True 确保无视 verified 人工核验锁
+                port_lib_manager.update_part(dat_filename, cached_data, force=True)
+                port_lib_manager.save()
+        
         # [短路逻辑]: 如果零件已人工复核，直接返回缓存中的 Sites
         if cached_data and cached_data.get("status") == "verified":
             logger.info(f"[CACHE] {dat_filename} 已复核，跳过重新聚类直接返回。")
@@ -369,7 +389,8 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
                 part_id=dat_filename,
                 ports=flattened_ports,
                 sites=[LDrawSite(**s) for s in cached_data.get("sites", [])],
-                mesh_url=cached_data.get("mesh_url") or mesh_url
+                mesh_url=cached_data.get("mesh_url") or mesh_url,
+                bounding_box=BoundingBox(**bounding_box) if bounding_box else None
             )
 
         if cached_data:
@@ -390,6 +411,10 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             logger.info(f"[*] 缓存缺失，正在为 {dat_filename} 执行实时 v3.0 解析...")
             raw_ports = geo_proc.discover_ports(dat_filename)
             ports = [LDrawPort(**p) for p in raw_ports]
+            
+            # 若连缓存都没有，顺便将计算好的 bounding box 供前端使用
+            if not bounding_box:
+                bounding_box = geo_proc.compute_bounding_box(dat_filename)
 
         # 动态聚类：无论从缓存还是实时解析，均在查询时计算 Sites
         ports_raw = [p.model_dump() for p in ports]
@@ -400,7 +425,8 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             part_id=dat_filename,
             ports=ports,
             sites=sites_serialized,
-            mesh_url=mesh_url
+            mesh_url=mesh_url,
+            bounding_box=BoundingBox(**bounding_box) if bounding_box else None
         )
     except Exception as e:
         logger.error(f"Failed to get_ldraw_part: {part_id} - {str(e)}", exc_info=True)

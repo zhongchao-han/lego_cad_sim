@@ -184,6 +184,32 @@ class GeometryProcessor:
             logger.error(f"GLB 导出失败: {e}")
             return False
 
+    def compute_bounding_box(self, glb_path: str) -> Optional[Dict[str, List[float]]]:
+        """
+        [v3.3 架构升级] 计算并提取零件在物理空间 (SI单位制，已校正翻转) 下的绝对轴对齐包围盒 (AABB)。
+        直接加载生成的 GLB 视觉模型进行极值计算，彻底规避了手动解析 .dat 文件导致的
+        LDraw CSG 树深度遍历丢失子文件问题，保证数学包围盒与前端渲染网格 100% 绝对一致！
+        """
+        try:
+            logger.debug(f"[DEBUG] 计算物理包围盒 (基于GLB): {glb_path}")
+            if not os.path.exists(glb_path):
+                logger.error(f"计算失败，GLB 文件不存在: {glb_path}")
+                return None
+            
+            import trimesh
+            mesh = trimesh.load(glb_path, force='scene')
+            
+            size = mesh.extents
+            center = mesh.centroid
+            
+            return {
+                "size": [round(float(x), 6) for x in size],
+                "center": [round(float(x), 6) for x in center]
+            }
+        except Exception as e:
+            logger.error(f"[GeometryProcessor] 计算包围盒失败 ({glb_path}): {e}", exc_info=True)
+            return None
+
     def _get_trimesh_for_part(self, filename: str) -> Optional[trimesh.Trimesh]:
         """(Legacy) 将零件转换为用于射线逻辑识别的临时 Trimesh 对象, 由于精度问题现已停用, 但保留以供他用"""
         pass

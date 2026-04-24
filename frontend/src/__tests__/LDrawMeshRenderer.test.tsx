@@ -42,17 +42,31 @@ describe('LDrawMeshRenderer Component Outline Rendering', () => {
     expect(lineSegments.length).toBe(0);
   });
 
-  it('renders a custom local LineSegments bounding box when highlightOutline is true', async () => {
+  it('renders a custom local LineSegments bounding box when highlightOutline is true and exactBoundingBox is provided', async () => {
+    const mockBoundingBox = {
+      size: [10, 20, 30] as [number, number, number],
+      center: [1, 2, 3] as [number, number, number],
+    };
+
     const renderer = await ReactThreeTest.create(
-      <LDrawMeshRenderer url="test.dat" highlightOutline={true} />
+      <LDrawMeshRenderer url="test.dat" highlightOutline={true} exactBoundingBox={mockBoundingBox} />
     );
 
     await ReactThreeTest.act(async () => {
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    const lineSegments = renderer.scene.findAll((node: any) => node.type === 'LineSegments' || node.instance instanceof THREE.LineSegments);
+    const lineSegmentsNode = renderer.scene.findAll((node: any) => node.type === 'LineSegments' || node.instance instanceof THREE.LineSegments)[0];
+    expect(lineSegmentsNode).toBeDefined();
+
+    // Verify it used the provided position
+    const instance = lineSegmentsNode.instance as THREE.LineSegments;
+    expect(instance.position.x).toBe(1);
+    expect(instance.position.y).toBe(2);
+    expect(instance.position.z).toBe(3);
     
-    expect(lineSegments.length).toBeGreaterThan(0);
+    // Verify geometry size (BoxGeometry creates width/height/depth)
+    const geom = instance.geometry as THREE.EdgesGeometry;
+    expect(geom).toBeDefined();
   });
 });

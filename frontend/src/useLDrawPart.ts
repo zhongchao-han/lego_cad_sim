@@ -26,6 +26,7 @@ export interface LDrawPartState {
   ports: LDrawPort[];       // 向后兼容：扁平列表
   sites: LDrawSite[];       // 新增：聚类后的 Site 列表
   meshUrl?: string;
+  exactBoundingBox?: { size: [number, number, number]; center: [number, number, number] };
 }
 
 const partCache = new Map<string, LDrawPartState>();
@@ -55,6 +56,7 @@ export function useLDrawPart(
     ports: [],
     sites: [],
     meshUrl: undefined,
+    exactBoundingBox: undefined,
   }));
 
   const cacheKey = partId ? `${partId}_c${colorCode}_p${includePending}` : null;
@@ -67,6 +69,7 @@ export function useLDrawPart(
         ports: [],
         sites: [],
         meshUrl: undefined,
+        exactBoundingBox: undefined,
       });
       return;
     }
@@ -86,6 +89,7 @@ export function useLDrawPart(
         ports: [],
         sites: [],
         meshUrl: undefined,
+        exactBoundingBox: undefined,
       });
 
       try {
@@ -104,6 +108,7 @@ export function useLDrawPart(
           ports: res.data?.ports ?? [],
           sites: res.data?.sites ?? [],
           meshUrl: res.data?.mesh_url ?? res.data?.meshUrl,
+          exactBoundingBox: res.data?.bounding_box,
         };
 
         partCache.set(cacheKey, next);
@@ -117,6 +122,7 @@ export function useLDrawPart(
           ports: [],
           sites: [],
           meshUrl: undefined,
+          exactBoundingBox: undefined,
         };
         partCache.set(cacheKey, next);
         setState(next);

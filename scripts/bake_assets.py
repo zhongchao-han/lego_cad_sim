@@ -60,8 +60,9 @@ class UnifiedAssetBaker:
                 logger.error(f"[!] {part_id} GLB 转换失败。")
                 return False
 
-            # 3. 提取归一化端口配置 (JSON 数据)
+            # 3. 提取归一化端口配置 (JSON 数据) 与精确物理包围盒
             ports = self.gp.discover_ports(part_id)
+            bounding_box = self.gp.compute_bounding_box(glb_path)
             
             # 4. 原子更新配置管理器
             # 记录烘焙元数据
@@ -71,6 +72,9 @@ class UnifiedAssetBaker:
                 "baked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "version": "v3.0.normalized"
             }
+            if bounding_box:
+                metadata["bounding_box"] = bounding_box
+
             self.plm.update_part(part_id, metadata)
             self.plm.save()
             
