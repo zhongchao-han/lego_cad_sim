@@ -114,8 +114,9 @@ export const InteractivePart = memo(({
     e.stopPropagation();
     if (currentPhase === InteractionPhase.AXIAL_SLIDING) return;
     
-    // 原生极速双击触发全选
-    selectPart(partId, SelectionLevel.GROUP, false);
+    const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
+    // 原生极速双击触发全选，且补齐追加多选能力
+    selectPart(partId, SelectionLevel.GROUP, isMultiSelect);
     onDoubleClick?.(); // 兼容外部传入的钩子
   };
 
