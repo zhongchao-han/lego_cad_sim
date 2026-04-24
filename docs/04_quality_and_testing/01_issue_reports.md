@@ -6,7 +6,7 @@
 在执行浏览器端全链路测试时，前端（通常运行在 `http://localhost:5173` 或 `5174`）尝试调用后端 API（`http://127.0.0.1:8000`）获取零件库列表。由于后端 `CORSMiddleware` 的 `allow_origins` 列表中未包含当前前端运行的确切端口（如 `5174`），导致浏览器出于安全策略拦截了所有 AJAX 请求。
 
 ### **受影响的功能**
-- **零件库预览**: "No verified parts found"，无法从库中拖出零件。
+- **零件库预览**: "No verified parts found"，无法从库中引入零件。
 - **库核验页面**: 零件列表加载失败 (`TypeError: Failed to fetch`)。
 - **零件吸附 (Snap)**: 因无法获取预览零件，无法进行全流程验证。
 

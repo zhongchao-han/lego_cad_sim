@@ -50,7 +50,7 @@ sequenceDiagram
 
     %% Phase 5: 微调验证与提交
     Note over Store: Phase: AXIAL_SLIDING
-    User->>Store: 沿 Z 轴鼠标拖拽
+    User->>Store: 键盘 ArrowUp/Down 沿 Z 轴定深
     Store->>Engine: checkMotion(delta) 判断干涉
     Engine->>Store: 返回阻力/碰撞预判
     Store->>User: 渲染定深动画并应用位移
@@ -73,7 +73,16 @@ sequenceDiagram
 
 ---
 
-## 4. 几何端口语义与拓扑生成规则 (Port Topology Rules)
+## 4. 拓扑森林与多孤岛管理 (Topological Forests & Isolated Islands)
+
+与传统软件维护一个单一树 (Single Tree) 结构不同，本系统的数据流维护的是一个基于 `ConnectionGraph` 的**无向图连通分量 (Connected Components) 集合**。这构成了支持多模块独立拼搭的核心基石：
+1. **多组共存**: 用户可以在世界坐标系中丢入无限量的新地基零件。每一个完全独立的零件或相互连通的组（Group），在状态机中被称为一个“孤岛 (Island)”或“连通分量”。
+2. **并行互不干扰**: 无论是点击选中 (BFS/DFS 查找)、整体平移还是删除运算，算法的寻径边界严格止步于相连接的 `ConnectionEdge`。因此，对一个孤岛的任何物理/逻辑计算绝不会传染或污染另一个孤岛。
+3. **Bottom-Up 自由重组**: 当用户在右边搭完底盘，左边搭完起重臂，此时通过 `Snap` 动作将起重臂上的轴孔对准底盘的轴插入。后端的 Auto-Latching 引擎会瞬间计算合并，前端的拓扑图记录下这条新的边，两个原本独立的连通分量（图网络）就立刻融合成为了同一个大 Group。
+
+---
+
+## 5. 几何端口语义与拓扑生成规则 (Port Topology Rules)
 
 为保证 P2P 的准确切面贴合与带凸缘（Flange）零件的防穿模交互，底层几何解析器 (`GeometryProcessor`) 对 LDraw 原件的提取执行以下**绝对空间对齐与分裂规范**：
 

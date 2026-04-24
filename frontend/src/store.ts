@@ -144,6 +144,7 @@ interface StoreState {
   stagePart: (id: string) => void;
   commitAxialSliding: () => void;
   focusCameraOnSelected: () => void;
+  startFreePlacing: (ldrawId: string, colorCode: number) => void;
   commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
 }
 
@@ -694,6 +695,26 @@ export const useStore = create<StoreState>()(
     get().addLog(`Started placing ${payload.length} parts from clipboard.`, 'ACTION');
   },
 
+  startFreePlacing: (ldrawId: string, colorCode: number) => {
+    const newId = ldrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0,8);
+    const payload = [{
+      id: newId,
+      state: {
+        ldrawId,
+        position: [0, 0, 0] as Vec3,
+        quaternion: [0, 0, 0, 1] as Quat,
+        colorCode,
+        zone: ZoneType.ACTIVE_ARENA
+      }
+    }];
+    set({
+      freePlacingPayload: payload,
+      interactionPhase: InteractionPhase.FREE_PLACING,
+      previewPartId: null // 关掉预览层
+    });
+    get().addLog(`Started free placing for new part ${ldrawId}.`, 'ACTION');
+  },
+
   commitFreePlacing: (finalStates?: Record<string, PartState>) => {
     const { freePlacingPayload } = get();
     if (!freePlacingPayload || freePlacingPayload.length === 0) return;
@@ -853,8 +874,13 @@ export const useStore = create<StoreState>()(
       const prevSelection = get().selection;
       let targetLevel = level;
       
-      // 这里的逻辑：如果已经选中了该零件（GROUP），再次选择则钻取到 INDIVIDUAL (仅非append模式时生效)
-      if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.GROUP && level === SelectionLevel.GROUP && !append) {
+      // 这里的逻辑反转：如果当前请求是 INDIVIDUAL，且该零件已经是 INDIVIDUAL 选中状态，
+      // 再次点击则扩大选择范围到 GROUP (仅非append模式时生效)。
+      // 从而实现：一击选中单体，二击全选整体。
+      if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.INDIVIDUAL && level === SelectionLevel.INDIVIDUAL && !append) {
+          targetLevel = SelectionLevel.GROUP;
+      } else if (id && prevSelection.primaryId === id && prevSelection.level === SelectionLevel.GROUP && level === SelectionLevel.GROUP && !append) {
+          // 兼容原有逻辑，如果传进来就是 GROUP 且已经是 GROUP，则降级为 INDIVIDUAL
           targetLevel = SelectionLevel.INDIVIDUAL;
       }
 
@@ -1159,3 +1185,8 @@ if (typeof window !== 'undefined') {
   // @ts-ignore
   window.__STORE__ = useStore;
 }
+
+// ---------------------------------------------------------------------------
+// 派生状态 Selectors (SRP 抽象)
+// ---------------------------------------------------------------------------
+export const useIsTargetSeekingPhase = () => useStore(s => s.interactionPhase === InteractionPhase.SOURCE_LOCKED);

@@ -117,10 +117,16 @@ export function PartPreviewOverlay() {
                </Suspense>
              </Canvas>
              
-             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full border shadow-sm pointer-events-none">
+             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full border shadow-sm pointer-events-auto flex gap-4 items-center">
                 <span className="text-xs font-semibold text-slate-600">
-                  Rotate to find a port. Click a port to select.
+                  Click a port to Snap, or
                 </span>
+                <button
+                  onClick={() => useStore.getState().startFreePlacing(previewPartId, resolvedColor)}
+                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded shadow transition-colors"
+                >
+                  Drop to Ground
+                </button>
              </div>
           </div>
         </div>

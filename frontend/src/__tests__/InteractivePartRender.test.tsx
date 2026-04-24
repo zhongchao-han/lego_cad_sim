@@ -9,6 +9,7 @@ import * as useLDrawPartFile from '../useLDrawPart';
 vi.mock('../store', () => {
   return {
     useStore: vi.fn(),
+    useIsTargetSeekingPhase: vi.fn().mockReturnValue(false),
   };
 });
 

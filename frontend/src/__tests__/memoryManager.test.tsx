@@ -73,8 +73,8 @@ describe('Garbage Collection & Context Recovery', () => {
       // 卸载组件触发 useEffect 清理阶段，这将被测试强制接管的 dispose 执行情况
       unmount();
       
-      // 因为 scene clone 后会覆盖自己的材质与顶点结构，所以必定调用这两者
-      expect(disposeSpyGeo).toHaveBeenCalled();
+      // 因为 scene clone 后会覆盖自己的材质结构，所以必定调用材质的 dispose。
+      // 注意：绝对不能 expect geometry.dispose() 被调用，因为 geometry 在 LDrawLoader 中是全局共享缓存的。
       expect(disposeSpyMat).toHaveBeenCalled();
       
       disposeSpyGeo.mockRestore();

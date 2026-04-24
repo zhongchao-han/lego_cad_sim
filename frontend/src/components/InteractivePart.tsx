@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useStore } from '../store';
+import { useStore, useIsTargetSeekingPhase } from '../store';
 import { SelectionLevel, InteractionPhase, SelectedPortInfo } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
@@ -103,7 +103,8 @@ export const InteractivePart = memo(({
     }
 
     const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
-    selectPart(partId, SelectionLevel.GROUP, isMultiSelect);
+    // 默认点击首先选中单个零件，再次点击才扩大到整个 Group，提升操作效率
+    selectPart(partId, SelectionLevel.INDIVIDUAL, isMultiSelect);
     if (e.altKey && !isMultiSelect && currentPhase === InteractionPhase.IDLE) {
       duplicateSelected();
     }
@@ -140,6 +141,7 @@ export const InteractivePart = memo(({
   }, [isSelected, isGroupMember, isBlocked, pulse]);
 
   const interactionPhase = useStore(s => s.interactionPhase);
+  const isTargetSeeking = useIsTargetSeekingPhase();
   const selectedPort = useStore(s => s.selectedPort);
   const continuousPlacementSource = useStore(s => s.continuousPlacementSource);
   const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
@@ -161,11 +163,11 @@ export const InteractivePart = memo(({
     : opacity;
     
   // 端口指示器（箭头）显示逻辑：
-  // 1. 如果处于全局 Debug 模式，且满足渲染条件，则强制显示。
-  // 2. 如果是非 Debug 模式，遵循“极简盲操”原则：只有被正式选中的零件，才会暴露其自身的端口。纯悬停（Hover）不再暴露视觉噪音。
+  // 2. 如果是非 Debug 模式，遵循“极简盲操”原则：默认只有正式选中的零件会暴露端口。
+  //    但是！如果当前处于寻找目标阶段（TargetSeeking），必须在悬停时显示靶点，否则用户无法吸附。
   const finalShowPorts = debugShowPorts 
     ? (showPorts && isRenderingActive)
-    : (showPorts && (isSelected || isStatic));
+    : (showPorts && (isSelected || isStatic || (isTargetSeeking && hovered)));
 
   return (
     <group

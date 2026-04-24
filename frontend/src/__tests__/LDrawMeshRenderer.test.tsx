@@ -51,10 +51,8 @@ describe('LDrawMeshRenderer Component Outline Rendering', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
-    const primitives = renderer.root.findAllByType('primitive');
-    const boxHelperPrimitive = primitives.find(p => p.props.object instanceof THREE.LineSegments);
+    const lineSegments = renderer.scene.findAll((node: any) => node.type === 'LineSegments' || node.instance instanceof THREE.LineSegments);
     
-    expect(boxHelperPrimitive).toBeDefined();
-    expect(boxHelperPrimitive?.props.object).toBeInstanceOf(THREE.LineSegments);
+    expect(lineSegments.length).toBeGreaterThan(0);
   });
 });

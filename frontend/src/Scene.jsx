@@ -151,8 +151,15 @@ const FreePlacerGhost = () => {
         if (hits.length > 0) {
             groupRef.current.position.copy(hits[0].point);
         } else {
-            // 兜底悬浮于空中
-            raycaster.ray.at(10, groupRef.current.position);
+            // 兜底：投射到 y=0 (地面)
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersectPoint = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
+                groupRef.current.position.copy(intersectPoint);
+            } else {
+                // 如果光线平行于地面或朝上，给一个合理的近处距离（0.2米）而不是 10 米
+                raycaster.ray.at(0.2, groupRef.current.position);
+            }
         }
     });
 

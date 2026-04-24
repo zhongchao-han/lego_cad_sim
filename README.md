@@ -20,6 +20,7 @@
 ### 2. 图论与 URDF 翻译引擎 | `topology_manager.py`
  - **模块:** `networkx`, `scipy.spatial.transform`
  - **职责:** 将每一次乐高上的 “扣合” 作为一个 `ConnectionEdge` 添加进 多重有向图(MultiDiGraph) 中。利用此网络：
+   - 支持**多组件森林结构 (Topological Forests)**，允许工作台上存在无数个互不相连、独立运算的 Group (连通分量)，实现真正的自下而上并行装配。
    - 侦测零件面面的多节点联结，进行 **Over-Constraint 降维合金融断**（防止物理引擎张力撕裂爆炸）。
    - 广度优先探索(BFS)切断图环，生成严苛符合**树形（Tree）语意的 URDF 配置文件结构**。并将截断的死环保存作为事后补偿约束下挂。
    - `scipy` 三维姿态库推演零件间的相对 `Origin(XYZ) - RPY` （空间方位与变换矩阵）。
