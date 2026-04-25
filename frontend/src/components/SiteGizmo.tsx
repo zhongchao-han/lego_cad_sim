@@ -12,7 +12,7 @@
  * 颜色规范（与 UI 文档对齐）：
  *   - 紫色 (#e040fb) : MALE 端口（销/轴）
  *   - 蓝色 (#2196f3) : FEMALE 端口（孔）
- *   - 橙色 (#ff9800) : Hover/Selected 激活态（覆盖极性色）
+ *   - 橙色 (#ff9800) : Source Locked 激活态（覆盖极性色）
  */
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
@@ -95,20 +95,24 @@ function PortArrow({
   const shouldShowVisuals = showVisuals;
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
-  let color = '#888888';
-  let opacity = 0.5;
+  const ACTIVE_COLOR = '#ff9800'; // Source Locked 激活高亮色
+
+  let color = genderColor;
+  let opacity = 0.9;
   
-  if (isLocallyActive) {
+  if (isSelected) {
+    // 作为 Source 被选中时，它自身无需通过极性过滤（同极性相斥法则），必须强行高亮为原点色
+    color = ACTIVE_COLOR;
+    opacity = 0.9;
+  } else {
+    // 未选中态（彻底摒弃 Hover 视觉差，贯彻盲操原则）
     if (!isCompatiblePort) {
-      color = '#444444'; // 悬停且不兼容：暗灰色
+      color = '#444444'; // 不兼容：暗灰色
       opacity = 0.2;
     } else {
-      color = genderColor; // 悬停且兼容：极性色
+      color = genderColor; // 默认极性色
       opacity = 0.9;
     }
-  } else if (!isCompatiblePort) {
-    color = '#444444'; // 未悬停且不兼容：暗灰色
-    opacity = 0.2;
   }
 
   const pos = port.position as Vec3;

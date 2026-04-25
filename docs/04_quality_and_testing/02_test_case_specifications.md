@@ -79,8 +79,8 @@
 - **断言**: `SiteGizmo.isCompatible == False`。
 
 ### **Test 4.3: 动态视觉反馈一致性**
-- **场景**: 鼠标悬停在兼容目标上。
-- **断言**: `emissiveColor == '#ff9800'` (橙色高亮)。
+- **场景**: 点击端口，确立为 Source Locked 组装原点。
+- **断言**: `color == '#ff9800'` (橙色高亮，代表绝对锁定)。
 - **场景**: 沿轴滑动到达物理极限。
 - **断言**: `isBlocked == True`, `UI.pulse == Red`。
 
