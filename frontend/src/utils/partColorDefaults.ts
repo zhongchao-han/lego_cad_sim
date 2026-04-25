@@ -24,8 +24,10 @@ const DEFAULT_PART_COLORS: Readonly<Record<string, number>> = {
   // 摩擦销（3M，蓝色）
   '6558':   1,    // Technic Pin Long with Friction (Blue)
   '32054':  1,    // Technic Pin with Friction (Blue)
-  // 普通销（无阻力，浅灰色）
+  // 普通销（无阻力，浅灰色或特定颜色）
   '3673':   71,   // Technic Pin (Light Bluish Gray)
+  '3749':   71,   // Technic Axle Pin without Friction (Light Bluish Gray)
+  '4186017': 19,  // Technic Axle Pin without Friction (Tan - Physical Colour Shortcut)
   // 短摩擦销
   '4274':   71,   // Technic Pin 1/2 (Light Bluish Gray)
   // 带十字销
