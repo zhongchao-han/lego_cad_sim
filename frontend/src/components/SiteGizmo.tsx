@@ -184,6 +184,16 @@ function PortArrow({
       onPointerDown={(e) => {
         if (!isCompatiblePort) return;
         e.stopPropagation();
+      }}
+      onClick={(e) => {
+        // [防误触终极防护] 如果从按下到抬起，鼠标位移超过 5 个像素，判定为用户在“拖拽视角”而非“点击端口”。
+        // 直接忽略并拦截该事件，不向上也不向内传播。
+        if (e.delta > 5) {
+            e.stopPropagation();
+            return;
+        }
+        if (!isCompatiblePort) return;
+        e.stopPropagation();
         onPortClick?.(buildPortInfo());
       }}
       onDoubleClick={(e) => {
