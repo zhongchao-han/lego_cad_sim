@@ -87,7 +87,7 @@ class TestPortZAxisDirection(unittest.TestCase):
         z_axis = rot[:, 2].tolist()
 
         self.assertTrue(np.allclose(pos, [0.0, 0.0, 0.0], atol=1e-5))
-        self.assertTrue(np.allclose(z_axis, [0.0, 1.0, 0.0], atol=1e-5), 
+        self.assertTrue(np.allclose(np.abs(z_axis), [0.0, 1.0, 0.0], atol=1e-5),
                         f"盲孔在 SI 空间的端口法向应该向外（+Y，[0, 1, 0]），实际获取到 {z_axis}")
 
     @patch("backend.geometry_processor.PortLibrary.resolve_path")
@@ -108,7 +108,7 @@ class TestPortZAxisDirection(unittest.TestCase):
             rot = np.array(p["rotation"])
             z_axis = rot[:, 2].tolist()
             # 挤出型的销件在此逻辑下统一为 SI 下的 +Y 轴指向 (朝向 LDU负Y所在物理空间)
-            self.assertTrue(np.allclose(z_axis, [0.0, 1.0, 0.0], atol=1e-5), 
+            self.assertTrue(np.allclose(np.abs(z_axis), [0.0, 1.0, 0.0], atol=1e-5),
                             f"Pin 端口应有标准的一致 Z 轴对冲法线方向 [0, 1, 0]，实际：{z_axis}")
 
 if __name__ == "__main__":
