@@ -1,6 +1,6 @@
 import { Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Environment, CameraControls, Html } from '@react-three/drei';
+import { CameraControls, Html } from '@react-three/drei';
 import { useStore } from '../store';
 import { InteractivePart } from './InteractivePart';
 import { X, MousePointer2, Palette } from 'lucide-react';
@@ -92,10 +92,10 @@ export function PartPreviewOverlay() {
                    <div className="animate-pulse text-xs text-slate-400">Loading model...</div>
                  </Html>
                }>
-                 <Environment preset="city" />
-                 <ambientLight intensity={0.5} />
+                 <ambientLight intensity={0.7} />
                  <directionalLight position={[1, 2, 3]} intensity={1.5} />
-                 
+                 <directionalLight position={[-2, 1, -1]} intensity={0.6} />
+
                  <InteractivePart 
                    partId={previewPartId} 
                    colorCode={resolvedColor}

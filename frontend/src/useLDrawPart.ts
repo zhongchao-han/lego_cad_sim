@@ -94,10 +94,9 @@ export function useLDrawPart(
 
       try {
         const res = await axios.get(`${API_URL}/ldraw_part/${encodeURIComponent(partId)}`, {
-          params: { 
+          params: {
             color: colorCode,
             include_pending: includePending,
-            _t: Date.now() // [v3.1 Fix] Cache-buster to guarantee we fetch the newest backend data
           },
         });
         if (cancelled) return;
