@@ -6,7 +6,14 @@
       "Bash(python:*)",
       "Bash(pip install:*)",
       "Bash(cd frontend:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "PowerShell(.\\\\start_dev.ps1)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(kill %1)",
+      "Bash(jobs -l)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
