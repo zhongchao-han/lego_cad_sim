@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { InteractivePart } from './InteractivePart';
 import { X, MousePointer2, Palette } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
+import { FreePlacingProjectionMode } from '../types';
 
 /** 常用 LDraw 颜色 */
 const PALETTE: ReadonlyArray<{ code: number; hex: string; name: string }> = [
@@ -122,7 +123,14 @@ export function PartPreviewOverlay() {
                   Click a port to Snap, or
                 </span>
                 <button
-                  onClick={() => useStore.getState().startFreePlacing(previewPartId, resolvedColor)}
+                  onClick={(e) => useStore.getState().startFreePlacing(
+                    previewPartId,
+                    resolvedColor,
+                    {
+                      pointer: { clientX: e.clientX, clientY: e.clientY },
+                      projectionMode: FreePlacingProjectionMode.GROUND_PLANE
+                    }
+                  )}
                   className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded shadow transition-colors"
                 >
                   Drop to Ground

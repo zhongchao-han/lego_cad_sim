@@ -8,7 +8,7 @@ import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
 import { MarqueeSelectionOverlay } from './components/MarqueeSelectionOverlay';
 
-import { InteractionPhase, ZoneType } from './types';
+import { FreePlacingProjectionMode, InteractionPhase, ZoneType } from './types';
 import { calculateSnapPose } from './utils/snapMath';
 
 const LegoPart = memo(({ id }) => {
@@ -128,16 +128,40 @@ const PlacementGhost = () => {
 const FreePlacerGhost = () => {
     const phase = useStore(s => s.interactionPhase);
     const payload = useStore(s => s.freePlacingPayload);
+    const projectionMode = useStore(s => s.freePlacingProjectionMode);
+    const initialPointer = useStore(s => s.freePlacingPointer);
     const commitFreePlacing = useStore(s => s.commitFreePlacing);
     const groupRef = useRef(null);
-    const { raycaster, mouse, camera, scene } = useThree();
+    const { raycaster, mouse, camera, scene, gl } = useThree();
 
     const isPlacing = phase === InteractionPhase.FREE_PLACING && payload && payload.length > 0;
+    const isGroundPlane = projectionMode === FreePlacingProjectionMode.GROUND_PLANE;
+
+    // GROUND_PLANE 路径专用：用 window 级别的 pointermove 自维护 NDC 坐标，
+    // 绕开 R3F mouse 在 modal 关闭瞬间可能仍然停留在旧值的问题。
+    // SCENE_RAYCAST 路径不使用此 ref，沿用 R3F 的 mouse。
+    const groundPointerRef = useRef(new THREE.Vector2(0, 0));
+    // 防止"触发 Drop to Ground 的那次 mousedown"被全局监听器解读为放置确认。
+    const canConfirmGroundRef = useRef(false);
 
     useFrame(() => {
         if (!isPlacing || !groupRef.current) return;
+
+        if (isGroundPlane) {
+            // 仅与 y=0 平面求交，忽略环境软箱、阴影面与现有零件
+            raycaster.setFromCamera(groundPointerRef.current, camera);
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersectPoint = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
+                groupRef.current.position.copy(intersectPoint);
+            } else {
+                raycaster.ray.at(0.2, groupRef.current.position);
+            }
+            return;
+        }
+
         raycaster.setFromCamera(mouse, camera);
-        
+
         // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
         const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
             let p = h.object;
@@ -163,15 +187,53 @@ const FreePlacerGhost = () => {
         }
     });
 
+    // GROUND_PLANE 专用：在 window 级别监听 pointermove，自维护 NDC 坐标。
+    useEffect(() => {
+        if (!isPlacing || !isGroundPlane) return;
+
+        const updateFromClient = (clientX, clientY) => {
+            const rect = gl.domElement.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            groundPointerRef.current.set(
+                ((clientX - rect.left) / rect.width) * 2 - 1,
+                -(((clientY - rect.top) / rect.height) * 2 - 1)
+            );
+        };
+
+        // 用按钮点击坐标做首帧初值，避免幽灵第一帧落在原点
+        if (initialPointer) {
+            updateFromClient(initialPointer.clientX, initialPointer.clientY);
+        }
+
+        const onMove = (e) => updateFromClient(e.clientX, e.clientY);
+        window.addEventListener('pointermove', onMove);
+        return () => {
+            window.removeEventListener('pointermove', onMove);
+        };
+    }, [isPlacing, isGroundPlane, initialPointer, gl]);
+
+    // GROUND_PLANE 专用：~120ms 防抖，避免触发 Drop to Ground 的那次 mousedown
+    // 在 modal 关闭后被全局监听器误判为"确认放置"。
+    useEffect(() => {
+        if (!isPlacing || !isGroundPlane) {
+            canConfirmGroundRef.current = false;
+            return;
+        }
+        canConfirmGroundRef.current = false;
+        const t = window.setTimeout(() => { canConfirmGroundRef.current = true; }, 120);
+        return () => window.clearTimeout(t);
+    }, [isPlacing, isGroundPlane]);
+
     useEffect(() => {
         if (!isPlacing) return;
-        
+
         // 利用全局拦截处理左键确认放置和右键/Esc取消放置
         const handleClick = (e) => {
             // 忽略非画布点击
             if (e.target.tagName !== 'CANVAS') return;
             if (!groupRef.current) return;
-            
+            if (isGroundPlane && !canConfirmGroundRef.current) return;
+
             if (e.button === 0) { // 左键放置
                 const finalStates = {};
                 const pos = groupRef.current.position;
@@ -198,7 +260,7 @@ const FreePlacerGhost = () => {
             window.removeEventListener('mousedown', handleClick, { capture: true });
             window.removeEventListener('keydown', handleKey);
         };
-    }, [isPlacing, payload, commitFreePlacing]);
+    }, [isPlacing, isGroundPlane, payload, commitFreePlacing]);
 
     if (!isPlacing) return null;
 

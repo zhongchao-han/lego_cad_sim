@@ -39,6 +39,12 @@ export enum ZoneType {
   PREVIEW      = 'PREVIEW',
 }
 
+// 自由放置阶段的射线投射策略
+export enum FreePlacingProjectionMode {
+  SCENE_RAYCAST = 'SCENE_RAYCAST', // 命中场景物体（粘贴等通用路径）
+  GROUND_PLANE  = 'GROUND_PLANE',  // 仅与 y=0 平面求交（Drop to Ground）
+}
+
 // --- 零件实体与状态 ---
 export interface PartState {
   ldrawId: string;
