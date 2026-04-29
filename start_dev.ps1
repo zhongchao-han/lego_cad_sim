@@ -92,6 +92,20 @@ if ($isWorktree) {
     Write-Host ("  Main repo    : {0}  [WORKTREE — pointing assets here]" -f $mainRepoRoot) -ForegroundColor Yellow
     Write-Host ("    MESH_CACHE_ROOT  = {0}" -f $env:MESH_CACHE_ROOT)  -ForegroundColor DarkGray
     Write-Host ("    LDRAW_PARTS_ROOT = {0}" -f $env:LDRAW_PARTS_ROOT) -ForegroundColor DarkGray
+
+    # Worktree 的 frontend/ 默认没有 node_modules（每个 worktree 各自 npm install 既慢又
+    # 容易和主仓版本 drift）。若缺失，则用 NTFS Junction 链接到主仓的 node_modules：
+    # Junction 不需要管理员权限，对 vite/npm 完全透明，与真实目录无差异。
+    $worktreeNodeModules = Join-Path $workTreeRoot "frontend\node_modules"
+    $mainNodeModules     = Join-Path $mainRepoRoot "frontend\node_modules"
+    if (-not (Test-Path $worktreeNodeModules)) {
+        if (Test-Path $mainNodeModules) {
+            Write-Host ("    Linking frontend\node_modules -> main repo (junction)") -ForegroundColor DarkGray
+            New-Item -ItemType Junction -Path $worktreeNodeModules -Target $mainNodeModules | Out-Null
+        } else {
+            Write-Host "    [WARN] Main repo 也没有 frontend\node_modules，请先在主仓 frontend 下执行 'npm install'。" -ForegroundColor Yellow
+        }
+    }
 }
 Write-Host ""
 
@@ -154,8 +168,10 @@ foreach ($vitePort in 5173..5180) {
 
 Write-Host "`n[5/5] Spawning separated terminal instances for Backend and UI..." -ForegroundColor Yellow
 
-Start-Process -FilePath "cmd.exe" -ArgumentList "/k `"title [Backend Engine 8000] && echo [INFO] Booting FastAPI Core... && python -m backend.server`""
-Start-Process -FilePath "cmd.exe" -ArgumentList "/k `"title [Frontend Viewport 5173] && echo [INFO] Booting React UI... && cd frontend && npm run dev`""
+# 显式把工作目录钉在 $workTreeRoot：在 worktree 中启动时确保子进程不会因为 PowerShell
+# 默认继承策略变化而跑到主仓目录，导致 backend 模块解析错位 / vite 服务到主仓的旧代码。
+Start-Process -FilePath "cmd.exe" -WorkingDirectory $workTreeRoot -ArgumentList "/k `"title [Backend Engine 8000] && echo [INFO] Booting FastAPI Core... && python -m backend.server`""
+Start-Process -FilePath "cmd.exe" -WorkingDirectory $workTreeRoot -ArgumentList "/k `"title [Frontend Viewport 5173] && echo [INFO] Booting React UI... && cd frontend && npm run dev`""
 
 Write-Host "=============================================" -ForegroundColor Green
 Write-Host "  All microservice nodes successfully bootstrapped! " -ForegroundColor Green
