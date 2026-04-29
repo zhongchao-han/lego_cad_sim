@@ -369,14 +369,17 @@ export const useStore = create<StoreState>()(
   },
 
   handlePortClick: async (port: SelectedPortInfo) => {
-    const { interactionPhase, selectedPort, snapParts, parts } = get();
+    const { interactionPhase, snapParts, parts } = get();
     get().addLog(`Port clicked: ${port.partId} (${port.ldrawId})`, 'ACTION');
-    
+
     // 如果当前正在滑动，任意点击都应先静默提交滑动状态
+    // 注意：连续放置模式下 commitAxialSliding 会用新 instanceId 覆盖 selectedPort，
+    // 因此 selectedPort 必须在 commit 之后再读取，不能提前解构。
     if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
       get().commitAxialSliding();
     }
-    
+    const selectedPort = get().selectedPort;
+
     const activeParts = Object.values(parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA);
     if (activeParts.length === 0 && (interactionPhase === InteractionPhase.IDLE || interactionPhase === InteractionPhase.PREVIEWING)) {
       get().addLog(`Starting first part in scene: ${port.partId}`);
