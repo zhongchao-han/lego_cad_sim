@@ -29,9 +29,13 @@ logger = logging.getLogger(__name__)
 
 # --- 服务实体与配置 ---
 
+# 路径锚点：以本文件所在目录的父目录（即 backend/.. = 仓库根）为基准，
+# 解耦 cwd —— 在 git worktree 或任意子目录启动时仍能正确命中主仓库的缓存目录。
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # LDRAW_PARTS_ROOT 配置
-LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.getcwd(), "ldraw_lib"))
-MESH_CACHE_ROOT = os.path.join(os.getcwd(), "data", "custom_assets")
+LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(_REPO_ROOT, "ldraw_lib"))
+MESH_CACHE_ROOT = os.environ.get("MESH_CACHE_ROOT", os.path.join(_REPO_ROOT, "data", "custom_assets"))
 # 新增缩略图缓存目录依赖
 THUMBNAIL_CACHE_ROOT = os.path.join(MESH_CACHE_ROOT, "thumbnails")
 os.makedirs(MESH_CACHE_ROOT, exist_ok=True)
