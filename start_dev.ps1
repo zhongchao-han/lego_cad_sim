@@ -52,8 +52,53 @@ Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host "  LEGO CAD Simulator - Dev Environment Boot" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 
+# 工作树可见性：脚本以 cwd 为基准，不绑定脚本所在目录。
+# 这样允许在 git worktree / 任意子检出复用同一脚本：cwd 指哪儿就启哪儿。
+$workTreeRoot = (Get-Location).Path
+$branchName = $null
+try {
+    $branchName = (git -C $workTreeRoot rev-parse --abbrev-ref HEAD 2>$null)
+    if ($branchName) { $branchName = $branchName.Trim() }
+} catch {
+    # 不是 git 仓库就跳过，不影响脚本主流程
+}
+Write-Host ("  Working tree : {0}" -f $workTreeRoot) -ForegroundColor Cyan
+if ($branchName) {
+    Write-Host ("  Git branch   : {0}" -f $branchName) -ForegroundColor Cyan
+}
+
+# 计算主仓根：worktree 共享主仓的 .git/，git rev-parse --git-common-dir 始终指向主仓的 .git
+# 路径，其父目录即主仓根。在主仓 checkout 中，common-dir == git-dir，主仓根就是 cwd 自身。
+$mainRepoRoot = $workTreeRoot
+try {
+    $commonDir = (git -C $workTreeRoot rev-parse --path-format=absolute --git-common-dir 2>$null)
+    if ($commonDir) {
+        $commonDir = $commonDir.Trim()
+        $candidate = (Split-Path -Parent $commonDir)
+        if ($candidate -and (Test-Path $candidate)) {
+            $mainRepoRoot = (Resolve-Path $candidate).Path
+        }
+    }
+} catch {
+    # not git or git not on PATH —保持默认（cwd），不影响主仓 checkout 场景
+}
+
+# 当 cwd 不是主仓自身（即位于 git worktree）时，把后端的资产根显式指向主仓的 data/ 与 ldraw_lib/，
+# 否则后端会按 backend/__file__ 解析到 worktree 自己空的 data/，导致 /ldraw_meshes/*.glb 全部 404。
+$isWorktree = ($mainRepoRoot -ne $workTreeRoot)
+if ($isWorktree) {
+    $env:MESH_CACHE_ROOT  = Join-Path $mainRepoRoot "data\custom_assets"
+    $env:LDRAW_PARTS_ROOT = Join-Path $mainRepoRoot "ldraw_lib"
+    Write-Host ("  Main repo    : {0}  [WORKTREE — pointing assets here]" -f $mainRepoRoot) -ForegroundColor Yellow
+    Write-Host ("    MESH_CACHE_ROOT  = {0}" -f $env:MESH_CACHE_ROOT)  -ForegroundColor DarkGray
+    Write-Host ("    LDRAW_PARTS_ROOT = {0}" -f $env:LDRAW_PARTS_ROOT) -ForegroundColor DarkGray
+}
+Write-Host ""
+
 Write-Host "`n[1/5] Starting Meilisearch Docker container..." -ForegroundColor Yellow
-docker-compose up -d meilisearch
+# 固定 docker-compose 项目名，避免不同 worktree（cwd basename 不同）各自尝试新建
+# 同名 container 而冲突。容器名 lego_meilisearch 在 yml 中已固定，所有 checkout 共享同一实例。
+docker-compose -p lego_cad_sim up -d meilisearch
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Fatal: docker-compose failed. Is Docker Desktop running?"
     exit 1
@@ -98,9 +143,14 @@ try {
 }
 Write-Host "  -> Data sync sequence completed." -ForegroundColor Green
 
-Write-Host "`n[4/5] Idempotency Guard: Pre-flight sniffing for ports 8000 & 5173..." -ForegroundColor Yellow
+Write-Host "`n[4/5] Idempotency Guard: Pre-flight sniffing for ports 8000 + Vite range 5173-5180..." -ForegroundColor Yellow
+# 后端只在 8000 监听
 Clear-Port -Port 8000
-Clear-Port -Port 5173
+# Vite 在 5173 占用时会自动回退到 5174/5175...，必须把整段回退区都清掉，
+# 否则在多个 checkout 之间切换时会留下僵尸 Vite 实例继续吃端口。
+foreach ($vitePort in 5173..5180) {
+    Clear-Port -Port $vitePort
+}
 
 Write-Host "`n[5/5] Spawning separated terminal instances for Backend and UI..." -ForegroundColor Yellow
 
