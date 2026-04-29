@@ -12,8 +12,9 @@ class MeshAssetManager:
     """
     def __init__(self, cache_root: str = None):
         if cache_root is None:
-            # 默认：始终相对于工程的 data/custom_assets 进行挂载
-            self.mesh_cache_root = os.path.abspath(os.path.join(os.getcwd(), "data", "custom_assets"))
+            # 默认：以本文件位置回溯仓库根（backend/..），避免依赖 cwd —— 在 git worktree 或任意子目录启动时仍命中主仓缓存。
+            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.mesh_cache_root = os.path.abspath(os.path.join(repo_root, "data", "custom_assets"))
         else:
             self.mesh_cache_root = os.path.abspath(cache_root)
             
