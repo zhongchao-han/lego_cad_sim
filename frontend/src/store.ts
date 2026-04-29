@@ -11,7 +11,8 @@ import {
   Quat,
   Mat3,
   SelectedPortInfo,
-  ZoneType
+  ZoneType,
+  FreePlacingProjectionMode
 } from './types';
 import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
@@ -80,6 +81,8 @@ interface StoreState {
   };
   clipboard: { id: string; state: PartState }[];
   freePlacingPayload: { id: string; state: PartState }[];
+  freePlacingPointer: { clientX: number; clientY: number } | null;
+  freePlacingProjectionMode: FreePlacingProjectionMode;
   hiddenParts: Set<string>;
   interferenceReport: InterferenceReport;
   slideOffset: number;
@@ -144,7 +147,14 @@ interface StoreState {
   stagePart: (id: string) => void;
   commitAxialSliding: () => void;
   focusCameraOnSelected: () => void;
-  startFreePlacing: (ldrawId: string, colorCode: number) => void;
+  startFreePlacing: (
+    ldrawId: string,
+    colorCode: number,
+    options?: {
+      pointer?: { clientX: number; clientY: number } | null;
+      projectionMode?: FreePlacingProjectionMode;
+    }
+  ) => void;
   commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
 }
 
@@ -243,6 +253,8 @@ export const useStore = create<StoreState>()(
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
   freePlacingPayload: [],
+  freePlacingPointer: null,
+  freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
   hiddenParts: new Set(),
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
@@ -261,6 +273,8 @@ export const useStore = create<StoreState>()(
         selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
         clipboard: [],
         freePlacingPayload: [],
+        freePlacingPointer: null,
+        freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
         hiddenParts: new Set(),
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
         slideOffset: 0,
@@ -695,7 +709,11 @@ export const useStore = create<StoreState>()(
     get().addLog(`Started placing ${payload.length} parts from clipboard.`, 'ACTION');
   },
 
-  startFreePlacing: (ldrawId: string, colorCode: number) => {
+  startFreePlacing: (ldrawId: string, colorCode: number, options = {}) => {
+    const {
+      pointer = null,
+      projectionMode = FreePlacingProjectionMode.SCENE_RAYCAST
+    } = options;
     const newId = ldrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0,8);
     const payload = [{
       id: newId,
@@ -709,6 +727,8 @@ export const useStore = create<StoreState>()(
     }];
     set({
       freePlacingPayload: payload,
+      freePlacingPointer: pointer,
+      freePlacingProjectionMode: projectionMode,
       interactionPhase: InteractionPhase.FREE_PLACING,
       previewPartId: null // 关掉预览层
     });
@@ -721,7 +741,12 @@ export const useStore = create<StoreState>()(
 
     if (!finalStates) {
       // Aborted or cancelled
-      set({ freePlacingPayload: [], interactionPhase: InteractionPhase.IDLE });
+      set({
+        freePlacingPayload: [],
+        freePlacingPointer: null,
+        freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
+        interactionPhase: InteractionPhase.IDLE
+      });
       return;
     }
 
@@ -757,6 +782,8 @@ export const useStore = create<StoreState>()(
       canRedo: _history.canRedo,
       selection: { primaryId: newIds[0], level: SelectionLevel.GROUP, allConnectedIds: newIds, excludedIds: [] },
       freePlacingPayload: [],
+      freePlacingPointer: null,
+      freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
       interactionPhase: InteractionPhase.IDLE
     });
     get().addLog(`Committed ${newIds.length} parts.`, 'ACTION');
