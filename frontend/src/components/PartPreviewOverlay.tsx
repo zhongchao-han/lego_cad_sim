@@ -1,11 +1,24 @@
-import { Suspense, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, useMemo, useRef, useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { CameraControls, Html } from '@react-three/drei';
+import * as THREE from 'three';
 import { useStore } from '../store';
 import { InteractivePart } from './InteractivePart';
 import { X, MousePointer2, Palette } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
-import { FreePlacingProjectionMode } from '../types';
+import { FreePlacingProjectionMode, Quat } from '../types';
+
+// 在 Canvas 内部把当前 camera 抛给外部 ref，让"Drop to Ground"按钮（位于 Canvas
+// 之外）能在点击瞬间读到模态预览的相机姿态。Camera 对象引用稳定、quaternion
+// 字段每帧原地更新，所以一次 useEffect 写入 ref 就够，不必每帧同步。
+const ModalCameraReporter: React.FC<{ targetRef: React.MutableRefObject<THREE.Camera | null> }> = ({ targetRef }) => {
+  const { camera } = useThree();
+  useEffect(() => {
+    targetRef.current = camera;
+    return () => { targetRef.current = null; };
+  }, [camera, targetRef]);
+  return null;
+};
 
 /** 常用 LDraw 颜色 */
 const PALETTE: ReadonlyArray<{ code: number; hex: string; name: string }> = [
@@ -28,6 +41,7 @@ export function PartPreviewOverlay() {
   const previewPartId = useStore((s) => s.previewPartId);
   const activeColorCode = useStore((s) => s.activeColorCode);
   const setActiveColorCode = useStore((s) => s.setActiveColorCode);
+  const modalCameraRef = useRef<THREE.Camera | null>(null);
   
   const handlePortClick = useStore((s) => s.handlePortClick);
   const setPreviewPartId = (id: string | null) => useStore.setState({ previewPartId: id });
@@ -97,16 +111,18 @@ export function PartPreviewOverlay() {
                  <directionalLight position={[1, 2, 3]} intensity={1.5} />
                  <directionalLight position={[-2, 1, -1]} intensity={0.6} />
 
-                 <InteractivePart 
-                   partId={previewPartId} 
+                 <InteractivePart
+                   partId={previewPartId}
                    colorCode={resolvedColor}
                    onPortClick={onPortSelected}
                    isStatic={true}
                    opacity={0.8}
-                   autoCenter={true} 
+                   autoCenter={true}
                  />
-                 
-                 <CameraControls 
+
+                 <ModalCameraReporter targetRef={modalCameraRef} />
+
+                 <CameraControls
                    makeDefault 
                    minDistance={0.001} 
                    maxDistance={5.0} 
@@ -123,14 +139,25 @@ export function PartPreviewOverlay() {
                   Click a port to Snap, or
                 </span>
                 <button
-                  onClick={(e) => useStore.getState().startFreePlacing(
-                    previewPartId,
-                    resolvedColor,
-                    {
-                      pointer: { clientX: e.clientX, clientY: e.clientY },
-                      projectionMode: FreePlacingProjectionMode.GROUND_PLANE
+                  onClick={(e) => {
+                    // 抓取模态相机的当前朝向：稍后在场景里用它和场景相机当前朝向算出
+                    // 一个旋转，让落地后的零件从场景视角看上去和模态看到的同一面相同。
+                    let previewCamQuat: Quat | null = null;
+                    const cam = modalCameraRef.current;
+                    if (cam) {
+                      const q = cam.quaternion;
+                      previewCamQuat = [q.x, q.y, q.z, q.w];
                     }
-                  )}
+                    useStore.getState().startFreePlacing(
+                      previewPartId,
+                      resolvedColor,
+                      {
+                        pointer: { clientX: e.clientX, clientY: e.clientY },
+                        projectionMode: FreePlacingProjectionMode.GROUND_PLANE,
+                        previewCamQuat
+                      }
+                    );
+                  }}
                   className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded shadow transition-colors"
                 >
                   Drop to Ground
