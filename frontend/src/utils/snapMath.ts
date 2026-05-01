@@ -71,6 +71,75 @@ export function calculateSnapPose(
 }
 
 /**
+ * 单个零件的位姿描述（与 PartState 兼容子集）。
+ */
+export interface RigidPose {
+    position:   [number, number, number];
+    quaternion: [number, number, number, number];
+}
+
+/**
+ * 把 source 零件的"位姿位移"作为刚体 delta，整体施加给它所在的连通组里的每一个零件。
+ *
+ * delta = T_new × T_old⁻¹；对组内每个零件 P 应用：T_P_new = delta × T_P_old
+ *
+ * 用于 Snap 时让"灰板 + 已经插上的销"作为整体跟随被吸附的销飞到目标孔，
+ * 而不是只把销自己拽走、把板子留在原地。
+ *
+ * @param srcGroup    包含 source 在内的整组 partId 列表（target 不应包含在内）
+ * @param parts       当前 parts 字典，提供组内每个零件的当前 pose
+ * @param sourceId    source.partId
+ * @param oldSource   source 当前 pose（如果 source 是新建零件，传 identity 即可）
+ * @param newSource   source 目标 pose（calculateSnapPose 的输出）
+ * @returns 组内每个零件的新 pose（含 source 自身）
+ */
+export function applyGroupDelta(
+    srcGroup: string[],
+    parts: Record<string, RigidPose>,
+    sourceId: string,
+    oldSource: RigidPose,
+    newSource: RigidPose,
+): Record<string, RigidPose> {
+    const m_old = new THREE.Matrix4().compose(
+        new THREE.Vector3(...oldSource.position),
+        new THREE.Quaternion(...oldSource.quaternion),
+        new THREE.Vector3(1, 1, 1),
+    );
+    const m_new = new THREE.Matrix4().compose(
+        new THREE.Vector3(...newSource.position),
+        new THREE.Quaternion(...newSource.quaternion),
+        new THREE.Vector3(1, 1, 1),
+    );
+    // delta = m_new × m_old⁻¹
+    const m_delta = m_new.clone().multiply(m_old.clone().invert());
+
+    const result: Record<string, RigidPose> = {};
+    const tmpPos = new THREE.Vector3();
+    const tmpQuat = new THREE.Quaternion();
+    const tmpScale = new THREE.Vector3();
+    srcGroup.forEach(pid => {
+        if (pid === sourceId) {
+            result[pid] = newSource;
+            return;
+        }
+        const p = parts[pid];
+        if (!p) return;
+        const m_part = new THREE.Matrix4().compose(
+            new THREE.Vector3(...p.position),
+            new THREE.Quaternion(...p.quaternion),
+            new THREE.Vector3(1, 1, 1),
+        );
+        const m_part_new = m_delta.clone().multiply(m_part);
+        m_part_new.decompose(tmpPos, tmpQuat, tmpScale);
+        result[pid] = {
+            position:   [tmpPos.x,  tmpPos.y,  tmpPos.z],
+            quaternion: [tmpQuat.x, tmpQuat.y, tmpQuat.z, tmpQuat.w],
+        };
+    });
+    return result;
+}
+
+/**
  * 沿指定端口的 Z 轴（法线）旋转整个零件
  */
 export function calculatePortRotationPose(

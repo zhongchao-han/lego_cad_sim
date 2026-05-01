@@ -21,7 +21,7 @@ import { useFrame } from '@react-three/fiber';
 import type { LDrawSite, LDrawPort } from '../useLDrawPart';
 import type { Vec3, Mat3, SelectedPortInfo } from '../types';
 import { InteractionPhase } from '../types';
-import { useStore } from '../store';
+import { useStore, portKey } from '../store';
 
 const LDU = 0.0004;
 
@@ -163,14 +163,16 @@ function PortArrow({
     if (!isCompatiblePort) return;
     // 移除 if (showVisuals) 检查：
     // 当鼠标第一时间划入时，可能父组件还未来得及响应并下发 showVisuals=true。
-    // 如果这里被阻挡，会导致局部 hover 状态丢失，出现“高亮一下就消失”或根本不高亮的 Bug。
+    // 如果这里被阻挡，会导致局部 hover 状态丢失，出现"高亮一下就消失"或根本不高亮的 Bug。
     setHovered(true);
     document.body.style.cursor = 'pointer';
     onPortHover?.(buildPortInfo());
   }, [isCompatiblePort, onPortHover, buildPortInfo]);
 
   const handlePointerOut = useCallback((e: any) => {
-    // 无脑强制清理！绝对不能加 if (showVisuals) 判断。
+    // 不在这里防抖：每个 PortArrow 各自延时会让"用户从端口 A 移到端口 B"出问题——
+    // A 的 out 定时器到期后会盖掉 B 已经写入的 hoveredPort，造成 ghost 在 A→B 切换时
+    // 闪没。统一在 store.setHoveredPort 里做单源防抖，全局只有一个待决 null。
     setHovered(false);
     document.body.style.cursor = 'auto';
     onPortHover?.(null);
@@ -258,13 +260,15 @@ export interface SiteGizmoProps {
   sourcePortType?: string | null;
   selectedPort?: SelectedPortInfo | null;
   showVisuals: boolean;
+  /** 该零件上已被占用（已被对端塞住）的端口 key 集合；命中即整体跳过渲染。 */
+  occupiedKeys?: Set<string>;
   onPortClick?: (info: SelectedPortInfo) => void;
   onPortHover?: (info: SelectedPortInfo | null) => void;
 }
 
 export function SiteGizmo({
   site, groupRef, partId, ldrawId, phase, sourcePortType = null,
-  selectedPort, showVisuals, onPortClick, onPortHover
+  selectedPort, showVisuals, occupiedKeys, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
 
@@ -282,6 +286,15 @@ export function SiteGizmo({
           && Math.abs(selectedPort.position[0] - portPos[0]) < 1e-4
           && Math.abs(selectedPort.position[1] - portPos[1]) < 1e-4
           && Math.abs(selectedPort.position[2] - portPos[2]) < 1e-4;
+
+        // 占用过滤：portKey 已经把端口的 Z 轴方向也算进 key，所以同位置不同方向的端口
+        // （比如 2780 销 site 里 p0/p1 共享 (0,0,0) 但方向相反）只会有"被 snap 实际用掉的
+        // 那一端"被命中、被隐藏；销的另一端仍然可见、可作为新的 source 反向吸附别的孔。
+        // 灰板的孔属于单方向 FEMALE，被插上后这里直接挡掉，避免"误点已占用孔→源极性变成
+        // 同性→所有目标不兼容→没幽灵"的连锁假象。
+        if (occupiedKeys && occupiedKeys.has(portKey(portPos, port.rotation)) && !portIsSelected) {
+          return null;
+        }
 
         return (
           <PortArrow

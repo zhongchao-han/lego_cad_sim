@@ -1,15 +1,15 @@
-import React, { Suspense, memo, useRef, useEffect } from 'react';
+import React, { Suspense, memo, useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } from '@react-three/drei';
 import { Perf } from 'r3f-perf';
-import { useStore } from './store';
+import { useStore, getConnectedGroup } from './store';
 import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
 import { MarqueeSelectionOverlay } from './components/MarqueeSelectionOverlay';
 
 import { FreePlacingProjectionMode, InteractionPhase, ZoneType } from './types';
-import { calculateSnapPose } from './utils/snapMath';
+import { calculateSnapPose, applyGroupDelta } from './utils/snapMath';
 
 const LegoPart = memo(({ id }) => {
     const state = useStore((s) => s.parts[id]);
@@ -56,15 +56,51 @@ const PlacementGhost = () => {
     const phase = useStore(s => s.interactionPhase);
     const continuousPlacementSource = useStore(s => s.continuousPlacementSource);
     const activeColorCode = useStore(s => s.activeColorCode);
+    const parts = useStore(s => s.parts);
+    const connections = useStore(s => s.connections);
+    const addLog = useStore(s => s.addLog);
 
     const isActivePhase = phase === InteractionPhase.SOURCE_LOCKED || (phase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource);
-    if (!isActivePhase || !hoveredPort) return null;
 
-    const source = (phase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource) 
-      ? continuousPlacementSource 
+    // 当前活跃 source（用作 sticky 重置的 key —— source 一变，sticky 立刻清空）
+    const source = (phase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource)
+      ? continuousPlacementSource
       : selectedPort;
+    const sourceId = source?.partId ?? null;
 
+    // ── Sticky hover 锚点 ──────────────────────────────────────────────────
+    // hoveredPort 在用户鼠标真正离开所有端口时会被清空。但用户在多个候选孔之间慢慢
+    // 移动鼠标看效果时，本能上会"鼠标停在两孔之间想一下再移过去"，那段空窗会让幽灵
+    // 反复挂载-卸载，肉眼级别闪烁。
+    //
+    // 这里用一个"粘性"锚点：
+    //   - 一旦有非空 hoveredPort 就更新；
+    //   - hoveredPort 变 null 不更新（保留上一次的值，幽灵不撤）；
+    //   - source 变化（点新 source / abort / commit）时立即清空，避免脏锚点。
+    // 实质是"幽灵贴在最近一次 hover 的端口上，直到换到另一个端口或源换了为止"。
+    const [stickyHover, setStickyHover] = useState(null);
+
+    useEffect(() => {
+        if (hoveredPort) setStickyHover(hoveredPort);
+    }, [hoveredPort]);
+
+    // source 一换，立刻清空 sticky，避免上一次的预览残留到新 source 上
+    useEffect(() => {
+        setStickyHover(null);
+    }, [sourceId]);
+
+    // 诊断：每次满足渲染条件触发一次（注意是 useEffect 防止 render 内 set state 死循环）
+    useEffect(() => {
+        if (isActivePhase && stickyHover) {
+            addLog(`[Ghost] mount/update @ source=${sourceId ?? '?'} hover=${stickyHover.partId}`, 'INFO');
+        }
+    }, [isActivePhase, stickyHover, sourceId, addLog]);
+
+    if (!isActivePhase || !stickyHover) return null;
     if (!source) return null;
+
+    // 实际渲染参考的是 sticky 锚点而不是 live hoveredPort
+    const anchorPort = stickyHover;
 
     // 采用工业级稳健解算器，相信后端已完成旋向纠偏，但前端需具备处理任意正交阵的能力
     const getQuatFromMat = (m) => {
@@ -75,7 +111,7 @@ const PlacementGhost = () => {
             const len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]) || 1;
             nm.push([v[0]/len, v[1]/len, v[2]/len]);
         }
-        
+
         // 列向量 nm 映射到矩阵元素 (Row-Major index mapping)
         const m11 = nm[0][0], m12 = nm[1][0], m13 = nm[2][0];
         const m21 = nm[0][1], m22 = nm[1][1], m23 = nm[2][1];
@@ -97,7 +133,7 @@ const PlacementGhost = () => {
             const s = 2.0 * Math.sqrt(1.0 + m33 - m11 - m22);
             q = [(m13 + m31) / s, (m23 + m32) / s, 0.25 * s, (m21 - m12) / s];
         }
-        
+
         const qLen = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]) || 1;
         return [q[0]/qLen, q[1]/qLen, q[2]/qLen, q[3]/qLen];
     };
@@ -105,23 +141,57 @@ const PlacementGhost = () => {
     const previewPose = calculateSnapPose(
         source.position,
         getQuatFromMat(source.rotation),
-        hoveredPort.globalPos,
-        hoveredPort.globalQuat
+        anchorPort.globalPos,
+        anchorPort.globalQuat
+    );
+
+    // 计算 source 所在的连通组（剔除潜在 target，避免把 target 也拖走）。
+    // 组内每个零件按"source 的位姿位移"作为刚体 delta 重新摆放，
+    // 这样幽灵能预览整套"灰板 + 已经插上的销"飞过去的样子，而不是只一根销。
+    const srcGroup = getConnectedGroup(connections, source.partId, anchorPort.partId);
+    const oldSourcePose = parts[source.partId]
+      ? { position: parts[source.partId].position, quaternion: parts[source.partId].quaternion }
+      : { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+    const newSourcePose = { position: previewPose.position, quaternion: previewPose.quaternion };
+    const groupNewPoses = applyGroupDelta(
+        srcGroup, parts, source.partId, oldSourcePose, newSourcePose
     );
 
     const ghostColor = getDefaultColorCode(source.ldrawId || source.partId, activeColorCode);
 
     return (
-        <group position={previewPose.position} quaternion={previewPose.quaternion}>
-            <InteractivePart
-                partId="ghost"
-                ldrawId={source.ldrawId}
-                colorCode={ghostColor}
-                opacity={0.4}
-                transparent={true}
-                showPorts={false}
-                disableEvents={true}
-            />
+        <group>
+            {/* source 自身的幽灵：始终渲染（即使 source 还没在 parts 字典中——preview 路径） */}
+            <group position={previewPose.position} quaternion={previewPose.quaternion}>
+                <InteractivePart
+                    partId="ghost"
+                    ldrawId={source.ldrawId}
+                    colorCode={ghostColor}
+                    opacity={0.4}
+                    transparent={true}
+                    showPorts={false}
+                    disableEvents={true}
+                />
+            </group>
+            {/* 同组其余零件的幽灵：当 source 在场景里且有连通邻居时，整套预览跟过去 */}
+            {srcGroup.filter(pid => pid !== source.partId).map(pid => {
+                const orig = parts[pid];
+                const newPose = groupNewPoses[pid];
+                if (!orig || !newPose) return null;
+                return (
+                    <group key={`ghost_grp_${pid}`} position={newPose.position} quaternion={newPose.quaternion}>
+                        <InteractivePart
+                            partId={`ghost_${pid}`}
+                            ldrawId={orig.ldrawId}
+                            colorCode={orig.colorCode}
+                            opacity={0.4}
+                            transparent={true}
+                            showPorts={false}
+                            disableEvents={true}
+                        />
+                    </group>
+                );
+            })}
         </group>
     );
 };

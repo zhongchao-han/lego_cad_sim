@@ -156,6 +156,14 @@ export const InteractivePart = memo(({
   const continuousPlacementSource = useStore(s => s.continuousPlacementSource);
   const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
 
+  // 该零件已被占用的端口 key 集合（订阅 store；引用稳定时 useMemo 不会重算）。
+  // 加 ?. 兜底是因为某些测试用 mock 化的 store 不一定枚举此字段。
+  const occupiedRecord = useStore(s => s.occupiedPorts?.[partId]);
+  const occupiedKeys = useMemo(
+    () => new Set(occupiedRecord ? Object.keys(occupiedRecord) : []),
+    [occupiedRecord]
+  );
+
   const effectiveSourcePortType = useMemo(() => {
     if (interactionPhase === InteractionPhase.SOURCE_LOCKED) return selectedPort?.portType ?? null;
     if (interactionPhase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource) return continuousPlacementSource.portType;
@@ -220,10 +228,16 @@ export const InteractivePart = memo(({
         )}
       </group>
 
-      {/* 始终渲染 SiteGizmo。这是纯几何无感 Hover 的核心：
+      {/* 默认情况下始终渲染 SiteGizmo。这是纯几何无感 Hover 的核心：
           利用其内部不可见的大球壳（7 LDU）拦截穿过孔洞（6 LDU）的射线，彻底消灭穿模闪烁 Bug。
-          箭头的显示与隐藏由 showVisuals 属性代理。 */}
-      {ldrawPart.sites?.map((site) => (
+          箭头的显示与隐藏由 showVisuals 属性代理。
+
+          但 disableEvents（用于 PlacementGhost 这种半透明预览体）必须连 SiteGizmo 一起跳过：
+          ghost 整组渲染时，组内零件的端口被 applyGroupDelta 算到 snap 位置，正好叠在
+          真实目标端口的同一位置上。鼠标射线命中 ghost 的不可见球壳 → 真实端口的 pointerout
+          被触发 → setHoveredPort(null) → ghost 卸载 → 又命中真实端口 → ghost 重挂，
+          周而复始产生肉眼可见的预览闪烁。Ghost 本就不需要参与 hover/click，直接跳过最干净。 */}
+      {!disableEvents && ldrawPart.sites?.map((site) => (
         <SiteGizmo
           key={site.id}
           site={site}
@@ -234,6 +248,7 @@ export const InteractivePart = memo(({
           sourcePortType={effectiveSourcePortType}
           selectedPort={selectedPort}
           showVisuals={finalShowPorts}
+          occupiedKeys={occupiedKeys}
           onPortClick={onPortClick}
           onPortHover={handlePortHoverLocal}
         />

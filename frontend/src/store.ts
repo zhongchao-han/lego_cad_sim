@@ -17,10 +17,40 @@ import {
 import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
-import { calculateSnapPose, calculatePortRotationPose } from './utils/snapMath';
+import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta } from './utils/snapMath';
 import { getDefaultColorCode } from './utils/partColorDefaults';
 
 type ConnectionGraph = Record<string, Set<string>>;
+
+/**
+ * 端口占用映射：partId -> (端口本地坐标 key -> 占用方 partId)。
+ * - key 由 portKey() 序列化端口本地坐标得到（4 位小数 ≈ 100 µm，远高于 LDU 颗粒度 0.4 mm）。
+ * - value 记录把它"塞住"的对端 partId，用于在删除任意一端时回收对面的占用条目。
+ *
+ * 该结构与 connections（零件级邻接）平行存在：connections 维持图遍历语义不变；
+ * occupiedPorts 给前端渲染层提供 O(1) 的"这个端口是否已被占用"查询，
+ * 使 SiteGizmo 能直接隐藏被插销塞住的孔，避免误点已占用孔产生的极性不兼容假象。
+ */
+type OccupiedPortMap = Record<string, Record<string, string>>;
+
+/**
+ * 端口标识 → 字符串 key（用于占用集查询）。位置 + Z 轴方向同时参与序列化，
+ * 因为 LDraw 里同位置的端口可能存在方向相反的两个（销零件 2780 就是典型，
+ * site 内 p0/p1 同坐标 (0,0,0) 但 Z 轴方向相反，分别表示从两端插入）。
+ * 仅按位置区分会把两个端口压成同一个 key，导致 snap 占用一端后另一端也被误隐藏。
+ *
+ * 导出给渲染层做同源序列化。Z 轴 = port.rotation 矩阵的第三列。
+ */
+export const portKey = (pos: Vec3, rotation?: Mat3): string => {
+  const base = `${pos[0].toFixed(4)},${pos[1].toFixed(4)},${pos[2].toFixed(4)}`;
+  if (!rotation) return base;
+  const r = rotation as number[][];
+  if (!Array.isArray(r) || !Array.isArray(r[0])) return base;
+  const zx = (r[0]?.[2] ?? 0);
+  const zy = (r[1]?.[2] ?? 0);
+  const zz = (r[2]?.[2] ?? 0);
+  return `${base}|${zx.toFixed(2)},${zy.toFixed(2)},${zz.toFixed(2)}`;
+};
 
 const API_URL = 'http://localhost:8000';
 
@@ -35,6 +65,8 @@ interface StoreState {
   view: 'ASSEMBLY' | 'LIBRARY_VERIFY';
   parts: Record<string, PartState>;
   connections: ConnectionGraph;
+  /** 端口占用图：见 OccupiedPortMap 注释。 */
+  occupiedPorts: OccupiedPortMap;
   wsConnected: boolean;
   selectedPort: SelectedPortInfo | null;
   hoveredPort: SelectedPortInfo | null;
@@ -57,6 +89,8 @@ interface StoreState {
     prevPositions: Record<string, { position: Vec3; quaternion: Quat }>;
     addedConnections: Array<{ from: string; to: string }>;
     addedPartIds?: string[];
+    /** Snap 引入的端口占用条目，撤销/中止时按这份清单回滚。 */
+    addedPortKeys?: Array<{ partId: string; key: string; peerId: string }>;
   } | null;
   continuousPlacementSource: SelectedPortInfo | null; // 用于记录正在连续放置（复制）的源端口信息
 
@@ -195,7 +229,7 @@ const getQuatFromMat3 = (m: Mat3): Quat => {
   return quatNormalize(q);
 };
 
-function getConnectedGroup(connections: ConnectionGraph, startId: string, excludeId: string): string[] {
+export function getConnectedGroup(connections: ConnectionGraph, startId: string, excludeId: string): string[] {
   const visited = new Set<string>();
   const queue = [startId];
   visited.add(startId);
@@ -216,6 +250,22 @@ function getConnectedGroup(connections: ConnectionGraph, startId: string, exclud
 
 const _history = new HistoryStack(50);
 
+/**
+ * 全局 hoveredPort 清空定时器：handlePointerOut 触发的"清空"通过它推迟 80ms 生效。
+ *
+ * 为什么必须做这层防抖：
+ *  1. R3F 的 group 在内部子 mesh（PortArrow 里 sphere ↔ cylinder hitbox）之间转移指针时，
+ *     会先冒泡 pointerout、再冒泡 pointerover。指针根本没离开 group 也会刷出 out/in 串。
+ *  2. 用户从端口 A 移到端口 B，A 的 out 和 B 的 over 是两次独立调用：如果 A 在 PortArrow
+ *     本地防抖，定时器到期后会写入 null，盖掉 B 已经写入的 hoveredPort，导致幽灵闪没。
+ *  3. PlacementGhost 直接订阅 hoveredPort，一旦它变 null 就 unmount，伴随 InteractivePart
+ *     重挂载、整组渲染、视觉上肉眼可感的闪烁。
+ *
+ * 把防抖做在 store 这一层后，全局只有一个待决 null：任何 port 的非空 hover 进来都能
+ * 一键 cancel 掉，hoveredPort 在端口之间平滑切换；只有指针真正离开所有端口 80ms 才会清空。
+ */
+let _hoveredPortClearTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
@@ -223,6 +273,7 @@ export const useStore = create<StoreState>()(
   view: 'ASSEMBLY',
   parts: {},
   connections: {},
+  occupiedPorts: {},
   wsConnected: false,
   selectedPort: null,
   hoveredPort: null,
@@ -267,6 +318,7 @@ export const useStore = create<StoreState>()(
       set({
         parts: {},
         connections: {},
+        occupiedPorts: {},
         interactionPhase: InteractionPhase.IDLE,
         selectedPort: null,
         hoveredPort: null,
@@ -372,9 +424,11 @@ export const useStore = create<StoreState>()(
     const { interactionPhase, snapParts, parts } = get();
     get().addLog(`Port clicked: ${port.partId} (${port.ldrawId})`, 'ACTION');
 
-    // 如果当前正在滑动，任意点击都应先静默提交滑动状态
-    // 注意：连续放置模式下 commitAxialSliding 会用新 instanceId 覆盖 selectedPort，
-    // 因此 selectedPort 必须在 commit 之后再读取，不能提前解构。
+    // 如果当前正在滑动，任意点击都应先静默提交滑动状态。
+    // ⚠ 连续放置模式下 commitAxialSliding 会用新 instanceId 覆盖 store.selectedPort，
+    // 因此 selectedPort 必须在 commit 之后再读取（见下方 `const selectedPort = get()...`），
+    // 不能提前解构成本地常量——否则下一次 snap 会拿着旧 partId 命中 parts[oldId] 已存在
+    // 分支，把同一根销从 hole #1 拖到 hole #2（视觉上呈"前一根销消失"）。
     if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
       get().commitAxialSliding();
     }
@@ -437,13 +491,19 @@ export const useStore = create<StoreState>()(
         else addedPartIds.push(pid);
       });
 
-      set({ 
+      const srcPortKey = portKey(selectedPort.position, selectedPort.rotation);
+      const tgtPortKey = portKey(port.position, port.rotation);
+      set({
         interactionPhase: InteractionPhase.ANIMATING_SNAP,
         snapPreState: {
           movedPartIds: srcGroup,
           prevPositions,
           addedConnections: [{ from: selectedPort.partId, to: port.partId }],
-          addedPartIds
+          addedPartIds,
+          addedPortKeys: [
+            { partId: selectedPort.partId, key: srcPortKey, peerId: port.partId },
+            { partId: port.partId,        key: tgtPortKey, peerId: selectedPort.partId },
+          ],
         }
       });
 
@@ -464,17 +524,51 @@ export const useStore = create<StoreState>()(
   },
 
   setHoveredPort: (port) => {
-    const { interactionPhase, continuousPlacementSource } = get();
-    if (interactionPhase === InteractionPhase.SOURCE_LOCKED || 
-       (interactionPhase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource)) {
-      set({ hoveredPort: port });
-    } else {
+    const { interactionPhase, continuousPlacementSource, hoveredPort: prevHovered } = get();
+    const inActivePhase = interactionPhase === InteractionPhase.SOURCE_LOCKED ||
+       (interactionPhase === InteractionPhase.AXIAL_SLIDING && continuousPlacementSource);
+
+    if (!inActivePhase) {
+      // 离开有效阶段时（如 IDLE），同样要把可能挂着的延时清掉，避免它在 IDLE 下意外清空状态
+      if (_hoveredPortClearTimer) {
+        clearTimeout(_hoveredPortClearTimer);
+        _hoveredPortClearTimer = null;
+      }
       if (get().hoveredPort !== null) set({ hoveredPort: null });
+      return;
     }
+
+    if (port) {
+      // 非空写入：立刻生效，并撤销任何待决的 null 清空（端口 A→B 切换的兜底）
+      if (_hoveredPortClearTimer) {
+        clearTimeout(_hoveredPortClearTimer);
+        _hoveredPortClearTimer = null;
+      }
+      if (!prevHovered || prevHovered.partId !== port.partId) {
+        get().addLog(`[Port HOVER] hoveredPort -> ${port.partId} @ ${port.portType}`, 'INFO');
+      }
+      set({ hoveredPort: port });
+      return;
+    }
+
+    // 空写入：推迟 300ms 生效。窗口内只要有任何 PortArrow 的 over 进来都会取消这次清空。
+    // 选 300ms 是因为：
+    //  - 80ms 只够吞 R3F group 内部 sphere↔cylinder 切换的瞬时 out/in；
+    //  - 用户在多个候选孔之间移动鼠标时，会有 ~几百 ms 的"短暂离开所有 port hitbox 看下一个"，
+    //    用 300ms 才能撑过这段视觉空窗，让 ghost 保持稳定不闪。
+    //  - 真正离开（鼠标移到画面别处 / 长时间静止在非 port 区域）时 300ms 的延迟感官上可接受。
+    if (_hoveredPortClearTimer) clearTimeout(_hoveredPortClearTimer);
+    _hoveredPortClearTimer = setTimeout(() => {
+      _hoveredPortClearTimer = null;
+      if (get().hoveredPort) {
+        get().addLog(`[Port HOVER] hoveredPort -> null`, 'INFO');
+        set({ hoveredPort: null });
+      }
+    }, 300);
   },
 
   snapParts: async (source, target, slideOffset = 0) => {
-    const { parts, connections, stagingGrid } = get();
+    const { parts, connections, stagingGrid, occupiedPorts } = get();
     const targetPart = parts[target.partId];
     if (!targetPart || targetPart.zone !== ZoneType.ACTIVE_ARENA) return false;
 
@@ -497,13 +591,37 @@ export const useStore = create<StoreState>()(
       slideOffset
     );
 
+    // 刚体组吸附：把 source 的位姿位移作为 delta，整体施加给整个 srcGroup。
+    // 这样灰板上插了销、销又被点为 source 时，灰板会跟着销一起飞过去，而不是
+    // 把销自己拽走、把灰板留在原地导致连接图与几何状态撕裂。
+    const oldSourcePose = parts[source.partId]
+      ? { position: parts[source.partId].position, quaternion: parts[source.partId].quaternion }
+      : { position: [0, 0, 0] as Vec3, quaternion: [0, 0, 0, 1] as Quat };
+    const newSourcePose = { position, quaternion };
+    const groupNewPoses = applyGroupDelta(
+      srcGroup, parts, source.partId, oldSourcePose, newSourcePose
+    );
+
     const updated: Record<string, PartState> = { ...parts };
-    updated[source.partId] = {
-      ...sourcePart,
-      position: position as Vec3,
-      quaternion: quaternion as Quat,
-      zone: ZoneType.ACTIVE_ARENA
-    };
+    // 兜底：source 若是 preview 新建零件，parts 里还没条目，需要先把 sourcePart 落进去
+    if (!parts[source.partId]) {
+      updated[source.partId] = {
+        ...sourcePart,
+        position: position as Vec3,
+        quaternion: quaternion as Quat,
+        zone: ZoneType.ACTIVE_ARENA,
+      };
+    }
+    Object.entries(groupNewPoses).forEach(([pid, pose]) => {
+      const cur = updated[pid];
+      if (!cur) return;
+      updated[pid] = {
+        ...cur,
+        position:   pose.position   as Vec3,
+        quaternion: pose.quaternion as Quat,
+        zone: ZoneType.ACTIVE_ARENA,
+      };
+    });
 
     stagingGrid.releaseSlot(source.partId);
 
@@ -512,10 +630,19 @@ export const useStore = create<StoreState>()(
     newConnections[source.partId].add(target.partId);
     newConnections[target.partId].add(source.partId);
 
+    // 端口级占用同步：本次 Snap 把 source/target 两个端口都"塞住"。
+    // 渲染层据此隐藏被占用的端口（例如插销插入孔后，原孔不再可拾取），
+    // 修复"误点已占用孔→源极性变成同性→悬停目标无幽灵"的体验 Bug。
+    const srcKey = portKey(source.position, source.rotation);
+    const tgtKey = portKey(target.position, target.rotation);
+    const newOccupied: OccupiedPortMap = { ...occupiedPorts };
+    newOccupied[source.partId] = { ...(newOccupied[source.partId] || {}), [srcKey]: target.partId };
+    newOccupied[target.partId] = { ...(newOccupied[target.partId] || {}), [tgtKey]: source.partId };
+
     // History recording is now handled in commitAxialSliding to allow for proper undo/redo of the sliding action
 
     // 先更新本地状态，保证 UI 立即响应（乐观更新）
-    set({ parts: updated, connections: newConnections });
+    set({ parts: updated, connections: newConnections, occupiedPorts: newOccupied });
 
     // ── v3.1：异步通知后端登记拓扑并触发 Auto-Latch ──────────────────────────
     // 降级策略：后端调用失败不影响前端已完成的本地连接（与 server.py 中 AutoLatch
@@ -576,7 +703,21 @@ export const useStore = create<StoreState>()(
                     if (nextSet.size === 0) delete rc[to]; else rc[to] = nextSet;
                 }
             });
-            return { parts: rp, connections: rc };
+            const ro: OccupiedPortMap = { ...prev.occupiedPorts };
+            // 移除新增的零件携带的占用条目（整张表即将被丢弃）
+            if (pre.addedPartIds) {
+                pre.addedPartIds.forEach(id => { delete ro[id]; });
+            }
+            // 撤销 Snap 写入的端口占用条目
+            (pre.addedPortKeys || []).forEach(({ partId, key }) => {
+                const next = ro[partId];
+                if (!next) return;
+                const cleaned = { ...next };
+                delete cleaned[key];
+                if (Object.keys(cleaned).length === 0) delete ro[partId];
+                else ro[partId] = cleaned;
+            });
+            return { parts: rp, connections: rc, occupiedPorts: ro };
         });
     }
 
@@ -605,13 +746,13 @@ export const useStore = create<StoreState>()(
   },
 
   deleteSelected: () => {
-    const { parts, connections, selection } = get();
+    const { parts, connections, selection, occupiedPorts } = get();
     const idsToDelete = selection.allConnectedIds;
     if (idsToDelete.length === 0) return;
 
     const removedParts: Record<string, PartState> = {};
     const removedConns: Array<{ from: string; to: string }> = [];
-    
+
     idsToDelete.forEach(id => {
       if (parts[id]) {
         removedParts[id] = parts[id];
@@ -625,9 +766,34 @@ export const useStore = create<StoreState>()(
       }
     });
 
-    const snap: TopologySnapshot = { addedParts: {}, removedParts, addedConnections: [], removedConnections: removedConns };
-    
-    const doRemove = (ids: string[]) => {
+    // 收集被删除一方触及的占用条目（自身全部 + 对端指向被删者的反向连接），
+    // 全部存入 TopologySnapshot.removedOccupiedPorts 以便撤销时一并恢复。
+    const deletedSet = new Set(idsToDelete);
+    const removedOccupiedPorts: Record<string, Record<string, string>> = {};
+    idsToDelete.forEach(id => {
+      const own = occupiedPorts[id];
+      if (own && Object.keys(own).length > 0) {
+        removedOccupiedPorts[id] = { ...own };
+      }
+    });
+    Object.keys(occupiedPorts).forEach(peerId => {
+      if (deletedSet.has(peerId)) return;
+      const matched: Record<string, string> = {};
+      Object.entries(occupiedPorts[peerId]).forEach(([k, v]) => {
+        if (deletedSet.has(v)) matched[k] = v;
+      });
+      if (Object.keys(matched).length > 0) {
+        removedOccupiedPorts[peerId] = matched;
+      }
+    });
+
+    const snap: TopologySnapshot = {
+      addedParts: {}, removedParts,
+      addedConnections: [], removedConnections: removedConns,
+      removedOccupiedPorts,
+    };
+
+    const doRemove = (ids: string[], occToRemove: Record<string, Record<string, string>>) => {
       set(s => {
         const np = { ...s.parts };
         const nc = { ...s.connections };
@@ -642,11 +808,26 @@ export const useStore = create<StoreState>()(
             }
           });
         });
-        return { parts: np, connections: nc };
+        const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        Object.entries(occToRemove).forEach(([partId, kvs]) => {
+          const cur = ro[partId];
+          if (!cur) return;
+          const cleaned = { ...cur };
+          Object.keys(kvs).forEach(k => delete cleaned[k]);
+          if (Object.keys(cleaned).length === 0) delete ro[partId];
+          else ro[partId] = cleaned;
+        });
+        // 兜底：被删除零件残留的整张占用表也一并清理（防止 occToRemove 漏算）
+        ids.forEach(id => { delete ro[id]; });
+        return { parts: np, connections: nc, occupiedPorts: ro };
       });
     };
 
-    const doAdd = (pa: Record<string, PartState>, conns: Array<{from: string; to: string}>) => {
+    const doAdd = (
+      pa: Record<string, PartState>,
+      conns: Array<{from: string; to: string}>,
+      occToRestore: Record<string, Record<string, string>>,
+    ) => {
       set(s => {
         const np = { ...s.parts, ...pa };
         const nc = { ...s.connections };
@@ -656,16 +837,20 @@ export const useStore = create<StoreState>()(
           nc[c.from].add(c.to);
           nc[c.to].add(c.from);
         });
-        return { parts: np, connections: nc };
+        const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        Object.entries(occToRestore).forEach(([partId, kvs]) => {
+          ro[partId] = { ...(ro[partId] || {}), ...kvs };
+        });
+        return { parts: np, connections: nc, occupiedPorts: ro };
       });
     };
 
-    const cmd = createTopologyCommand('DELETE', snap, 
-      () => doRemove(idsToDelete),
-      (s) => doAdd(s.removedParts, s.removedConnections)
+    const cmd = createTopologyCommand('DELETE', snap,
+      () => doRemove(idsToDelete, removedOccupiedPorts),
+      (s) => doAdd(s.removedParts, s.removedConnections, s.removedOccupiedPorts || {})
     );
 
-    doRemove(idsToDelete);
+    doRemove(idsToDelete, removedOccupiedPorts);
     set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
     _history.push(cmd);
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
@@ -989,7 +1174,11 @@ export const useStore = create<StoreState>()(
                         rc[from].add(to);
                         rc[to].add(from);
                     });
-                    return { parts: rp, connections: rc };
+                    const ro: OccupiedPortMap = { ...prev.occupiedPorts };
+                    (snapPreState.addedPortKeys || []).forEach(({ partId, key, peerId }) => {
+                        ro[partId] = { ...(ro[partId] || {}), [key]: peerId };
+                    });
+                    return { parts: rp, connections: rc, occupiedPorts: ro };
                 });
             },
             (snap) => { // undo
@@ -1012,7 +1201,19 @@ export const useStore = create<StoreState>()(
                             if (nextSet.size === 0) delete rc[to]; else rc[to] = nextSet;
                         }
                     });
-                    return { parts: rp, connections: rc };
+                    const ro: OccupiedPortMap = { ...prev.occupiedPorts };
+                    if (snap.addedPartIds) {
+                        snap.addedPartIds.forEach(id => { delete ro[id]; });
+                    }
+                    (snap.addedPortKeys || []).forEach(({ partId, key }) => {
+                        const cur = ro[partId];
+                        if (!cur) return;
+                        const cleaned = { ...cur };
+                        delete cleaned[key];
+                        if (Object.keys(cleaned).length === 0) delete ro[partId];
+                        else ro[partId] = cleaned;
+                    });
+                    return { parts: rp, connections: rc, occupiedPorts: ro };
                 });
             }
         );
@@ -1079,6 +1280,44 @@ export const useStore = create<StoreState>()(
             removedConns.push({ from: id, to: target });
         });
 
+        // 暂存零件被移走时，相关端口占用条目（自身全部 + 对端指向它的反向条目）需一并撤销，
+        // 以便对端的孔重新进入"可拾取"状态。
+        const curOcc = get().occupiedPorts;
+        const removedOcc: Record<string, Record<string, string>> = {};
+        if (curOcc[id] && Object.keys(curOcc[id]).length > 0) {
+            removedOcc[id] = { ...curOcc[id] };
+        }
+        Object.keys(curOcc).forEach(peerId => {
+            if (peerId === id) return;
+            const matched: Record<string, string> = {};
+            Object.entries(curOcc[peerId]).forEach(([k, v]) => {
+                if (v === id) matched[k] = v;
+            });
+            if (Object.keys(matched).length > 0) removedOcc[peerId] = matched;
+        });
+
+        const clearOccupied = () => set(state => {
+            const ro: OccupiedPortMap = { ...state.occupiedPorts };
+            Object.entries(removedOcc).forEach(([partId, kvs]) => {
+                const cur = ro[partId];
+                if (!cur) return;
+                const cleaned = { ...cur };
+                Object.keys(kvs).forEach(k => delete cleaned[k]);
+                if (Object.keys(cleaned).length === 0) delete ro[partId];
+                else ro[partId] = cleaned;
+            });
+            delete ro[id];
+            return { occupiedPorts: ro };
+        });
+
+        const restoreOccupied = () => set(state => {
+            const ro: OccupiedPortMap = { ...state.occupiedPorts };
+            Object.entries(removedOcc).forEach(([partId, kvs]) => {
+                ro[partId] = { ...(ro[partId] || {}), ...kvs };
+            });
+            return { occupiedPorts: ro };
+        });
+
         get().addLog(`Staging part: ${id}`);
         const slot = get().stagingGrid.assign(id);
         if (!slot) {
@@ -1087,11 +1326,11 @@ export const useStore = create<StoreState>()(
         }
 
         const newPos = slot.worldPosition;
-        
+
         const executeStage = () => {
             const currentSlot = get().stagingGrid.assign(id);
             if (currentSlot) {
-                get().updatePartState(id, { 
+                get().updatePartState(id, {
                     zone: ZoneType.STAGED,
                     position: currentSlot.worldPosition as Vec3,
                     quaternion: [0, 0, 0, 1] as Quat
@@ -1109,6 +1348,7 @@ export const useStore = create<StoreState>()(
                 });
                 return { connections: newConns };
             });
+            clearOccupied();
         };
 
         const undoStage = () => {
@@ -1124,10 +1364,11 @@ export const useStore = create<StoreState>()(
                 });
                 return { connections: newConns };
             });
+            restoreOccupied();
         };
 
         // 立即执行并入栈
-        get().updatePartState(id, { 
+        get().updatePartState(id, {
             zone: ZoneType.STAGED,
             position: newPos as Vec3,
             quaternion: [0, 0, 0, 1] as Quat // 重置为水平
@@ -1147,12 +1388,14 @@ export const useStore = create<StoreState>()(
             });
             return { connections: newConns };
         });
+        clearOccupied();
 
         const snap: TopologySnapshot = {
             addedParts: {},
             removedParts: {},
             addedConnections: [],
-            removedConnections: removedConns
+            removedConnections: removedConns,
+            removedOccupiedPorts: removedOcc,
         };
         const cmd = createTopologyCommand('STAGE', snap, executeStage, undoStage);
         _history.push(cmd);
@@ -1166,6 +1409,7 @@ export const useStore = create<StoreState>()(
     connections: Object.fromEntries(
       Object.entries(state.connections).map(([k, v]) => [k, Array.from(v)])
     ) as unknown as ConnectionGraph, // 暂存为 array，因为 Set 无法序列化
+    occupiedPorts: state.occupiedPorts, // 已是 Record<string,Record<string,string>>，可直接 JSON 化
     activeColorCode: state.activeColorCode,
     cameraTarget: state.cameraTarget,
     partUsages: state.partUsages,
@@ -1184,6 +1428,7 @@ export const useStore = create<StoreState>()(
       ...currentState,
       ...pState,
       connections: mergedConnections,
+      occupiedPorts: pState.occupiedPorts ?? {},
       hiddenParts: pState.hiddenParts ? new Set(pState.hiddenParts) : new Set(),
     };
   },

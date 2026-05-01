@@ -13,7 +13,13 @@
       "Bash(kill %1)",
       "Bash(jobs -l)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(where python *)",
+      "Bash(npx tsc *)",
+      "Bash(git stash *)",
+      "Bash(npm test *)",
+      "mcp__Claude_in_Chrome__list_connected_browsers"
     ]
   }
 }
