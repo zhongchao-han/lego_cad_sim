@@ -34,6 +34,10 @@ export interface SnapSnapshot {
   prevPositions: Record<string, { position: [number, number, number]; quaternion: [number, number, number, number] }>;
   /** Snap 之前不存在的连接 — 撤销时删除 */
   addedConnections: Array<{ from: string; to: string }>;
+  /** Snap 引入的端口占用条目（双向各一）— 撤销时按此清单回滚。peerId 仅用于 redo 重写。 */
+  addedPortKeys?: Array<{ partId: string; key: string; peerId: string }>;
+  /** Snap 引入的零件实例 — 撤销时整个移除（含其端口占用条目）。 */
+  addedPartIds?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +123,11 @@ export interface TopologySnapshot {
   removedParts: Record<string, PartState>;   // 被移除的零件字典
   addedConnections: Array<{ from: string; to: string }>;
   removedConnections: Array<{ from: string; to: string }>;
+  /**
+   * 被移除的端口占用条目（双向）。删除零件时由 store 计算并写入；
+   * 撤销时整体写回 occupiedPorts。键 = partId，值 = { portKey: peerId }。
+   */
+  removedOccupiedPorts?: Record<string, Record<string, string>>;
 }
 
 /**
