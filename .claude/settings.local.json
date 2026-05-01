@@ -19,7 +19,10 @@
       "Bash(npx tsc *)",
       "Bash(git stash *)",
       "Bash(npm test *)",
-      "mcp__Claude_in_Chrome__list_connected_browsers"
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "PowerShell($conns = Get-NetTCPConnection -LocalPort 5173,5174,5175,5176,5177,5178,5179,5180,8000 -ErrorAction SilentlyContinue; if \\($conns\\) { $conns | Select-Object LocalPort, OwningProcess, @{N='ProcName';E={\\(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue\\).ProcessName}}, @{N='CWD';E={\\(Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue\\).Path}} | Sort-Object LocalPort -Unique | Format-Table -AutoSize } else { \"no listeners on 5173-5180 / 8000\" })",
+      "PowerShell($deadline = \\(Get-Date\\).AddSeconds\\(20\\); while \\(\\(Get-Date\\) -lt $deadline\\) { $c = Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { break }; Start-Sleep -Milliseconds 500 }; $c = Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue; if \\(-not $c\\) { \"no vite on 5173 yet\"; exit }; $cinfo = Get-CimInstance Win32_Process -Filter \"ProcessId=$\\($c.OwningProcess\\)\"; \"vite PID: $\\($c.OwningProcess\\)\"; \"cmdline: $\\($cinfo.CommandLine\\)\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ]
   }
 }

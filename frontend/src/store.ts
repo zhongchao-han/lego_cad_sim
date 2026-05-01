@@ -1130,9 +1130,9 @@ export const useStore = create<StoreState>()(
   },
   
   rotateSelectedPart: (angleRads: number) => {
-    const { parts, selectedPort, updatePartState } = get();
+    const { parts, selectedPort, slidingTarget, connections, occupiedPorts, batchUpdatePartStates } = get();
     if (!selectedPort) return;
-    
+
     // The part being rotated is the one that contains the selectedPort.
     const partId = selectedPort.partId;
     const part = parts[partId];
@@ -1147,9 +1147,86 @@ export const useStore = create<StoreState>()(
         angleRads
     );
 
-    // Update the store and sync to physics
-    updatePartState(partId, newPose);
-    get().addLog(`Rotated part ${partId} by ${angleRads.toFixed(2)} rads`);
+    // 刚体组旋转的"锚点"语义（对齐 spec：USER_MANUAL §3 旋转作用于"该零件"、
+    // Case 3.4 地基不动、Case 4.1 过约束禁旋转、Case 2.2 绕"连接轴"）：
+    //
+    //   selectedPort 处对面的 peer 视作"地基"，从 source 出发、不穿越 peer
+    //   做 BFS 得到 srcGroup，整个 srcGroup 绕 selectedPort 的 Z 轴一起转。
+    //
+    // 优先级：
+    //   1. AXIAL_SLIDING 阶段：slidingTarget.partId 是显式的"对面"，直接排除；
+    //   2. SOURCE_LOCKED 阶段：查 occupiedPorts 找 selectedPort 处的 peer，排除它；
+    //      这能让"灰板上某孔已接销→红板"时，点灰板转、销和红板都不动。
+    //   3. 既无 slidingTarget 也无 peer：source 这一侧没有显式的对面，BFS 不排除任何
+    //      节点——此时整个连通组就是 source 自己 + 它已挂的附件，整体旋转是合理的。
+    //
+    // TODO(Case 4.1 过约束)：若灰板还通过别的孔/别的销并联到 peer 那侧，BFS 绕过
+    //   排除节点仍能到达 peer 那一组——此时 srcGroup 会"撕裂式"地把对面也拉进来。
+    //   spec 说这种情况应禁用旋转并提示锁死。当前先做基础排除，过约束检测后续补。
+    let excludeId = slidingTarget?.partId || "";
+    if (!excludeId) {
+      // selectedPort 可能是 LDraw connhole 的"对偶面"（同一物理孔在元数据里表达为两个端口：
+      //   销从上面插 vs 从下面插，见装配算法规范 §5.1 贯通孔双面分裂），portKey 严格 hash
+      //   position+Z 法线 → 用户点哪一面就 key 哪一面，命中不上 snap 时写入的"另一面"。
+      //
+      // 解决：扫描 occupiedPorts[partId]，找位置在容差内、法线同轴（不论朝向 dot ≈ ±1）的占用项。
+      // 阈值 0.02 是从实测数据推出来的：connhole 孔间距 ≈ 0.032、板厚差 ≈ 0.008，0.02 在两者中间。
+      const sx = selectedPort.position[0], sy = selectedPort.position[1], sz = selectedPort.position[2];
+      const r = selectedPort.rotation as number[][];
+      const nz: [number, number, number] = [r[0]?.[2] ?? 0, r[1]?.[2] ?? 0, r[2]?.[2] ?? 0];
+      const TOL = 0.02;
+      const TOL2 = TOL * TOL;
+      const own = occupiedPorts[partId] ?? {};
+      for (const [k, v] of Object.entries(own)) {
+        const [posPart, normPart] = k.split('|');
+        if (!posPart || !normPart) continue;
+        const [kx, ky, kz] = posPart.split(',').map(Number);
+        const [knx, kny, knz] = normPart.split(',').map(Number);
+        const dx = sx - kx, dy = sy - ky, dz = sz - kz;
+        if (dx * dx + dy * dy + dz * dz > TOL2) continue;
+        const dot = nz[0] * knx + nz[1] * kny + nz[2] * knz;
+        if (Math.abs(Math.abs(dot) - 1) > 0.05) continue; // 法线同轴（含反向）
+        excludeId = v;
+        break;
+      }
+    }
+    const srcGroup = getConnectedGroup(connections, partId, excludeId);
+
+    // Case 4.1 过约束检测（v5：one-hop closure 测试）：
+    //   合法旋转域 = {source} ∪ source 的直接邻居（即 source + 挂在它身上的"挂件销/附件"）
+    //   srcGroup 必须 ⊆ 合法域；溢出的零件 = source 通过某个邻居二阶到达的"对面物体"，过约束。
+    //
+    // 比 v4 (cut vertex) 准确：v4 把 degree=1 的"叶子 anchor"误判为过约束（因叶子去掉后 component 数不变）。
+    // 比 v3 (邻居漏出) 更全：v3 只看 anchor 直接邻居，漏检"anchor 是挂件 + source 通过别的销连对面"。
+    //
+    // 既覆盖 spec Case 4.1（"通过 ≥2 个非平行销并联连接 = 锁死"），也兼容 v1/v2 修复场景：
+    //   - v1: source=销 (邻居={灰板, 红板}), anchor=红板, srcGroup={销,灰板} ⊆ allowed → 通过 ✓
+    //   - v2: source=灰板, srcGroup 包含红板/二阶销 → 溢出 → 过约束 ✓
+    //   - 叶子 anchor: source=灰板, srcGroup={灰板} ⊆ allowed → 通过 ✓
+    if (excludeId) {
+      const sourceNeighbors = connections[partId] || new Set<string>();
+      const oneHopAllowed = new Set<string>([partId, ...Array.from(sourceNeighbors)]);
+      const overflow = srcGroup.filter(p => !oneHopAllowed.has(p));
+      if (overflow.length > 0) {
+        get().addLog(
+          `[Rot] 过约束锁死：source ${partId} 经其邻居二阶连到 [${overflow.join(', ')}]，旋转会拽动这些非锚定零件。请删除多余连接（除 anchor=${excludeId} 外），或换个端口作 anchor。（参见 Case 4.1）`,
+          'ERROR'
+        );
+        return;
+      }
+    }
+    const oldSourcePose = { position: part.position, quaternion: part.quaternion };
+    const groupNewPoses = applyGroupDelta(srcGroup, parts, partId, oldSourcePose, newPose);
+
+    const updates: Record<string, Partial<PartState>> = {};
+    Object.entries(groupNewPoses).forEach(([pid, pose]) => {
+      updates[pid] = {
+        position:   pose.position   as Vec3,
+        quaternion: pose.quaternion as Quat,
+      };
+    });
+    batchUpdatePartStates(updates);
+    get().addLog(`Rotated part ${partId} (group of ${srcGroup.length}, anchor=${excludeId || 'none'}) by ${angleRads.toFixed(2)} rads`);
   },
 
   commitAxialSliding: () => {
