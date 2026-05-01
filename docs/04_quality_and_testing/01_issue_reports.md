@@ -57,6 +57,6 @@ v3 修复后用户实测：灰板上 ≥2 个销同时插着红板，单一 anch
 - **Test R.6 (叶子 anchor 不应误报)**: 灰板 + 1 个只挂在灰板上的叶子销，红板独立放置（不连任何销）→ 旋转 → 灰板自由绕销转，无 ERROR log。
 
 ### **已知遗漏 (Open Items)**
-1. **AutoLatch 边集未回流前端 (高优先级)**: `frontend/src/store.ts:665` 的 `axios.post(/api/snap_parts)` 只读 `auto_latched_count`，**不接收**后端 AutoLatch 闭合的额外边。这些边的 `connections` 与 `occupiedPorts` 在前端缺失，导致旋转锚点查询命中率退化（退化为 anchor=none 整组转）。需要约定后端响应里返回完整边集（含 srcPort/dstPort 信息），前端合并写入。
+1. ~~**AutoLatch 边集未回流前端 (高优先级)**~~ — **[已修复 ✅]**：`/api/snap_parts` 响应新增 `auto_latched_edges: [{src_part_id, dst_part_id, src_port_key, dst_port_key}, ...]`，由 `backend/auto_latch_scanner.py::serialize_port_key()` 生成与前端 `store.ts::portKey()` 逐字符一致的 key（含负零归一化）。前端在 `axios.post(/api/snap_parts)` 的 then 回调里把每条边幂等地并入 `connections` 与 `occupiedPorts`，并在 `snapPreState` 仍在场时追加到其 `addedConnections` / `addedPortKeys`，使 SnapCommand 的 undo 能一次性回滚整组（包括 AutoLatch 闭合的对扣边）。罕见竞态（用户在 axios.then 之前就触发 commitAxialSliding）下退化为"只更新当前状态、不进入 undo 栈"，AutoLatch 边在状态里仍持续存在；后续删除任一相关零件时会通过 stagePart/deletePart 的级联清理走正常路径。覆盖测试见 `frontend/src/__tests__/store_snap_api.test.ts`（合并 / undo 追加 / 幂等）与 `backend/tests/test_auto_latch_scanner.py::TestSerializePortKey`（前后端 portKey 一致性）。
 2. **TOL 阈值是单点观察硬编码 (低优先级)**: `0.02` LDU 来自 71709 板（孔间距 0.032、板厚差 0.008）。对孔距 < 0.04 的更紧凑零件可能误匹配相邻孔。根治方案是把 connection edge 升级为带端口标签的有向边（`{srcPortKey, dstPortKey}`），peer 查询直接 O(1) 准确，不靠浮点容差。
 3. **过约束 UX 待补 (低优先级)**: v4 仅在 log 里输出 ERROR，UI 上没有 spec Case 4.1 要求的"锁死图标"或浮动提示。功能正确但可发现性差。

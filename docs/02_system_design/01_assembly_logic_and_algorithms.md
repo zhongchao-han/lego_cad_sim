@@ -141,6 +141,6 @@ sequenceDiagram
 | source 是孤岛（未连任何东西） | 任意 | 无 | {source 自己 + 已挂附件} | 整体旋转，不影响其他孤岛 |
 
 ### **6.5 已知遗漏 (Open Items)**
-1. **AutoLatch 边集未回流前端**：后端 AutoLatch 闭合的额外连接边在前端 `connections` 与 `occupiedPorts` 中缺失（详见 Issue Reports §3 第 1 条），导致涉及 AutoLatch peer 的旋转退化为"无锚点"行为，可能拉走整个连通组。
+1. ~~**AutoLatch 边集未回流前端**~~ — **[已修复 ✅]**：`/api/snap_parts` 响应新增 `auto_latched_edges` 字段携带每条 AutoLatch 闭合边的 `(src_part_id, dst_part_id, src_port_key, dst_port_key)`。前端在 axios.then 回调里幂等并入 `connections` / `occupiedPorts`，并在 `snapPreState` 仍在场时追加到其 `addedConnections` / `addedPortKeys`，使 SnapCommand 的 undo 能整体回滚。详见 Issue Reports §3 第 1 条。**对当前算法的直接影响**：§6.2 第 2 步的"对偶面容差查询"现在能在 AutoLatch 闭合的端口上正确命中 peer，§6.4 表格中"销已插灰板"行的 srcGroup 推断不再因 AutoLatch 边缺失而退化为 anchor=none 整组旋转。
 2. **TOL 阈值脆弱性**：`0.02 LDU` 是单点观察的硬编码常量，对孔距 < 0.04 的更紧凑零件可能误匹配相邻孔。根治方案是把 `ConnectionEdge` 升级为带端口标签的有向边 `{ srcPortKey, dstPortKey }`，peer 查询直接 O(1) 准确，无需浮点容差——但这是涉及 snap、AutoLatch、persist schema 的架构级改动。
 3. **过约束的 UX 优化**：当前过约束触发时仅输出 ERROR log，UI 上没有"锁死图标"或浮动提示（spec Case 4.1 要求显示锁死图标）。功能正确但可发现性差。

@@ -26,6 +26,53 @@ logger = logging.getLogger(__name__)
 AUTO_LATCH_THRESHOLD_M: float = 0.001
 
 
+# ── 端口键序列化（与前端 store.ts portKey() 严格对齐）──────────────────────────
+
+def serialize_port_key(pos, rot=None) -> str:
+    """
+    把端口的本地位置 (+ 可选 Z 法线) 序列化为字符串 key，与前端 ``store.ts``
+    的 ``portKey()`` 输出**逐字符一致**：``"x,y,z|nx,ny,nz"``，位置 4 位小数、
+    法线 2 位小数。
+
+    用于在 ``/api/snap_parts`` 响应中标识 AutoLatch 闭合的端口对，使前端能
+    无歧义地索引到 ``occupiedPorts[partId][key]``。
+
+    Args:
+        pos: 端口本地坐标 (3,) — np.ndarray 或 list/tuple，单位 SI 米。
+        rot: 可选；端口本地旋转矩阵 (3,3)。提供时会附加 Z 法线分量
+             （矩阵第三列 = 端口出向轴）作为 key 后缀。
+
+    Returns:
+        字符串 key。
+
+    备注:
+        负零归一化 (``-0.0`` → ``0.0000``) 是必要的：JS ``(-0).toFixed(4)``
+        返回 ``"0.0000"``，而 Python ``f"{-0.0:.4f}"`` 返回 ``"-0.0000"``。
+        若不归一化会导致 backend↔frontend key 字符串不一致，前端写入
+        ``occupiedPorts`` 后下游查询命中不上。
+    """
+
+    def _fmt4(v: float) -> str:
+        rounded = round(float(v), 4)
+        if rounded == 0.0:
+            return "0.0000"
+        return f"{rounded:.4f}"
+
+    def _fmt2(v: float) -> str:
+        rounded = round(float(v), 2)
+        if rounded == 0.0:
+            return "0.00"
+        return f"{rounded:.2f}"
+
+    pos_arr = np.asarray(pos, dtype=float).reshape(-1)
+    base = f"{_fmt4(pos_arr[0])},{_fmt4(pos_arr[1])},{_fmt4(pos_arr[2])}"
+    if rot is None:
+        return base
+    rot_arr = np.asarray(rot, dtype=float).reshape(3, 3)
+    zx, zy, zz = rot_arr[0, 2], rot_arr[1, 2], rot_arr[2, 2]
+    return f"{base}|{_fmt2(zx)},{_fmt2(zy)},{_fmt2(zz)}"
+
+
 class AutoLatchScanner:
     """
     自动闭合扫描器。

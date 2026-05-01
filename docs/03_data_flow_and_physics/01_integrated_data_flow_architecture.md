@@ -119,3 +119,54 @@ graph TD
 
 -   **视觉漂移卫兵**: 测试脚本定时检查模型网格与 JSON 坐标的小数点 6 位一致性。
 -   **全库重刷契约**: 修改归一化内核逻辑后，必须强制清理 `/public/ldraw_meshes` 并重跑全量脚本。
+
+---
+
+## 6. /api/snap_parts 响应契约
+
+POST `/api/snap_parts` 在登记主连接后会触发 AutoLatchScanner 扫描相邻 Site，
+扫到的额外边通过响应回流给前端。请求体 schema 见 `backend/server.py::SnapRequest`；
+响应体形状如下：
+
+```jsonc
+{
+  "status": "success",
+  "msg": "Connected <parent_id> to <child_id>",
+  "auto_latched_count": 2,
+  "auto_latched_edges": [
+    {
+      "src_part_id": "beam_a",
+      "dst_part_id": "beam_b",
+      // portKey 字符串：与前端 store.ts::portKey() 输出逐字符一致。
+      // 由 backend/auto_latch_scanner.py::serialize_port_key() 产出，
+      // 包含位置 toFixed(4)、Z 法线 toFixed(2)、负零归一化。
+      "src_port_key": "0.0000,0.0400,0.0000|0.00,0.00,1.00",
+      "dst_port_key": "0.0000,-0.0400,0.0000|0.00,0.00,-1.00"
+    }
+  ]
+}
+```
+
+### 字段语义
+
+-   `auto_latched_count`：AutoLatch 实际登记到拓扑图的边数（计数，便于日志打印）。
+-   `auto_latched_edges`：每条 AutoLatch 闭合边的"前端可消费"摘要。前端必须按此把
+    每条边幂等地写入 `connections`（双向 add）与 `occupiedPorts[partId][portKey]`，
+    使后续旋转锚点查询、SiteGizmo 占用渲染、级联清理都能命中。
+-   即使 `auto_latched_count == 0`，`auto_latched_edges` 也保证存在为 `[]`，
+    使前端解构稳定、不需做存在性判断。
+
+### 前端消费契约
+
+-   写入 `connections` / `occupiedPorts` 前必须做幂等检查（主连接已写入相同端口键的
+    场景下不可重复追加），见 `frontend/src/store.ts::snapParts` 的 axios.then 回调。
+-   若 `snapPreState` 此时仍在场（commitAxialSliding 尚未触发），AutoLatch 边的
+    `addedConnections` / `addedPortKeys` 应追加到 `snapPreState`，确保 SnapCommand 的
+    undo 能整体回滚（含 AutoLatch 闭合的对扣边）。
+
+### portKey 一致性
+
+`serialize_port_key()` 与 `portKey()` 必须严格同源——位置 4 位小数、Z 法线 2 位小数、
+负零归一化。若两端格式漂移，前端的 occupiedPorts 查询会全面命中失败，连带破坏
+旋转锚点判定（详见 `docs/02_system_design/01_assembly_logic_and_algorithms.md` §6）。
+覆盖测试见 `backend/tests/test_auto_latch_scanner.py::TestSerializePortKey`。
