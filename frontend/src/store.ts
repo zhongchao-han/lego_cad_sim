@@ -663,13 +663,104 @@ export const useStore = create<StoreState>()(
     };
 
     axios.post(`${API_URL}/api/snap_parts`, snapPayload).then((res) => {
-      const { auto_latched_count } = res.data as { auto_latched_count?: number };
-      if (auto_latched_count && auto_latched_count > 0) {
+      const data = res.data as {
+        auto_latched_count?: number;
+        auto_latched_edges?: Array<{
+          src_part_id: string;
+          dst_part_id: string;
+          src_port_key: string;
+          dst_port_key: string;
+        }>;
+      };
+      const edges = data.auto_latched_edges ?? [];
+      if (data.auto_latched_count && data.auto_latched_count > 0) {
         get().addLog(
-          `[AutoLatch] Snap(${source.partId} ↔ ${target.partId}): 后端自动闭合 ${auto_latched_count} 条额外连接。`,
+          `[AutoLatch] Snap(${source.partId} ↔ ${target.partId}): 后端自动闭合 ${data.auto_latched_count} 条额外连接。`,
           'INFO'
         );
       }
+      if (edges.length === 0) return;
+
+      // ── AutoLatch 边集回流 ────────────────────────────────────────────────
+      // 把后端 AutoLatch 闭合的对扣边并入本地 connections + occupiedPorts。
+      // 修复 docs/04_quality_and_testing/01_issue_reports.md §3 Open Item #1
+      // (旋转锚点查询命中率退化为 anchor=none)。
+      //
+      // 选型：把 AutoLatch 边追加到当前 snapPreState (方案 a)，而非另起一条
+      // follow-up 命令 (方案 b)。理由：用户视角下"插一颗销 + 后端闭合的对扣
+      // 边"是单一原子动作，undo 应一次性回滚整组；分两条命令需要两次 ctrl+Z，
+      // 破坏心智模型。
+      //
+      // 罕见竞态：用户在 axios.then 之前就触发 commitAxialSliding（snapPreState
+      // 已被消费为 SnapCommand 后置 null）。此时退化为"只更新当前状态、不进入
+      // undo 栈"——AutoLatch 边在状态里持续存在 (功能正确)，仅丢失专属撤销步骤；
+      // 用户后续删除任一相关零件时仍会通过 stagePart/deletePart 的级联清理走
+      // 正常路径。
+      //
+      // 幂等性：写入前检查 connections.has(peer) 与 occupiedPorts[id][key] 是否
+      // 已存在；只把"真正新增"的项追加到 snapPreState，避免与主连接同步写入的
+      // 端口键重复。
+      set(prev => {
+        const nextConn: ConnectionGraph = { ...prev.connections };
+        const nextOcc: OccupiedPortMap = { ...prev.occupiedPorts };
+        const newAddedConnections: Array<{ from: string; to: string }> = [];
+        const newAddedPortKeys: Array<{ partId: string; key: string; peerId: string }> = [];
+
+        for (const e of edges) {
+          const a = e.src_part_id, b = e.dst_part_id;
+          if (!a || !b) continue;
+
+          const sa = new Set<string>(nextConn[a] ?? []);
+          const sb = new Set<string>(nextConn[b] ?? []);
+          const wasNewEdge = !sa.has(b);
+          sa.add(b);
+          sb.add(a);
+          nextConn[a] = sa;
+          nextConn[b] = sb;
+          if (wasNewEdge) {
+            newAddedConnections.push({ from: a, to: b });
+          }
+
+          const aPorts = { ...(nextOcc[a] ?? {}) };
+          const bPorts = { ...(nextOcc[b] ?? {}) };
+          const wasNewSrcPort = aPorts[e.src_port_key] === undefined;
+          const wasNewDstPort = bPorts[e.dst_port_key] === undefined;
+          aPorts[e.src_port_key] = b;
+          bPorts[e.dst_port_key] = a;
+          nextOcc[a] = aPorts;
+          nextOcc[b] = bPorts;
+          if (wasNewSrcPort) {
+            newAddedPortKeys.push({ partId: a, key: e.src_port_key, peerId: b });
+          }
+          if (wasNewDstPort) {
+            newAddedPortKeys.push({ partId: b, key: e.dst_port_key, peerId: a });
+          }
+        }
+
+        let nextSnapPreState = prev.snapPreState;
+        if (
+          nextSnapPreState &&
+          (newAddedConnections.length > 0 || newAddedPortKeys.length > 0)
+        ) {
+          nextSnapPreState = {
+            ...nextSnapPreState,
+            addedConnections: [
+              ...nextSnapPreState.addedConnections,
+              ...newAddedConnections,
+            ],
+            addedPortKeys: [
+              ...(nextSnapPreState.addedPortKeys ?? []),
+              ...newAddedPortKeys,
+            ],
+          };
+        }
+
+        return {
+          connections: nextConn,
+          occupiedPorts: nextOcc,
+          snapPreState: nextSnapPreState,
+        };
+      });
     }).catch((err) => {
       // 降级：后端拓扑注册失败，仅记录警告，不撤销前端已建立的本地连接
       get().addLog(

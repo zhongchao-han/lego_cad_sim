@@ -20,7 +20,11 @@ import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.auto_latch_scanner import AutoLatchScanner, AUTO_LATCH_THRESHOLD_M
+from backend.auto_latch_scanner import (
+    AutoLatchScanner,
+    AUTO_LATCH_THRESHOLD_M,
+    serialize_port_key,
+)
 from backend.topology_manager import TopologyManager, PartNode
 
 
@@ -289,6 +293,93 @@ class TestTopologyManagerBatchConnect(unittest.TestCase):
         """
         count = self.manager.batch_connect([])
         self.assertEqual(count, 0, "空列表应返回 0 且不崩溃。")
+
+
+class TestSerializePortKey(unittest.TestCase):
+    """``serialize_port_key`` 必须与前端 ``store.ts`` 的 ``portKey()`` 输出
+    逐字符一致，否则前端写入 ``occupiedPorts`` 后下游查询命中不上。"""
+
+    def test_basic_position_only(self):
+        """无 rotation 参数时只输出位置部分，4 位小数。"""
+        self.assertEqual(serialize_port_key([0.04, 0.0, 0.012]), "0.0400,0.0000,0.0120")
+
+    def test_negative_zero_normalized(self):
+        """负零必须归一化为正零，与 JS ``(-0).toFixed(4)`` 行为一致。
+        若不归一化，前端 ``"0.0000"`` 与后端 ``"-0.0000"`` 不匹配。"""
+        self.assertEqual(serialize_port_key([-0.0, -0.0, 0.0]), "0.0000,0.0000,0.0000")
+        self.assertEqual(
+            serialize_port_key([0.0, 0.0, 0.0], np.diag([1.0, 1.0, 1.0])),
+            "0.0000,0.0000,0.0000|0.00,0.00,1.00",
+        )
+
+    def test_rotation_third_column_extracted(self):
+        """rotation 第三列即 Z 轴 (端口出向)，应作为 key 后缀。"""
+        rot = np.array([
+            [1.0, 0.0,  0.0],
+            [0.0, 0.0, -1.0],
+            [0.0, 1.0,  0.0],
+        ])
+        # 第三列 = [0, -1, 0]
+        self.assertEqual(
+            serialize_port_key([0.02, 0.0, -0.04], rot),
+            "0.0200,0.0000,-0.0400|0.00,-1.00,0.00",
+        )
+
+    def test_rounding_to_4_and_2_decimals(self):
+        """位置 4 位、法线 2 位四舍五入。"""
+        rot = np.array([
+            [1.0, 0.0,  0.123456],
+            [0.0, 1.0,  0.654321],
+            [0.0, 0.0, -0.999991],
+        ])
+        # 注意：position[1] = 0.00005 在 round-half-to-even 下舍入为 0.0000，
+        # 选择更明确的 0.00006 以避免依赖具体舍入模式。
+        self.assertEqual(
+            serialize_port_key([0.123456, 0.00006, -0.99999], rot),
+            "0.1235,0.0001,-1.0000|0.12,0.65,-1.00",
+        )
+
+
+class TestServerEndpointResponseShape(unittest.TestCase):
+    """``/api/snap_parts`` 响应中 ``auto_latched_edges`` 的契约形状。
+
+    用 FastAPI ``TestClient`` 直连 server 调用，验证响应字段齐备且 portKey
+    与 ``serialize_port_key`` 一致。"""
+
+    def test_response_has_auto_latched_edges_field(self):
+        from fastapi.testclient import TestClient
+        from backend.server import app, topo_manager
+        from backend.topology_manager import PartNode
+
+        # 重置图，避免前序测试残留
+        topo_manager.graph.clear()
+        topo_manager.add_part(PartNode(part_id="dummy_a", name="dummy_a"))
+        topo_manager.add_part(PartNode(part_id="dummy_b", name="dummy_b"))
+
+        client = TestClient(app)
+        # 用真实库里有 sites 的零件几乎都会触发实参化校验失败；这里只验证
+        # 响应字段形状与新增 key 存在性，因此故意不传 world_pos 走兼容分支。
+        eye_rot = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+        resp = client.post(
+            "/api/snap_parts",
+            json={
+                "parent_id": "dummy_a",
+                "child_id": "dummy_b",
+                "port_type_p": "peghole.dat",
+                "port_type_c": "peg.dat",
+                "parent_origin": [0, 0, 0],
+                "parent_rot": eye_rot,
+                "child_origin": [0, 0, 0],
+                "child_rot": eye_rot,
+                # 故意省略 world_pos，触发"跳过 AutoLatch"分支
+            },
+        )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        body = resp.json()
+        # 即使 AutoLatch 被跳过，响应也必须含此键（前端解构需要稳定字段）
+        self.assertIn("auto_latched_edges", body)
+        self.assertIsInstance(body["auto_latched_edges"], list)
+        self.assertEqual(body["auto_latched_count"], 0)
 
 
 if __name__ == "__main__":

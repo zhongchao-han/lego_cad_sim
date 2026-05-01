@@ -56,7 +56,9 @@ function makeMockTargetPort(partId: string, portType: string = 'peghole.dat') {
 describe('store.snapParts — 后端 API 联调', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // 预设 mockStore 初始状态
+    // 预设 mockStore 初始状态。connections + occupiedPorts + snapPreState 都需重置，
+    // 否则相邻测试中的状态会通过这三个字段渗漏（典型表现：occupiedPorts 残留导致
+    // 下一测的"新端口键"被误判为"已存在"，幂等检查跳过追加）。
     useStore.setState({
       parts: {
         'source.dat': {
@@ -75,6 +77,8 @@ describe('store.snapParts — 后端 API 联调', () => {
         },
       },
       connections: {},
+      occupiedPorts: {},
+      snapPreState: null,
       interactionPhase: InteractionPhase.IDLE,
       logs: [],
     } as any);
@@ -188,6 +192,186 @@ describe('store.snapParts — 后端 API 联调', () => {
     // 本地连接图应已写入
     expect(conns['source.dat']?.has('target.dat')).toBe(true);
     expect(conns['target.dat']?.has('source.dat')).toBe(true);
+  });
+
+  it('后端返回 auto_latched_edges 时应并入 connections 与 occupiedPorts', async () => {
+    // 模拟一个三方 AutoLatch 场景：除了主连接 source↔target 外，
+    // 后端还闭合了 source 和 第三方零件 'extra.dat' 的一条对扣边。
+    // 注意：AutoLatch 边的 portKey 必须用与前端 portKey() 一致的格式。
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: {
+        status: 'success',
+        auto_latched_count: 1,
+        auto_latched_edges: [
+          {
+            src_part_id: 'source.dat',
+            dst_part_id: 'extra.dat',
+            // 注意：(0, 0.04, 0) 不能与主连接 source 的 srcKey 冲突
+            // (主连接源端口 position=[0,0,0])
+            src_port_key: '0.0000,0.0400,0.0000|0.00,0.00,1.00',
+            dst_port_key: '0.0000,-0.0400,0.0000|0.00,0.00,-1.00',
+          },
+        ],
+      },
+    });
+
+    // 预先把第三方零件放进 parts，模拟"灰板上插了销，销又通过 AutoLatch 闭合到第三件"
+    useStore.setState({
+      parts: {
+        ...useStore.getState().parts,
+        'extra.dat': {
+          ldrawId: 'extra.dat',
+          position: [0, 0, 0],
+          quaternion: [0, 0, 0, 1],
+          colorCode: 7,
+          zone: ZoneType.ACTIVE_ARENA,
+        },
+      },
+    } as any);
+
+    const source = makeMockPort('source.dat');
+    const target = makeMockTargetPort('target.dat');
+
+    await useStore.getState().snapParts(source as any, target as any);
+
+    // 等待 fire-and-forget 的 then 把 AutoLatch 边并入状态
+    await vi.waitFor(() => {
+      const conns = useStore.getState().connections;
+      expect(conns['source.dat']?.has('extra.dat')).toBe(true);
+      expect(conns['extra.dat']?.has('source.dat')).toBe(true);
+    });
+
+    const occ = useStore.getState().occupiedPorts;
+    expect(occ['source.dat']?.['0.0000,0.0400,0.0000|0.00,0.00,1.00']).toBe('extra.dat');
+    expect(occ['extra.dat']?.['0.0000,-0.0400,0.0000|0.00,0.00,-1.00']).toBe('source.dat');
+  });
+
+  it('AutoLatch 边应追加到 snapPreState 以便整组撤销', async () => {
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: {
+        status: 'success',
+        auto_latched_count: 1,
+        auto_latched_edges: [
+          {
+            src_part_id: 'source.dat',
+            dst_part_id: 'extra.dat',
+            src_port_key: '0.0000,0.0400,0.0000|0.00,0.00,1.00',
+            dst_port_key: '0.0000,-0.0400,0.0000|0.00,0.00,-1.00',
+          },
+        ],
+      },
+    });
+
+    useStore.setState({
+      parts: {
+        ...useStore.getState().parts,
+        'extra.dat': {
+          ldrawId: 'extra.dat',
+          position: [0, 0, 0],
+          quaternion: [0, 0, 0, 1],
+          colorCode: 7,
+          zone: ZoneType.ACTIVE_ARENA,
+        },
+      },
+      // 模拟 handlePortClick 在 target click 时设置的 snapPreState
+      snapPreState: {
+        movedPartIds: ['source.dat'],
+        prevPositions: {
+          'source.dat': { position: [0.1, 0, 0], quaternion: [0, 0, 0, 1] },
+        },
+        addedConnections: [{ from: 'source.dat', to: 'target.dat' }],
+        addedPartIds: [],
+        addedPortKeys: [
+          { partId: 'source.dat', key: '0.0000,0.0000,0.0000|0.00,0.00,1.00', peerId: 'target.dat' },
+          { partId: 'target.dat', key: '0.0000,0.0200,0.0000|0.00,0.00,1.00', peerId: 'source.dat' },
+        ],
+      },
+    } as any);
+
+    const source = makeMockPort('source.dat');
+    const target = makeMockTargetPort('target.dat');
+
+    await useStore.getState().snapParts(source as any, target as any);
+
+    await vi.waitFor(() => {
+      const pre = useStore.getState().snapPreState;
+      expect(pre).not.toBeNull();
+      // 新增的 AutoLatch 连接应被追加（在主连接之后）
+      expect(pre!.addedConnections).toEqual(
+        expect.arrayContaining([
+          { from: 'source.dat', to: 'target.dat' },        // 主连接（已存在）
+          { from: 'source.dat', to: 'extra.dat' },          // AutoLatch 新增
+        ])
+      );
+      // AutoLatch 端口键应被追加，不与已有的主连接键重复
+      const portKeys = pre!.addedPortKeys || [];
+      expect(portKeys).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            partId: 'source.dat',
+            key: '0.0000,0.0400,0.0000|0.00,0.00,1.00',
+            peerId: 'extra.dat',
+          }),
+          expect.objectContaining({
+            partId: 'extra.dat',
+            key: '0.0000,-0.0400,0.0000|0.00,0.00,-1.00',
+            peerId: 'source.dat',
+          }),
+        ])
+      );
+    });
+  });
+
+  it('幂等性：AutoLatch 返回已存在的边不应重复追加到 snapPreState', async () => {
+    // 后端返回的边正好是主连接同一对（极端罕见但应安全）
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: {
+        status: 'success',
+        auto_latched_count: 1,
+        auto_latched_edges: [
+          {
+            src_part_id: 'source.dat',
+            dst_part_id: 'target.dat',
+            // 与主连接同样的 portKey
+            src_port_key: '0.0000,0.0000,0.0000|0.00,0.00,1.00',
+            dst_port_key: '0.0000,0.0200,0.0000|0.00,0.00,1.00',
+          },
+        ],
+      },
+    });
+
+    useStore.setState({
+      snapPreState: {
+        movedPartIds: ['source.dat'],
+        prevPositions: {
+          'source.dat': { position: [0.1, 0, 0], quaternion: [0, 0, 0, 1] },
+        },
+        addedConnections: [{ from: 'source.dat', to: 'target.dat' }],
+        addedPartIds: [],
+        addedPortKeys: [
+          { partId: 'source.dat', key: '0.0000,0.0000,0.0000|0.00,0.00,1.00', peerId: 'target.dat' },
+          { partId: 'target.dat', key: '0.0000,0.0200,0.0000|0.00,0.00,1.00', peerId: 'source.dat' },
+        ],
+      },
+    } as any);
+
+    const source = makeMockPort('source.dat');
+    const target = makeMockTargetPort('target.dat');
+
+    await useStore.getState().snapParts(source as any, target as any);
+
+    // 给 axios 回调一点时间执行
+    await new Promise(r => setTimeout(r, 10));
+
+    const pre = useStore.getState().snapPreState!;
+    // addedConnections 应仍只有一条（不重复）
+    const sourceTargetConns = pre.addedConnections.filter(
+      c => (c.from === 'source.dat' && c.to === 'target.dat') ||
+           (c.from === 'target.dat' && c.to === 'source.dat')
+    );
+    expect(sourceTargetConns.length).toBe(1);
+    // addedPortKeys 应仍只有 2 条（src + dst 各一）
+    expect((pre.addedPortKeys || []).length).toBe(2);
   });
 });
 

@@ -21,7 +21,7 @@ from backend.port_semantics import get_interface, build_fit_result
 from backend.port import Port
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
-from backend.auto_latch_scanner import AutoLatchScanner
+from backend.auto_latch_scanner import AutoLatchScanner, serialize_port_key
 from backend.mesh_asset_manager import MeshAssetManager
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -475,6 +475,7 @@ async def snap_parts(req: SnapRequest):
     # 前提：前端在 Snap 确认后必须传入 parent_world_pos / child_world_pos。
     # 若未传入（如旧版前端），则跳过自动扫描，保持后向兼容。
     auto_latched_count = 0
+    auto_latched_edges_payload: list[dict] = []
     if req.parent_world_pos is not None and req.child_world_pos is not None:
         try:
             # 为两个零件各构建一个平移世界变换矩阵（仅位移，旋转部分留待后续版本完善）
@@ -512,6 +513,25 @@ async def snap_parts(req: SnapRequest):
                     f"[AutoLatch] Snap({req.parent_id} ↔ {req.child_id}): "
                     f"自动闭合 {auto_latched_count} 条额外连接。"
                 )
+                # 把扫描出的边连同序列化的 portKey 一并回流给前端，使其能在
+                # connections / occupiedPorts 中同步登记（修补"AutoLatch 边集
+                # 在前端缺失"导致旋转锚点查询退化的回流缺口）。仅序列化已
+                # 实际登记到拓扑图的边，避免前端写入孤立连接。
+                for edge in new_edges:
+                    if not topo_manager.graph.has_node(edge.parent_id):
+                        continue
+                    if not topo_manager.graph.has_node(edge.child_id):
+                        continue
+                    auto_latched_edges_payload.append({
+                        "src_part_id": edge.parent_id,
+                        "dst_part_id": edge.child_id,
+                        "src_port_key": serialize_port_key(
+                            edge.port_parent.position, edge.port_parent.rotation
+                        ),
+                        "dst_port_key": serialize_port_key(
+                            edge.port_child.position, edge.port_child.rotation
+                        ),
+                    })
             else:
                 logger.debug(
                     f"[DEBUG] AutoLatch 跳过: parent_sites={len(parent_sites)}, "
@@ -525,6 +545,7 @@ async def snap_parts(req: SnapRequest):
         "status": "success",
         "msg": f"Connected {req.parent_id} to {req.child_id}",
         "auto_latched_count": auto_latched_count,
+        "auto_latched_edges": auto_latched_edges_payload,
     }
 
 
