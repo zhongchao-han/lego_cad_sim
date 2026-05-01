@@ -92,3 +92,55 @@ sequenceDiagram
    对于 `peghole` 等底部不连通的单端盲孔，直接在模型定义的接触面原点提取单一向外法向的端口，**严禁双向分裂**以防在实体内部生成无法拾取的幽灵连接腔。
 3. **连续多位点组件空间偏置补偿 (Continuous Array Centering)**:
    对于长轴 (`axle.dat`)、深孔管 (`axlehol8.dat`) 等长度大于一步进单位的连续延伸组件，禁止简单从边缘累加步长。必须以结构的全局几何域中心归一化（如 `local_y = 0.5`），再配合居中对称分布等式 `(k - N/2 + 0.5) * 20 LDU`，以抵消端部非标准倒角误差。从而保证阵列提取的端口在绝对空间完美座落于每个标准单元格的“功能中心”。
+
+---
+
+## 6. 刚体子组旋转的锚点排除算法 (Group Rotation around Anchor)
+
+### **6.1 设计动因**
+键盘 `[` / `]` 触发的 90° 步进旋转 (USER_MANUAL §3) 不能简单实现为"动一个零件"或"动整个连通分量"，否则违反 spec：
+- **仅动一个零件** → 灰板上插了销、销又被点为 source 时，销飞走，灰板留原地，几何与连接图撕裂。
+- **动整个连通分量** → 灰板和它对面的红板（通过销相连）一起转，违反 Case 3.4「地基锁定：底板像大地一样稳固不动，成为所有相对运动的绝对参考系」。
+
+正确语义：**以 `selectedPort` 处对面的 peer 作锚点**，从 source 出发、不穿越 peer 的 BFS 子图作为旋转域，整体绕 `selectedPort` 的 Z 轴旋转。
+
+### **6.2 算法步骤**
+输入：`selectedPort`（含 partId、局部 position、局部 rotation Mat3）、`angleRads`。
+
+1. **新位姿计算**：以 `selectedPort` 局部 Z 轴为转轴，调用 `calculatePortRotationPose` 求 source 部件的世界新位姿 `newPose`。
+
+2. **锚点 peer 判定**（按优先级）：
+   - **(a) AXIAL_SLIDING 阶段**：`slidingTarget.partId` 是显式的对面，直接作 `excludeId`。
+   - **(b) SOURCE_LOCKED 阶段**：在 `occupiedPorts[partId]` 中做**对偶面容差查询**——找位置距 `selectedPort.position` 在 `TOL = 0.02 LDU` 内、且 Z 法线同轴（`|dot(n_sel, n_occ)| ≈ 1`，容忍 0.05）的占用项；该项的 value（即 peer partId）作 `excludeId`。
+   - **(c) 既无 slidingTarget 也无对偶面 peer**：`excludeId = ""`，BFS 不排除任何节点。
+
+3. **子组 BFS**：`srcGroup = getConnectedGroup(connections, partId, excludeId)`——从 source 起广度优先，遇到 `excludeId` 不展开。
+
+4. **过约束检测 (Case 4.1，one-hop closure 测试)**：合法旋转域定义为 `{source} ∪ source 的直接邻居`（即 source + "挂在它身上的"挂件销/附件）。检查 `srcGroup ⊆ 合法域`；若有溢出（即 srcGroup 包含 source 的二阶或更远邻居），说明 source 通过某个邻居二阶串联到了独立物体——几何上锁死，旋转被拒绝并以 ERROR 级 log 列出溢出零件，提示用户删除多余连接或换端口作 anchor。
+
+   _算法选型对比_：
+   - **v3 (邻居漏出)**：只看 `connections[anchor]` 是否漏到 srcGroup，漏检"anchor 是叶子但 source 通过别的销连对面"。
+   - **v4 (cut vertex)**：图论严格但把 degree=1 的"叶子 anchor"误判为过约束（叶子节点去掉后 component 数不变，cut vertex 定义不成立）。
+   - **v5 (one-hop closure，当前实现)**：以"source 的一阶邻接闭包"作为合法域，既精确覆盖 Case 4.1 多并联场景，也正确放行"叶子 anchor + 简单挂件"的合法旋转。
+
+5. **刚体 delta 应用**：以 `(part.oldPose, newPose)` 构造刚体变换 `delta = T_new × T_old⁻¹`；通过 `applyGroupDelta` 把 `delta` 施加给 `srcGroup` 内每个零件，得 `groupNewPoses`。
+
+6. **批量写回**：`batchUpdatePartStates(groupNewPoses)`。
+
+### **6.3 为什么需要"对偶面容差查询"**
+§5.1「贯通孔双面分裂」规定：每个 `connhole` 在元数据里强制提取**两个法向严格相反、位置对称**的端口对象。snap 时占用图记录的是"销实际对接的那一面"的 portKey，但用户旋转时点击的可能是孔的**对偶面**——若用 `portKey` 严格 hash 查询，命中不上。
+
+容差查询通过比较"位置接近 + 法线同轴"在查询层面把双面端口归一为同一物理槽位，无需修改 portKey 的写入语义（避免污染占用渲染、撤销栈等其他依赖路径）。
+
+### **6.4 示例对照表**
+
+| 场景 | source | peer (锚点) | srcGroup | 视觉效果 |
+|---|---|---|---|---|
+| 销已插灰板，点销另一端转 | 销 | 红板 (销→红板边) | {销, 灰板, 灰板上其他附件} | 销带灰板一起飞，红板纹丝不动 |
+| 灰板某孔接销→红板，点灰板该孔转 | 灰板 | 销 | {灰板} (销和红板都不在) | 灰板自转，销和红板纹丝不动 |
+| source 是孤岛（未连任何东西） | 任意 | 无 | {source 自己 + 已挂附件} | 整体旋转，不影响其他孤岛 |
+
+### **6.5 已知遗漏 (Open Items)**
+1. **AutoLatch 边集未回流前端**：后端 AutoLatch 闭合的额外连接边在前端 `connections` 与 `occupiedPorts` 中缺失（详见 Issue Reports §3 第 1 条），导致涉及 AutoLatch peer 的旋转退化为"无锚点"行为，可能拉走整个连通组。
+2. **TOL 阈值脆弱性**：`0.02 LDU` 是单点观察的硬编码常量，对孔距 < 0.04 的更紧凑零件可能误匹配相邻孔。根治方案是把 `ConnectionEdge` 升级为带端口标签的有向边 `{ srcPortKey, dstPortKey }`，peer 查询直接 O(1) 准确，无需浮点容差——但这是涉及 snap、AutoLatch、persist schema 的架构级改动。
+3. **过约束的 UX 优化**：当前过约束触发时仅输出 ERROR log，UI 上没有"锁死图标"或浮动提示（spec Case 4.1 要求显示锁死图标）。功能正确但可发现性差。
