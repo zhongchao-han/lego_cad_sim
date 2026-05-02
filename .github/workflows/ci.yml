@@ -16,10 +16,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Use Node.js 18
+    - name: Use Node.js 20
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
         cache: 'npm'
         cache-dependency-path: './frontend/package-lock.json'
         
@@ -52,7 +52,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install fastapi uvicorn pydantic pybullet networkx trimesh scipy numpy
+        pip install fastapi uvicorn pydantic pybullet networkx trimesh scipy numpy meilisearch
         pip install pytest ruff mypy httpx pytest-asyncio
         
     - name: Lint with Ruff
