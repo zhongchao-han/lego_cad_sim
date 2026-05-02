@@ -81,12 +81,12 @@ const PlacementGhost = () => {
     const [stickyHover, setStickyHover] = useState(null);
 
     useEffect(() => {
-        if (hoveredPort) setStickyHover(hoveredPort);
+        if (hoveredPort) { setStickyHover(hoveredPort); } // eslint-disable-line react-hooks/set-state-in-effect
     }, [hoveredPort]);
 
     // source 一换，立刻清空 sticky，避免上一次的预览残留到新 source 上
     useEffect(() => {
-        setStickyHover(null);
+        setStickyHover(null); // eslint-disable-line react-hooks/set-state-in-effect
     }, [sourceId]);
 
     // 诊断：每次满足渲染条件触发一次（注意是 useEffect 防止 render 内 set state 死循环）
