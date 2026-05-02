@@ -132,7 +132,11 @@ export function LDrawMeshRenderer({
     
     const lines = new THREE.LineSegments(edgesGeom, material);
     lines.position.set(exactBoundingBox.center[0], exactBoundingBox.center[1], exactBoundingBox.center[2]);
-    
+    // 关键：禁用 raycast。Three.js Line.threshold 默认 1m，相对 LDU 尺度（0.0004m）
+    // 等于一个 ~2500× 放大的隐形捕捉球；选中后 BoxHelper 会把视野里几乎所有 pointer
+    // 射线吸到选中零件上，R3F 沿父链向上派事件，导致 source 始终霸占 hover、目标零件
+    // 永远收不到 pointerover，"hover 红板没幽灵"的根因就在这里。
+    lines.raycast = () => null;
     return lines;
   }, [exactBoundingBox, highlightOutline]);
 
