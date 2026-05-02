@@ -39,18 +39,9 @@ function AssemblyUI() {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3 pointer-events-auto">
-          <button onClick={() => toggleMode()} className="px-8 py-3 rounded-2xl font-black text-sm bg-slate-900 text-white shadow-2xl">
-            {mode === 'ASSEMBLY' ? 'GO SIMULATION →' : '← BACK TO DESIGN'}
-          </button>
-          <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl shadow-2xl border border-white/40 w-72">
-            <h3 className="text-[10px] font-black tracking-widest text-slate-400 mb-2 uppercase">Render Tuning</h3>
-            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-               <span>SSAO / Shadows</span>
-               <input type="checkbox" defaultChecked className="accent-blue-500" />
-            </div>
-          </div>
-        </div>
+        <button onClick={() => toggleMode()} className="pointer-events-auto px-8 py-3 rounded-2xl font-black text-sm bg-slate-900 text-white shadow-2xl">
+          {mode === 'ASSEMBLY' ? 'GO SIMULATION →' : '← BACK TO DESIGN'}
+        </button>
       </div>
 
       <div className="absolute top-0 bottom-7 left-0 flex pointer-events-none z-10">
