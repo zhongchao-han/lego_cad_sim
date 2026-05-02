@@ -55,20 +55,14 @@ class TestV3_0Metrics(unittest.TestCase):
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         通过提供模拟 LDraw 文件，利用真实的 discover_ports 测试逻辑。
         """
-        # mock parts/32316.dat which is a 5L beam. It should contain 5 beamholes (peghole in beam).
-        # We simulate 5 beamholes spaced by 20 LDU on X-axis.
-        # beamhole.dat will expand to 2 surface holes. Total 10 ports.
         file_contents = {}
-        
-        # 32316.dat file (5 holes)
         mock_32316_lines = []
         for i in range(5):
             x_offset = (i - 2) * 20
-            # translation matrix and beamhole.dat reference
             mock_32316_lines.append(f"1 16 {x_offset} 0 0  1 0 0  0 1 0  0 0 1  beamhole.dat\n")
         
         file_contents["mocked_32316.dat"] = "".join(mock_32316_lines)
-        file_contents["mocked_beamhole.dat"] = "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n" # just a dummy primitive to stop recursion but discover_ports recognizes 'beamhole.dat' by name!
+        file_contents["mocked_beamhole.dat"] = "4 16 0 0 0 0 1 0 1 1 0 1 0 0\n"
 
         mock_resolve.side_effect = lambda ldraw_path, fname: f"mocked_{os.path.basename(fname)}"
         
@@ -79,22 +73,16 @@ class TestV3_0Metrics(unittest.TestCase):
             gp = GeometryProcessor(ldraw_path="ldraw_lib")
             part_id = "32316.dat"
 
-            # 执行发现逻辑
             ports = gp.discover_ports(part_id)
 
-            # 1. 数量验证: 32316.dat 是 5L 梁，应有 10 个表面孔 (归一化解析)
             self.assertEqual(len(ports), 10, f"32316.dat 端口数量异常: {len(ports)}")
 
-            # Sort ports by X position to measure pitch between adjacent holes properly
             ports.sort(key=lambda p: p["position"][0])
 
-            # Since beamhole.dat creates 2 ports at same X, different Y, we check spacing of groups.
-            # Take port 0 and port 2 (which should be the next hole over)
             p0 = np.array(ports[0]["position"])
             p1 = np.array(ports[2]["position"])
             dist = np.linalg.norm(p1 - p0)
 
-            # 容差设为 0.1mm (0.0001m)
             self.assertAlmostEqual(dist, 0.008, delta=0.0001,
                                    msg=f"梁孔间距不符合乐高 20 LDU 标准！当前: {dist}m")
 

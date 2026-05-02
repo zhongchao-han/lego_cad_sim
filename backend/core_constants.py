@@ -19,5 +19,5 @@ HALF_GRID_LDU: float = 10.0
 LEGO_GRID_METERS: float = 0.008
 HALF_GRID_METERS: float = 0.004
 
-LDU = LDU_TO_METERS # 向后兼容
-LDU_TO_SI = LDU_TO_METERS # 向后兼容
+LDU = LDU_TO_METERS  # 向后兼容
+LDU_TO_SI = LDU_TO_METERS  # 向后兼容

@@ -26,10 +26,14 @@ SITE_MERGE_THRESHOLD: float = 0.0001
 
 def _load_port_from_dict(p: Dict[str, Any]) -> Port | None:
     """将 JSON 字典转换为强类型 Port 对象，无法识别的类型返回 None。"""
-    logger.debug(f"[DEBUG] _load_port_from_dict: name={p.get('name')}, type={p.get('type')}")
+    logger.debug(
+        f"[DEBUG] _load_port_from_dict: name={p.get('name')}, type={p.get('type')}"
+    )
     interface = get_interface(p.get("type", ""))
     if interface is None:
-        logger.warning(f"[WARN] 无法识别的端口类型: {p.get('type')}，将跳过（不归入 Site）")
+        logger.warning(
+            f"[WARN] 无法识别的端口类型: {p.get('type')}，将跳过（不归入 Site）"
+        )
         return None
     return Port(
         name=p.get("name", "unknown"),
@@ -42,7 +46,9 @@ def _load_port_from_dict(p: Dict[str, Any]) -> Port | None:
     )
 
 
-def cluster_ports_into_sites(ports_raw: List[Dict[str, Any]], part_id: str) -> List[Site]:
+def cluster_ports_into_sites(
+    ports_raw: List[Dict[str, Any]], part_id: str
+) -> List[Site]:
     """
     将扁平的端口字典列表聚类为 Site 对象列表。
 
@@ -56,7 +62,9 @@ def cluster_ports_into_sites(ports_raw: List[Dict[str, Any]], part_id: str) -> L
     Returns:
         已聚类的 Site 列表。每个 Site 至少含 1 个 Port。
     """
-    logger.debug(f"[DEBUG] cluster_ports_into_sites: part_id={part_id}, port_count={len(ports_raw)}")
+    logger.debug(
+        f"[DEBUG] cluster_ports_into_sites: part_id={part_id}, port_count={len(ports_raw)}"
+    )
     if not ports_raw:
         return []
 
@@ -96,7 +104,9 @@ def cluster_ports_into_sites(ports_raw: List[Dict[str, Any]], part_id: str) -> L
         sites.append(site)
         logger.debug(f"[DEBUG] 创建 Site {site_id}，包含 {len(site.ports)} 个端口")
 
-    logger.info(f"[INFO] part_id={part_id}：{len(typed_ports)} 个端口聚类为 {len(sites)} 个 Site")
+    logger.info(
+        f"[INFO] part_id={part_id}：{len(typed_ports)} 个端口聚类为 {len(sites)} 个 Site"
+    )
     return sites
 
 
@@ -117,10 +127,12 @@ def sites_to_response(sites: List[Site]) -> List[Dict[str, Any]]:
     """
     result = []
     for site in sites:
-        result.append({
-            "id": site.id,
-            "position": site.position.tolist(),
-            "occupied_by": site.occupied_by,
-            "ports": [p.to_dict() for p in site.ports],
-        })
+        result.append(
+            {
+                "id": site.id,
+                "position": site.position.tolist(),
+                "occupied_by": site.occupied_by,
+                "ports": [p.to_dict() for p in site.ports],
+            }
+        )
     return result
