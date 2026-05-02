@@ -52,7 +52,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install fastapi uvicorn pydantic pybullet networkx trimesh scipy numpy meilisearch
+        pip install fastapi uvicorn pydantic pybullet networkx trimesh scipy numpy meilisearch python-multipart
         pip install pytest ruff mypy httpx pytest-asyncio
         
     - name: Lint with Ruff
