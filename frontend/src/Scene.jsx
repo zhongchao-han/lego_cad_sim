@@ -381,8 +381,8 @@ const FreePlacerGhost = () => {
                         partId={`ghost_${item.id}`}
                         ldrawId={item.state.ldrawId}
                         colorCode={item.state.colorCode}
-                        opacity={0.6}
-                        transparent={true}
+                        opacity={isGroundPlane ? 1 : 0.6}
+                        transparent={!isGroundPlane}
                         showPorts={false}
                         isStatic={true}
                     />
