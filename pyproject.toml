@@ -1,0 +1,4 @@
+[tool.ruff.lint]
+# 项目风格偏好紧凑写法（`if cond: continue` / `a; b`），不视为错误。
+# 真实 bug（F-class、E722 bare except、E402 模块导入顺序等）保持默认强制。
+ignore = ["E701", "E702"]

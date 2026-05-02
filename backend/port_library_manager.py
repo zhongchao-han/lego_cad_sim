@@ -71,7 +71,7 @@ class PortLibraryManager:
             except Exception as e:
                 if os.path.exists(temp_path):
                     try: os.remove(temp_path)
-                    except: pass
+                    except OSError: pass
                 logger.error(f"保存配置文件失败: {e}", exc_info=True)
                 raise IOError(f"无法写入端口配置文件: {self.config_path}") from e
 

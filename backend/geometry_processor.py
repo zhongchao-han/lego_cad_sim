@@ -3,9 +3,13 @@ import trimesh
 import numpy as np
 import re
 import logging
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, TYPE_CHECKING
 from backend.port_library import PortLibrary
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
+
+# Port 仅作为类型注解使用：runtime 不导入，避免 backend.port -> backend.geometry_processor 的循环。
+if TYPE_CHECKING:
+    from backend.port import Port
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')

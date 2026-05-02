@@ -78,16 +78,25 @@ const PlacementGhost = () => {
     //   - hoveredPort 变 null 不更新（保留上一次的值，幽灵不撤）；
     //   - source 变化（点新 source / abort / commit）时立即清空，避免脏锚点。
     // 实质是"幽灵贴在最近一次 hover 的端口上，直到换到另一个端口或源换了为止"。
+    //
+    // 实现：用 render-time 派生 state（React 文档的 "Storing information from previous renders"），
+    // 不放 useEffect，避免触发 react-hooks/set-state-in-effect。
+    // 用两个 tracked-* state 做 "上次见到的值" 比较，严格对应原 useEffect dep 数组语义。
     const [stickyHover, setStickyHover] = useState(null);
+    const [trackedSourceId, setTrackedSourceId] = useState(sourceId);
+    const [trackedHovered, setTrackedHovered] = useState(hoveredPort);
 
-    useEffect(() => {
-        if (hoveredPort) setStickyHover(hoveredPort);
-    }, [hoveredPort]);
-
-    // source 一换，立刻清空 sticky，避免上一次的预览残留到新 source 上
-    useEffect(() => {
+    // source 一换：立刻清空 sticky（对应原 useEffect dep [sourceId]）
+    if (sourceId !== trackedSourceId) {
+        setTrackedSourceId(sourceId);
         setStickyHover(null);
-    }, [sourceId]);
+    }
+    // hoveredPort 切到非空新端口：累积到 sticky（对应原 useEffect dep [hoveredPort]，
+    // 且原代码里 hoveredPort 变 null 不更新，这里保留同样行为）
+    if (hoveredPort !== trackedHovered) {
+        setTrackedHovered(hoveredPort);
+        if (hoveredPort) setStickyHover(hoveredPort);
+    }
 
     // 诊断：每次满足渲染条件触发一次（注意是 useEffect 防止 render 内 set state 死循环）
     useEffect(() => {
