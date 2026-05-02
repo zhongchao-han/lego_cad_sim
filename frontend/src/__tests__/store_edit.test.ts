@@ -56,7 +56,7 @@ describe('Store Edit Actions (Undo/Redo & Clipboard)', () => {
     // 执行 Paste
     useStore.getState().pasteClipboard();
     const payload = useStore.getState().freePlacingPayload;
-    const finalStates = {};
+    const finalStates: Record<string, typeof payload[number]['state']> = {};
     payload.forEach(p => finalStates[p.id] = p.state);
     useStore.getState().commitFreePlacing(finalStates);
     

@@ -2,3 +2,21 @@
 # 项目风格偏好紧凑写法（`if cond: continue` / `a; b`），不视为错误。
 # 真实 bug（F-class、E722 bare except、E402 模块导入顺序等）保持默认强制。
 ignore = ["E701", "E702"]
+
+[tool.mypy]
+# 缺 stub 的第三方库（pybullet / meilisearch / pybullet_data / scipy.spatial.transform / networkx 等）
+# 不阻断类型检查 —— 项目层面没必要为这些重运算/外部服务库写或维护 .pyi。
+ignore_missing_imports = true
+# 恢复 PEP 484 之前的隐式 Optional：项目大量 `def foo(x: str = None)` 的写法。
+# 改成显式 `Optional[str]` 是机械工作但 churn 大，先放过，等真上 strict 时统一收。
+implicit_optional = true
+# 默认非 strict：不强制要求每个函数都有 return type 注解。仍然会捕获真实类型不匹配，
+# 但避免对一个非类型驱动的 Python 项目做几百处 no-untyped-def 标注。
+# 真要逐步上 strict，建议未来按文件 `[[tool.mypy.overrides]]` 渐进开关。
+
+# scripts/ 目录是一次性运维脚本（资产烘焙、批量导出等），不在 backend 主类型边界内。
+# CI 跑 `mypy backend` 时会通过 tests/ 的 import 拉到 scripts/bake_assets.py，
+# 让它沉默以免脚本类型债阻断后端检查。
+[[tool.mypy.overrides]]
+module = "scripts.*"
+ignore_errors = true

@@ -22,7 +22,7 @@ interface UseHoverStateOptions {
   /** hover 变化回调（可选） */
   onHoverChange?: (hovered: boolean) => void;
   /** 日志记录函数 */
-  addLog: (msg: string, type?: string) => void;
+  addLog: (msg: string, type?: 'INFO' | 'ACTION' | 'ERROR' | 'PHYSICS') => void;
   /** 零件整体 Group 的 ref（用于 post-orbit 射线核实） */
   groupRef: React.RefObject<THREE.Group | null>;
 }

@@ -3,7 +3,7 @@ import glob
 import json
 import logging
 import sys
-from geometry_processor import GeometryProcessor
+from backend.geometry_processor import GeometryProcessor
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -41,9 +41,9 @@ def rebuild_all(ldraw_dir: str, config_path: str):
     # Load existing to preserve any metadata if necessary, but here we enforce the rewrite of ports
     existing = {}
     if os.path.exists(config_path):
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, "r", encoding="utf-8") as fh:
             try:
-                existing = json.load(f)
+                existing = json.load(fh)
             except Exception:
                 pass
                 
@@ -56,8 +56,8 @@ def rebuild_all(ldraw_dir: str, config_path: str):
             existing[p]["status"] = "verified"
             existing[p]["confidence"] = 1.0
 
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(existing, f, indent=2)
+    with open(config_path, "w", encoding="utf-8") as fh:
+        json.dump(existing, fh, indent=2)
         
     logger.info(f"Successfully rebuilt port configurations and saved to {config_path}")
 

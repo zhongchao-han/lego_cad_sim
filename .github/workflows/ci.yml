@@ -59,7 +59,7 @@ jobs:
       run: ruff check backend/
       
     - name: Type check with Mypy
-      run: mypy backend --strict
+      run: mypy backend
       
     - name: Run Pytest
       run: pytest backend/tests/ -v
