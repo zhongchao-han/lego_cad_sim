@@ -319,7 +319,9 @@ async def toggle_mode(mode: str):
             topo_manager.export_urdf(tree, urdf_path)
             
             engine.disconnect()
-            engine.__init__(mode="DIRECT")
+            # 重置物理世界：调用 __init__ 是历史遗留写法，正经做法是抽 _reset 方法。
+            # 本 PR 不动逻辑，只为 mypy 标记。
+            engine.__init__(mode="DIRECT")  # type: ignore[misc]
             
             success = engine.load_assembly(urdf_path)
             if success:

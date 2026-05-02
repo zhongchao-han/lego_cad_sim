@@ -175,7 +175,7 @@ class PhysicsEngine:
         抓取此时物理引擎内部所有子构件的全局 Transform 阵列及其局部扭动角度，
         以便组装成 JSON 泵送给 Three.js 前端渲染层。
         """
-        state = {}
+        state: Dict[str, Any] = {}
         if self.robot_id is None:
             return state
             

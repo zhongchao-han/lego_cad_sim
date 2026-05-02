@@ -13,6 +13,7 @@ const VALID_TRANSITIONS: Record<InteractionPhase, readonly InteractionPhase[]> =
   [InteractionPhase.SOURCE_LOCKED]:  [InteractionPhase.IDLE, InteractionPhase.ANIMATING_SNAP, InteractionPhase.PREVIEWING, InteractionPhase.AXIAL_SLIDING],
   [InteractionPhase.AXIAL_SLIDING]:   [InteractionPhase.IDLE, InteractionPhase.SOURCE_LOCKED],
   [InteractionPhase.ANIMATING_SNAP]: [InteractionPhase.IDLE],
+  [InteractionPhase.FREE_PLACING]:   [InteractionPhase.IDLE],
 };
 
 /**

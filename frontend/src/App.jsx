@@ -10,7 +10,6 @@ import { PartLibraryPanel } from './components/PartLibraryPanel';
 import { StagingTrayPanel } from './components/StagingTrayPanel';
 import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
-import { ThumbnailGenerator } from './ThumbnailGenerator.tsx';
 import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
@@ -89,11 +88,7 @@ function LibraryNav() {
 }
 
 function App() {
-  // 神器级别无侵入拦截：隔离离线 GPU 提图工具引擎，严禁污染主应用状态树
-  if (window.location.pathname === '/generator') {
-    return <ThumbnailGenerator />;
-  }
-
+  // /generator 路由由 main.jsx 在挂载前分流到 ThumbnailGenerator。
   const view = useStore((state) => state.view);
   const isContextLost = useStore((state) => state.isContextLost);
   const setWsConnected = useStore((state) => state.setWsConnected);

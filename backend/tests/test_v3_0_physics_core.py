@@ -68,7 +68,7 @@ class TestV3PhysicsCore(unittest.TestCase):
         验证 UnifiedAssetBaker 对裸 ID 的处理。
         """
         from scripts.bake_assets import UnifiedAssetBaker
-        baker = UnifiedAssetBaker()
+        UnifiedAssetBaker()
         
         # 我们这里注入一个极简模拟来测试 bake_part 内部对 part_id 的改写
         # 由于我们无法在单元测试中真实运行 bake_part (涉及 IO), 
@@ -127,7 +127,7 @@ class TestConvertToGlbSignature(unittest.TestCase):
         gp = self._make_processor()
         with self.assertRaises(TypeError,
                                msg="以 `color=` 调用 convert_to_glb 应抛出 TypeError（旧 Bug 路径）。"):
-            # type: ignore[call-arg]  — 故意传入错误参数名以验证签名拦截
+            # 故意传入错误参数名以验证签名拦截 —— 行尾 type:ignore 抑制 mypy
             gp.convert_to_glb("non_existent.dat", "/tmp/wrong_kwarg.glb", color=7)  # type: ignore[call-arg]
 
 

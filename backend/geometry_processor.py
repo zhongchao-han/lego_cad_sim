@@ -3,9 +3,13 @@ import trimesh
 import numpy as np
 import re
 import logging
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any, TYPE_CHECKING
 from backend.port_library import PortLibrary
 from backend.math_utils import CoordinateTransformer, purify_rotation_matrix
+
+# Port 仅作为类型注解使用：runtime 不导入，避免 backend.port -> backend.geometry_processor 的循环。
+if TYPE_CHECKING:
+    from backend.port import Port
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -70,7 +74,7 @@ class GeometryProcessor:
         return PortLibrary.resolve_path(self.ldraw_path, filename)
 
     def _load_color_table(self) -> dict:
-        colors = {}
+        colors: dict[int, tuple[int, int, int, int]] = {}
         config_path = os.path.join(self.ldraw_path, "LDConfig.ldr")
         if not os.path.exists(config_path): return colors
         try:
@@ -99,7 +103,9 @@ class GeometryProcessor:
         logger.debug(f"[DEBUG] 进入 extract_geometry: filename={filename}, color={parent_color_code}, inverted={inverted}")
         filepath = self.resolve_path(filename)
         if not filepath: return [], [], []
-        vertices, faces, vertex_colors = [], [], []
+        vertices: list[np.ndarray] = []
+        faces: list[np.ndarray] = []
+        vertex_colors: list[tuple[int, int, int, int]] = []
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
@@ -126,8 +132,10 @@ class GeometryProcessor:
                     color_code = int(parts[1])
                     effective_color = parent_color_code if color_code == 16 else color_code
                     x, y, z = map(float, parts[2:5])
-                    a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
-                    local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
+                    # 用 list 索引而不是 a..i 拆包：避免 mypy 把 e/f 与外层 except/with 中
+                    # 同名变量（异常对象 / 文件句柄）冲撞，并保持矩阵元素含义直观。
+                    m = list(map(float, parts[5:14]))
+                    local_mat = np.array([[m[0], m[1], m[2], x], [m[3], m[4], m[5], y], [m[6], m[7], m[8], z], [0, 0, 0, 1]])
                     child_global_mat = global_mat @ local_mat
                     cv, cf, cvc = self.extract_geometry(child_file, child_global_mat, effective_color, inverted=bfc_invert_next)
                     offset = len(vertices)
@@ -200,7 +208,7 @@ class GeometryProcessor:
             mesh = trimesh.load(glb_path, force='scene')
             
             size = mesh.extents
-            center = mesh.centroid
+            center = mesh.centroid  # type: ignore[attr-defined]
             
             return {
                 "size": [round(float(x), 6) for x in size],
@@ -273,8 +281,8 @@ class GeometryProcessor:
         if is_root: root_id = filename.replace(".dat", "")
         filepath = self.resolve_path(filename)
         if not filepath: return []
-        
-        discovered = []
+
+        discovered: list[dict[str, Any]] = []
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
@@ -291,8 +299,8 @@ class GeometryProcessor:
             if not parts or parts[0] != '1': continue
             child_file = parts[-1].lower()
             x, y, z = map(float, parts[2:5])
-            a, b, c, d, e, f, g, h, i = map(float, parts[5:14])
-            local_mat = np.array([[a, b, c, x], [d, e, f, y], [g, h, i, z], [0, 0, 0, 1]])
+            m = list(map(float, parts[5:14]))
+            local_mat = np.array([[m[0], m[1], m[2], x], [m[3], m[4], m[5], y], [m[6], m[7], m[8], z], [0, 0, 0, 1]])
             current_global_mat = global_mat @ local_mat
             
             if child_file in SEMANTIC_PRIMITIVES or any(child_file.startswith(p) for p in CONNECTOR_PREFIXES):
@@ -384,13 +392,13 @@ class GeometryProcessor:
                     else:
                         loop_count = num_units + 1
 
-                    for k in range(loop_count):
+                    for idx in range(loop_count):
                         if is_axle:
-                            offset_val = k * 0.5
+                            offset_val = idx * 0.5
                         elif is_pin:
-                            offset_val = float(k)
+                            offset_val = float(idx)
                         else:
-                            offset_val = k - num_units / 2.0
+                            offset_val = idx - num_units / 2.0
 
                         if y_scale > 10.0:
                             local_y = 0.5 + (offset_val * 20.0 * step_dir) / y_scale
@@ -407,20 +415,20 @@ class GeometryProcessor:
                         directions = []
                         if is_extruding:
                             # 受到 Rot_SI = Rx180 @ Rot_LDU @ Rx180 的数学翻转影响
-                            # 在此空间赋给全局向量局部“向内”，到物理空间才能保持“正向向外”
-                            if k == 0:
+                            # 在此空间赋给全局向量局部"向内"，到物理空间才能保持"正向向外"
+                            if idx == 0:
                                 directions.append(-1.0) # Base/Collar
-                            elif k == loop_count - 1:
+                            elif idx == loop_count - 1:
                                 directions.append(1.0)  # Tip
                             else:
                                 directions.extend([1.0, -1.0]) # Internal boundaries bidirectional
                         else:
-                            if k == 0:
-                                directions.append(-1.0) 
-                            elif k == num_units:
-                                directions.append(1.0)  
+                            if idx == 0:
+                                directions.append(-1.0)
+                            elif idx == num_units:
+                                directions.append(1.0)
                             else:
-                                directions.extend([1.0, -1.0]) 
+                                directions.extend([1.0, -1.0])
 
                         for out_dir in directions:
                             raw_z = y_axis_ldu * out_dir
@@ -452,6 +460,7 @@ class GeometryProcessor:
                 discovered.extend(self.discover_ports(child_file, current_global_mat, root_id=root_id))
                 
         if is_root and discovered:
+            assert root_id is not None  # is_root → 进入函数时已在第一行赋值
             discovered = self._heal_blind_holes(discovered, root_id)
                 
         return discovered

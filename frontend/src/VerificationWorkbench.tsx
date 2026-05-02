@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, Suspense } from 'react';
 import * as THREE from 'three';
 import { useVerificationStore } from './verificationStore';
-import { PortVisualizer } from './PortVisualizer.tsx';
+import { PortVisualizer } from './PortVisualizer';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Grid, Environment, useGLTF, GizmoHelper, GizmoViewport, Html, Stats } from '@react-three/drei';
 import { useLDrawPart } from './useLDrawPart';

@@ -92,7 +92,10 @@ class URDFExporter:
             )
 
             # 相对变换（含当前插入深度）
-            T_rel   = edge.port_parent.calculate_relative_transform(
+            # TODO: Port.calculate_relative_transform 当前签名不接受 depth 参数，
+            # 这里 depth=insertion_depth 是 pre-existing bug —— 真要 SIMULATION 模式工作
+            # 需要在 Port 上扩展该参数。本 PR 仅做 lint baseline，先 type:ignore 标记。
+            T_rel   = edge.port_parent.calculate_relative_transform(  # type: ignore[call-arg]
                 edge.port_child, depth=edge.state.insertion_depth
             )
             rel_pos = T_rel[:3, 3]

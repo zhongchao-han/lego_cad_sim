@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from unittest.mock import patch
 from backend.geometry_processor import GeometryProcessor

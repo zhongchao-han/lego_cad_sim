@@ -28,7 +28,7 @@ class PortLibrary:
             self._data = data_store
             logger.info("PortLibrary 已联结至共享内存数据源。")
         else:
-            self._data: Dict[str, Any] = {}
+            self._data = {}
             # 强制加载项目顶层 data/ 目录下的真理库
             config_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json"))
             if os.path.exists(config_path):
