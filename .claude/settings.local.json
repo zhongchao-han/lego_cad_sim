@@ -28,7 +28,27 @@
       "mcp__Claude_in_Chrome__switch_browser",
       "Bash(netstat -ano)",
       "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=59096\")",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(pip list *)",
+      "Read(//d/Users/hanerlv/Documents/workspace/lego_cad_sim/data/**)",
+      "Read(//d/Users/hanerlv/Documents/workspace/lego_cad_sim/ldraw_lib/parts/**)",
+      "Bash(docker info *)",
+      "PowerShell($wt='D:\\\\Users\\\\hanerlv\\\\Documents\\\\workspace\\\\lego_cad_sim\\\\.claude\\\\worktrees\\\\zen-williams-3e785b'; $main='D:\\\\Users\\\\hanerlv\\\\Documents\\\\workspace\\\\lego_cad_sim'; $wnm=Join-Path $wt 'frontend\\\\node_modules'; if \\(-not \\(Test-Path $wnm\\)\\) { New-Item -ItemType Junction -Path $wnm -Target \\(Join-Path $main 'frontend\\\\node_modules'\\) | Out-Null; Write-Output 'junction created' } else { Write-Output 'junction exists' })",
+      "Bash(curl -s http://127.0.0.1:8000/api/all_parts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(playwright install *)",
+      "PowerShell($env:LDRAW_PARTS_ROOT='D:\\\\Users\\\\hanerlv\\\\Documents\\\\workspace\\\\lego_cad_sim\\\\ldraw_lib'; $env:MESH_CACHE_ROOT='D:\\\\Users\\\\hanerlv\\\\Documents\\\\workspace\\\\lego_cad_sim\\\\data\\\\custom_assets'; Set-Location 'D:\\\\Users\\\\hanerlv\\\\Documents\\\\workspace\\\\lego_cad_sim\\\\.claude\\\\worktrees\\\\zen-williams-3e785b'; python -m backend.server 2>&1)",
+      "Bash(curl -sf http://127.0.0.1:8000/api/all_parts)",
+      "Read(//tmp/**)",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/all_parts?missing_only=true\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/generator)",
+      "Bash(git rebase *)",
+      "Bash(git push *)",
+      "Bash(npx playwright *)",
+      "Bash(time curl *)",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/ldraw_part/3001.dat?color=1\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}B\\\\n\" \"http://127.0.0.1:8000/ldraw_meshes/3001_c1.glb\")",
+      "Bash(grep -E \"_c1\\\\.glb$\")"
     ]
   }
 }
