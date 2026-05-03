@@ -20,6 +20,21 @@ declare global {
  */
 test.describe('Canvas pixel sentinels', () => {
   test('empty ASSEMBLY canvas matches baseline', async ({ page }) => {
+    // CI 上 backend 未起，usePartSearch 拉 /api/search/key 三次重试失败后会触发
+    // RenderErrorBoundary 全屏覆盖（z-[100] "核心依赖熔断"），把画布盖死，截图永远拿不到 grid。
+    // 用 route mock 给 hook 一个"凭证拿到了"的假象，hook 就不会进 fatal 分支。
+    // 后续真正打到 meili host 时仍会失败，但 X 测试不触发任何 search 操作。
+    await page.route('**/api/search/key', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          host: 'http://localhost:7700',
+          search_key: 'mock-key-for-e2e',
+        }),
+      }),
+    );
+
     await page.goto('/');
     await page.waitForFunction(() => window.__STORE__ !== undefined, { timeout: 10000 });
 
@@ -34,10 +49,14 @@ test.describe('Canvas pixel sentinels', () => {
     //   - 跳过顶 80px 模式切换 + 右 250px GO SIMULATION 按钮
     //   - 跳过底 30px 状态栏 / Logs 按钮
     //   - 中心矩形完全是 R3F grid 像素，无 UI 干扰
+    // toHaveScreenshot 有 5s 内置稳定性检测：要连续两次 actual 一致才去比 baseline。
+    // CI Linux SwiftShader 路径上 R3F 收敛慢（环境贴图烘焙 + 阴影），5s 不够，
+    // 表面上像 timeout 实际像素已经一致。提到 30s 让 actual 充分冻结。
     await expect(page).toHaveScreenshot('empty-assembly-canvas.png', {
       clip: { x: 400, y: 150, width: 700, height: 450 },
       maxDiffPixelRatio: 0.05,
       animations: 'disabled',
+      timeout: 30000,
     });
   });
 });
