@@ -49,10 +49,14 @@ test.describe('Canvas pixel sentinels', () => {
     //   - 跳过顶 80px 模式切换 + 右 250px GO SIMULATION 按钮
     //   - 跳过底 30px 状态栏 / Logs 按钮
     //   - 中心矩形完全是 R3F grid 像素，无 UI 干扰
+    // toHaveScreenshot 有 5s 内置稳定性检测：要连续两次 actual 一致才去比 baseline。
+    // CI Linux SwiftShader 路径上 R3F 收敛慢（环境贴图烘焙 + 阴影），5s 不够，
+    // 表面上像 timeout 实际像素已经一致。提到 30s 让 actual 充分冻结。
     await expect(page).toHaveScreenshot('empty-assembly-canvas.png', {
       clip: { x: 400, y: 150, width: 700, height: 450 },
       maxDiffPixelRatio: 0.05,
       animations: 'disabled',
+      timeout: 30000,
     });
   });
 });
