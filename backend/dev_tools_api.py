@@ -8,9 +8,13 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # 隔离的工具侧路径定义
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LDRAW_PARTS_ROOT = os.path.join(PROJECT_ROOT, "ldraw_lib")
-THUMBNAIL_CACHE_ROOT = os.path.join(PROJECT_ROOT, "data", "custom_assets", "thumbnails")
+# 优先读环境变量，与 backend/server.py 的资产根解析保持一致；worktree 启动时 start_dev.ps1
+# 会把 LDRAW_PARTS_ROOT / MESH_CACHE_ROOT 指到主仓，避免在空的 worktree 子目录里扫不到 .dat。
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(_REPO_ROOT, "ldraw_lib"))
+_MESH_CACHE_ROOT = os.environ.get("MESH_CACHE_ROOT", os.path.join(_REPO_ROOT, "data", "custom_assets"))
+THUMBNAIL_CACHE_ROOT = os.path.join(_MESH_CACHE_ROOT, "thumbnails")
+os.makedirs(THUMBNAIL_CACHE_ROOT, exist_ok=True)
 
 @router.get("/api/all_parts")
 async def get_all_parts(missing_only: bool = False) -> list[str]:
