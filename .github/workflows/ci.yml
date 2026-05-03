@@ -59,10 +59,7 @@ jobs:
 
     # 仅跑 canvas_pixel（不依赖后端的 X 哨兵）。generator_pixel 自带
     # test.skip(!!process.env.CI) 会自动跳过；待后端在 CI 起来后再开。
-    # 首期 continue-on-error 防止跨平台像素差异（Win baseline ↔ Linux SwiftShader）
-    # 把 main 卡住；稳定 1-2 周后摘掉。
     - name: Run Playwright canvas pixel sentinels
-      continue-on-error: true
       run: npx playwright test canvas_pixel
 
     - name: Upload Playwright report on failure
