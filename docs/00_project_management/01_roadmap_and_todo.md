@@ -46,7 +46,7 @@
 - [ ] **⚙️ 高精度物理过盈反馈**：基于 `FitType` 驱动 `AXIAL_SLIDING` 阶段的动态阻力感（Haptic/Visual feedback）。
 
 ### 4. 生产力与视觉 (Productivity & Visuals)
-- [ ] **🖼️ 自动化零件缩略图渲染**：构建 Headless 工作流，为所有 `.dat` 文件自动生成高清预览图。
+- [x] **🖼️ 自动化零件缩略图渲染**：`scripts/bake_thumbnails.py` 通过 Playwright 无头驱动 `/generator` 页面，单条命令即可补齐/重烘所有 `.dat` 缩略图，CDN 未收录的自定义零件也能落盘。
 - [ ] **🔎 零件搜索与分级目录优化**：实现基于关键词与类别的高效库检索。
 - [ ] **⚙️ 结构重力与受力分析**：提供简单的静态质心计算与连接处应力可视化。
 
