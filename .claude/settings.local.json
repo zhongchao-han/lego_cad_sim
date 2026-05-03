@@ -42,7 +42,13 @@
       "Read(//tmp/**)",
       "Bash(curl -s \"http://127.0.0.1:8000/api/all_parts?missing_only=true\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/generator)",
-      "Bash(git rebase *)"
+      "Bash(git rebase *)",
+      "Bash(git push *)",
+      "Bash(npx playwright *)",
+      "Bash(time curl *)",
+      "Bash(curl -s \"http://127.0.0.1:8000/api/ldraw_part/3001.dat?color=1\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}B\\\\n\" \"http://127.0.0.1:8000/ldraw_meshes/3001_c1.glb\")",
+      "Bash(grep -E \"_c1\\\\.glb$\")"
     ]
   }
 }

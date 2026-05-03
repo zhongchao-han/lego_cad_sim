@@ -62,3 +62,7 @@ data/custom_assets/thumbnails/*.png
 
 # MeiliSearch Database Data
 data/meili_data/
+
+# Playwright artifacts (snapshots in e2e/__snapshots__/ ARE committed; reports/results aren't)
+frontend/playwright-report/
+frontend/test-results/
