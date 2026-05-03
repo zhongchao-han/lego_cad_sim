@@ -20,6 +20,21 @@ declare global {
  */
 test.describe('Canvas pixel sentinels', () => {
   test('empty ASSEMBLY canvas matches baseline', async ({ page }) => {
+    // CI 上 backend 未起，usePartSearch 拉 /api/search/key 三次重试失败后会触发
+    // RenderErrorBoundary 全屏覆盖（z-[100] "核心依赖熔断"），把画布盖死，截图永远拿不到 grid。
+    // 用 route mock 给 hook 一个"凭证拿到了"的假象，hook 就不会进 fatal 分支。
+    // 后续真正打到 meili host 时仍会失败，但 X 测试不触发任何 search 操作。
+    await page.route('**/api/search/key', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          host: 'http://localhost:7700',
+          search_key: 'mock-key-for-e2e',
+        }),
+      }),
+    );
+
     await page.goto('/');
     await page.waitForFunction(() => window.__STORE__ !== undefined, { timeout: 10000 });
 
