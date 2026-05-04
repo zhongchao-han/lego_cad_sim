@@ -12,7 +12,13 @@
  *   peghole  (FEMALE)→ Rx(-90°): [[1,0,0],[0,0,1],[0,-1,0]]，Z 列 = [0, 1,0]
  */
 import { describe, it, expect } from 'vitest';
-import { calculateClampedOffset } from '../utils/snapMath';
+import {
+  calculateClampedOffset,
+  calculateSnapPose,
+  applyGroupDelta,
+  calculatePortRotationPose,
+  type RigidPose,
+} from '../utils/snapMath';
 
 // ---------------------------------------------------------------------------
 // 复制 store.ts 中的纯数学工具（与源文件保持完全一致，用于隔离测试）
@@ -152,5 +158,134 @@ describe('calculateClampedOffset (TS-6.3 狂暴穿模验证)', () => {
   it('TS-6.3-C: 没有 shiftKey 但未超出限位时，正常返回', () => {
     const offset = calculateClampedOffset(5, false, 8);
     expect(offset).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// L54 对象池正确性回归
+// ---------------------------------------------------------------------------
+// 三个 export 函数都用模块级 scratch（_csp_*/_agd_*/_prp_*）。重构前每次 new
+// 一堆 Three 对象；重构后必须保证：
+//   1. 单次输出与重构前等价
+//   2. 同函数连续调用 / 不同函数交叉调用 不互相污染（scratch reuse 安全）
+// ---------------------------------------------------------------------------
+
+const expectVecClose = (a: number[], b: number[], precision = 6) => {
+  for (let i = 0; i < a.length; i++) expect(a[i]).toBeCloseTo(b[i], precision);
+};
+
+describe('calculateSnapPose: 几何正确性 + scratch reuse 安全', () => {
+  it('Identity in identity out：source=target 都在原点 → part 落原点（带 X-flip）', () => {
+    const pose = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [0, 0, 0], [0, 0, 0, 1]);
+    expectVecClose(pose.position, [0, 0, 0]);
+    // X-flip 是 Rx(π)，对应 quaternion = (1, 0, 0, 0)（实部 0）
+    expectVecClose(pose.quaternion, [1, 0, 0, 0]);
+  });
+
+  it('target 平移 → part 跟着平移到 target', () => {
+    const pose = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1]);
+    expectVecClose(pose.position, [1, 2, 3]);
+  });
+
+  it('source 在零件局部 +Z 方向偏 0.5 → part 必须往后退 0.5（让 source 落到 target）', () => {
+    // source 在 part 局部坐标 +Z=0.5；要把 source 对齐到原点 target（带 flip 后 source 朝 -Z）
+    // flip 后 source 的局部 Z 反向；为了 source 落到 (0,0,0)，part 必须沿 +Z 平移 0.5
+    const pose = calculateSnapPose([0, 0, 0.5], [0, 0, 0, 1], [0, 0, 0], [0, 0, 0, 1]);
+    // X-flip 反转 Y 与 Z，所以 source 的 Z=0.5 → 在 part 局部成 Z=-0.5；为对齐到原点 target，
+    // part.position.z 必须 = +0.5
+    expect(pose.position[2]).toBeCloseTo(0.5);
+  });
+
+  it('连续 1000 次调用结果完全稳定（scratch 不被污染）', () => {
+    const first = calculateSnapPose([0.01, 0.02, 0.03], [0, 0, 0, 1], [0.5, 0.6, 0.7], [0, 0, 0, 1]);
+    for (let i = 0; i < 999; i++) {
+      // 在两次相同输入之间穿插不同输入，验证 scratch 不会"卡住"在中间状态
+      calculateSnapPose([0.9, -0.5, 0.1], [0, 0.7071, 0, 0.7071], [-0.3, 0.4, 0.8], [0.7071, 0, 0, 0.7071]);
+    }
+    const last = calculateSnapPose([0.01, 0.02, 0.03], [0, 0, 0, 1], [0.5, 0.6, 0.7], [0, 0, 0, 1]);
+    expectVecClose(first.position, last.position, 8);
+    expectVecClose(first.quaternion, last.quaternion, 8);
+  });
+
+  it('返回值是 plain number 数组而非 THREE 对象引用（防 scratch 泄漏）', () => {
+    const pose = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 0, 0], [0, 0, 0, 1]);
+    expect(Array.isArray(pose.position)).toBe(true);
+    expect(pose.position.length).toBe(3);
+    expect(typeof pose.position[0]).toBe('number');
+    expect(Array.isArray(pose.quaternion)).toBe(true);
+    expect(pose.quaternion.length).toBe(4);
+  });
+});
+
+describe('applyGroupDelta: 刚体 delta 整组应用', () => {
+  it('source 自身用 newSource 直接覆盖（不走 delta 通道）', () => {
+    const old: RigidPose = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+    const newP: RigidPose = { position: [5, 6, 7], quaternion: [0, 0, 0, 1] };
+    const out = applyGroupDelta(['src'], { src: old }, 'src', old, newP);
+    expect(out.src).toBe(newP);
+  });
+
+  it('source 平移 [10,0,0] → 组员同步平移 [10,0,0]', () => {
+    const oldSrc: RigidPose = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+    const newSrc: RigidPose = { position: [10, 0, 0], quaternion: [0, 0, 0, 1] };
+    const member: RigidPose = { position: [1, 2, 3], quaternion: [0, 0, 0, 1] };
+    const out = applyGroupDelta(['src', 'm1'], { src: oldSrc, m1: member }, 'src', oldSrc, newSrc);
+    expectVecClose(out.m1.position, [11, 2, 3]);
+    expectVecClose(out.m1.quaternion, [0, 0, 0, 1]);
+  });
+
+  it('源不在 parts 字典里（如新建零件） → 跳过不报错', () => {
+    const oldSrc: RigidPose = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+    const newSrc: RigidPose = { position: [1, 0, 0], quaternion: [0, 0, 0, 1] };
+    const out = applyGroupDelta(['src', 'missing'], { src: oldSrc }, 'src', oldSrc, newSrc);
+    expect(out.missing).toBeUndefined();
+    expect(out.src).toBe(newSrc);
+  });
+});
+
+describe('交叉调用：calculateSnapPose ↔ applyGroupDelta scratch 不互染', () => {
+  it('snap → delta → snap 三次连发仍各自正确', () => {
+    const snap1 = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 0, 0], [0, 0, 0, 1]);
+
+    const oldSrc: RigidPose = { position: [0, 0, 0], quaternion: [0, 0, 0, 1] };
+    const newSrc: RigidPose = { position: [2, 3, 4], quaternion: [0, 0, 0, 1] };
+    applyGroupDelta(['s', 'm'], { s: oldSrc, m: { position: [9, 9, 9], quaternion: [0, 0, 0, 1] } }, 's', oldSrc, newSrc);
+
+    const snap2 = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 0, 0], [0, 0, 0, 1]);
+    expectVecClose(snap1.position, snap2.position, 8);
+    expectVecClose(snap1.quaternion, snap2.quaternion, 8);
+  });
+});
+
+describe('calculatePortRotationPose: 端口 Z 轴旋转', () => {
+  it('零角度旋转 → 零件位姿不变', () => {
+    const partPos: [number, number, number] = [1, 2, 3];
+    const partQuat: [number, number, number, number] = [0, 0, 0, 1];
+    const pose = calculatePortRotationPose(partPos, partQuat, [0.1, 0, 0], [0, 0, 0, 1], 0);
+    expectVecClose(pose.position, partPos);
+    expectVecClose(pose.quaternion, partQuat);
+  });
+
+  it('端口在原点 + identity 旋转，绕端口 Z 转 90°：part 同样获得 Z 旋转 90°', () => {
+    const pose = calculatePortRotationPose([0, 0, 0], [0, 0, 0, 1], [0, 0, 0], [0, 0, 0, 1], Math.PI / 2);
+    expectVecClose(pose.position, [0, 0, 0]);
+    // Z 轴 90° → quaternion (0, 0, sin(45°), cos(45°)) ≈ (0, 0, 0.7071, 0.7071)
+    expect(pose.quaternion[2]).toBeCloseTo(Math.SQRT1_2);
+    expect(pose.quaternion[3]).toBeCloseTo(Math.SQRT1_2);
+  });
+
+  it('1000 次连续旋转调用：每次输出对相同输入完全确定', () => {
+    const args = [
+      [0.5, 0.0, 0.0] as [number, number, number],
+      [0, 0, 0, 1] as [number, number, number, number],
+      [0.1, 0, 0] as [number, number, number],
+      [0, 0, 0, 1] as [number, number, number, number],
+      Math.PI / 4,
+    ] as const;
+    const first = calculatePortRotationPose(...args);
+    for (let i = 0; i < 999; i++) calculatePortRotationPose(...args);
+    const last = calculatePortRotationPose(...args);
+    expectVecClose(first.position, last.position, 10);
+    expectVecClose(first.quaternion, last.quaternion, 10);
   });
 });

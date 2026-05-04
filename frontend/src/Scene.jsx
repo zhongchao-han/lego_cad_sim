@@ -238,6 +238,10 @@ const FreePlacerGhost = () => {
     // 这样从场景相机看下去，零件呈现的面与用户在模态预览里看到的那一面一致。
     // 用户在场景里转动相机，ghost 也会跟着重旋（朝向永远迎合当前视角）。
     const _ghostQuatScratch = useMemo(() => new THREE.Quaternion(), []);
+    // L54 对象池：useFrame 60Hz 跑，过去每帧 new Plane + Vector3 触发 GC 尖刺。
+    // y=0 地面是常量、intersectPoint 只读出来 copy 走，全部 useMemo 提一次即可。
+    const _groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+    const _intersectScratch = useMemo(() => new THREE.Vector3(), []);
     const updateGhostOrientation = () => {
         if (!previewCamQuatThree) return;
         _ghostQuatScratch.copy(camera.quaternion).multiply(previewCamQuatThree);
@@ -253,10 +257,8 @@ const FreePlacerGhost = () => {
         if (isGroundPlane) {
             // 仅与 y=0 平面求交，忽略环境软箱、阴影面与现有零件
             raycaster.setFromCamera(groundPointerRef.current, camera);
-            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-            const intersectPoint = new THREE.Vector3();
-            if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
-                groupRef.current.position.copy(intersectPoint);
+            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
+                groupRef.current.position.copy(_intersectScratch);
             } else {
                 raycaster.ray.at(0.2, groupRef.current.position);
             }
@@ -279,10 +281,8 @@ const FreePlacerGhost = () => {
             groupRef.current.position.copy(hits[0].point);
         } else {
             // 兜底：投射到 y=0 (地面)
-            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-            const intersectPoint = new THREE.Vector3();
-            if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
-                groupRef.current.position.copy(intersectPoint);
+            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
+                groupRef.current.position.copy(_intersectScratch);
             } else {
                 // 如果光线平行于地面或朝上，给一个合理的近处距离（0.2米）而不是 10 米
                 raycaster.ray.at(0.2, groupRef.current.position);
