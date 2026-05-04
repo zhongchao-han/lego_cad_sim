@@ -59,14 +59,16 @@ def estimate_mass_com(glb_abs_path: str) -> Optional[Tuple[float, Tuple[float, f
     if loaded is None or not hasattr(loaded, 'vertices') or len(loaded.vertices) == 0:
         return None
 
-    # trimesh.volume 在 watertight mesh 上是真体积；非 watertight 给负值或 0
+    # trimesh.volume 在 watertight mesh 上是真体积；非 watertight 给负值或 0。
+    # trimesh.load(force='mesh') 文档承诺返 Trimesh 含 center_mass / centroid，
+    # 但 mypy 看的是 Geometry 基类签名拿不到这两个属性，故 type: ignore。
     volume = float(getattr(loaded, 'volume', 0.0))
     com: np.ndarray
     if volume > MIN_REASONABLE_VOLUME_M3:
         try:
-            com = np.array(loaded.center_mass, dtype=float)
+            com = np.array(loaded.center_mass, dtype=float)  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
-            com = np.array(loaded.centroid, dtype=float)
+            com = np.array(loaded.centroid, dtype=float)  # type: ignore[attr-defined]
     else:
         # bbox fallback：体积 = bbox · solidity；COM = bbox 中心
         bbox = loaded.bounds  # shape (2, 3)
