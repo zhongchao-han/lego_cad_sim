@@ -4,6 +4,8 @@ import logging
 import meilisearch
 from typing import Dict, Any
 
+from backend.category import categorize, get_part_name as _get_part_name
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -14,26 +16,10 @@ DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_co
 # LDraw 零件库默认路径
 LDRAW_PARTS_DIR = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.path.dirname(__file__), "..", "ldraw_lib", "parts"))
 
+
 def get_part_name(part_id: str) -> str:
-    """提取 LDraw 零件源文件的第一行注释作为其可读名称"""
-    logger.debug(f"[DEBUG] get_part_name() 调用: param part_id={part_id}")
-    part_path = os.path.join(LDRAW_PARTS_DIR, part_id)
-    if not os.path.exists(part_path):
-        logger.debug(f"[DEBUG] get_part_name() 分支: 路径不存在 {part_path}，返回 {part_id}")
-        return part_id
-    try:
-        with open(part_path, 'r', encoding='utf-8') as f:
-            first_line = f.readline().strip()
-            # LDraw 首行通常为: "0 Name of the part"
-            if first_line.startswith("0 "):
-                name = first_line[2:].strip()
-                logger.debug(f"[DEBUG] get_part_name() 分支: 成功解析名称 {name}")
-                return name
-            logger.debug(f"[DEBUG] get_part_name() 分支: 首行不符合格式 '{first_line}'，返回 {part_id}")
-    except Exception as e:
-        logger.warning(f"无法读取 LDraw 名称 {part_id}: {e}")
-        logger.debug(f"[DEBUG] get_part_name() 异常: {e}")
-    return part_id
+    """轻量包装 backend.category.get_part_name，沿用本模块的 LDRAW_PARTS_DIR。"""
+    return _get_part_name(part_id, LDRAW_PARTS_DIR)
 
 def sync_to_meilisearch() -> None:
     logger.debug("[DEBUG] sync_to_meilisearch() 调用: 开始执行数据同步...")
@@ -66,19 +52,20 @@ def sync_to_meilisearch() -> None:
                 'id': doc_id,
                 'part_num': part_num,
                 'name': name,
+                'category': categorize(name),  # L50：分级目录字段
                 'status': metadata.get('status', 'pending'),
                 'confidence': metadata.get('confidence', 1.0),
                 'thumbnail_url': f"/api/thumbnails/{part_num}.png",
                 'has_sites': "sites" in metadata
             }
             documents.append(doc)
-        
+
         if documents:
             logger.info(f"正在向 MeiliSearch 同步 {len(documents)} 个零件文档...")
             print("正在配置索引...")
             client.index('parts').update_settings({
-                'searchableAttributes': ['part_num', 'name'],
-                'filterableAttributes': ['status', 'confidence', 'has_sites'],
+                'searchableAttributes': ['part_num', 'name', 'category'],
+                'filterableAttributes': ['status', 'confidence', 'has_sites', 'category'],
                 'synonyms': {
                     'plate': ['baseplate', 'panel', 'board', 'slab', 'tile'],
                     'baseplate': ['plate', 'panel', 'board'],
