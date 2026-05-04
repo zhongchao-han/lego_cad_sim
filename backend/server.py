@@ -331,28 +331,29 @@ async def toggle_mode(mode: str):
             tree = topo_manager.build_spanning_tree()
             urdf_path = "current_assembly.urdf"
             topo_manager.export_urdf(tree, urdf_path)
-            
-            engine.disconnect()
-            # 重置物理世界：调用 __init__ 是历史遗留写法，正经做法是抽 _reset 方法。
-            # 本 PR 不动逻辑，只为 mypy 标记。
-            engine.__init__(mode="DIRECT")  # type: ignore[misc]
-            
-            success = engine.load_assembly(urdf_path)
+
+            # L55：所有 engine 调用走 to_thread 避免阻塞 asyncio。reset() 在锁内
+            # 销毁旧 client 并重建，保留 self._lock，比旧版直接 engine.__init__()
+            # 安全 —— 旧写法会替换锁，让任何 in-flight to_thread 拿的是孤儿锁。
+            await asyncio.to_thread(engine.reset, "DIRECT")
+            success = await asyncio.to_thread(engine.load_assembly, urdf_path)
             if success:
                 for loop in topo_manager.closed_loops:
-                    engine.add_closed_loop_constraint(loop.parent_id, loop.child_id)
-                engine.toggle_gravity(True)
+                    await asyncio.to_thread(
+                        engine.add_closed_loop_constraint, loop.parent_id, loop.child_id
+                    )
+                await asyncio.to_thread(engine.toggle_gravity, True)
                 system_mode = "SIMULATION"
                 return {"status": "success", "msg": "Simulation started."}
             else:
                 return {"status": "error", "msg": "URDF load failed."}
-                
+
     elif mode == "ASSEMBLY":
         if system_mode != "ASSEMBLY":
-            engine.toggle_gravity(False)
+            await asyncio.to_thread(engine.toggle_gravity, False)
             system_mode = "ASSEMBLY"
             return {"status": "success", "msg": "Returned to assembly editor."}
-            
+
     return {"status": "ok", "msg": "No changes made."}
 
 
@@ -617,7 +618,9 @@ async def insertion_check(peg_id: str, hole_id: str,
 @app.post("/api/apply_force")
 async def apply_force(req: ForceRequest):
     if system_mode == "SIMULATION":
-        engine.apply_user_force(req.link_name, req.force, req.position)
+        # L55：与物理 step 共用 PhysicsEngine._lock，必须经 to_thread 拿锁，
+        # 否则同步 lock.acquire 会冻结 asyncio 直到当前 step 完。
+        await asyncio.to_thread(engine.apply_user_force, req.link_name, req.force, req.position)
         return {"status": "success"}
     return {"status": "ignored", "msg": "System must be in SIMULATION mode to apply physics forces."}
 
@@ -652,16 +655,18 @@ async def physics_stream(websocket: WebSocket):
     try:
         while True:
             await asyncio.sleep(1/60.0)
-            
+
+            # L55：把 stepSimulation × 4 + getState 整段挪到 executor 线程，
+            # asyncio 主循环只在 I/O / 短计算上阻塞，HTTP 路由不再被物理积分卡死。
+            # PhysicsEngine 内部加了 self._lock 保证 pybullet client 单线程访问。
             if system_mode == "SIMULATION":
-                for _ in range(4):
-                    engine.step()
-            
-            state = engine.get_state()
+                await asyncio.to_thread(engine.step_n, 4)
+
+            state = await asyncio.to_thread(engine.get_state)
             if state:
                 payload = json.dumps({"mode": system_mode, "state": state})
                 await manager.broadcast(payload)
-                
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception as e:

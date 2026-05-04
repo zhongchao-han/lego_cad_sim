@@ -52,7 +52,7 @@
 
 ### 5. 极致高可用与工业级架构 (High Availability & Industrial Architecture)
 - [x] **🚀 渲染层 GC 降本增效 (Frontend GC Abatement)**：`utils/snapMath.ts` 三个热函数（`calculateSnapPose` / `applyGroupDelta` / `calculatePortRotationPose`）改用模块级 scratch pool —— `AXIAL_SLIDING` 阶段每次 pointermove 不再 new ~12 个 Three 对象。`Scene.jsx` PlacementGhost `useFrame` 把 `Plane` + `Vector3` 提到 `useMemo` 复用。新增 `snapMath.test.ts` 19 个回归测试覆盖几何正确性 + 1000 次连发 scratch 不污染 + 返回值非 scratch 引用。
-- [ ] **🚀 后端物理锁隔离 (Async/GIL Decoupling)**：剥离 `pybullet.stepSimulation()` 至独立的 `ThreadPoolExecutor` 或进程，杜绝其 CPU 密集型积分计算阻塞 asyncio 导致的 WebSocket 推流断档。
+- [x] **🚀 后端物理锁隔离 (Async/GIL Decoupling)**：`PhysicsEngine` 内部用 `threading.Lock` 串行所有公有方法（pybullet client 非线程安全的硬约束）；`server.py` WebSocket loop 与 `apply_force` / `toggle_mode` 路由全部把 engine 调用挪到 `asyncio.to_thread`，HTTP 路由不再被物理积分冻结。新增 `reset(mode)` 方法替代旧 `engine.__init__()` 复用 hack（旧写法会替换锁让 in-flight 调用拿孤儿锁）。3 个并发回归测试覆盖：多线程 hammer 不崩 / reset 与 worker 串行不竞态 / to_thread 显著降低 asyncio 主循环阻塞（实测 ~1.5× yield tick；上限受 pybullet 部分持 GIL 限制，要全解需 Option C 子进程）。
 - [x] **🚀 API 强幂等与防重入 (Idempotency Key Strictness)**：`backend/idempotency.py` 内存 TTL 缓存 + Starlette 中间件，所有 mutating POST 接受 `Idempotency-Key` header —— 同 key 同 body 直接回放、同 key 不同 body 返 409。前端 `store.ts` 在 `snapParts` 调用上送 UUIDv4，杜绝 `MultiDiGraph.add_edge` 在网络重放下产生重复幽灵边。契约见 `docs/06_engineering_standards/02_api_and_websocket_contract.md §三`。
 - [x] **🚀 WebGL 自动化 E2E 测试 (Canvas E2E Pipeline)**：`@playwright/test` 跑通；`frontend/e2e/canvas_pixel.spec.ts`（X 空画布哨兵，CI 必跑）+ `frontend/e2e/generator_pixel.spec.ts`（Y 已知 part 渲染基线，本地手跑），SwiftShader 软渲染锁定跨平台像素一致性，`ci.yml` 新增 `e2e-pixel-check` job 接入护城河。已有的行为级 spec（`editor_cases.spec.ts`、`interaction.spec.ts`）保留作本地回归。
 
