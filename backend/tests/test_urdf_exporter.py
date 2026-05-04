@@ -106,7 +106,7 @@ class TestClosedLoopExport(unittest.TestCase):
         self.assertIsNotNone(child_el)
         self.assertIsNotNone(pose_el)
         # parent / child 的 text 必须落到主树某 link
-        link_names = {l.get('name') for l in root.findall('link')}
+        link_names = {link_el.get('name') for link_el in root.findall('link')}
         assert parent_el is not None and child_el is not None  # mypy
         self.assertIn(parent_el.text, link_names)
         self.assertIn(child_el.text, link_names)
