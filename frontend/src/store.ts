@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
-import { 
-  InteractionPhase, 
-  SelectionLevel, 
-  SelectionAnchor, 
+import {
+  InteractionPhase,
+  SelectionLevel,
+  SelectionAnchor,
   InterferenceReport,
+  PartCatalogEntry,
   PartState,
   Vec3,
   Quat,
@@ -18,6 +19,11 @@ import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta } from './utils/snapMath';
+import {
+  findMeshPartnerAndDelta,
+  rotateGearAroundOwnAxis,
+  type GearPart,
+} from './utils/gearMath';
 import { getDefaultColorCode } from './utils/partColorDefaults';
 
 type ConnectionGraph = Record<string, Set<string>>;
@@ -125,9 +131,13 @@ interface StoreState {
   slideOffset: number;
   cameraTarget: [number, number, number] | null;
   partUsages: Record<string, number>;
+  /** L44 / L50：ldrawId → 后端 /api/get_verified_parts 元数据。
+   *  PartLibraryPanel 拉取后填入；snapParts 用 toothCount 做齿轮咬合相位对齐。 */
+  partCatalog: Record<string, PartCatalogEntry>;
 
   // Actions
   reset: () => void;
+  setPartCatalog: (catalog: Record<string, PartCatalogEntry>) => void;
   setView: (view: 'ASSEMBLY' | 'LIBRARY_VERIFY') => void;
   toggleMode: () => Promise<void>;
   updatePartState: (partId: string, state: Partial<PartState>) => void;
@@ -316,6 +326,9 @@ export const useStore = create<StoreState>()(
   slideOffset: 0,
   cameraTarget: null,
   partUsages: {},
+  partCatalog: {},
+
+  setPartCatalog: (catalog) => set({ partCatalog: catalog }),
 
   reset: () => {
       get().addLog("Store reset to default state.");
@@ -607,6 +620,50 @@ export const useStore = create<StoreState>()(
     const groupNewPoses = applyGroupDelta(
       srcGroup, parts, source.partId, oldSourcePose, newSourcePose
     );
+
+    // ── L44 齿轮咬合相位对齐 ─────────────────────────────────────────────
+    // 在 srcGroup 各成员的新位姿基础上，扫描场景里其他齿轮，找到平行轴 +
+    // 距离匹配 (T_a+T_b)/2 module 的潜在 mesh partner，把成员绕自身 Z 轴
+    // 转到"齿尖指向 partner"的最小角度。partner 限定在 srcGroup 之外
+    // 避免 group 内自我咬合（同一组里的多齿轮通常共轴或几何上不可能 mesh）。
+    const partCatalog = get().partCatalog;
+    const groupSet = new Set(srcGroup);
+    // 候选：场景里非 group 成员的所有齿轮（齿数已知）
+    const candidates: GearPart[] = [];
+    Object.entries(parts).forEach(([pid, pst]) => {
+      if (groupSet.has(pid)) return;
+      const meta = partCatalog[pst.ldrawId];
+      if (!meta?.toothCount) return;
+      candidates.push({
+        partId: pid, ldrawId: pst.ldrawId,
+        position: pst.position, quaternion: pst.quaternion,
+        toothCount: meta.toothCount,
+      });
+    });
+    // 对 group 中每个有齿数的零件，查 mesh partner 并应用 phase
+    Object.keys(groupNewPoses).forEach(pid => {
+      const pst = parts[pid];
+      // source 可能是新建零件还没在 parts 里：用 sourcePart 兜底
+      const ldrawId = pst?.ldrawId ?? (pid === source.partId ? sourcePart.ldrawId : null);
+      if (!ldrawId) return;
+      const meta = partCatalog[ldrawId];
+      if (!meta?.toothCount) return;
+      const pose = groupNewPoses[pid];
+      const sourceGear: GearPart = {
+        partId: pid, ldrawId,
+        position: pose.position, quaternion: pose.quaternion,
+        toothCount: meta.toothCount,
+      };
+      const result = findMeshPartnerAndDelta(sourceGear, candidates);
+      if (!result || Math.abs(result.delta) < 1e-9) return;
+      const newQuat = rotateGearAroundOwnAxis(pose.quaternion, result.delta);
+      groupNewPoses[pid] = { position: pose.position, quaternion: newQuat };
+      get().addLog(
+        `[GearMesh] ${pid} (T=${meta.toothCount}) ↔ ${result.partner.partId} ` +
+        `(T=${result.partner.toothCount})：相位偏移 ${(result.delta * 180 / Math.PI).toFixed(2)}°`,
+        'INFO',
+      );
+    });
 
     const updated: Record<string, PartState> = { ...parts };
     // 兜底：source 若是 preview 新建零件，parts 里还没条目，需要先把 sourcePart 落进去

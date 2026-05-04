@@ -19,6 +19,7 @@ from backend.category import (  # noqa: E402
     CATEGORY_ORDER,
     categorize,
     categorize_part,
+    extract_tooth_count,
     get_part_name,
 )
 
@@ -115,6 +116,46 @@ class TestCategorizePart(unittest.TestCase):
             name, cat = categorize_part("p.dat", tmp)
             self.assertEqual(name, "Technic Pin 3L")
             self.assertEqual(cat, "Pin")
+
+
+class TestExtractToothCount(unittest.TestCase):
+    """L44：从 LDraw 描述提取齿数。"""
+
+    def test_standard_lego_gear_descriptions(self):
+        cases = [
+            ("Technic Gear  8 Tooth Reinforced", 8),
+            ("Technic Gear 16 Tooth with Clutch on Both Sides", 16),
+            ("Technic Gear 20 Tooth Double Bevel Reinforced", 20),
+            ("Technic Gear 24 Tooth with Clutch on Both Sides", 24),
+            ("Technic Gear 12 Tooth Double Bevel with Axle Extension", 12),
+            ("Technic Turntable 60 Tooth Top", 60),
+        ]
+        for desc, expected in cases:
+            with self.subTest(desc=desc):
+                self.assertEqual(extract_tooth_count(desc), expected)
+
+    def test_non_gear_or_unparseable_returns_none(self):
+        # worm gear / gear rack / 齿环 都没有"NN Tooth"字样
+        cases = [
+            "Technic Worm Gear 3L with Bush Ends",
+            "Technic Gear Rack  1 x 14 with Bottom Beam",
+            "Technic Gear Ring Quarter 11 x 11 with 35 Teeth",  # "Teeth" 不是 "Tooth"
+            "Technic Pin Long Friction",  # 完全无关
+            "",
+        ]
+        for desc in cases:
+            with self.subTest(desc=desc):
+                self.assertIsNone(extract_tooth_count(desc))
+
+    def test_out_of_range_count_filtered(self):
+        # "100 Dots Pattern" 类的误命中要被合理性卡边界过滤掉
+        # 注：这条是防御性测试 —— 假如未来某个 part 名里出现"100 Tooth"会被拒
+        self.assertIsNone(extract_tooth_count("Pattern 100 Tooth Like"))
+        # 边界：6 接受，5 拒；80 接受，81 拒
+        self.assertEqual(extract_tooth_count("Test 6 Tooth"), 6)
+        self.assertIsNone(extract_tooth_count("Test 5 Tooth"))
+        self.assertEqual(extract_tooth_count("Test 80 Tooth"), 80)
+        self.assertIsNone(extract_tooth_count("Test 81 Tooth"))
 
 
 if __name__ == "__main__":

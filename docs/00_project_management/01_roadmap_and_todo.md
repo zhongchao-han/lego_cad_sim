@@ -41,7 +41,7 @@
 ## 🛠️ 后续规划 (Project Backlog)
 
 ### 3. 机械传动与物理深度 (Mechanical & Physics Depth)
-- [ ] **⚙️ 齿轮传动链条相位自动对齐**：在 Snap 时根据齿数比自动计算 Z 轴旋转偏移量，达成精密咬合。
+- [x] **⚙️ 齿轮传动链条相位自动对齐**（v1 / 方案 X）：`backend/category.py` 新增 `extract_tooth_count` 从 LDraw 描述 regex 出齿数（标准齿轮 67/125 命中）；`/api/get_verified_parts` 暴露 `tooth_count` 字段；前端 `utils/gearMath.ts` 提供啮合检测（轴线平行 + 中心距 ≈ (T₁+T₂)/2·module）+ 相位对齐（齿尖指向 partner 中心，最小转动）；`store.ts` snapParts 在 `applyGroupDelta` 后扫描场景齿轮，对 srcGroup 中有齿数的成员自动对齐。22 个 gearMath + 5 个 tooth_count 单测覆盖。**v1 不做**：锥齿轮 / 蜗轮蜗杆 / 齿条 / 多齿轮链超定检测（这些 toothCount 提取失败或几何不满足，自动 noop）。
 - [ ] **⚙️ URDF 导出器闭环逻辑增强**：支持将 `TopologyManager` 识别的 `closed_loops` 导出为 `Mimic Joints` 或 `Floating Base` 约束。
 - [ ] **⚙️ 高精度物理过盈反馈**：基于 `FitType` 驱动 `AXIAL_SLIDING` 阶段的动态阻力感（Haptic/Visual feedback）。
 
