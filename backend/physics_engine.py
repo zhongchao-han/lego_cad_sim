@@ -1,6 +1,7 @@
 import pybullet as p
 import pybullet_data
 import logging
+import threading
 from typing import Dict, List, Optional, Any
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -15,25 +16,28 @@ class PhysicsEngine:
     - 针对所有 Link 开启高速 CCD（连续碰撞检测）防止穿模 (Tunneling Effect)
     - 配置销钉和轴的铰链摩擦特性 (Clutch Power)
     - 获取当前装配位姿字典用于 WebSocket 下发同步到 Three.js (前端)
+
+    L55 线程隔离：PyBullet 单 client 非线程安全。本类所有 *公有方法* 都在
+    self._lock 下串行执行；server.py 的 asyncio 调用方必须用 ``asyncio.to_thread``
+    把这些调用挪到 executor 线程，避免 stepSimulation 的 CPU 密集积分阻塞主循环。
     """
 
     def __init__(self, mode: str = "GUI"):
-        # 连接模式: p.GUI 或 p.DIRECT (无头模式，用于纯 Web 后台伺服)
-        connect_mode = p.GUI if mode.upper() == "GUI" else p.DIRECT
-        self.client_id = p.connect(connect_mode)
-        
-        # 将 PyBullet 引擎的资源搜索路径设置为其自带包，方便加载地面等
-        p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_id)
-        
-        # 初始化基础设置
-        self._setup_world()
-        
+        # 锁先于任何 pybullet 调用建好；reset() 不重建它，保证 in-flight to_thread
+        # 调用拿的旧锁仍然有效。
+        self._lock = threading.Lock()
         self.robot_id: Optional[int] = None
         self.num_joints: int = 0
-        
-        # 给前端下发数据的缓存：joint_name -> joint_index 等
         self.joint_name_to_index: Dict[str, int] = {}
         self.link_name_to_index: Dict[str, int] = {}
+        self._connect(mode)
+
+    def _connect(self, mode: str) -> None:
+        """建立 pybullet client 并装地面。__init__ 与 reset() 共用此入口。"""
+        connect_mode = p.GUI if mode.upper() == "GUI" else p.DIRECT
+        self.client_id = p.connect(connect_mode)
+        p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client_id)
+        self._setup_world()
 
     def _setup_world(self):
         """配置基于 SI 的物理引擎世界参数"""
@@ -48,35 +52,55 @@ class PhysicsEngine:
         p.changeDynamics(self.plane_id, -1, lateralFriction=1.0)
         logger.info("物理世界参数已初始化，引力: [0, 0, -9.81]。")
 
+    def reset(self, mode: str = "DIRECT") -> None:
+        """销毁当前 pybullet client 并重建一个干净的世界，保留 self._lock。
+
+        替代 server.py 历史上 ``engine.__init__(mode=...)`` 的破坏性写法 ——
+        重新跑 __init__ 会替换 self._lock，让任何持有旧锁的 in-flight to_thread
+        调用变成孤儿。reset() 在锁内做销毁/重建，外部并发线程自然被串到下一序。
+        """
+        with self._lock:
+            try:
+                p.disconnect(self.client_id)
+            except p.error as e:
+                logger.warning(f"reset(): 旧 client 销毁时 pybullet 抱怨: {e}")
+            self.robot_id = None
+            self.num_joints = 0
+            self.joint_name_to_index.clear()
+            self.link_name_to_index.clear()
+            self._connect(mode)
+
     def toggle_gravity(self, enable: bool):
         """切换动力学状态（仿真模式/悬浮装配模式）"""
-        if enable:
-            p.setGravity(0, 0, -9.81, physicsClientId=self.client_id)
-            logger.info("已切换至【模拟模式：启用重力】。")
-        else:
-            p.setGravity(0, 0, 0, physicsClientId=self.client_id)
-            logger.info("已切换至【组装模式：零重力飘浮】。")
+        with self._lock:
+            if enable:
+                p.setGravity(0, 0, -9.81, physicsClientId=self.client_id)
+                logger.info("已切换至【模拟模式：启用重力】。")
+            else:
+                p.setGravity(0, 0, 0, physicsClientId=self.client_id)
+                logger.info("已切换至【组装模式：零重力飘浮】。")
 
     def load_assembly(self, urdf_path: str, start_pos: List[float] = [0, 0, 0.5]) -> bool:
         """加载经过 Topology Manager 处理的树状装配体，赋予其物理碰撞外壳"""
-        try:
-            # useFixedBase=False, flags 允许加载非常规惯性并且支持自己覆盖 CCD 标识
-            flags = p.URDF_USE_INERTIA_FROM_FILE | p.URDF_USE_SELF_COLLISION
-            self.robot_id = p.loadURDF(urdf_path, basePosition=start_pos, 
-                                       useFixedBase=False, flags=flags, 
-                                       physicsClientId=self.client_id)
-            
-            self.num_joints = p.getNumJoints(self.robot_id, physicsClientId=self.client_id)
-            self._map_link_and_joint_names()
-            self._configure_joints()
-            self._enable_ccd()
-            
-            logger.info(f"成功载入装配 URDF: {urdf_path}，包含 {self.num_joints} 个从属关节。")
-            return True
-            
-        except p.error as e:
-            logger.error(f"加载装配体物理 URDF 发生崩溃：{e}")
-            return False
+        with self._lock:
+            try:
+                # useFixedBase=False, flags 允许加载非常规惯性并且支持自己覆盖 CCD 标识
+                flags = p.URDF_USE_INERTIA_FROM_FILE | p.URDF_USE_SELF_COLLISION
+                self.robot_id = p.loadURDF(urdf_path, basePosition=start_pos,
+                                           useFixedBase=False, flags=flags,
+                                           physicsClientId=self.client_id)
+
+                self.num_joints = p.getNumJoints(self.robot_id, physicsClientId=self.client_id)
+                self._map_link_and_joint_names()
+                self._configure_joints()
+                self._enable_ccd()
+
+                logger.info(f"成功载入装配 URDF: {urdf_path}，包含 {self.num_joints} 个从属关节。")
+                return True
+
+            except p.error as e:
+                logger.error(f"加载装配体物理 URDF 发生崩溃：{e}")
+                return False
 
     def _map_link_and_joint_names(self):
         """爬取 URDF 使得内部可以通过人类可读 Name 寻址 Index"""
@@ -137,72 +161,85 @@ class PhysicsEngine:
         处理 URDF 生成树中所放弃的破坏循环边。对于首尾相连的情况，
         我们在这里用 Pybullet 内置 `createConstraint` 强制绑定，复原这股支撑力。
         """
-        if self.robot_id is None:
-            return
-            
-        parent_idx = self.link_name_to_index.get(parent_link_name, -1)
-        child_idx = self.link_name_to_index.get(child_link_name, -1)
-        
-        # 此处的 Constraint 配置需要精密计算初始补偿，在此我们使用 Point2Point 锁定其锚点
-        c_id = p.createConstraint(parentBodyUniqueId=self.robot_id,
-                                  parentLinkIndex=parent_idx,
-                                  childBodyUniqueId=self.robot_id,
-                                  childLinkIndex=child_idx,
-                                  jointType=p.JOINT_FIXED,
-                                  jointAxis=[0,0,0],
-                                  parentFramePosition=[0,0,0],
-                                  childFramePosition=[0,0,0],
-                                  physicsClientId=self.client_id)
-        logger.info(f"建立补偿拓扑约束 ID:{c_id}，联结 {parent_link_name} 与 {child_link_name}")
+        with self._lock:
+            if self.robot_id is None:
+                return
+
+            parent_idx = self.link_name_to_index.get(parent_link_name, -1)
+            child_idx = self.link_name_to_index.get(child_link_name, -1)
+
+            # 此处的 Constraint 配置需要精密计算初始补偿，在此我们使用 Point2Point 锁定其锚点
+            c_id = p.createConstraint(parentBodyUniqueId=self.robot_id,
+                                      parentLinkIndex=parent_idx,
+                                      childBodyUniqueId=self.robot_id,
+                                      childLinkIndex=child_idx,
+                                      jointType=p.JOINT_FIXED,
+                                      jointAxis=[0,0,0],
+                                      parentFramePosition=[0,0,0],
+                                      childFramePosition=[0,0,0],
+                                      physicsClientId=self.client_id)
+            logger.info(f"建立补偿拓扑约束 ID:{c_id}，联结 {parent_link_name} 与 {child_link_name}")
 
     def apply_user_force(self, link_name: str, force: List[float], pos: List[float] = [0,0,0]):
         """提供给用户在前端使用鼠标“拽拉”实体时的力反馈外部映射"""
-        if self.robot_id is None: return
-        link_idx = self.link_name_to_index.get(link_name, -1)
-        p.applyExternalForce(objectUniqueId=self.robot_id,
-                             linkIndex=link_idx,
-                             forceObj=force,
-                             posObj=pos,
-                             flags=p.LINK_FRAME,
-                             physicsClientId=self.client_id)
+        with self._lock:
+            if self.robot_id is None:
+                return
+            link_idx = self.link_name_to_index.get(link_name, -1)
+            p.applyExternalForce(objectUniqueId=self.robot_id,
+                                 linkIndex=link_idx,
+                                 forceObj=force,
+                                 posObj=pos,
+                                 flags=p.LINK_FRAME,
+                                 physicsClientId=self.client_id)
 
     def step(self):
         """驱动整个物理世界的时钟向前迈进 1/240 单位时间。"""
-        p.stepSimulation(physicsClientId=self.client_id)
+        with self._lock:
+            p.stepSimulation(physicsClientId=self.client_id)
+
+    def step_n(self, n: int) -> None:
+        """连发 n 个物理步。整段在锁内一次拿完，避免 step 与 apply_force 在 to_thread
+        线程池里穿插交错，浪费"60Hz 下推流间隔尽量整片完成"的语义。"""
+        with self._lock:
+            for _ in range(n):
+                p.stepSimulation(physicsClientId=self.client_id)
 
     def get_state(self) -> Dict[str, Any]:
         """
         抓取此时物理引擎内部所有子构件的全局 Transform 阵列及其局部扭动角度，
         以便组装成 JSON 泵送给 Three.js 前端渲染层。
         """
-        state: Dict[str, Any] = {}
-        if self.robot_id is None:
-            return state
-            
-        # 根节点的空间座标和朝向四元数
-        pos, quat = p.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
-        state["base"] = {
-            "position": pos,
-            "quaternion": quat
-        }
-        
-        # 子关节相对参数或者直接获取每个网格对象的全域坐标
-        for name, idx in self.link_name_to_index.items():
-            if idx == -1: continue # base_link
-            
-            # 使用 getLinkState 我们可以拿到直接灌输到 three.js Object3d 的最终位姿以避免前端计算 IK
-            link_state = p.getLinkState(self.robot_id, idx, physicsClientId=self.client_id)
-            # link_state[4] is worldLinkFramePosition, link_state[5] is worldLinkFrameOrientation
-            state[name] = {
-                "position": link_state[4],
-                "quaternion": link_state[5]
+        with self._lock:
+            state: Dict[str, Any] = {}
+            if self.robot_id is None:
+                return state
+
+            # 根节点的空间座标和朝向四元数
+            pos, quat = p.getBasePositionAndOrientation(self.robot_id, physicsClientId=self.client_id)
+            state["base"] = {
+                "position": pos,
+                "quaternion": quat
             }
-            
-        return state
+
+            # 子关节相对参数或者直接获取每个网格对象的全域坐标
+            for name, idx in self.link_name_to_index.items():
+                if idx == -1: continue # base_link
+
+                # 使用 getLinkState 我们可以拿到直接灌输到 three.js Object3d 的最终位姿以避免前端计算 IK
+                link_state = p.getLinkState(self.robot_id, idx, physicsClientId=self.client_id)
+                # link_state[4] is worldLinkFramePosition, link_state[5] is worldLinkFrameOrientation
+                state[name] = {
+                    "position": link_state[4],
+                    "quaternion": link_state[5]
+                }
+
+            return state
 
     def disconnect(self):
         """释放后端资源"""
-        p.disconnect(self.client_id)
+        with self._lock:
+            p.disconnect(self.client_id)
 
 # =========================== Unit testing execution ============================
 if __name__ == "__main__":
