@@ -17,7 +17,8 @@ from __future__ import annotations
 import functools
 import logging
 import os
-from typing import Tuple
+import re
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -90,3 +91,28 @@ def categorize_part(part_id: str, ldraw_parts_dir: str) -> Tuple[str, str]:
     """便捷：从 part_id + ldraw 根目录一步拿到 (name, category)。"""
     name = get_part_name(part_id, ldraw_parts_dir)
     return name, categorize(name)
+
+
+# ── L44 齿轮齿数提取 ────────────────────────────────────────────────────────
+# LEGO Technic 齿轮的 LDraw 描述里稳定写"NN Tooth"。125 个 Gear-named part 中
+# 67 个能 regex 出齿数（剩 58 是 worm gear / gear rack / 半图样等异形件，无固定齿数）。
+# 提取出来作为后端 part metadata，下游 snap 时用以计算齿轮咬合相位。
+_TOOTH_PATTERN = re.compile(r'(\d+)\s*Tooth', re.IGNORECASE)
+
+
+def extract_tooth_count(name: str) -> Optional[int]:
+    """从 LDraw 零件描述名提取齿数；不是齿轮 / 异形齿轮（蜗轮、齿条等）返回 None。"""
+    if not name:
+        return None
+    match = _TOOTH_PATTERN.search(name)
+    if not match:
+        return None
+    try:
+        count = int(match.group(1))
+    except (TypeError, ValueError):
+        return None
+    # 合理性卡边界：LEGO Technic 标准齿轮在 8~60 之间，太小/太大都是误命中
+    # （比如 "Pattern with 100 Dots" 这种和齿轮无关的描述）。
+    if not 6 <= count <= 80:
+        return None
+    return count

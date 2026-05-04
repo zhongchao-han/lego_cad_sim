@@ -30,6 +30,8 @@ interface VerifiedPart {
   // L50：backend categorize_part() 注入
   name?: string;
   category?: string;
+  // L44：backend extract_tooth_count() 注入；非齿轮 / 异形齿轮 = null
+  tooth_count?: number | null;
 }
 
 const FREQUENT_BUCKET = '★ Frequent';
@@ -73,12 +75,28 @@ export function PartLibraryPanel() {
   const previewPart = useStore((s) => s.previewPart);
   const previewPartId = useStore((s) => s.previewPartId);
   const partUsages = useStore((s) => s.partUsages);
+  const setPartCatalog = useStore((s) => s.setPartCatalog);
 
   useEffect(() => {
     const fetchParts = async () => {
       try {
         const res = await axios.get(`${BACKEND_ORIGIN}/api/get_verified_parts`);
-        setParts(res.data);
+        const data: VerifiedPart[] = res.data;
+        setParts(data);
+        // L44 / L50：把后端返回的 name / category / tooth_count 元数据填进 store，
+        // 让 snapParts 等不再触达 PartLibraryPanel 也能查 ldrawId 元数据。
+        const catalog: Record<string, import('../types').PartCatalogEntry> = {};
+        data.forEach(p => {
+          catalog[p.part_id] = {
+            partId:     p.part_id,
+            name:       p.name ?? p.part_id,
+            category:   p.category ?? 'Other',
+            toothCount: p.tooth_count ?? null,
+            portCount:  p.port_count,
+            meshUrl:    p.mesh_url,
+          };
+        });
+        setPartCatalog(catalog);
       } catch (err) {
         console.error('Failed to fetch verified parts:', err);
       } finally {
@@ -86,7 +104,7 @@ export function PartLibraryPanel() {
       }
     };
     fetchParts();
-  }, []);
+  }, [setPartCatalog]);
 
   // 把 parts 切成 { '★ Frequent': [...], 'Pin': [...], ... }，仅含非空桶
   const buckets = useMemo(() => {

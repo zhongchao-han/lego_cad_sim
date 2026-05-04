@@ -55,6 +55,20 @@ export interface PartState {
   isGrounded?: boolean; // 是否锚定到坐标系
 }
 
+/**
+ * L44 / L50：从后端 /api/get_verified_parts 拿到的零件目录条目。
+ * 同 ldrawId 多个 PartState 实例共用一份 catalog 元数据；store 里维护
+ * partCatalog: Record<ldrawId, PartCatalogEntry>，由 PartLibraryPanel 拉取后填入。
+ */
+export interface PartCatalogEntry {
+  partId:    string;       // .dat 文件名，例如 "3001.dat"
+  name:      string;       // LDraw 首行注释解析出的可读名
+  category:  string;       // L50 分级目录桶
+  toothCount: number | null; // L44 齿数（非齿轮 / 异形齿轮 = null）
+  portCount?: number;
+  meshUrl?:   string;
+}
+
 // --- 端口与场站 (Site/Port v1.2) ---
 export interface Port {
   id: string;
