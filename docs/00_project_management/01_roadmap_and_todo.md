@@ -42,7 +42,7 @@
 
 ### 3. 机械传动与物理深度 (Mechanical & Physics Depth)
 - [x] **⚙️ 齿轮传动链条相位自动对齐**（v1 / 方案 X）：`backend/category.py` 新增 `extract_tooth_count` 从 LDraw 描述 regex 出齿数（标准齿轮 67/125 命中）；`/api/get_verified_parts` 暴露 `tooth_count` 字段；前端 `utils/gearMath.ts` 提供啮合检测（轴线平行 + 中心距 ≈ (T₁+T₂)/2·module）+ 相位对齐（齿尖指向 partner 中心，最小转动）；`store.ts` snapParts 在 `applyGroupDelta` 后扫描场景齿轮，对 srcGroup 中有齿数的成员自动对齐。22 个 gearMath + 5 个 tooth_count 单测覆盖。**v1 不做**：锥齿轮 / 蜗轮蜗杆 / 齿条 / 多齿轮链超定检测（这些 toothCount 提取失败或几何不满足，自动 noop）。
-- [ ] **⚙️ URDF 导出器闭环逻辑增强**：支持将 `TopologyManager` 识别的 `closed_loops` 导出为 `Mimic Joints` 或 `Floating Base` 约束。
+- [x] **⚙️ URDF 导出器闭环逻辑增强 (v1 / 方案 A+B)**：target spec 锁定 ROS 2 / SDF 1.9。`urdf_exporter.py` 把闭环边的虚构 `<gazebo><plugin>` 替换为合规 `<gazebo><joint>`（含 type/parent/child/pose/axis），让外部 simulator 真能加载闭环约束。新增齿轮对 `<mimic>` 自动注入：扫描 spanning tree 中 child 含 tooth_count 的 continuous joint，复用 L44 mesh 几何检测找配对，给 follower 加 `<mimic joint multiplier offset>`，multiplier=-T₁/T₂（外啮合反向）。`PartNode` 新增 `ldraw_id`，`SnapRequest` 新增 `parent/child_ldraw_id`（向后兼容），前端 store 在 snap_payload 携带，server.py 落到 PartNode 并同步 `global_transform`。**顺手修了 pre-existing bug**：`build_spanning_tree` BFS 在 `add_edge` 自动建 neighbor 节点时丢 PartNode data（旧 link export 的 `getattr` 默认值掩盖了它），L45 mimic 检测必须修。新增 7 个 urdf_exporter 单测覆盖闭环 SDF 字段 / 齿轮 mimic multiplier / 距离不匹配 / 轴线垂直 / 共轴 / 缺 ldraw_parts_dir 退化。**v1 不做**：Floating Base / 4-bar 等非齿轮闭环 / 跨 axle-中介齿轮链 / `depth=insertion_depth` 参数（pre-existing bug 单独 issue）。
 - [ ] **⚙️ 高精度物理过盈反馈**：基于 `FitType` 驱动 `AXIAL_SLIDING` 阶段的动态阻力感（Haptic/Visual feedback）。
 
 ### 4. 生产力与视觉 (Productivity & Visuals)

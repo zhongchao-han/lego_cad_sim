@@ -106,6 +106,10 @@ class SnapRequest(BaseModel):
     # 格式: [x, y, z]（SI 米制，Y-Up），由前端在 Snap 确认后传入
     parent_world_pos: Optional[list] = None
     child_world_pos: Optional[list] = None
+    # v4.0 / L45：原始 LDraw .dat 文件名。urdf_exporter 用它查 tooth_count，
+    # 决定是否在 URDF 里给齿轮 joint 生成 <mimic> 跟随。老前端不传保持兼容。
+    parent_ldraw_id: Optional[str] = None
+    child_ldraw_id: Optional[str] = None
 
 class ForceRequest(BaseModel):
     link_name: str
@@ -334,7 +338,10 @@ async def toggle_mode(mode: str):
             logger.info("接受前端指令，开始转化拓扑并生成 URDF ...")
             tree = topo_manager.build_spanning_tree()
             urdf_path = "current_assembly.urdf"
-            topo_manager.export_urdf(tree, urdf_path)
+            # L45：传入 LDraw parts 目录，让 urdf_exporter 给齿轮对生成 <mimic>。
+            topo_manager.export_urdf(
+                tree, urdf_path, ldraw_parts_dir=os.path.join(LDRAW_PARTS_ROOT, "parts"),
+            )
 
             # L55：所有 engine 调用走 to_thread 避免阻塞 asyncio。reset() 在锁内
             # 销毁旧 client 并重建，保留 self._lock，比旧版直接 engine.__init__()
@@ -462,9 +469,25 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
 async def snap_parts(req: SnapRequest):
     """只做拓扑记录。插入位姿完全由前端基于零件几何计算。"""
 
+    # L45：把前端传的 ldraw_id 落到 PartNode，让 urdf_exporter 能查 tooth_count。
+    # 同一 part 已注册时不再覆盖（避免后到的 None 把已存的 ldraw_id 抹掉）。
+    pid_to_ldraw = {req.parent_id: req.parent_ldraw_id, req.child_id: req.child_ldraw_id}
+    pid_to_world = {req.parent_id: req.parent_world_pos, req.child_id: req.child_world_pos}
+    pid_to_rot = {req.parent_id: req.parent_rot, req.child_id: req.child_rot}
     for pid in (req.parent_id, req.child_id):
         if not topo_manager.graph.has_node(pid):
-            topo_manager.add_part(PartNode(part_id=pid, name=pid))
+            topo_manager.add_part(PartNode(part_id=pid, name=pid, ldraw_id=pid_to_ldraw[pid]))
+        # L45：每次 snap 更新 global_transform —— urdf_exporter 的齿轮 mesh 检测
+        # 需要世界位姿来判断"轴线平行 + 中心距匹配"。无 world_pos / rot 不动。
+        wp = pid_to_world[pid]
+        wr = pid_to_rot[pid]
+        if wp is not None and wr is not None and len(wp) >= 3 and len(wr) >= 9:
+            node_data = topo_manager.graph.nodes[pid].get('data')
+            if node_data is not None:
+                T = np.eye(4)
+                T[:3, :3] = np.array(wr).reshape(3, 3)
+                T[:3,  3] = np.array(wp[:3])
+                node_data.global_transform = T
 
     p_rot = np.array(req.parent_rot).reshape(3, 3)
     c_rot = np.array(req.child_rot).reshape(3, 3)
