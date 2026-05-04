@@ -723,6 +723,10 @@ export const useStore = create<StoreState>()(
       // v3.1 字段：世界坐标，用于 AutoLatchScanner 的 Site 距离筛选
       parent_world_pos: target.globalPos,
       child_world_pos:  position,
+      // v4.0 / L45：原始 LDraw .dat 文件名 ——后端 urdf_exporter 据此查 tooth_count
+      // 决定是否在导出 URDF 时给该齿轮 joint 加 <mimic>。
+      parent_ldraw_id: targetPart?.ldrawId ?? target.ldrawId,
+      child_ldraw_id:  sourcePart.ldrawId,
     };
 
     // 每次 snap 调用生成一个 UUID 作为 Idempotency-Key：浏览器/代理层若发生

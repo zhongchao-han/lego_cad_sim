@@ -16,9 +16,20 @@ logger = logging.getLogger(__name__)
 
 class PartNode:
     """描述一个被实例化的零件节点"""
-    def __init__(self, part_id: str, name: str, mass: float = 0.001, inertia: Optional[np.ndarray] = None):
-        self.part_id = part_id    # 全局唯一的零件实例 ID
+    def __init__(
+        self,
+        part_id: str,
+        name: str,
+        mass: float = 0.001,
+        inertia: Optional[np.ndarray] = None,
+        ldraw_id: Optional[str] = None,
+    ):
+        self.part_id = part_id    # 全局唯一的零件实例 ID（前端的 staging tray 实例 id）
         self.name = name          # 零件名称 (如 '1x3_beam')
+        # L45：可选的原始 LDraw .dat 文件名（如 "3001.dat"）；urdf_exporter 用它
+        # 查 backend.category.extract_tooth_count 推齿数，决定是否给该 joint 生成
+        # <mimic> 跟随。前端 snap_parts payload 在 v4.0 起携带；老调用方为 None。
+        self.ldraw_id = ldraw_id
         self.mass = mass
         self.inertia = inertia if inertia is not None else np.eye(3) * 1e-6
         # 该零件在装配整体坐标系下的绝对位姿，仅供参考或装配起始计算使用
@@ -168,6 +179,12 @@ class TopologyManager:
                 for neighbor in simple_graph.successors(current):
                     edge_data = simple_graph.get_edge_data(current, neighbor)['data']
                     if neighbor not in visited:
+                        # L45 修：显式 add_node 携带 PartNode data —— add_edge 会以
+                        # 无属性方式自动创建 neighbor 节点，导致非 root 节点的 PartNode
+                        # 数据全部丢失（pre-existing bug，被旧 link export 的 getattr
+                        # 默认值掩盖；urdf_exporter 现在要靠 ldraw_id 检测齿轮，必须修）
+                        if not urdf_tree.has_node(neighbor):
+                            urdf_tree.add_node(neighbor, data=simple_graph.nodes[neighbor]['data'])
                         urdf_tree.add_edge(current, neighbor, data=edge_data)
                         queue.append(neighbor)
                     else:
@@ -177,12 +194,21 @@ class TopologyManager:
 
         return urdf_tree
 
-    def export_urdf(self, urdf_tree: nx.DiGraph, output_file: str = "lego_assembly.urdf"):
+    def export_urdf(
+        self,
+        urdf_tree: nx.DiGraph,
+        output_file: str = "lego_assembly.urdf",
+        ldraw_parts_dir: Optional[str] = None,
+    ):
         """
         接受无环化的 URDF 树，应用 TF 数据，并生成 xml 文档。
         实际导出工作委托给 urdf_exporter.URDFExporter。
+
+        L45：ldraw_parts_dir 传入时启用齿轮 mimic 检测。
         """
-        URDFExporter().export(urdf_tree, self.closed_loops, output_file)
+        URDFExporter(ldraw_parts_dir=ldraw_parts_dir).export(
+            urdf_tree, self.closed_loops, output_file
+        )
 
 
 # =========================== Unit testing execution ============================
