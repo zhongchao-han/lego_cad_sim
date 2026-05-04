@@ -1,14 +1,25 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import { InteractionPhase, ZoneType } from '../types';
+import { fitDisplayLabel, fitForSlide } from '../utils/fitMath';
 
 export function StatusBar() {
   const interactionPhase = useStore((state) => state.interactionPhase);
   const selectedPort = useStore((state) => state.selectedPort);
+  const slidingTarget = useStore((state) => state.slidingTarget);
   const slideOffset = useStore((state) => state.slideOffset);
   const activePartsCount = useStore((state) => {
     return Object.values(state.parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA).length;
   });
+
+  // L46：AXIAL_SLIDING 时显示 source / target 端口的 FitType 标签，
+  // 让用户知道为什么按 ↑ 慢/快（CLEARANCE 全速 / FRICTION 1/4 速 / 等）。
+  const slideFitLabel = useMemo(() => {
+    if (interactionPhase !== InteractionPhase.AXIAL_SLIDING) return null;
+    if (!selectedPort || !slidingTarget) return null;
+    const fit = fitForSlide(selectedPort.portType, slidingTarget.portType);
+    return fitDisplayLabel(fit);
+  }, [interactionPhase, selectedPort, slidingTarget]);
 
   const centerHints = useMemo(() => {
     switch (interactionPhase) {
@@ -64,6 +75,11 @@ export function StatusBar() {
         {interactionPhase === InteractionPhase.AXIAL_SLIDING && (
           <span className="text-amber-400">
             Offset: {slideOffset.toFixed(1)} LDU
+          </span>
+        )}
+        {slideFitLabel && (
+          <span className="text-slate-200 tracking-wide" title="L46 fit feedback">
+            Fit: {slideFitLabel}
           </span>
         )}
         <div className="w-px h-3 bg-slate-700" />

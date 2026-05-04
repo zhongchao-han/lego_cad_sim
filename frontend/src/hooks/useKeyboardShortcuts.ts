@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
 import { InteractionPhase } from '../types';
+import { fitForSlide, getSlideStepFactor } from '../utils/fitMath';
 
 /**
  * 监听全局 CAD 标准快捷键的 Hook。
@@ -25,6 +26,20 @@ export function useKeyboardShortcuts() {
   const focusCameraOnSelected = useStore((state) => state.focusCameraOnSelected);
 
   useEffect(() => {
+    /**
+     * L46：AXIAL_SLIDING 步长按 FitType 缩放。Shift 仍 10× 不动；fit factor
+     * 与 shift 相乘。BLOCKED / INCOMPATIBLE 返 0 锁死方向键移动。
+     */
+    const computeSlideStep = (shiftKey: boolean): number => {
+      const baseStep = shiftKey ? 10 : 1; // LDU
+      const { selectedPort, slidingTarget } = useStore.getState();
+      // 缺任一端口（极端边界）→ 退化为原行为，不阻断用户
+      if (!selectedPort || !slidingTarget) return baseStep;
+      const fit = fitForSlide(selectedPort.portType, slidingTarget.portType);
+      const factor = getSlideStepFactor(fit);
+      return baseStep * factor;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // 安全隔离：如果当前焦点在输入框或文本域内，不拦截任何 3D 快捷键
       const activeElement = document.activeElement;
@@ -111,17 +126,21 @@ export function useKeyboardShortcuts() {
           case 'ArrowUp':
             if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
               e.preventDefault();
-              const offset = useStore.getState().slideOffset;
-              const step = e.shiftKey ? 10 : 1; // LDU units
-              useStore.getState().updateSlideOffset(offset + step);
+              const step = computeSlideStep(e.shiftKey);
+              if (step !== 0) {
+                const offset = useStore.getState().slideOffset;
+                useStore.getState().updateSlideOffset(offset + step);
+              }
             }
             break;
           case 'ArrowDown':
             if (interactionPhase === InteractionPhase.AXIAL_SLIDING) {
               e.preventDefault();
-              const offset = useStore.getState().slideOffset;
-              const step = e.shiftKey ? 10 : 1;
-              useStore.getState().updateSlideOffset(offset - step);
+              const step = computeSlideStep(e.shiftKey);
+              if (step !== 0) {
+                const offset = useStore.getState().slideOffset;
+                useStore.getState().updateSlideOffset(offset - step);
+              }
             }
             break;
           case '[':
