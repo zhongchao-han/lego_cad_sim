@@ -27,7 +27,6 @@ except ImportError:
 
 from backend.mass_estimator import (  # noqa: E402
     ABS_DENSITY_KG_M3,
-    SOLIDITY_FACTOR_FALLBACK,
     estimate_mass_com,
 )
 
