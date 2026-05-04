@@ -53,7 +53,7 @@
 ### 5. 极致高可用与工业级架构 (High Availability & Industrial Architecture)
 - [ ] **🚀 渲染层 GC 降本增效 (Frontend GC Abatement)**：在 `InteractivePart` 高频侦听器 (`useFrame` / `pointermove`) 中引入对象池 (Object Pooling)，彻底消灭 `new THREE.Vector3()` 实例化造成的堆内存尖刺。
 - [ ] **🚀 后端物理锁隔离 (Async/GIL Decoupling)**：剥离 `pybullet.stepSimulation()` 至独立的 `ThreadPoolExecutor` 或进程，杜绝其 CPU 密集型积分计算阻塞 asyncio 导致的 WebSocket 推流断档。
-- [ ] **🚀 API 强幂等与防重入 (Idempotency Key Strictness)**：针对 `snap_parts` 等能够变异网格及图论拓扑的核心操作，全线引入防抖动验证及幂等键，杜绝网络抖动产生的拓扑幽灵环。
+- [x] **🚀 API 强幂等与防重入 (Idempotency Key Strictness)**：`backend/idempotency.py` 内存 TTL 缓存 + Starlette 中间件，所有 mutating POST 接受 `Idempotency-Key` header —— 同 key 同 body 直接回放、同 key 不同 body 返 409。前端 `store.ts` 在 `snapParts` 调用上送 UUIDv4，杜绝 `MultiDiGraph.add_edge` 在网络重放下产生重复幽灵边。契约见 `docs/06_engineering_standards/02_api_and_websocket_contract.md §三`。
 - [x] **🚀 WebGL 自动化 E2E 测试 (Canvas E2E Pipeline)**：`@playwright/test` 跑通；`frontend/e2e/canvas_pixel.spec.ts`（X 空画布哨兵，CI 必跑）+ `frontend/e2e/generator_pixel.spec.ts`（Y 已知 part 渲染基线，本地手跑），SwiftShader 软渲染锁定跨平台像素一致性，`ci.yml` 新增 `e2e-pixel-check` job 接入护城河。已有的行为级 spec（`editor_cases.spec.ts`、`interaction.spec.ts`）保留作本地回归。
 
 ---

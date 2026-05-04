@@ -668,7 +668,13 @@ export const useStore = create<StoreState>()(
       child_world_pos:  position,
     };
 
-    axios.post(`${API_URL}/api/snap_parts`, snapPayload).then((res) => {
+    // 每次 snap 调用生成一个 UUID 作为 Idempotency-Key：浏览器/代理层若发生
+    // 网络层重发，后端中间件靠该 key 识别为重放，直接回放上次响应而不再向
+    // MultiDiGraph 追加重复边（详见 backend/idempotency.py）。
+    const idemKey = crypto.randomUUID();
+    axios.post(`${API_URL}/api/snap_parts`, snapPayload, {
+      headers: { 'Idempotency-Key': idemKey },
+    }).then((res) => {
       const data = res.data as {
         auto_latched_count?: number;
         auto_latched_edges?: Array<{

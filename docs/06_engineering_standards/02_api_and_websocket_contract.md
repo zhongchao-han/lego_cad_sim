@@ -25,3 +25,18 @@
    ```
 2. **防御性前置过滤网 (Pre-condition Checks)**：
    永远不要信任前端参数。所有参数必须在 Pydantic 层得到校验：数值域（限制上下界）、非空状态、甚至是 UUID 的格式是否合法。若有违背立刻拦截抛出 400 不予向内部传递。
+
+## 三、 Idempotency Key（变异端点防重入）
+
+针对 `snap_parts` 等改动 `MultiDiGraph` / 物理状态的 POST 端点，骨干设计如下：
+
+1. **客户端约定**：
+   - 每次发起 mutating POST 时生成一个 UUIDv4，塞进 `Idempotency-Key` request header。
+   - 若 axios / fetch 在网络层重发（重试中间件、浏览器自动重连、用户双击），同一逻辑请求**必须复用同一个 key**，不得每次重发都换新 key。
+2. **服务端契约**（实现见 `backend/idempotency.py`）：
+   - 同 key + 同 body → 直接回放上次响应，附 `Idempotency-Replay: true` 响应头。**不再触达 handler**，因此 `MultiDiGraph.add_edge` 不会重复加边。
+   - 同 key + 不同 body → 返回 `409 Conflict`，防止 key 被滥用复盖前一次语义。
+   - 不带 header → 透传，不缓存。保留对未升级客户端 / 后台脚本的向后兼容。
+   - 仅缓存 2xx JSON dict 响应；4xx/5xx 不缓存（避免错误状态被永久回放）。
+3. **TTL**：默认 10 分钟。覆盖典型用户交互重试窗口；服务进程重启即清空（in-flight 重试在重启场景下天然失效，无需持久化）。
+4. **范围**：所有 `POST` 路径（含 `/api/snap_parts`、`/api/apply_force`、`/api/verify/save`、`/api/tools/upload_thumbnail` 等）。中间件层全局生效，新增端点零成本继承。

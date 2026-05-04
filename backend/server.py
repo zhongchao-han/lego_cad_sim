@@ -23,6 +23,7 @@ from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
 from backend.auto_latch_scanner import AutoLatchScanner, serialize_port_key
 from backend.mesh_asset_manager import MeshAssetManager
+from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -78,6 +79,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 幂等键中间件 —— 所有 mutating POST 端点（snap_parts/apply_force/verify/...）
+# 接受 Idempotency-Key header；同 key 同 body 直接回放缓存响应，杜绝
+# MultiDiGraph.add_edge 在重放下产生重复幽灵边等问题。详见 backend/idempotency.py。
+idem_cache = IdempotencyCache()
+app.add_middleware(IdempotencyMiddleware, cache=idem_cache)
 
 app.mount("/ldraw_meshes", StaticFiles(directory=MESH_CACHE_ROOT), name="ldraw_meshes")
 # 挂载缩略图静态服务
