@@ -1,27 +1,24 @@
 /**
  * PartLibraryPanel.tsx
  * ====================
- * 零件物料库面板。
+ * 零件物料库面板（L50 分级目录版本）。
  *
- * 交互逻辑（Why）：
+ * 历史交互逻辑（保留）：
  *   乐高 Technic 零件的颜色并非由图纸决定，而是由使用者指定的 color_code 在
- *   GLB 生成时烘焙进去的。为了提供直觉正确的体验：
+ *   GLB 生成时烘焙进去的。1) 高频经典零件预设默认颜色；2) 头部"画笔颜色"覆盖；
+ *   3) 优先取经典颜色字典命中值。
  *
- *   1. 高频经典零件（如蓝销、红轴）自动预设默认颜色，用户无需手选。
- *   2. 面板头部提供"画笔颜色"选择器，用于覆盖默认色或为未知零件选色。
- *   3. 用户在点击零件时，优先取经典颜色字典命中值，次选"画笔颜色"。
- *
- * 颜色流向（从选择器到 GLB）：
- *   用户选色 → activeColorCode (Store) →
- *   零件 click → getDefaultColorCode(partId, activeColorCode) →
- *   PartState.colorCode → useLDrawPart(partId, colorCode) →
- *   GET /api/ldraw_part/:id?color=N → GeometryProcessor bakles GLB with vertex colors
+ * L50 改动：把扁平 1900+ 卡片列表换成可折叠分级面板。
+ *   - 顶部 "★ Frequent" 桶：本会话用过的 OR HIGH_PRIORITY_PARTS，默认展开
+ *   - 后续按 CATEGORY_ORDER 渲染 backend 推断的 category（默认折叠以避免视觉过载）
+ *   - 每个 category 标题带计数；点击 chevron 展开/收起
+ *   - category 字段由 /api/get_verified_parts 通过 backend/category.py 启发式注入
  */
 
 import { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { useStore } from '../store';
-import { Search, Box, ChevronRight } from 'lucide-react';
+import { Search, Box, ChevronRight, ChevronDown, Star } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
 
 const BACKEND_ORIGIN: string = ((import.meta as unknown as Record<string, Record<string, string>>).env?.['VITE_BACKEND_ORIGIN']) || 'http://127.0.0.1:8000';
@@ -30,11 +27,48 @@ interface VerifiedPart {
   part_id: string;
   port_count: number;
   mesh_url: string;
+  // L50：backend categorize_part() 注入
+  name?: string;
+  category?: string;
 }
+
+const FREQUENT_BUCKET = '★ Frequent';
+
+// 与 backend/category.py 的 CATEGORY_ORDER 保持一致（出现顺序）。
+// 注入新桶时两处必须同步，否则前端会把它兜到列表末尾。
+const CATEGORY_ORDER = [
+  'Pin', 'Axle', 'Connector', 'Beam', 'Gear', 'Wheel',
+  'Plate', 'Tile', 'Brick', 'Panel',
+  'Cylinder', 'Pneumatic', 'Steering', 'Electric',
+  'Sticker', 'Other',
+] as const;
+
+const HIGH_PRIORITY_PARTS = [
+  // 经典常用销 (Pins)
+  '2780.dat',    // Blue friction pin (default color)
+  '3673.dat',    // Light gray pin
+  '43093.dat',   // Blue axle pin friction
+  '11214.dat',   // 3L axle pin
+  '6558.dat',    // 3L blue friction pin
+  '32002.dat',   // 3/4 pin
+
+  // 经典车轴 (Axles)
+  '32062.dat',   // 2L notched axle (red)
+  '4519.dat',    // 3L axle
+  '3705.dat',    // 4L axle
+
+  // 特殊件 / 电子件 / 大面板
+  '10089c01.dat',// Motor
+  '10090.dat',   // Motor / hub alternative
+  '39369.dat',   // 11x19 Baseplate
+  '71709.dat',   // Main hub or large panel
+];
 
 export function PartLibraryPanel() {
   const [parts, setParts] = useState<VerifiedPart[]>([]);
   const [loading, setLoading] = useState(true);
+  // 折叠态：默认仅 Frequent 展开。用户偏好不持久化（v1）。
+  const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set([FREQUENT_BUCKET]));
 
   const previewPart = useStore((s) => s.previewPart);
   const previewPartId = useStore((s) => s.previewPartId);
@@ -42,10 +76,8 @@ export function PartLibraryPanel() {
 
   useEffect(() => {
     const fetchParts = async () => {
-      console.debug('[DEBUG] [PartLibraryPanel] fetchParts called');
       try {
         const res = await axios.get(`${BACKEND_ORIGIN}/api/get_verified_parts`);
-        console.debug(`[DEBUG] [PartLibraryPanel] fetchParts resolved with ${res.data?.length || 0} parts`);
         setParts(res.data);
       } catch (err) {
         console.error('Failed to fetch verified parts:', err);
@@ -56,57 +88,55 @@ export function PartLibraryPanel() {
     fetchParts();
   }, []);
 
-const HIGH_PRIORITY_PARTS = [
-  // 经典常用销 (Pins)
-  '2780.dat',    // Blue friction pin (default color)
-  '3673.dat',    // Light gray pin
-  '43093.dat',   // Blue axle pin friction
-  '11214.dat',   // 3L axle pin
-  '6558.dat',    // 3L blue friction pin
-  '32002.dat',   // 3/4 pin
-  
-  // 经典车轴 (Axles)
-  '32062.dat',   // 2L notched axle (red)
-  '4519.dat',    // 3L axle
-  '3705.dat',    // 4L axle
-  
-  // 特殊件 / 电子件 / 大面板
-  '10089c01.dat',// Motor
-  '10090.dat',   // Motor / hub alternative
-  '39369.dat',   // 11x19 Baseplate
-  '71709.dat',   // Main hub or large panel
-];
+  // 把 parts 切成 { '★ Frequent': [...], 'Pin': [...], ... }，仅含非空桶
+  const buckets = useMemo(() => {
+    const out: Record<string, VerifiedPart[]> = {};
+    const isHigh = (id: string) => HIGH_PRIORITY_PARTS.includes(id);
 
-  const sortedParts = useMemo(() => {
-    console.debug('[DEBUG] [PartLibraryPanel] Re-calculating sortedParts based on usages');
-    return [...parts].sort((a, b) => {
-      const usageA = partUsages[a.part_id] || 0;
-      const usageB = partUsages[b.part_id] || 0;
-      
-      // 1. 最高优先级：当前 Session 被使用过的零件优先（用得越多越靠前）
-      if (usageA !== usageB) {
-        return usageB - usageA;
-      }
-      
-      // 2. 次高优先级：预设的经典高频零件吸顶
-      const pIndexA = HIGH_PRIORITY_PARTS.indexOf(a.part_id);
-      const pIndexB = HIGH_PRIORITY_PARTS.indexOf(b.part_id);
-      
-      const isHighA = pIndexA !== -1;
-      const isHighB = pIndexB !== -1;
+    // 1) Frequent 桶：会话内用过 OR 在高优清单。按 (usage desc, HIGH_PRIORITY index) 排
+    const freq = parts
+      .filter(p => (partUsages[p.part_id] || 0) > 0 || isHigh(p.part_id))
+      .sort((a, b) => {
+        const ua = partUsages[a.part_id] || 0;
+        const ub = partUsages[b.part_id] || 0;
+        if (ua !== ub) return ub - ua;
+        const ia = HIGH_PRIORITY_PARTS.indexOf(a.part_id);
+        const ib = HIGH_PRIORITY_PARTS.indexOf(b.part_id);
+        if (ia !== ib) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        return a.part_id.localeCompare(b.part_id);
+      });
+    if (freq.length > 0) out[FREQUENT_BUCKET] = freq;
 
-      if (isHighA && !isHighB) return -1;
-      if (!isHighA && isHighB) return 1;
-      
-      // 如果两个都是高优件，按照我们在 HIGH_PRIORITY_PARTS 中定义的顺序排
-      if (isHighA && isHighB) {
-         return pIndexA - pIndexB;
-      }
-
-      // 3. 兜底逻辑：普通零件按 ID 字母序排
-      return a.part_id.localeCompare(b.part_id);
+    // 2) 按 category 分组（含 Other）；每桶按 part_id 字母序
+    parts.forEach(p => {
+      const cat = p.category || 'Other';
+      if (!out[cat]) out[cat] = [];
+      out[cat].push(p);
     });
+    Object.keys(out).forEach(k => {
+      if (k !== FREQUENT_BUCKET) {
+        out[k].sort((a, b) => a.part_id.localeCompare(b.part_id));
+      }
+    });
+    return out;
   }, [parts, partUsages]);
+
+  // 渲染顺序：Frequent 在最前；其余按 CATEGORY_ORDER 顺序，未在表里的桶兜底到末尾
+  const orderedBucketNames = useMemo(() => {
+    const known = [FREQUENT_BUCKET, ...CATEGORY_ORDER];
+    const present = Object.keys(buckets);
+    const ordered = known.filter(k => present.includes(k));
+    const tail = present.filter(k => !known.includes(k)).sort();
+    return [...ordered, ...tail];
+  }, [buckets]);
+
+  const toggleBucket = (name: string) => {
+    setOpenBuckets(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
 
   return (
     <div className="flex flex-col h-full bg-white/90 backdrop-blur-md border-r shadow-xl w-72 pointer-events-auto overflow-hidden transition-all">
@@ -116,8 +146,6 @@ const HIGH_PRIORITY_PARTS = [
           <Box className="w-5 h-5 text-blue-600" />
           Material Library
         </h2>
-
-
 
         {/* 搜索框 (点击呼出全局全量级 Semantic Search 面板) */}
         <div className="relative mt-3">
@@ -132,8 +160,8 @@ const HIGH_PRIORITY_PARTS = [
         </div>
       </div>
 
-      {/* 零件列表 */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+      {/* 分级目录 */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-50">
              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -144,54 +172,89 @@ const HIGH_PRIORITY_PARTS = [
             No verified parts found.
           </div>
         ) : (
-          sortedParts.map((part) => {
-            // 预显示该零件默认颜色（根据字典，不传 fallback）
-            // 我们在库列表中仅显示经典颜色的角标提示
-            const resolvedColor = getDefaultColorCode(part.part_id, 71); // 71 为无命中时的占位灰
-            const isAutoColor = resolvedColor !== 71;
+          orderedBucketNames.map(bucketName => {
+            const items = buckets[bucketName];
+            if (!items || items.length === 0) return null;
+            const isOpen = openBuckets.has(bucketName);
+            const isFrequent = bucketName === FREQUENT_BUCKET;
 
             return (
-              <button
-                key={part.part_id}
-                onClick={() => previewPart(part.part_id)}
-                className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
-                  previewPartId === part.part_id
-                    ? 'bg-blue-50 border-blue-200 shadow-sm'
-                    : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-100'
-                }`}
-              >
-                <div className="relative w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                  <img 
-                    src={`${BACKEND_ORIGIN}/api/thumbnails/${part.part_id.replace('.dat', '.png')}`}
-                    alt={part.part_id}
-                    className="w-10 h-10 object-contain transition-transform group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      if (e.currentTarget.nextElementSibling) {
-                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block';
-                      }
-                    }}
-                  />
-                  <Box className="w-6 h-6 text-slate-300 transition-colors group-hover:text-blue-400" style={{ display: 'none' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-slate-700 truncate">
-                    {part.part_id.replace('.dat', '')}
+              <div key={bucketName} className="border-b border-slate-100 last:border-b-0">
+                {/* 桶标题 */}
+                <button
+                  type="button"
+                  onClick={() => toggleBucket(bucketName)}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors ${
+                    isFrequent ? 'bg-amber-50 hover:bg-amber-100' : 'bg-slate-50 hover:bg-slate-100'
+                  }`}
+                >
+                  {isOpen
+                    ? <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                    : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+                  {isFrequent && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />}
+                  <span className={`text-xs font-bold uppercase tracking-wider ${
+                    isFrequent ? 'text-amber-700' : 'text-slate-700'
+                  }`}>
+                    {isFrequent ? 'Frequent' : bucketName}
+                  </span>
+                  <span className="ml-auto text-[10px] text-slate-400 tabular-nums">
+                    {items.length}
+                  </span>
+                </button>
+
+                {/* 桶内卡片列表 */}
+                {isOpen && (
+                  <div className="p-2 space-y-1">
+                    {items.map(part => {
+                      const resolvedColor = getDefaultColorCode(part.part_id, 71);
+                      const isAutoColor = resolvedColor !== 71;
+                      return (
+                        <button
+                          key={part.part_id}
+                          onClick={() => previewPart(part.part_id)}
+                          className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
+                            previewPartId === part.part_id
+                              ? 'bg-blue-50 border-blue-200 shadow-sm'
+                              : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-100'
+                          }`}
+                        >
+                          <div className="relative w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                            <img
+                              src={`${BACKEND_ORIGIN}/api/thumbnails/${part.part_id.replace('.dat', '.png')}`}
+                              alt={part.part_id}
+                              className="w-10 h-10 object-contain transition-transform group-hover:scale-110"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextElementSibling) {
+                                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block';
+                                }
+                              }}
+                            />
+                            <Box className="w-6 h-6 text-slate-300 transition-colors group-hover:text-blue-400" style={{ display: 'none' }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-slate-700 truncate">
+                              {part.part_id.replace('.dat', '')}
+                            </div>
+                            <div className="text-[10px] text-slate-400 uppercase tracking-wider">
+                              {part.port_count} Connection Ports
+                            </div>
+                            {isAutoColor && (
+                              <div className="text-[9px] text-amber-500 font-bold tracking-wide mt-0.5">
+                                ⚡ PRESET COLOR
+                              </div>
+                            )}
+                          </div>
+                          <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform ${
+                            previewPartId === part.part_id ? 'translate-x-1 text-blue-500' : 'group-hover:translate-x-1'
+                          }`} />
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-wider">
-                    {part.port_count} Connection Ports
-                  </div>
-                  {isAutoColor && (
-                    <div className="text-[9px] text-amber-500 font-bold tracking-wide mt-0.5">
-                      ⚡ PRESET COLOR
-                    </div>
-                  )}
-                </div>
-                <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform ${
-                  previewPartId === part.part_id ? 'translate-x-1 text-blue-500' : 'group-hover:translate-x-1'
-                }`} />
-              </button>
+                )}
+              </div>
             );
           })
         )}

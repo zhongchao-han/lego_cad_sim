@@ -24,6 +24,7 @@ from backend.site_utils import cluster_ports_into_sites, sites_to_response
 from backend.auto_latch_scanner import AutoLatchScanner, serialize_port_key
 from backend.mesh_asset_manager import MeshAssetManager
 from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
+from backend.category import categorize_part
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -159,8 +160,14 @@ async def get_pending_list():
 
 @app.get("/api/get_verified_parts")
 async def get_verified_parts():
-    """获取物料库所需的已复核零件摘要。"""
-    return port_lib_manager.get_verified_parts()
+    """获取物料库所需的已复核零件摘要，附带 L50 分级目录所需的 name + category 字段。"""
+    base = port_lib_manager.get_verified_parts()
+    parts_dir = os.path.join(LDRAW_PARTS_ROOT, "parts")
+    for entry in base:
+        name, category = categorize_part(entry["part_id"], parts_dir)
+        entry["name"] = name
+        entry["category"] = category
+    return base
 
 
 # --- 开发与维护离线工具包 (非侵入式热挂载) ---

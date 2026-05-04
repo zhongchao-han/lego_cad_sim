@@ -47,7 +47,7 @@
 
 ### 4. 生产力与视觉 (Productivity & Visuals)
 - [x] **🖼️ 自动化零件缩略图渲染**：`scripts/bake_thumbnails.py` 通过 Playwright 无头驱动 `/generator` 页面，单条命令即可补齐/重烘所有 `.dat` 缩略图，CDN 未收录的自定义零件也能落盘。
-- [ ] **🔎 零件搜索与分级目录优化**：实现基于关键词与类别的高效库检索。
+- [x] **🔎 零件搜索与分级目录优化**：`backend/category.py` 启发式从 .dat 首行注释推断 16 类（Pin/Axle/Connector/Beam/Gear/Wheel/Plate/Tile/Brick/Panel/Cylinder/Pneumatic/Steering/Electric/Sticker/Other），1942 个 part 真实分布约 16% 落 Other。`/api/get_verified_parts` 与 `sync_meili.py` 同时注入 `category` 字段（Meili 也加进 `filterableAttributes` 供后续 facet 过滤）。前端 `PartLibraryPanel.tsx` 重写为可折叠分级面板：顶部 ★ Frequent（会话使用 + HIGH_PRIORITY）默认展开，其余 category 默认折叠避免视觉过载，每桶带计数。新增 13 个 categorize 单测覆盖优先级（"Axle Pin" → Pin 不进 Axle）。
 - [ ] **⚙️ 结构重力与受力分析**：提供简单的静态质心计算与连接处应力可视化。
 
 ### 5. 极致高可用与工业级架构 (High Availability & Industrial Architecture)
