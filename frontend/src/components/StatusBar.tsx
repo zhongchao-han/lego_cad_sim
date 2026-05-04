@@ -2,15 +2,35 @@ import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import { InteractionPhase, ZoneType } from '../types';
 import { fitDisplayLabel, fitForSlide } from '../utils/fitMath';
+import { analyzeStability } from '../utils/staticsMath';
 
 export function StatusBar() {
   const interactionPhase = useStore((state) => state.interactionPhase);
   const selectedPort = useStore((state) => state.selectedPort);
   const slidingTarget = useStore((state) => state.slidingTarget);
   const slideOffset = useStore((state) => state.slideOffset);
+  const parts = useStore((state) => state.parts);
+  const partCatalog = useStore((state) => state.partCatalog);
+  const mode = useStore((state) => state.mode);
   const activePartsCount = useStore((state) => {
     return Object.values(state.parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA).length;
   });
+
+  // L51：稳定性指示。ASSEMBLY 模式 + 多 part 时显示，unstable 走醒目红字。
+  const stabilityLabel = useMemo(() => {
+    if (mode !== 'ASSEMBLY') return null;
+    const points = Object.values(parts)
+      .filter(p => p.zone === ZoneType.ACTIVE_ARENA)
+      .map(p => ({
+        position: p.position,
+        mass: partCatalog[p.ldrawId]?.massKg ?? 0.001,
+      }));
+    if (points.length < 2) return null; // 单零件总是稳定，不显示
+    const r = analyzeStability(points);
+    return r.isStable
+      ? { text: '🟢 Stable', isUnstable: false }
+      : { text: '⚠ Unstable', isUnstable: true };
+  }, [parts, partCatalog, mode]);
 
   // L46：AXIAL_SLIDING 时显示 source / target 端口的 FitType 标签，
   // 让用户知道为什么按 ↑ 慢/快（CLEARANCE 全速 / FRICTION 1/4 速 / 等）。
@@ -80,6 +100,16 @@ export function StatusBar() {
         {slideFitLabel && (
           <span className="text-slate-200 tracking-wide" title="L46 fit feedback">
             Fit: {slideFitLabel}
+          </span>
+        )}
+        {stabilityLabel && (
+          <span
+            className={`tracking-wide font-medium ${
+              stabilityLabel.isUnstable ? 'text-red-400' : 'text-slate-300'
+            }`}
+            title="L51 静态稳定性：COM 投影是否落在接触地面零件的 footprint 凸包内"
+          >
+            {stabilityLabel.text}
           </span>
         )}
         <div className="w-px h-3 bg-slate-700" />

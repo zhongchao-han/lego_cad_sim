@@ -32,6 +32,9 @@ interface VerifiedPart {
   category?: string;
   // L44：backend extract_tooth_count() 注入；非齿轮 / 异形齿轮 = null
   tooth_count?: number | null;
+  // L51：backend mass_estimator 注入；GLB 没烘 = null
+  mass_kg?: number | null;
+  com_local?: [number, number, number] | null;
 }
 
 const FREQUENT_BUCKET = '★ Frequent';
@@ -92,6 +95,8 @@ export function PartLibraryPanel() {
             name:       p.name ?? p.part_id,
             category:   p.category ?? 'Other',
             toothCount: p.tooth_count ?? null,
+            massKg:     p.mass_kg ?? null,
+            comLocal:   p.com_local ?? null,
             portCount:  p.port_count,
             meshUrl:    p.mesh_url,
           };
