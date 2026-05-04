@@ -143,9 +143,19 @@ class TestAsyncIoIntegration(unittest.TestCase):
             sync_avg = sum(self._measure_ticks(stepper_sync) for _ in range(3)) / 3
             thread_avg = sum(self._measure_ticks(stepper_to_thread) for _ in range(3)) / 3
 
-            # 只要求 thread 路径有显著绝对优势（至少多 5 tick）。不强求倍数 ——
-            # PyBullet 在 stepSimulation 内部持 GIL 决定上限；本地实测 ~14 vs ~22。
-            # 真正归零（thread <= sync）才说明 to_thread 完全无效，这才是 L55 要防的回归。
+            # 200ms 窗口 / 5ms tick 间隔的理论上限 ~40 tick。如果 sync 路径就接近满分
+            # （比如 CI 跑得飞快、空场景 step 几乎瞬时），说明本机负载没暴露阻塞 ——
+            # 此时 to_thread 没空间改善，无法做有效对比。退化为 skip 而非 fail，
+            # 避免在快机上误报回归。本地慢机（200 step 真有 1-3ms）能踩出 sync<<thread。
+            if sync_avg > 30:
+                self.skipTest(
+                    f"sync 路径未被有效阻塞 (sync_avg={sync_avg:.1f} ≈ 40 上限) ——"
+                    " 物理负载不足以暴露 asyncio 冻结，对比无意义；本测试只在能暴露阻塞的"
+                    " 机器上回归 to_thread 是否仍有效。"
+                )
+
+            # sync 真被阻塞时，thread 必须显著领先 —— PyBullet 在 stepSimulation 内
+            # 部分持 GIL，本地实测 thread ~22 vs sync ~14。+5 是噪声鲁棒的下界。
             self.assertGreaterEqual(
                 thread_avg, sync_avg + 5,
                 msg=(
