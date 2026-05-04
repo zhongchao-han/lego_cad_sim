@@ -110,7 +110,13 @@ describe('store.snapParts — 后端 API 联调', () => {
           child_id:        'source.dat',
           parent_world_pos: expect.any(Array),
           child_world_pos:  expect.any(Array),
-        })
+        }),
+        // L56：snapParts 现在每次生成 UUID 当 Idempotency-Key
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Idempotency-Key': expect.any(String),
+          }),
+        }),
       );
     });
   });
