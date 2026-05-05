@@ -65,16 +65,18 @@ export function calculateSnapPose(
     );
 
     // 3. 核心物理变换：M_part = T_target * T_flip * T_source_local^-1
-    // 注意：Matrix4.invert() 是 in-place 操作，第 1 次调用后 _csp_mSourceLocal
-    // 已经变成它自己的逆。下方 slideOffset 分支若再次调用 .invert() 会翻回原值，
-    // 该行为与重构前完全一致（如有需要等价修正请单开 issue）。
+    // 注意：Matrix4.invert() 是 in-place 操作，调用后 _csp_mSourceLocal 自身
+    // 变成它的逆。下面 slideOffset 分支必须直接复用这个已 inverted 的矩阵 ——
+    // 不能再 .invert() 一次（连发两次等价于不调，乘进 m_part 的实际是 S 而非
+    // inv(S)，源 part 落点会偏 16 LDU 量级；pre-existing bug，已修）。
     _csp_mPart.copy(_csp_mTarget).multiply(_csp_mFlip).multiply(_csp_mSourceLocal.invert());
 
     // 4. 沿轴滑动 (Axial Sliding) —— 偏移在对齐后的 Source 端口 Z 轴上
     if (slideOffset !== 0) {
         _csp_mOffset.makeTranslation(0, 0, slideOffset);
         _csp_mTmp.copy(_csp_mTarget).multiply(_csp_mFlip).multiply(_csp_mOffset);
-        _csp_mPart.copy(_csp_mTmp).multiply(_csp_mSourceLocal.invert());
+        // _csp_mSourceLocal 上一行已被 inverted；直接乘，不再 .invert()。
+        _csp_mPart.copy(_csp_mTmp).multiply(_csp_mSourceLocal);
     }
 
     _csp_mPart.decompose(_csp_vOut, _csp_qOut, _csp_sOut);

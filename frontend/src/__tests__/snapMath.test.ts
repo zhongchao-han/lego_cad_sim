@@ -215,6 +215,43 @@ describe('calculateSnapPose: 几何正确性 + scratch reuse 安全', () => {
     expect(Array.isArray(pose.quaternion)).toBe(true);
     expect(pose.quaternion.length).toBe(4);
   });
+
+  // ── slideOffset + 非原点 source port 的二连 invert bug 回归 ─────────────
+  // 历史 bug：calculateSnapPose 在 slideOffset != 0 分支里第 2 次调
+  //   _csp_mSourceLocal.invert()。Matrix4.invert() 是 in-place，连发两次
+  //   等价于不调，所以乘进 m_part 的实际是 S 而非 inv(S)，违背
+  //   M_part = T_target × T_flip × T_offset × inv(T_source_local) 的几何意图。
+  //   只在 source.position != (0,0,0) 时显现 —— 销 / pin 类 origin=源端口
+  //   的零件不触发，beam 上多孔 part 的 source port 偏离 origin 就触发。
+  it('slideOffset + 非原点 source port：bug 修复后 part X 方向无 16 LDU 偏移', () => {
+    // 历史 bug 的关键体现：source.position 偏离原点（如 beam 上第 N 个孔）时
+    // X 方向会偏 = 2 × source_local.x（16 LDU 量级）。修复后 part.position[0]
+    // 严格 = -source_local.x。Z 方向遵循 X-flip 后的源轴约定（slideOffset >0
+    // 让源端口沿 target -Z 方向滑），具体 Z 数值是惯例无关 bug 的关键。
+    const sourceLocalPos: [number, number, number] = [0.008, 0, 0];
+    const slideOffset = 0.004;
+    const pose = calculateSnapPose(
+      sourceLocalPos, [0, 0, 0, 1],
+      [0, 0, 0], [0, 0, 0, 1],
+      slideOffset,
+    );
+
+    // bug 关键断言：part X = -source_local.x（不是 +source_local.x）
+    expect(pose.position[0]).toBeCloseTo(-0.008, 6);
+    // |Z| = slideOffset；符号由 X-flip 约定（实际 -0.004）
+    expect(Math.abs(pose.position[2])).toBeCloseTo(slideOffset, 6);
+  });
+
+  it('slideOffset=0 与 slideOffset!=0 在 source.position=(0,0,0) 时仅 Z 方向不同', () => {
+    // 源端口在零件 origin 时 bug 不显现（凑巧的边界）。这里验证修复不破坏
+    // 这条等效路径：source.position=(0,0,0) 时 X/Y 方向应一直是 0，无论 slideOffset。
+    const baseline = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1]);
+    const sliding = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1], 0.005);
+    expect(baseline.position[0]).toBeCloseTo(sliding.position[0], 6);
+    expect(baseline.position[1]).toBeCloseTo(sliding.position[1], 6);
+    // Z 必然不同（slideOffset 应有效果）
+    expect(baseline.position[2]).not.toBeCloseTo(sliding.position[2], 6);
+  });
 });
 
 describe('applyGroupDelta: 刚体 delta 整组应用', () => {
