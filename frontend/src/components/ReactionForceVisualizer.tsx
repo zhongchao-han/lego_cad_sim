@@ -34,16 +34,38 @@ function magnitudeToColor(mag: number): THREE.Color {
   return c;
 }
 
+/**
+ * L51b PR-C：safety_ratio (0 = 无负载、1 = 屈服) → 颜色。
+ * 比 magnitudeToColor 物理上更准 —— 标准化到了销孔的截面承受能力。
+ *   < 0.30 绿：很安全
+ *   0.30..0.70 黄绿过渡
+ *   0.70..1.00 黄→红
+ *   >= 1.00 深红 + 高亮（屈服失效）
+ */
+function safetyRatioToColor(safety: number): THREE.Color {
+  const c = new THREE.Color();
+  if (safety >= 1.0) {
+    c.setHSL(0, 1.0, 0.45); // 深红
+    return c;
+  }
+  // 0..1 ↦ hue 120..0；线性即够直观
+  const hue = (1 - Math.max(0, Math.min(1, safety))) * 120;
+  c.setHSL(hue / 360, 1.0, 0.55);
+  return c;
+}
+
 const _UNIT_Y = new THREE.Vector3(0, 1, 0);
 
 interface ArrowMeshProps {
   anchor: Vec3;
   force:  Vec3;
   magnitude: number;
+  /** L51b PR-C：safety_ratio 优先；null 时 fallback 到 magnitude HSV */
+  safetyRatio: number | null;
 }
 
 const SingleArrow = React.memo(function SingleArrow({
-  anchor, force, magnitude,
+  anchor, force, magnitude, safetyRatio,
 }: ArrowMeshProps) {
   const geometry = useMemo(() => {
     // 箭头朝 force 单位向量方向；用 quaternion 把局部 +Y 转到 force_dir
@@ -56,7 +78,11 @@ const SingleArrow = React.memo(function SingleArrow({
 
   if (!geometry) return null;
 
-  const color = magnitudeToColor(magnitude);
+  // safety_ratio 物理意义更准（销孔承受能力归一化）；非 CYLINDER 截面无 stress
+  // 时回退到 raw magnitude HSV。
+  const color = safetyRatio !== null
+    ? safetyRatioToColor(safetyRatio)
+    : magnitudeToColor(magnitude);
 
   return (
     <group position={anchor}>
@@ -98,6 +124,7 @@ export function ReactionForceVisualizer() {
           anchor={r.anchorWorld}
           force={r.force}
           magnitude={r.magnitudeForce}
+          safetyRatio={r.stress?.safetyRatio ?? null}
         />
       ))}
     </>
