@@ -35,6 +35,9 @@ interface VerifiedPart {
   // L51：backend mass_estimator 注入；GLB 没烘 = null
   mass_kg?: number | null;
   com_local?: [number, number, number] | null;
+  // L51b：backend port_lib_manager.cached_data["bounding_box"] 注入；缺失 = null
+  bbox_size?: [number, number, number] | null;
+  bbox_center?: [number, number, number] | null;
 }
 
 const FREQUENT_BUCKET = '★ Frequent';
@@ -97,6 +100,8 @@ export function PartLibraryPanel() {
             toothCount: p.tooth_count ?? null,
             massKg:     p.mass_kg ?? null,
             comLocal:   p.com_local ?? null,
+            bboxSize:   p.bbox_size ?? null,
+            bboxCenter: p.bbox_center ?? null,
             portCount:  p.port_count,
             meshUrl:    p.mesh_url,
           };
