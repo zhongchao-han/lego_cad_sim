@@ -1,13 +1,17 @@
 """
 test_urdf_exporter.py
 ======================
-覆盖 backend/urdf_exporter.py 的 L45 / L44b 改造：
+覆盖 backend/urdf_exporter.py 的 L45 / L44b / L45b 改造：
   - 闭环边写 SDF 1.9 风格 <gazebo><joint>，不再用虚构 <plugin>
   - 齿轮对（轴线平行 + 中心距匹配）给 follower joint 生成 <mimic>
   - L44b 中介齿轮链：齿轮 axlehole 卡 axle 上（fixed）+ axle 在 beam 圆孔中
     spin（continuous），mimic 必须加在齿轮所在 cluster 的 effective spin joint 上
   - 退化场景：垂直轴 / 距离不匹配 / 共轴 / 缺 ldraw_parts_dir → 无 mimic
   - L44b 退化：同 axle 多齿轮（同 cluster）无 mimic；钉死 cluster 内齿轮跳过
+  - L45b 4-bar fidelity：4 beam pin/peghole 闭环，砍掉的边必须仍 continuous（不
+    退化 fixed，否则连杆机构变废铁）
+  - L45b Floating Base：URDFExporter(floating_base=True) emit world link + 根
+    floating joint；默认关保持向后兼容
 """
 from __future__ import annotations
 
@@ -434,6 +438,164 @@ class TestGearMimicAxleMediated(unittest.TestCase):
                 joint.find('mimic'),
                 f"root cluster 内齿轮跳过，joint {joint.get('name')!r} 不应有 mimic",
             )
+
+
+# ─── L45b 4-bar 闭环 fidelity 测试 ─────────────────────────────────────────
+
+class Test4BarLinkage(unittest.TestCase):
+    """L45b：4-bar linkage 是 LEGO Technic 最常见的可动闭环机构。BFS 砍掉一条
+    形成 spanning tree + 1 closed_loop 边。fidelity 关键：闭环边的 joint type
+    必须从 port pair 推出来的真实类型 (continuous)，不能错误退化为 fixed —— 否则
+    外部 simulator 把 4-bar 加载成刚体。
+
+    端口顺序设计：parent_port 全用 MALE (pin)，child_port 全用 FEMALE (peghole)。
+    derive_joint_params 要求 plug=MALE + socket=FEMALE 才返 continuous，反着写
+    会因 INCOMPATIBLE 退化到 fixed —— 现有 TestClosedLoopExport 三角形 fixture
+    端口顺序反着，所以那套测试只是"type in legal set" 的宽断言。本测试用正向顺
+    序，对所有 4 条边强制 continuous，确保 BFS 砍哪条都 fidelity 不变。
+    """
+
+    def setUp(self) -> None:
+        self.tm = TopologyManager()
+        for nid in ('A', 'B', 'C', 'D'):
+            self.tm.add_part(_mk_part(nid))
+        # 4-bar: A → B → C → D → A
+        # parent_port = pin (MALE), child_port = peghole (FEMALE) → continuous
+        for parent, child in (('A', 'B'), ('B', 'C'), ('C', 'D'), ('D', 'A')):
+            self.tm.connect_ports(ConnectionEdge(
+                parent, child,
+                _mk_port("p", "pin",     [0, 0, 0]),
+                _mk_port("c", "peghole", [0, 0, 0]),
+            ))
+
+    def _export_and_parse(self) -> ET.Element:
+        tree = self.tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, self.tm.closed_loops, out)
+            return ET.parse(out).getroot()
+
+    def test_4bar_yields_4_links_3_main_joints_1_closed_loop(self):
+        root = self._export_and_parse()
+        links = root.findall('link')
+        # spanning tree 主 joints 在 robot 直接子节点；闭环走 <gazebo><joint>
+        main_joints = root.findall('joint')
+        gazebo_joints = root.findall('gazebo/joint')
+
+        self.assertEqual(len(links), 4, "4-bar 应产生 4 个 link")
+        self.assertEqual(len(main_joints), 3, "spanning tree 应剩 3 条主 joint")
+        self.assertEqual(len(gazebo_joints), 1, "BFS 应砍 1 条边到 closed_loop")
+
+    def test_4bar_closed_loop_joint_is_continuous_not_fixed(self):
+        """关键 fidelity：闭环必须保留 continuous 类型，否则 4-bar 退化成刚体。"""
+        root = self._export_and_parse()
+        gj = root.find('gazebo/joint')
+        self.assertIsNotNone(gj, "4-bar 应产生 1 个 closed_loop joint")
+        assert gj is not None
+        self.assertEqual(
+            gj.get('type'), 'continuous',
+            "4-bar 闭环 joint 必须是 continuous（pin/peghole = MALE+FEMALE+CYLINDER），"
+            "如果退化为 fixed 则连杆机构变废铁。",
+        )
+
+    def test_4bar_main_joints_all_continuous(self):
+        """spanning tree 内 3 条主 joint 也必须全 continuous。"""
+        root = self._export_and_parse()
+        for joint in root.findall('joint'):
+            self.assertEqual(
+                joint.get('type'), 'continuous',
+                f"spanning tree joint {joint.get('name')!r} 应是 continuous（同源 pin/peghole）",
+            )
+            # continuous joint 必须有 <axis>
+            self.assertIsNotNone(
+                joint.find('axis'),
+                f"continuous joint {joint.get('name')!r} 必须含 <axis>",
+            )
+
+
+# ─── L45b Floating Base 测试 ───────────────────────────────────────────────
+
+class TestFloatingBase(unittest.TestCase):
+    """L45b：URDFExporter(floating_base=True) 在主 link/joint 之前 emit
+    <link name="world"/> + <joint type="floating" parent="world" child="$root"/>，
+    让 ROS 2 / Gazebo 加载装配时整体 6DOF 浮空而非钉死。默认关保留向后兼容。"""
+
+    def _build_simple_tree(self) -> tuple[nx.DiGraph, list]:
+        """frame → A：单条 continuous joint，spanning tree root = frame（in_degree 0）。"""
+        tm = TopologyManager()
+        tm.add_part(_mk_part("frame"))
+        tm.add_part(_mk_part("A"))
+        tm.connect_ports(ConnectionEdge(
+            "frame", "A",
+            _mk_port("p", "pin",     [0, 0, 0]),
+            _mk_port("c", "peghole", [0, 0, 0]),
+        ))
+        tree = tm.build_spanning_tree()
+        return tree, tm.closed_loops
+
+    def _export(self, tree, loops, **exporter_kwargs) -> ET.Element:
+        with TemporaryDirectory() as out_dir:
+            out = os.path.join(out_dir, "out.urdf")
+            URDFExporter(**exporter_kwargs).export(tree, loops, out)
+            return ET.parse(out).getroot()
+
+    def test_floating_base_disabled_by_default(self):
+        """默认关 → URDF 不含 world link 也不含 floating joint，旧行为完全保留。"""
+        tree, loops = self._build_simple_tree()
+        root = self._export(tree, loops)
+        link_names = [el.get('name') for el in root.findall('link')]
+        self.assertNotIn('world', link_names, "默认关时 URDF 不应出现 world link")
+        for joint in root.findall('joint'):
+            self.assertNotEqual(
+                joint.get('type'), 'floating',
+                "默认关时不应出现 floating joint",
+            )
+
+    def test_floating_base_adds_world_link_and_floating_joint(self):
+        """开关开 → URDF 含 world link + type=floating 的根 joint。"""
+        tree, loops = self._build_simple_tree()
+        root = self._export(tree, loops, floating_base=True)
+        link_names = [el.get('name') for el in root.findall('link')]
+        self.assertIn('world', link_names, "floating_base=True 必须 emit world link")
+
+        floating_joints = [j for j in root.findall('joint') if j.get('type') == 'floating']
+        self.assertEqual(
+            len(floating_joints), 1,
+            "floating_base=True 必须 emit 恰好 1 条 floating joint",
+        )
+        fj = floating_joints[0]
+        self.assertEqual(fj.get('name'), 'root_floating')
+
+    def test_floating_base_child_is_spanning_tree_root(self):
+        """floating joint 的 parent=world，child = spanning tree 入度 0 节点。"""
+        tree, loops = self._build_simple_tree()
+        root = self._export(tree, loops, floating_base=True)
+        fj = next(
+            (j for j in root.findall('joint') if j.get('type') == 'floating'), None,
+        )
+        assert fj is not None
+        parent_el = fj.find('parent')
+        child_el  = fj.find('child')
+        self.assertIsNotNone(parent_el)
+        self.assertIsNotNone(child_el)
+        assert parent_el is not None and child_el is not None  # mypy
+        self.assertEqual(parent_el.get('link'), 'world')
+        # spanning tree root = frame（_build_simple_tree 中 in_degree 0 节点）
+        self.assertEqual(child_el.get('link'), 'frame')
+
+    def test_floating_base_world_link_precedes_root_link_in_xml(self):
+        """URDF spec 要求引用前定义：world link 必须在 robot 直接子节点中
+        位于 spanning tree 主 link 之前。"""
+        tree, loops = self._build_simple_tree()
+        root = self._export(tree, loops, floating_base=True)
+        # 收集 robot 直接子节点中所有 <link> 的 name 顺序
+        link_names_in_order = [
+            el.get('name') for el in root if el.tag == 'link'
+        ]
+        self.assertEqual(
+            link_names_in_order[0], 'world',
+            "world link 必须是 URDF 中的第一个 link",
+        )
 
 
 def _rot_to_align_z(world_z) -> np.ndarray:

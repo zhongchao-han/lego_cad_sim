@@ -199,16 +199,19 @@ class TopologyManager:
         urdf_tree: nx.DiGraph,
         output_file: str = "lego_assembly.urdf",
         ldraw_parts_dir: Optional[str] = None,
+        floating_base:   bool = False,
     ):
         """
         接受无环化的 URDF 树，应用 TF 数据，并生成 xml 文档。
         实际导出工作委托给 urdf_exporter.URDFExporter。
 
         L45：ldraw_parts_dir 传入时启用齿轮 mimic 检测。
+        L45b：floating_base=True 时给 URDF 加 world link + 根 floating joint。
         """
-        URDFExporter(ldraw_parts_dir=ldraw_parts_dir).export(
-            urdf_tree, self.closed_loops, output_file
-        )
+        URDFExporter(
+            ldraw_parts_dir=ldraw_parts_dir,
+            floating_base=floating_base,
+        ).export(urdf_tree, self.closed_loops, output_file)
 
 
 # =========================== Unit testing execution ============================

@@ -12,6 +12,15 @@ L45：闭环 + 齿轮联动增强（target spec：ROS 2 / SDF 1.9）
   齿轮对，给后续齿轮的 joint 加 `<mimic joint="leader" multiplier="-T₁/T₂"/>`，
   让外部 simulator 自动锁定齿数比。多齿轮链确定性 leader 选取：lex 最小 part_id。
 
+L45b：Floating Base（v1b）
+- v1 没给 spanning tree root 加任何 incoming joint，URDF 加载到 ROS 2 / Gazebo 时
+  base_link 默认坐标系是 world，等价于装配整体被钉死在 (0,0,0)。真物理仿真里
+  自由装配（汽车、机械臂）应该是 6DOF 浮在世界里。
+- 修法：URDFExporter(floating_base=True) 时在主 link/joint 之前 emit
+  <link name="world"/> + <joint name="root_floating" type="floating"
+  parent="world" child="$root"/>。默认关，调用方按场景需求开（ASSEMBLY 钉 /
+  SIMULATION 浮）。PyBullet 不识 floating type 但 useFixedBase=False 已浮，不冲突。
+
 L44b：中介齿轮链（gear locked to axle, axle spinning in beam hole）
 - 真实 LEGO Technic 玩法：齿轮 axlehole 卡 axle 上 → 齿轮自身 child joint = fixed
   （CROSS+CROSS = fixed）；axle 与 beam 之间才是 continuous 的 spin。v1 的 mimic
@@ -91,10 +100,19 @@ class URDFExporter:
     Args:
         ldraw_parts_dir: 用于查 .dat 首行解析齿数。None 时跳过齿轮 mimic 检测，
                         其它流程不受影响（向后兼容旧调用方）。
+        floating_base:   L45b：True 时在 URDF 头 emit <link name="world"/> + 根
+                        floating joint，让外部 simulator 视装配为 6DOF 浮空体。
+                        默认 False，保持向后兼容（调用方按 ASSEMBLY/SIMULATION
+                        场景自行开关）。
     """
 
-    def __init__(self, ldraw_parts_dir: Optional[str] = None):
+    def __init__(
+        self,
+        ldraw_parts_dir: Optional[str] = None,
+        floating_base:   bool = False,
+    ):
         self.ldraw_parts_dir = ldraw_parts_dir
+        self.floating_base   = floating_base
 
     def export(
         self,
@@ -105,6 +123,25 @@ class URDFExporter:
     ) -> None:
         """生成 URDF 文件。"""
         robot = ET.Element('robot', name=robot_name)
+
+        # ── 0. L45b Floating Base：world link + 根 floating joint（如启用）─────
+        # URDF 规范要求引用前定义，world link 必须在 spanning tree links 之前 emit。
+        # spanning tree root = 入度 0 节点（树结构保证唯一）；空树 / 多 root 时跳过。
+        if self.floating_base:
+            roots = [n for n in urdf_tree.nodes if urdf_tree.in_degree(n) == 0]
+            if len(roots) == 1:
+                root_node = roots[0]
+                ET.SubElement(robot, 'link', name='world')
+                fl_joint = ET.SubElement(
+                    robot, 'joint', name='root_floating', type='floating',
+                )
+                ET.SubElement(fl_joint, 'parent', link='world')
+                ET.SubElement(fl_joint, 'child',  link=root_node)
+            elif roots:
+                logger.warning(
+                    f"[L45b] floating_base 跳过：spanning tree 检测到 {len(roots)} 个 "
+                    f"入度 0 节点，无法唯一确定 root。"
+                )
 
         # ── 1. Links ─────────────────────────────────────────────────────────
         for node_id, params in urdf_tree.nodes(data=True):
@@ -334,7 +371,18 @@ def export_urdf(
     output_file:  str = "lego_assembly.urdf",
     robot_name:   str = "lego_technic_assembly",
     ldraw_parts_dir: Optional[str] = None,
+    floating_base:   bool = False,
 ) -> None:
-    """模块级便捷导出函数。ldraw_parts_dir 传入则启用齿轮 mimic 检测。"""
-    exporter = URDFExporter(ldraw_parts_dir=ldraw_parts_dir) if ldraw_parts_dir else _default_exporter
+    """模块级便捷导出函数。
+
+    Args:
+        ldraw_parts_dir: 传入则启用 L44/L44b 齿轮 mimic 检测。
+        floating_base:   L45b：True 时给 URDF 加 world link + 根 floating joint。
+    """
+    if ldraw_parts_dir or floating_base:
+        exporter = URDFExporter(
+            ldraw_parts_dir=ldraw_parts_dir, floating_base=floating_base,
+        )
+    else:
+        exporter = _default_exporter
     exporter.export(urdf_tree, closed_loops, output_file, robot_name)
