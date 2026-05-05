@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, mock_open, MagicMock
 from backend.sync_meili import get_part_name, sync_to_meilisearch
 import json
@@ -70,7 +69,7 @@ def test_sync_to_meilisearch_success(mock_get_part_name, mock_client, mock_open_
     assert called_args[0]["id"] == "32269"
     assert called_args[0]["part_num"] == "32269"
     assert called_args[0]["name"] == "Test Part Name"
-    assert called_args[0]["has_sites"] == True
+    assert called_args[0]["has_sites"] is True
 
 @patch("backend.sync_meili.os.path.exists")
 @patch("builtins.open", new_callable=mock_open, read_data='{"test.dat": {}}')
