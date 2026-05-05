@@ -43,7 +43,7 @@
 ### 3. 机械传动与物理深度 (Mechanical & Physics Depth)
 - [x] **⚙️ 齿轮传动链条相位自动对齐**（v1 / 方案 X）：`backend/category.py` 新增 `extract_tooth_count` 从 LDraw 描述 regex 出齿数（标准齿轮 67/125 命中）；`/api/get_verified_parts` 暴露 `tooth_count` 字段；前端 `utils/gearMath.ts` 提供啮合检测（轴线平行 + 中心距 ≈ (T₁+T₂)/2·module）+ 相位对齐（齿尖指向 partner 中心，最小转动）；`store.ts` snapParts 在 `applyGroupDelta` 后扫描场景齿轮，对 srcGroup 中有齿数的成员自动对齐。22 个 gearMath + 5 个 tooth_count 单测覆盖。**v1 不做**：锥齿轮 / 蜗轮蜗杆 / 齿条 / 多齿轮链超定检测（这些 toothCount 提取失败或几何不满足，自动 noop）。
 - [x] **⚙️ URDF 导出器闭环逻辑增强 (v1 / 方案 A+B)**：target spec 锁定 ROS 2 / SDF 1.9。`urdf_exporter.py` 把闭环边的虚构 `<gazebo><plugin>` 替换为合规 `<gazebo><joint>`（含 type/parent/child/pose/axis），让外部 simulator 真能加载闭环约束。新增齿轮对 `<mimic>` 自动注入：扫描 spanning tree 中 child 含 tooth_count 的 continuous joint，复用 L44 mesh 几何检测找配对，给 follower 加 `<mimic joint multiplier offset>`，multiplier=-T₁/T₂（外啮合反向）。`PartNode` 新增 `ldraw_id`，`SnapRequest` 新增 `parent/child_ldraw_id`（向后兼容），前端 store 在 snap_payload 携带，server.py 落到 PartNode 并同步 `global_transform`。**顺手修了 pre-existing bug**：`build_spanning_tree` BFS 在 `add_edge` 自动建 neighbor 节点时丢 PartNode data（旧 link export 的 `getattr` 默认值掩盖了它），L45 mimic 检测必须修。新增 7 个 urdf_exporter 单测覆盖闭环 SDF 字段 / 齿轮 mimic multiplier / 距离不匹配 / 轴线垂直 / 共轴 / 缺 ldraw_parts_dir 退化。**v1 不做**：Floating Base / 4-bar 等非齿轮闭环 / `depth=insertion_depth` 参数（pre-existing bug 单独 issue）。
-- [x] **⚙️ L44b 中介齿轮链 (v1b)**：齿轮 `axlehole` 卡 `axle` 上 → CROSS+CROSS = `fixed`；axle 与 beam 圆孔之间才是 `continuous` 旋转。L45 v1 mimic 检测只看 child 是 `continuous` 的齿轮，齿轮被自身 fixed joint 直接跳过，整条 axle 中介链识别失败。`urdf_exporter._inject_gear_mimic` 重写为 cluster-based：在 spanning tree 上沿 fixed 边做 union-find 求"轴向同步等价类"，每个 cluster 的 effective spin joint = 进入它的第一条 continuous joint；同 cluster 内多齿轮通过 fixed 自然共转跳过；跨 cluster mesh 几何检测，给 follower cluster 的 spin joint 加 `<mimic>` 引用 leader cluster 的 spin joint。spanning tree root 所在 cluster（无 incoming continuous）= 钉死状态，内部齿轮跳过。新增 4 个 axle-mediated 单测覆盖：mimic 落在 axle 的 spin joint 而非齿轮 fixed joint / 12T↔24T multiplier=-0.5 / 同 axle 多齿轮共 cluster 不写 mimic / root 钉死 cluster 内齿轮跳过。前端不动 —— `findMeshPartnerAndDelta` 已扫全场景几何，与 connection graph 无关。**v1b 不做**：锥齿轮 / 蜗轮蜗杆 / 齿条（几何公式不同；锥齿轮要硬编码 LDraw 经典型号，蜗轮要破 mimic 双向锁定）。
+- [x] **⚙️ L44b 中介齿轮链 (v1b)**：齿轮 `axlehole` 卡 `axle` 上 → CROSS+CROSS = `fixed`；axle 与 beam 圆孔之间才是 `continuous` 旋转。L45 v1 mimic 检测只看 child 是 `continuous` 的齿轮，齿轮被自身 fixed joint 直接跳过，整条 axle 中介链识别失败。`urdf_exporter._inject_gear_mimic` 重写为 cluster-based：在 spanning tree 上沿 fixed 边做 union-find 求"轴向同步等价类"，每个 cluster 的 effective spin joint = 进入它的第一条 continuous joint；同 cluster 内多齿轮通过 fixed 自然共转跳过；跨 cluster mesh 几何检测，给 follower cluster 的 spin joint 加 `<mimic>` 引用 leader cluster 的 spin joint。spanning tree root 所在 cluster（无 incoming continuous）= 钉死状态，内部齿轮跳过。新增 4 个 axle-mediated 单测覆盖：mimic 落在 axle 的 spin joint 而非齿轮 fixed joint / 12T↔24T multiplier=-0.5 / 同 axle 多齿轮共 cluster 不写 mimic / root 钉死 cluster 内齿轮跳过。前端不动 —— `findMeshPartnerAndDelta` 已扫全场景几何，与 connection graph 无关。**v1b 不做**：锥齿轮 / 蜗轮蜗杆 / 齿条 —— v1b 阶段调研后判定"前置依赖未到位"或"做错比不做更糟"，明确移入下方 🗂️ v2 Backlog，每项独立列前置依赖与触发条件。
 - [x] **⚙️ L45b Floating Base + 4-bar fidelity (v1b)**：(A) `URDFExporter(floating_base=True)` 在主 link/joint 之前 emit `<link name="world"/>` + `<joint name="root_floating" type="floating" parent="world" child="$root"/>`，让 ROS 2 / Gazebo 加载装配时整体 6DOF 浮空而非钉死在 (0,0,0)。`spanning tree root = in_degree 0 节点`，多 root / 空树时跳过并 warn。`TopologyManager.export_urdf` + 模块级 `export_urdf` 透传新 kwarg；默认 `False` 严格保持向后兼容。(B) 4-bar fidelity 验证：4 beam 用 pin/peghole（MALE+FEMALE）连成环 A-B-C-D-A，BFS 砍掉 1 条形成 spanning tree + 1 closed_loop。新增 `Test4BarLinkage` 3 个测试断言闭环 joint type 必须是 `continuous`（不能错误退化 fixed，否则连杆机构变废铁），主 joint 全 continuous 且含 `<axis>`。**端口顺序教训**：原 `TestClosedLoopExport` 三角形端口写反（parent=peghole/FEMALE），`derive_joint_params` 因极性反向退化 fixed，所以原闭环测试只是 type-in-set 宽断言；4-bar 用正向 plug=MALE→socket=FEMALE 才能严格断 continuous。新增 `TestFloatingBase` 4 个测试覆盖：默认关 / 开关开 emit world link + floating joint / parent=world & child=spanning tree root / world link emit 顺序在 root link 之前（URDF spec 要求引用前定义）。后端 198→205。**v1b 不做**：mode-aware 路由（ASSEMBLY 钉 / SIMULATION 浮 自动切换）/ 6DOF 降级（floating spec 在 ROS 2 / Gazebo / drake 全支持，PyBullet 不识但 useFixedBase=False 已浮，不冲突）/ 真 Gazebo 端到端冒烟（仓里没装外部 simulator）。
 - [x] **⚙️ 高精度物理过盈反馈 (v1 / 方案 X)**：前端 `utils/fitMath.ts` 把 `backend/port_semantics.py` 的 INTERFACE_REGISTRY + check_fit + 前缀模糊匹配整套复刻一份（避开 AXIAL_SLIDING 高频按键路径上的 `/api/check_fit` round-trip）。`useKeyboardShortcuts.ts` 方向键步长按 FitType 动态缩放：CLEARANCE × 1.0、FRICTION × 0.25（4 倍按键才走 1 LDU）、INTERFERENCE × 0.1、BLOCKED/INCOMPATIBLE × 0（锁死）。Shift 仍 10× 不动，与 fit factor 相乘。`StatusBar.tsx` 在 AXIAL_SLIDING 阶段显示当前 fit 标签（⚪ Loose / 🟡 Friction / ⛔ Blocked）让用户知道为什么慢。22 个 fitMath 单测 + 同源 drift 哨兵（核心 pin↔peghole / fric_pin↔peghole / axle↔axlehole 配对必须正确）。**v1 不做**：振动/音效 / Web Vibration / Gamepad rumble / 真 PyBullet 物理积分（高风险，超 v1 边界）/ INTERFERENCE 单独一档（当前 backend 把它合到 FRICTION，要分需 backend 改 check_fit）。
 
@@ -57,9 +57,35 @@
 
 ### 5. 极致高可用与工业级架构 (High Availability & Industrial Architecture)
 - [x] **🚀 渲染层 GC 降本增效 (Frontend GC Abatement)**：`utils/snapMath.ts` 三个热函数（`calculateSnapPose` / `applyGroupDelta` / `calculatePortRotationPose`）改用模块级 scratch pool —— `AXIAL_SLIDING` 阶段每次 pointermove 不再 new ~12 个 Three 对象。`Scene.jsx` PlacementGhost `useFrame` 把 `Plane` + `Vector3` 提到 `useMemo` 复用。新增 `snapMath.test.ts` 19 个回归测试覆盖几何正确性 + 1000 次连发 scratch 不污染 + 返回值非 scratch 引用。
-- [x] **🚀 后端物理锁隔离 (Async/GIL Decoupling)**：`PhysicsEngine` 内部用 `threading.Lock` 串行所有公有方法（pybullet client 非线程安全的硬约束）；`server.py` WebSocket loop 与 `apply_force` / `toggle_mode` 路由全部把 engine 调用挪到 `asyncio.to_thread`，HTTP 路由不再被物理积分冻结。新增 `reset(mode)` 方法替代旧 `engine.__init__()` 复用 hack（旧写法会替换锁让 in-flight 调用拿孤儿锁）。3 个并发回归测试覆盖：多线程 hammer 不崩 / reset 与 worker 串行不竞态 / to_thread 显著降低 asyncio 主循环阻塞（实测 ~1.5× yield tick；上限受 pybullet 部分持 GIL 限制，要全解需 Option C 子进程）。
+- [x] **🚀 后端物理锁隔离 (Async/GIL Decoupling)**：`PhysicsEngine` 内部用 `threading.Lock` 串行所有公有方法（pybullet client 非线程安全的硬约束）；`server.py` WebSocket loop 与 `apply_force` / `toggle_mode` 路由全部把 engine 调用挪到 `asyncio.to_thread`，HTTP 路由不再被物理积分冻结。新增 `reset(mode)` 方法替代旧 `engine.__init__()` 复用 hack（旧写法会替换锁让 in-flight 调用拿孤儿锁）。3 个并发回归测试覆盖：多线程 hammer 不崩 / reset 与 worker 串行不竞态 / to_thread 显著降低 asyncio 主循环阻塞（实测 ~1.5× yield tick；上限受 pybullet 部分持 GIL 限制，要全解需 Option C 子进程 —— 详见下方 🗂️ v2 Backlog L55b 条目）。
 - [x] **🚀 API 强幂等与防重入 (Idempotency Key Strictness)**：`backend/idempotency.py` 内存 TTL 缓存 + Starlette 中间件，所有 mutating POST 接受 `Idempotency-Key` header —— 同 key 同 body 直接回放、同 key 不同 body 返 409。前端 `store.ts` 在 `snapParts` 调用上送 UUIDv4，杜绝 `MultiDiGraph.add_edge` 在网络重放下产生重复幽灵边。契约见 `docs/06_engineering_standards/02_api_and_websocket_contract.md §三`。
 - [x] **🚀 WebGL 自动化 E2E 测试 (Canvas E2E Pipeline)**：`@playwright/test` 跑通；`frontend/e2e/canvas_pixel.spec.ts`（X 空画布哨兵，CI 必跑）+ `frontend/e2e/generator_pixel.spec.ts`（Y 已知 part 渲染基线，本地手跑），SwiftShader 软渲染锁定跨平台像素一致性，`ci.yml` 新增 `e2e-pixel-check` job 接入护城河。已有的行为级 spec（`editor_cases.spec.ts`、`interaction.spec.ts`）保留作本地回归。
+
+---
+
+## 🗂️ v2 Backlog（明确搁置项）
+
+下列项在 v1b 阶段被判定为"做错比不做更糟"或"前置依赖未到位"，整体打包搁置。每项独立列前置依赖与搁置理由，便于未来取舍。
+
+### 🟡 L44b 锥齿轮 mimic（bevel gears）
+- **前置依赖**：LDraw `.dat` 真实 mesh 几何接入（pitch radius / 锥角 δ / pitch cone apex 位置）。当前 `data/ldraw_port_configs.json` 只有 port 位置，无 part 自身 mesh 几何源。
+- **搁置理由**：mimic multiplier 算式简单（90° 外啮合仍是 `-T_a/T_b`），但 mesh 检测离不开 pitch radius —— 仅靠齿数和命名关键词推不出来。硬编码距离白名单（互联网查 / 估算）等于"猜"几何参数，外部 simulator 拿到错距离会输出反常物理，**做错比不做更糟**。
+- **触发条件**：仓库引入 `.dat` mesh 解析层（trimesh 已用于 L51 mass_estimator，扩展到锥齿轮 pitch 提取属合理增量）后回来做。
+
+### 🟡 L44b 蜗轮蜗杆（worm gears）
+- **前置依赖**：URDF / SDF 1.9 spec 扩展或本地 patch —— 标准 `<mimic>` 是双向锁定（leader↔follower 全速比同步），无法表达蜗轮单向自锁（worm 驱动 wheel，wheel 反向不能驱动 worm）。
+- **搁置理由**：写双向 mimic 失去自锁语义，是工程错误；写自锁需要新 spec（`<mimic_one_way>` 或 `<gazebo><joint><mimic_directional>`）外部 simulator 不识别。在 spec 拓展或 simulator 端有共识方案前不动。
+- **触发条件**：ROS 2 / Gazebo 推出单向 mimic 扩展 spec，或团队达成"自定 vendor 扩展+文档化兼容矩阵"决议。
+
+### 🟡 L44b 齿条（rack & pinion）
+- **前置依赖**：跨 simulator vendor 兼容矩阵（cross-type mimic：continuous joint mimic prismatic joint，单位 rad→m 换算 `r·θ`）。
+- **搁置理由**：URDF spec 不要求 mimic 同 type，但实际 simulator 实现：Gazebo / Ignition 接受，drake 部分支持，PyBullet `loadURDF` 忽略 mimic 标签自己用 createConstraint，rosserial 等老栈完全不识。落地前需明确目标 vendor 列表，否则导出 URDF 在不同环境表现不一致是支持泥潭。
+- **触发条件**：项目 target spec 明确锁死单一外部 simulator + 该 simulator 的 cross-type mimic 行为通过冒烟测试。
+
+### 🟡 L55b multiprocessing 子进程物理
+- **前置依赖**：真实 stepSimulation 阻塞主 asyncio loop 的可复现 benchmark（当前实测 1.5× yield tick 已可接受，无 hot bottleneck）。
+- **搁置理由**：重构面大（physics_engine + server.py + 全部 to_thread 调用点 + WebSocket loop 全部走 IPC），Windows spawn 启动慢（500ms-2s/reset 用户感知），子进程崩溃恢复需 supervisor。在没有真实大装配 benchmark 显示主 loop 显著 drop 之前，这套工程量不划算。
+- **触发条件**：用户报告 / 性能监控显示中等以上装配下 stepSimulation 阻塞 main loop 帧率显著掉（如 60Hz → < 30Hz 持续 > 5s）时再开。
 
 ---
 
