@@ -7,6 +7,7 @@ import {
   SelectionAnchor,
   InterferenceReport,
   PartCatalogEntry,
+  ReactionData,
   PartState,
   Vec3,
   Quat,
@@ -134,10 +135,17 @@ interface StoreState {
   /** L44 / L50：ldrawId → 后端 /api/get_verified_parts 元数据。
    *  PartLibraryPanel 拉取后填入；snapParts 用 toothCount 做齿轮咬合相位对齐。 */
   partCatalog: Record<string, PartCatalogEntry>;
+  /** L51b PR-B：上次 /api/compute_reactions 返回的反力 map（可空）。 */
+  reactionForces: Record<string, ReactionData>;
+  /** L51b PR-B：是否在 Scene 上渲染反力可视化（默认关，避免视觉过载）。 */
+  showReactionForces: boolean;
 
   // Actions
   reset: () => void;
   setPartCatalog: (catalog: Record<string, PartCatalogEntry>) => void;
+  /** L51b PR-B：拉一次反力，写入 reactionForces。失败时不抛，写空对象。 */
+  refreshReactionForces: () => Promise<void>;
+  setShowReactionForces: (v: boolean) => void;
   setView: (view: 'ASSEMBLY' | 'LIBRARY_VERIFY') => void;
   toggleMode: () => Promise<void>;
   updatePartState: (partId: string, state: Partial<PartState>) => void;
@@ -327,8 +335,48 @@ export const useStore = create<StoreState>()(
   cameraTarget: null,
   partUsages: {},
   partCatalog: {},
+  reactionForces: {},
+  showReactionForces: false,
 
   setPartCatalog: (catalog) => set({ partCatalog: catalog }),
+  setShowReactionForces: (v) => set({ showReactionForces: v }),
+  refreshReactionForces: async () => {
+    try {
+      const res = await axios.post(`${API_URL}/api/compute_reactions`);
+      const data = res.data as { status?: string; reactions?: Record<string, {
+        parent_id: string;
+        child_id: string;
+        anchor_world: [number, number, number];
+        force: [number, number, number];
+        torque: [number, number, number];
+        magnitude_force: number;
+        magnitude_torque: number;
+      }> };
+      if (data.status !== 'success' || !data.reactions) {
+        set({ reactionForces: {} });
+        return;
+      }
+      const out: Record<string, ReactionData> = {};
+      for (const [k, v] of Object.entries(data.reactions)) {
+        out[k] = {
+          parentId:        v.parent_id,
+          childId:         v.child_id,
+          anchorWorld:     v.anchor_world,
+          force:           v.force,
+          torque:          v.torque,
+          magnitudeForce:  v.magnitude_force,
+          magnitudeTorque: v.magnitude_torque,
+        };
+      }
+      set({ reactionForces: out });
+    } catch (err) {
+      get().addLog(
+        `[ReactionForces] 求解失败：${err instanceof Error ? err.message : String(err)}`,
+        'ERROR',
+      );
+      set({ reactionForces: {} });
+    }
+  },
 
   reset: () => {
       get().addLog("Store reset to default state.");

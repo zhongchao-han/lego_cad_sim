@@ -26,6 +26,7 @@ from backend.mesh_asset_manager import MeshAssetManager
 from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
 from backend.category import categorize_part, extract_tooth_count
 from backend.mass_estimator import estimate_mass_com_for_part
+from backend.statics_solver import solve_reactions
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -198,6 +199,25 @@ async def get_verified_parts():
             entry["bbox_size"] = None
             entry["bbox_center"] = None
     return base
+
+
+@app.post("/api/compute_reactions")
+async def compute_reactions():
+    """L51b PR-B：跑一次反力求解，返回每条 ConnectionEdge 的 6D wrench。
+    前端 ReactionForceVisualizer 据此着色。
+
+    输入：当前 topo_manager 状态（无 body 参数）。
+    输出：dict<edge_key, { force, torque, magnitude_force, ..., parent_id, ... }>。
+    复杂度：N parts × M edges → 6N×(6M+6) 矩阵 lstsq，典型场景 < 50ms。
+    """
+    try:
+        result = await asyncio.to_thread(
+            solve_reactions, topo_manager, mesh_manager,
+        )
+        return {"status": "success", "reactions": result}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[compute_reactions] 求解失败: %s", exc, exc_info=True)
+        return {"status": "error", "msg": str(exc), "reactions": {}}
 
 
 # --- 开发与维护离线工具包 (非侵入式热挂载) ---
