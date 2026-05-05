@@ -65,6 +65,10 @@ export interface PartCatalogEntry {
   name:      string;       // LDraw 首行注释解析出的可读名
   category:  string;       // L50 分级目录桶
   toothCount: number | null; // L44 齿数（非齿轮 / 异形齿轮 = null）
+  /** L51 单零件估算质量（kg）。GLB 没烘 / 估算失败 = null，store 走默认 0.001 kg。 */
+  massKg: number | null;
+  /** L51 part 局部坐标系下的质心（米）。v1 整体 COM 计算暂忽略，留 v2 精修。 */
+  comLocal: Vec3 | null;
   portCount?: number;
   meshUrl?:   string;
 }

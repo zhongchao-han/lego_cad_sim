@@ -25,6 +25,7 @@ from backend.auto_latch_scanner import AutoLatchScanner, serialize_port_key
 from backend.mesh_asset_manager import MeshAssetManager
 from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
 from backend.category import categorize_part, extract_tooth_count
+from backend.mass_estimator import estimate_mass_com_for_part
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -167,6 +168,7 @@ async def get_verified_parts():
     """获取物料库所需的已复核零件摘要，附带：
     - L50 分级目录所需的 name + category
     - L44 齿轮咬合所需的 tooth_count（非齿轮 / 异形齿轮为 None）
+    - L51 整体 COM 计算所需的 mass_kg + com_local（GLB 没烘 → None）
     """
     base = port_lib_manager.get_verified_parts()
     parts_dir = os.path.join(LDRAW_PARTS_ROOT, "parts")
@@ -175,6 +177,15 @@ async def get_verified_parts():
         entry["name"] = name
         entry["category"] = category
         entry["tooth_count"] = extract_tooth_count(name)
+        # L51：lazy 跑 trimesh.volume；GLB 已烘则查表，未烘则 None（前端
+        # 走 fallback 0.001 kg）。lru_cache 摊销；首次请求轻微延迟可接受。
+        mass_com = estimate_mass_com_for_part(mesh_manager, entry["part_id"], color_code=7)
+        if mass_com is not None:
+            entry["mass_kg"] = mass_com[0]
+            entry["com_local"] = list(mass_com[1])
+        else:
+            entry["mass_kg"] = None
+            entry["com_local"] = None
     return base
 
 

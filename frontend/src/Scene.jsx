@@ -7,6 +7,8 @@ import { useStore, getConnectedGroup } from './store';
 import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
 import { MarqueeSelectionOverlay } from './components/MarqueeSelectionOverlay';
+import { CenterOfMassGizmo } from './components/CenterOfMassGizmo';
+import { analyzeStability } from './utils/staticsMath';
 
 import { FreePlacingProjectionMode, InteractionPhase, ZoneType } from './types';
 import { calculateSnapPose, applyGroupDelta } from './utils/snapMath';
@@ -408,6 +410,21 @@ export default function Scene() {
     const debugMode = useStore((s) => s.debugMode);
     const cameraTarget = useStore((s) => s.cameraTarget);
     const hiddenParts = useStore((s) => s.hiddenParts);
+    const partCatalog = useStore((s) => s.partCatalog);
+    const mode = useStore((s) => s.mode);
+
+    // L51：整体质心 + 静态稳定性。仅 ASSEMBLY 模式 + ≥1 part 时绘制 gizmo。
+    const stability = useMemo(() => {
+        if (mode !== 'ASSEMBLY') return null;
+        const points = Object.values(parts)
+            .filter(p => p.zone === ZoneType.ACTIVE_ARENA)
+            .map(p => ({
+                position: p.position,
+                mass: partCatalog[p.ldrawId]?.massKg ?? 0.001,
+            }));
+        if (points.length === 0) return null;
+        return analyzeStability(points);
+    }, [parts, partCatalog, mode]);
 
     return (
         <>
@@ -450,6 +467,11 @@ export default function Scene() {
             <PlacementGhost />
             <FreePlacerGhost />
             <MarqueeSelectionOverlay />
+
+            {/* L51：整体质心标记 —— 不稳定时变红警示 */}
+            {stability?.com && (
+                <CenterOfMassGizmo position={stability.com} isStable={stability.isStable} />
+            )}
 
             <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />
