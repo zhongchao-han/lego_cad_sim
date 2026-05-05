@@ -44,7 +44,7 @@ def test_get_all_parts_missing_only(mock_glob, mock_exists):
 @patch("builtins.open", new_callable=mock_open)
 @patch("backend.dev_tools_api.shutil.copyfileobj")
 def test_upload_thumbnail_success(mock_copy, mock_open_file, mock_remove, mock_move, mock_exists):
-    mock_exists.side_effect = [True, True] # First for target_file exists, second for backup_file exists after
+    mock_exists.return_value = True # First for target_file exists, second for backup_file exists after
 
     file_content = b"dummy content"
     files = {"file": ("part1.png", file_content, "image/png")}
@@ -63,7 +63,7 @@ def test_upload_thumbnail_success(mock_copy, mock_open_file, mock_remove, mock_m
 @patch("backend.dev_tools_api.shutil.move")
 @patch("builtins.open", new_callable=mock_open)
 def test_upload_thumbnail_failure(mock_open_file, mock_move, mock_exists):
-    mock_exists.side_effect = [True, True] # First for target_file exists, second for backup_file recovery
+    mock_exists.return_value = True # First for target_file exists, second for backup_file recovery
     mock_open_file.side_effect = Exception("Test exception")
 
     file_content = b"dummy content"
