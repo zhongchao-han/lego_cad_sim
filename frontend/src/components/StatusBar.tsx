@@ -17,6 +17,9 @@ export function StatusBar() {
   });
 
   // L51：稳定性指示。ASSEMBLY 模式 + 多 part 时显示，unstable 走醒目红字。
+  const showReactionForces = useStore((s) => s.showReactionForces);
+  const setShowReactionForces = useStore((s) => s.setShowReactionForces);
+
   const stabilityLabel = useMemo(() => {
     if (mode !== 'ASSEMBLY') return null;
     // L51b PR-A：与 Scene.jsx 同样把 quaternion / comLocal / bbox* 喂给 staticsMath
@@ -120,6 +123,19 @@ export function StatusBar() {
             {stabilityLabel.text}
           </span>
         )}
+        {/* L51b PR-B：反力可视化 toggle */}
+        <button
+          type="button"
+          onClick={() => setShowReactionForces(!showReactionForces)}
+          className={`px-1.5 rounded transition-colors ${
+            showReactionForces
+              ? 'bg-emerald-700/40 text-emerald-200 hover:bg-emerald-700/60'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="L51b 反力可视化：每条连接 edge 上画一支力箭头，HSV 着色 by magnitude"
+        >
+          ⇡ Forces
+        </button>
         <div className="w-px h-3 bg-slate-700" />
         <span>Parts: <span className="text-white font-bold">{activePartsCount}</span></span>
         <div className="w-px h-3 bg-slate-700" />

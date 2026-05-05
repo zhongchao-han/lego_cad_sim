@@ -8,6 +8,7 @@ import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
 import { MarqueeSelectionOverlay } from './components/MarqueeSelectionOverlay';
 import { CenterOfMassGizmo } from './components/CenterOfMassGizmo';
+import { ReactionForceVisualizer } from './components/ReactionForceVisualizer';
 import { analyzeStability } from './utils/staticsMath';
 
 import { FreePlacingProjectionMode, InteractionPhase, ZoneType } from './types';
@@ -412,6 +413,17 @@ export default function Scene() {
     const hiddenParts = useStore((s) => s.hiddenParts);
     const partCatalog = useStore((s) => s.partCatalog);
     const mode = useStore((s) => s.mode);
+    const connections = useStore((s) => s.connections);
+    const showReactionForces = useStore((s) => s.showReactionForces);
+    const refreshReactionForces = useStore((s) => s.refreshReactionForces);
+
+    // L51b PR-B：拓扑或 toggle 状态变化时重算反力。connections 是 ConnectionGraph
+    // 引用稳定（snapParts 复制 + 增量更新触发引用变更），useEffect 比较自然 work。
+    // 仅 toggle on 时拉，避免无谓后端调用。
+    useEffect(() => {
+        if (!showReactionForces) return;
+        refreshReactionForces();
+    }, [connections, showReactionForces, refreshReactionForces]);
 
     // L51：整体质心 + 静态稳定性。L51b PR-A：把 quaternion / comLocal / bbox*
     // 一并喂给 staticsMath，启用 part-local COM 修正 + bbox 8-corner footprint。
@@ -480,6 +492,9 @@ export default function Scene() {
             {stability?.com && (
                 <CenterOfMassGizmo position={stability.com} isStable={stability.isStable} />
             )}
+
+            {/* L51b PR-B：反力可视化（每条 edge 一支彩色箭头），默认隐藏 */}
+            <ReactionForceVisualizer />
 
             <ContactShadows opacity={0.4} scale={10} blur={2.4} far={0.8} />
             <gridHelper args={[0.5, 30, '#bbb', '#e8e8e8']} position={[0, -0.01, 0]} />

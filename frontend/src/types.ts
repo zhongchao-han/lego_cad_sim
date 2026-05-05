@@ -60,6 +60,22 @@ export interface PartState {
  * 同 ldrawId 多个 PartState 实例共用一份 catalog 元数据；store 里维护
  * partCatalog: Record<ldrawId, PartCatalogEntry>，由 PartLibraryPanel 拉取后填入。
  */
+/**
+ * L51b PR-B：反力求解结果。
+ * 后端 /api/compute_reactions 返：{ edge_key: ReactionData }。
+ * edge_key 形如 "parent::child::uuidkey"；前端只用作字典键。
+ */
+export interface ReactionData {
+  parentId: string;
+  childId: string;
+  /** 世界坐标系下 wrench 作用点（来自 port_parent 局部位置 → 世界）。 */
+  anchorWorld: Vec3;
+  force:  Vec3;
+  torque: Vec3;
+  magnitudeForce:  number; // N
+  magnitudeTorque: number; // N·m
+}
+
 export interface PartCatalogEntry {
   partId:    string;       // .dat 文件名，例如 "3001.dat"
   name:      string;       // LDraw 首行注释解析出的可读名
