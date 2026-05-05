@@ -19,14 +19,22 @@ export function StatusBar() {
   // L51：稳定性指示。ASSEMBLY 模式 + 多 part 时显示，unstable 走醒目红字。
   const stabilityLabel = useMemo(() => {
     if (mode !== 'ASSEMBLY') return null;
-    const points = Object.values(parts)
+    // L51b PR-A：与 Scene.jsx 同样把 quaternion / comLocal / bbox* 喂给 staticsMath
+    const items = Object.values(parts)
       .filter(p => p.zone === ZoneType.ACTIVE_ARENA)
-      .map(p => ({
-        position: p.position,
-        mass: partCatalog[p.ldrawId]?.massKg ?? 0.001,
-      }));
-    if (points.length < 2) return null; // 单零件总是稳定，不显示
-    const r = analyzeStability(points);
+      .map(p => {
+        const meta = partCatalog[p.ldrawId];
+        return {
+          position:   p.position,
+          quaternion: p.quaternion,
+          mass:       meta?.massKg ?? 0.001,
+          comLocal:   meta?.comLocal ?? null,
+          bboxSize:   meta?.bboxSize ?? null,
+          bboxCenter: meta?.bboxCenter ?? null,
+        };
+      });
+    if (items.length < 2) return null; // 单零件总是稳定，不显示
+    const r = analyzeStability(items);
     return r.isStable
       ? { text: '🟢 Stable', isUnstable: false }
       : { text: '⚠ Unstable', isUnstable: true };

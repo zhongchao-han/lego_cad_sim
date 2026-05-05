@@ -169,6 +169,7 @@ async def get_verified_parts():
     - L50 分级目录所需的 name + category
     - L44 齿轮咬合所需的 tooth_count（非齿轮 / 异形齿轮为 None）
     - L51 整体 COM 计算所需的 mass_kg + com_local（GLB 没烘 → None）
+    - L51b 精修 footprint 所需的 bbox_size + bbox_center（cached_data 没有 → None）
     """
     base = port_lib_manager.get_verified_parts()
     parts_dir = os.path.join(LDRAW_PARTS_ROOT, "parts")
@@ -186,6 +187,16 @@ async def get_verified_parts():
         else:
             entry["mass_kg"] = None
             entry["com_local"] = None
+        # L51b：bbox 直接从 port_lib_manager 的持久化 cached_data 读（GeometryProcessor
+        # 在 /api/ldraw_part 路径上会数据自愈写入）。暴露到这里让前端 staticsMath
+        # 能按 bbox 8 角点重建 footprint，比 v1 用 part.position 单点准确得多。
+        bbox = port_lib_manager._data.get(entry["part_id"], {}).get("bounding_box")
+        if bbox and "size" in bbox and "center" in bbox:
+            entry["bbox_size"] = list(bbox["size"])
+            entry["bbox_center"] = list(bbox["center"])
+        else:
+            entry["bbox_size"] = None
+            entry["bbox_center"] = None
     return base
 
 

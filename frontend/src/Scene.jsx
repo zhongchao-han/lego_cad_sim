@@ -413,17 +413,25 @@ export default function Scene() {
     const partCatalog = useStore((s) => s.partCatalog);
     const mode = useStore((s) => s.mode);
 
-    // L51：整体质心 + 静态稳定性。仅 ASSEMBLY 模式 + ≥1 part 时绘制 gizmo。
+    // L51：整体质心 + 静态稳定性。L51b PR-A：把 quaternion / comLocal / bbox*
+    // 一并喂给 staticsMath，启用 part-local COM 修正 + bbox 8-corner footprint。
     const stability = useMemo(() => {
         if (mode !== 'ASSEMBLY') return null;
-        const points = Object.values(parts)
+        const items = Object.values(parts)
             .filter(p => p.zone === ZoneType.ACTIVE_ARENA)
-            .map(p => ({
-                position: p.position,
-                mass: partCatalog[p.ldrawId]?.massKg ?? 0.001,
-            }));
-        if (points.length === 0) return null;
-        return analyzeStability(points);
+            .map(p => {
+                const meta = partCatalog[p.ldrawId];
+                return {
+                    position:   p.position,
+                    quaternion: p.quaternion,
+                    mass:       meta?.massKg ?? 0.001,
+                    comLocal:   meta?.comLocal ?? null,
+                    bboxSize:   meta?.bboxSize ?? null,
+                    bboxCenter: meta?.bboxCenter ?? null,
+                };
+            });
+        if (items.length === 0) return null;
+        return analyzeStability(items);
     }, [parts, partCatalog, mode]);
 
     return (
