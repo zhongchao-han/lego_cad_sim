@@ -343,6 +343,15 @@ export const useStore = create<StoreState>()(
   refreshReactionForces: async () => {
     try {
       const res = await axios.post(`${API_URL}/api/compute_reactions`);
+      type RawStress = {
+        axial_force_N: number;
+        shear_force_N: number;
+        normal_stress_pa: number;
+        shear_stress_pa: number;
+        von_mises_pa: number;
+        safety_ratio: number;
+        yields: boolean;
+      };
       const data = res.data as { status?: string; reactions?: Record<string, {
         parent_id: string;
         child_id: string;
@@ -351,6 +360,7 @@ export const useStore = create<StoreState>()(
         torque: [number, number, number];
         magnitude_force: number;
         magnitude_torque: number;
+        stress?: RawStress | null;
       }> };
       if (data.status !== 'success' || !data.reactions) {
         set({ reactionForces: {} });
@@ -358,6 +368,7 @@ export const useStore = create<StoreState>()(
       }
       const out: Record<string, ReactionData> = {};
       for (const [k, v] of Object.entries(data.reactions)) {
+        const raw = v.stress;
         out[k] = {
           parentId:        v.parent_id,
           childId:         v.child_id,
@@ -366,6 +377,15 @@ export const useStore = create<StoreState>()(
           torque:          v.torque,
           magnitudeForce:  v.magnitude_force,
           magnitudeTorque: v.magnitude_torque,
+          stress: raw ? {
+            axialForceN:    raw.axial_force_N,
+            shearForceN:    raw.shear_force_N,
+            normalStressPa: raw.normal_stress_pa,
+            shearStressPa:  raw.shear_stress_pa,
+            vonMisesPa:     raw.von_mises_pa,
+            safetyRatio:    raw.safety_ratio,
+            yields:         raw.yields,
+          } : null,
         };
       }
       set({ reactionForces: out });

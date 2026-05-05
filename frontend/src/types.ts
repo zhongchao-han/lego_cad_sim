@@ -74,6 +74,18 @@ export interface ReactionData {
   torque: Vec3;
   magnitudeForce:  number; // N
   magnitudeTorque: number; // N·m
+  /** L51b PR-C：圆截面 von Mises 应力近似；非 CYLINDER edge 为 null。 */
+  stress: EdgeStress | null;
+}
+
+export interface EdgeStress {
+  axialForceN:    number;   // 轴向力（拉 > 0 / 压 < 0）
+  shearForceN:    number;   // 横向剪力 magnitude
+  normalStressPa: number;   // σ = |F_axial| / A
+  shearStressPa:  number;   // τ = F_lateral / A
+  vonMisesPa:     number;   // √(σ² + 3·τ²)
+  safetyRatio:    number;   // σ_vm / ABS_yield (40 MPa)；< 1 安全，>= 1 屈服
+  yields:         boolean;
 }
 
 export interface PartCatalogEntry {

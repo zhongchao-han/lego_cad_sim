@@ -27,6 +27,7 @@ from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
 from backend.category import categorize_part, extract_tooth_count
 from backend.mass_estimator import estimate_mass_com_for_part
 from backend.statics_solver import solve_reactions
+from backend.stress_analysis import enrich_reactions_with_stress
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -214,6 +215,9 @@ async def compute_reactions():
         result = await asyncio.to_thread(
             solve_reactions, topo_manager, mesh_manager,
         )
+        # L51b PR-C：把 reaction force 投到 port 圆截面算 von Mises σ_vm + safety
+        # ratio。仅 CYLINDER profile 的 edge 给 stress dict，其他给 None。
+        await asyncio.to_thread(enrich_reactions_with_stress, result, topo_manager)
         return {"status": "success", "reactions": result}
     except Exception as exc:  # noqa: BLE001
         logger.error("[compute_reactions] 求解失败: %s", exc, exc_info=True)

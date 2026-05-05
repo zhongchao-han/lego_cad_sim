@@ -19,6 +19,26 @@ export function StatusBar() {
   // L51：稳定性指示。ASSEMBLY 模式 + 多 part 时显示，unstable 走醒目红字。
   const showReactionForces = useStore((s) => s.showReactionForces);
   const setShowReactionForces = useStore((s) => s.setShowReactionForces);
+  const reactionForces = useStore((s) => s.reactionForces);
+
+  // L51b PR-C：扫所有 edge stress，找最严重的 safety_ratio。
+  // 三档：< 0.7 不显示（健康）；0.7~1.0 黄色 caution；>= 1.0 红色"yields"。
+  const maxStress = useMemo(() => {
+    let max = 0;
+    let yielded = false;
+    for (const r of Object.values(reactionForces)) {
+      if (!r.stress) continue;
+      if (r.stress.safetyRatio > max) max = r.stress.safetyRatio;
+      if (r.stress.yields) yielded = true;
+    }
+    if (yielded) return { text: '⚠ Yielded', isYield: true, isWarning: false };
+    if (max >= 0.7) return {
+      text: `⚠ ${(max * 100).toFixed(0)}% yield`,
+      isYield: false,
+      isWarning: true,
+    };
+    return null;
+  }, [reactionForces]);
 
   const stabilityLabel = useMemo(() => {
     if (mode !== 'ASSEMBLY') return null;
@@ -132,10 +152,21 @@ export function StatusBar() {
               ? 'bg-emerald-700/40 text-emerald-200 hover:bg-emerald-700/60'
               : 'text-slate-400 hover:text-slate-200'
           }`}
-          title="L51b 反力可视化：每条连接 edge 上画一支力箭头，HSV 着色 by magnitude"
+          title="L51b 反力可视化：每条连接 edge 上画一支力箭头；色彩按 von Mises safety_ratio（PR-C）"
         >
           ⇡ Forces
         </button>
+        {/* L51b PR-C：屈服 / 接近屈服告警 */}
+        {maxStress && (
+          <span
+            className={`tracking-wide font-medium ${
+              maxStress.isYield ? 'text-red-500 animate-pulse' : 'text-amber-400'
+            }`}
+            title="L51b 真应力近似：σ_vm / ABS_yield (40 MPa)。多 edge 取最严重值"
+          >
+            {maxStress.text}
+          </span>
+        )}
         <div className="w-px h-3 bg-slate-700" />
         <span>Parts: <span className="text-white font-bold">{activePartsCount}</span></span>
         <div className="w-px h-3 bg-slate-700" />
