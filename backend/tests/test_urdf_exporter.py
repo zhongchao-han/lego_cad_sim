@@ -1,10 +1,13 @@
 """
 test_urdf_exporter.py
 ======================
-覆盖 backend/urdf_exporter.py 的 L45 改造：
+覆盖 backend/urdf_exporter.py 的 L45 / L44b 改造：
   - 闭环边写 SDF 1.9 风格 <gazebo><joint>，不再用虚构 <plugin>
   - 齿轮对（轴线平行 + 中心距匹配）给 follower joint 生成 <mimic>
+  - L44b 中介齿轮链：齿轮 axlehole 卡 axle 上（fixed）+ axle 在 beam 圆孔中
+    spin（continuous），mimic 必须加在齿轮所在 cluster 的 effective spin joint 上
   - 退化场景：垂直轴 / 距离不匹配 / 共轴 / 缺 ldraw_parts_dir → 无 mimic
+  - L44b 退化：同 axle 多齿轮（同 cluster）无 mimic；钉死 cluster 内齿轮跳过
 """
 from __future__ import annotations
 
@@ -144,10 +147,9 @@ class TestGearMimicExport(unittest.TestCase):
         _write_fake_dat(tmp_name, "gB.dat", f"Technic Gear {tooth_b} Tooth Test")
 
         tm = TopologyManager()
-        # 单 frame 直接接两个齿轮：v1 mimic 检测看的是直接 child 含 tooth_count
-        # 的 continuous joint。真实 LEGO 还有 axle 中介（gear locked to axle，axle
-        # 在 beam 里旋转），但 v1 的检测路径暂不递归搜子树 —— 那是 v2 的事，会单
-        # 列 issue。本测试只验证 mimic 几何检测 / multiplier 算式正确。
+        # 单 frame 直接接两个齿轮：齿轮的 child joint 本身就是 continuous（pin/peghole）。
+        # 真实 LEGO 中介齿轮链（gear locked to axle，axle 在 beam 里旋转）由 L44b
+        # 的 fixed-cluster 算法覆盖，单独 TestGearMimicAxleMediated 测试。
         tm.add_part(_mk_part("frame"))
         rot_b = np.eye(3) if axis_b is None else _rot_to_align_z(axis_b)
         tm.add_part(_mk_part("gear_a", ldraw_id="gA.dat", world_pos=[0, 0, 0]))
@@ -229,6 +231,209 @@ class TestGearMimicExport(unittest.TestCase):
             root = ET.parse(out).getroot()
         for joint in root.findall('joint'):
             self.assertIsNone(joint.find('mimic'))
+
+
+# ─── L44b 中介齿轮链测试 ───────────────────────────────────────────────────
+
+class TestGearMimicAxleMediated(unittest.TestCase):
+    """L44b：齿轮 axlehole 卡 axle 上 → 齿轮 child joint = fixed；mimic 必须加在
+    齿轮所在 fixed-cluster 的 effective spin joint（axle 与 beam 之间的 continuous
+    joint）上。同 cluster 内多齿轮自然共转，不写 mimic。"""
+
+    def setUp(self) -> None:
+        self._tmp_dir: TemporaryDirectory[str] | None = None
+
+    def tearDown(self) -> None:
+        if self._tmp_dir is not None:
+            self._tmp_dir.cleanup()
+            self._tmp_dir = None
+
+    def _build_axle_mediated_chain(
+        self,
+        tooth_a: int = 24,
+        tooth_b: int = 24,
+        gap: float = None,  # type: ignore[assignment]
+    ) -> tuple[nx.DiGraph, list, str]:
+        """构造典型中介齿轮链：
+            frame → axle_a (continuous, pin/peghole)
+            axle_a → gear_a (fixed, axle/axlehole)  ← gear_a 锁在 axle_a 上
+            frame → axle_b (continuous, pin/peghole)
+            axle_b → gear_b (fixed, axle/axlehole)  ← gear_b 锁在 axle_b 上
+        几何：两 axle 都 +Z 方向；gear_a 在 (0,0,0)，gear_b 在 (gap, 0, 0)。
+        预期：gear_a 与 gear_b mesh → mimic 加在 frame→axle_b 的 continuous joint
+        上，引用 frame→axle_a 的 continuous joint。"""
+        if gap is None:
+            gap = (tooth_a + tooth_b) / 2 * LEGO_GEAR_MODULE_M
+        self._tmp_dir = TemporaryDirectory()
+        tmp_name = self._tmp_dir.name
+        _write_fake_dat(tmp_name, "gA.dat", f"Technic Gear {tooth_a} Tooth Test")
+        _write_fake_dat(tmp_name, "gB.dat", f"Technic Gear {tooth_b} Tooth Test")
+
+        tm = TopologyManager()
+        tm.add_part(_mk_part("frame"))
+        # axle_a/axle_b 不需要 ldraw_id —— 不是齿轮
+        tm.add_part(_mk_part("axle_a", world_pos=[0, 0, 0]))
+        tm.add_part(_mk_part("axle_b", world_pos=[gap, 0, 0]))
+        # 齿轮位姿继承自 axle（同一 fixed cluster 共位姿；这里 gear 与 axle 重合）
+        tm.add_part(_mk_part("gear_a", ldraw_id="gA.dat", world_pos=[0, 0, 0]))
+        tm.add_part(_mk_part("gear_b", ldraw_id="gB.dat", world_pos=[gap, 0, 0]))
+
+        # frame ↔ axle_x 用 pin/peghole → continuous（模拟 axle 在 beam 圆孔中旋转）
+        tm.connect_ports(ConnectionEdge(
+            "frame", "axle_a",
+            _mk_port("p", "pin", [0, 0, 0]),
+            _mk_port("c", "peghole", [0, 0, 0]),
+        ))
+        tm.connect_ports(ConnectionEdge(
+            "frame", "axle_b",
+            _mk_port("p", "pin", [0, 0, 0]),
+            _mk_port("c", "peghole", [0, 0, 0]),
+        ))
+        # axle_x ↔ gear_x 用 axle/axlehole → fixed（齿轮锁在 axle 上）
+        tm.connect_ports(ConnectionEdge(
+            "axle_a", "gear_a",
+            _mk_port("p", "axle", [0, 0, 0]),
+            _mk_port("c", "axlehole", [0, 0, 0]),
+        ))
+        tm.connect_ports(ConnectionEdge(
+            "axle_b", "gear_b",
+            _mk_port("p", "axle", [0, 0, 0]),
+            _mk_port("c", "axlehole", [0, 0, 0]),
+        ))
+
+        tree = tm.build_spanning_tree()
+        return tree, tm.closed_loops, tmp_name
+
+    def _export(self, tree, loops, parts_dir) -> ET.Element:
+        with TemporaryDirectory() as out_dir:
+            out = os.path.join(out_dir, "out.urdf")
+            URDFExporter(ldraw_parts_dir=parts_dir).export(tree, loops, out)
+            return ET.parse(out).getroot()
+
+    def test_mimic_lands_on_axle_spin_joint_not_gear_fixed_joint(self):
+        """中介链：mimic 必须在 frame→axle_b 的 continuous joint 上，
+        而不是 axle_b→gear_b 的 fixed joint 上。"""
+        tree, loops, parts_dir = self._build_axle_mediated_chain(24, 24)
+        root = self._export(tree, loops, parts_dir)
+
+        joints_by_name = {j.get('name'): j for j in root.findall('joint')}
+        # 齿轮自身的 fixed joint 不应有 mimic
+        gear_b_fixed = joints_by_name.get('joint_axle_b_to_gear_b')
+        self.assertIsNotNone(gear_b_fixed, "axle_b→gear_b 的 fixed joint 应存在")
+        assert gear_b_fixed is not None
+        self.assertEqual(gear_b_fixed.get('type'), 'fixed')
+        self.assertIsNone(
+            gear_b_fixed.find('mimic'),
+            "fixed joint 不能加 <mimic>（URDF 规范不支持）",
+        )
+
+        # axle_b 的 spin joint 必须有 mimic 引用 axle_a 的 spin joint
+        axle_b_spin = joints_by_name.get('joint_frame_to_axle_b')
+        self.assertIsNotNone(axle_b_spin, "frame→axle_b 的 continuous spin joint 应存在")
+        assert axle_b_spin is not None
+        self.assertEqual(axle_b_spin.get('type'), 'continuous')
+        mimic = axle_b_spin.find('mimic')
+        self.assertIsNotNone(mimic, "axle 中介齿轮链 mimic 必须在 axle 的 spin joint 上")
+        assert mimic is not None
+        self.assertEqual(mimic.get('joint'), 'joint_frame_to_axle_a')
+        self.assertAlmostEqual(float(mimic.get('multiplier', '0')), -1.0, places=4)
+
+    def test_asymmetric_axle_mediated_chain_correct_multiplier(self):
+        """12T → 24T 中介链：multiplier = -12/24 = -0.5。"""
+        tree, loops, parts_dir = self._build_axle_mediated_chain(12, 24)
+        root = self._export(tree, loops, parts_dir)
+        joints = {j.get('name'): j for j in root.findall('joint')}
+        axle_b_spin = joints.get('joint_frame_to_axle_b')
+        assert axle_b_spin is not None
+        mimic = axle_b_spin.find('mimic')
+        assert mimic is not None
+        self.assertAlmostEqual(float(mimic.get('multiplier', '0')), -0.5, places=4)
+
+    def test_no_mimic_when_two_gears_on_same_axle(self):
+        """同一 axle 上的两齿轮：同 fixed cluster，自然共转，不应写 mimic。"""
+        self._tmp_dir = TemporaryDirectory()
+        tmp_name = self._tmp_dir.name
+        _write_fake_dat(tmp_name, "gA.dat", "Technic Gear 24 Tooth Test")
+        _write_fake_dat(tmp_name, "gB.dat", "Technic Gear 24 Tooth Test")
+
+        tm = TopologyManager()
+        tm.add_part(_mk_part("frame"))
+        tm.add_part(_mk_part("axle1", world_pos=[0, 0, 0]))
+        # 两齿轮卡同一 axle 上，沿 +Z 错开（实际玩法：两个齿轮串在同一根长 axle）
+        gap_along_axis = LEGO_GEAR_MODULE_M / 2  # 卡在轴向限位 module 内（共平面边界）
+        tm.add_part(_mk_part("gear_a", ldraw_id="gA.dat", world_pos=[0, 0, 0]))
+        tm.add_part(_mk_part("gear_b", ldraw_id="gB.dat", world_pos=[0, 0, gap_along_axis]))
+
+        tm.connect_ports(ConnectionEdge(
+            "frame", "axle1",
+            _mk_port("p", "pin", [0, 0, 0]),
+            _mk_port("c", "peghole", [0, 0, 0]),
+        ))
+        tm.connect_ports(ConnectionEdge(
+            "axle1", "gear_a",
+            _mk_port("p", "axle", [0, 0, 0]),
+            _mk_port("c", "axlehole", [0, 0, 0]),
+        ))
+        tm.connect_ports(ConnectionEdge(
+            "axle1", "gear_b",
+            _mk_port("p", "axle", [0, 0, 0]),
+            _mk_port("c", "axlehole", [0, 0, 0]),
+        ))
+
+        tree = tm.build_spanning_tree()
+        root = self._export(tree, [], tmp_name)
+
+        # 整个 spanning tree 内任何 joint 都不应含 mimic（同 cluster + 几何也不咬合）
+        for joint in root.findall('joint'):
+            self.assertIsNone(
+                joint.find('mimic'),
+                f"同 axle 多齿轮 cluster 内 joint {joint.get('name')!r} 不应有 mimic",
+            )
+
+    def test_no_mimic_when_gear_in_root_pinned_cluster(self):
+        """spanning tree root 所在 cluster（无 incoming continuous joint）= 钉死状态，
+        cluster 内齿轮既不能做 leader 也不能做 follower。"""
+        self._tmp_dir = TemporaryDirectory()
+        tmp_name = self._tmp_dir.name
+        _write_fake_dat(tmp_name, "gA.dat", "Technic Gear 24 Tooth Test")
+        _write_fake_dat(tmp_name, "gB.dat", "Technic Gear 24 Tooth Test")
+
+        gap = 24 * LEGO_GEAR_MODULE_M  # 24+24 / 2 · module = 24·module
+        tm = TopologyManager()
+        # gear_root 直接 fixed 到 spanning tree root（frame）—— 同 root cluster 无 spin
+        tm.add_part(_mk_part("frame"))
+        tm.add_part(_mk_part("gear_root", ldraw_id="gA.dat", world_pos=[0, 0, 0]))
+        # gear_b 在另一 axle 上正常的 continuous spin
+        tm.add_part(_mk_part("axle_b", world_pos=[gap, 0, 0]))
+        tm.add_part(_mk_part("gear_b", ldraw_id="gB.dat", world_pos=[gap, 0, 0]))
+
+        # frame ↔ gear_root：axle/axlehole = fixed（齿轮直接钉在 frame 上）
+        tm.connect_ports(ConnectionEdge(
+            "frame", "gear_root",
+            _mk_port("p", "axle", [0, 0, 0]),
+            _mk_port("c", "axlehole", [0, 0, 0]),
+        ))
+        tm.connect_ports(ConnectionEdge(
+            "frame", "axle_b",
+            _mk_port("p", "pin", [0, 0, 0]),
+            _mk_port("c", "peghole", [0, 0, 0]),
+        ))
+        tm.connect_ports(ConnectionEdge(
+            "axle_b", "gear_b",
+            _mk_port("p", "axle", [0, 0, 0]),
+            _mk_port("c", "axlehole", [0, 0, 0]),
+        ))
+
+        tree = tm.build_spanning_tree()
+        root = self._export(tree, [], tmp_name)
+
+        # gear_root 在 root cluster（无 spin）→ 它不能做 leader 也不能做 follower
+        # gear_b 几何 mesh 但配对失败（leader cluster 没 spin joint）→ 整个 mimic 缺位
+        for joint in root.findall('joint'):
+            self.assertIsNone(
+                joint.find('mimic'),
+                f"root cluster 内齿轮跳过，joint {joint.get('name')!r} 不应有 mimic",
+            )
 
 
 def _rot_to_align_z(world_z) -> np.ndarray:
