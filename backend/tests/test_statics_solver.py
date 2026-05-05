@@ -58,8 +58,7 @@ class TestStaticsSolverBasic(unittest.TestCase):
         """A 在地面 (Y=0)，B 在 A 上方 (Y=1m)，1 条 fixed edge 把 B 挂在 A 上。
         edge wrench 必须托住 B 的重力 m_B·g。"""
         tm = TopologyManager()
-        m_a = 0.001  # 默认 mass
-        m_b = 0.001
+        m_b = 0.001  # 默认 mass
         tm.add_part(_mk_part("A", world_pos=(0, 0, 0)))
         tm.add_part(_mk_part("B", world_pos=(0, 1.0, 0)))
         # parent=A, child=B；joint anchor 取在 A 顶上 (port_parent.position 局部 (0,1,0) 映到世界 (0,1,0))
