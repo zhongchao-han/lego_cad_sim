@@ -77,19 +77,6 @@ class ConnectionEdge:
         return fit not in (FitType.INCOMPATIBLE, FitType.BLOCKED)
 
     # ------------------------------------------------------------------ #
-    # 几何计算（委托给 Port）
-    # ------------------------------------------------------------------ #
-
-    def get_relative_transform(self):
-        """
-        返回当前插入深度下，子零件相对父零件的 4×4 变换矩阵。
-        委托给父端口的 calculate_relative_transform()。
-        """
-        return self.port_parent.calculate_relative_transform(
-            self.port_child, depth=self.state.insertion_depth
-        )
-
-    # ------------------------------------------------------------------ #
     # 调试
     # ------------------------------------------------------------------ #
 
