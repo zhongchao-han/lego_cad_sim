@@ -12,6 +12,18 @@ L45：闭环 + 齿轮联动增强（target spec：ROS 2 / SDF 1.9）
   齿轮对，给后续齿轮的 joint 加 `<mimic joint="leader" multiplier="-T₁/T₂"/>`，
   让外部 simulator 自动锁定齿数比。多齿轮链确定性 leader 选取：lex 最小 part_id。
 
+L44b：中介齿轮链（gear locked to axle, axle spinning in beam hole）
+- 真实 LEGO Technic 玩法：齿轮 axlehole 卡 axle 上 → 齿轮自身 child joint = fixed
+  （CROSS+CROSS = fixed）；axle 与 beam 之间才是 continuous 的 spin。v1 的 mimic
+  检测只看"child 含 tooth_count 且 child joint = continuous"，齿轮被它的 fixed
+  joint 直接跳过。
+- 修法：在 spanning tree 上沿 fixed 边做 union-find 求"轴向同步等价类"，每个
+  cluster 的 effective spin joint = 进入它的第一条 continuous joint。同 cluster
+  内的多齿轮通过 fixed 自然共转，无需 mimic；跨 cluster 的两齿轮做 mesh 几何
+  检测，给 follower cluster 的 spin joint 加 <mimic> 引用 leader cluster 的
+  spin joint。spanning tree root 所在的 cluster 没有 incoming continuous joint
+  → 钉死状态，内部齿轮既不能做 leader 也不能做 follower，跳过。
+
 PyBullet 的 add_closed_loop_constraint 走它自己的 createConstraint 路径，与
 本模块无关 —— 即使 URDF 的闭环 joint 写法变了，PyBullet 仿真不受影响。
 """
@@ -203,21 +215,66 @@ class URDFExporter:
         urdf_tree: nx.DiGraph,
         joint_elements: Dict[str, ET.Element],
     ) -> None:
-        """扫描 continuous joint，找齿轮对，给 follower 加 <mimic>。
+        """扫描齿轮对的几何 mesh，给 follower 等价类的 spin joint 加 <mimic>。
 
-        齿轮 mesh 几何条件复用 _check_gear_mesh（与 frontend gearMath 同源）。
-        Leader 选择：lex 最小 part_id（确保多齿轮链时拓扑确定性）。
+        L44b：以 spanning tree 上的 fixed 边做 union-find 求"轴向同步等价类"。
+        每个 cluster 的 effective spin joint = 进入它的第一条 continuous joint。
+        典型场景：齿轮 axlehole 卡 axle 上（fixed）+ axle 与 beam 之间 continuous
+        旋转 → 齿轮 + axle 同 cluster，cluster 共享 axle 这条 spin。
+
+        Mesh 几何检测复用 _check_gear_mesh（与 frontend gearMath 同源）；同 cluster
+        内的多齿轮通过 fixed 自然共转，跳过；跨 cluster 配对，给 follower cluster
+        的 spin joint 加 <mimic>。Leader 选择：lex 最小 part_id（多齿轮链确定）。
+        Spanning tree root 所在 cluster 无 incoming continuous joint = 钉死状态，
+        内部齿轮跳过（既无法做 leader 也无法做 follower）。
         """
         if not self.ldraw_parts_dir:
             return
-        # 收集所有"齿轮 joint"：joint type=continuous 且 child 有 tooth_count
-        gears: List[Tuple[str, int, np.ndarray, np.ndarray, str]] = []
-        # tuple = (part_id, tooth_count, world_pos, world_axis, joint_name)
+
+        # ── 1. fixed-edge union-find，求轴向同步等价类 ─────────────────────
+        parent_uf: Dict[str, str] = {n: n for n in urdf_tree.nodes}
+
+        def find(x: str) -> str:
+            # path compression：摊销 O(α(N))
+            root = x
+            while parent_uf[root] != root:
+                root = parent_uf[root]
+            while parent_uf[x] != root:
+                parent_uf[x], x = root, parent_uf[x]
+            return root
+
+        def union(a: str, b: str) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent_uf[ra] = rb
+
+        for u, v in urdf_tree.edges:
+            joint = joint_elements.get(v)
+            if joint is None:
+                continue
+            if joint.get('type') == 'fixed':
+                union(u, v)
+
+        # ── 2. 每个 cluster 的 effective spin joint ──────────────────────────
+        # spanning tree 是树，每个非 root 节点有且仅有 1 条 incoming edge；fixed
+        # 边已被 union 进同 cluster，所以每个 cluster 至多 1 条 incoming continuous
+        # joint（cluster 在树中的最上端节点的那条 incoming 边）。setdefault 保留
+        # 容错语义即可。
+        cluster_spin_joint: Dict[str, Tuple[str, ET.Element]] = {}
         for u, v in urdf_tree.edges:
             joint = joint_elements.get(v)
             if joint is None or joint.get('type') != 'continuous':
                 continue
-            part_data = urdf_tree.nodes[v].get('data')
+            cluster_v = find(v)
+            cluster_spin_joint.setdefault(
+                cluster_v, (joint.get('name', ''), joint),
+            )
+
+        # ── 3. 收集齿轮 → 按 cluster 索引 ────────────────────────────────────
+        gears: List[Tuple[str, int, np.ndarray, np.ndarray, str]] = []
+        # tuple = (part_id, tooth_count, world_pos, world_axis, cluster_root)
+        for n in urdf_tree.nodes:
+            part_data = urdf_tree.nodes[n].get('data')
             ldraw_id = getattr(part_data, 'ldraw_id', None)
             if not ldraw_id:
                 continue
@@ -226,30 +283,40 @@ class URDFExporter:
             if not tooth:
                 continue
             T = getattr(part_data, 'global_transform', np.eye(4))
-            gears.append((v, tooth, _world_pos(T), _world_axis_z(T), joint.get('name', '')))
+            gears.append((n, tooth, _world_pos(T), _world_axis_z(T), find(n)))
 
-        # 配对 mesh —— O(N²) 在典型 N≤20 齿轮场景下零担忧
-        already_following: set[str] = set()
-        gears.sort(key=lambda g: g[0])  # part_id lex 序，保证 leader 选取确定
-        for i, (a_pid, a_tooth, a_pos, a_axis, a_jname) in enumerate(gears):
+        # ── 4. 跨 cluster 配对 mesh，给 follower spin joint 加 <mimic> ───────
+        followed_clusters: set[str] = set()
+        gears.sort(key=lambda g: g[0])  # part_id lex 序，多齿轮链时 leader 选取确定
+        for i, (_a_pid, a_tooth, a_pos, a_axis, a_cluster) in enumerate(gears):
             for j in range(i + 1, len(gears)):
-                b_pid, b_tooth, b_pos, b_axis, b_jname = gears[j]
-                if b_pid in already_following:
-                    continue  # 已经跟随其他 leader，避免 mimic 链
+                _b_pid, b_tooth, b_pos, b_axis, b_cluster = gears[j]
+                # 同 cluster：FIXED 自然同步，无需 mimic
+                if a_cluster == b_cluster:
+                    continue
+                # follower cluster 的 spin joint 已 follow 别人，避免双 mimic 元素
+                if b_cluster in followed_clusters:
+                    continue
                 if not _check_gear_mesh(a_pos, a_axis, b_pos, b_axis, a_tooth, b_tooth):
                     continue
+                # 钉死 cluster（spanning tree root 所在）无 incoming continuous joint
+                a_spin = cluster_spin_joint.get(a_cluster)
+                b_spin = cluster_spin_joint.get(b_cluster)
+                if a_spin is None or b_spin is None:
+                    continue
+                a_jname, _ = a_spin
+                b_jname, b_joint_el = b_spin
                 # 外啮合反向：multiplier = -T_a / T_b
                 multiplier = -float(a_tooth) / float(b_tooth)
-                follower_joint = joint_elements[b_pid]
                 ET.SubElement(
-                    follower_joint, 'mimic',
+                    b_joint_el, 'mimic',
                     joint=a_jname,
                     multiplier=f"{multiplier:.6f}",
                     offset="0",
                 )
-                already_following.add(b_pid)
+                followed_clusters.add(b_cluster)
                 logger.info(
-                    f"[L45] gear mimic: {b_jname} mimics {a_jname} "
+                    f"[L44b] gear mimic via cluster: {b_jname} mimics {a_jname} "
                     f"multiplier={multiplier:.4f} (T={a_tooth}↔{b_tooth})"
                 )
 
