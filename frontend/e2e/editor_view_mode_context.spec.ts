@@ -43,12 +43,21 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
   // D3 — view 切换
   // ──────────────────────────────────────────────────────────────────────
   test('D3-ViewSwitch: ASSEMBLY ↔ LIBRARY_VERIFY 可逆 + UI 切换', async ({ page }) => {
-    // 默认 ASSEMBLY：store + DOM 双重断言
+    // 用 view 独有 DOM 元素做 selector，不用 canvas 计数：
+    //   ASSEMBLY → 不存在 LIBRARY_VERIFY 的"搜索零件" h3（VerificationWorkbench
+    //              里写死的标题文本，稳定）
+    //   LIBRARY_VERIFY → "搜索零件" h3 可见
+    // 历史：第一版 toHaveCount(canvas, 0) 在 LIBRARY_VERIFY 失败——
+    // VerificationWorkbench 内部也有 R3F Canvas（L5 import @react-three/fiber），
+    // PartLibraryPanel 缩略图也是 canvas，全局 canvas 计数永远 ≥1。
+    const libraryVerifyMarker = page.locator('h3', { hasText: '搜索零件' });
+
+    // 默认 ASSEMBLY
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
       { timeout: 2000 }
     ).toBe('ASSEMBLY');
-    await expect(page.locator('canvas')).toBeVisible();
+    await expect(libraryVerifyMarker).toHaveCount(0);
 
     // 切到 LIBRARY_VERIFY
     await page.evaluate(() => window.__STORE__.getState().setView('LIBRARY_VERIFY'));
@@ -56,9 +65,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
       () => page.evaluate(() => window.__STORE__.getState().view),
       { timeout: 2000 }
     ).toBe('LIBRARY_VERIFY');
-    // App.jsx L154 三元：view !== 'ASSEMBLY' → 不渲染 Canvas，渲染 VerificationWorkbench。
-    // canvas 元素被卸载（VerificationWorkbench 不含 R3F canvas）。
-    await expect(page.locator('canvas')).toHaveCount(0, { timeout: 2000 });
+    await expect(libraryVerifyMarker).toBeVisible({ timeout: 3000 });
 
     // 切回 ASSEMBLY 验证可逆
     await page.evaluate(() => window.__STORE__.getState().setView('ASSEMBLY'));
@@ -66,7 +73,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
       () => page.evaluate(() => window.__STORE__.getState().view),
       { timeout: 2000 }
     ).toBe('ASSEMBLY');
-    await expect(page.locator('canvas')).toBeVisible({ timeout: 2000 });
+    await expect(libraryVerifyMarker).toHaveCount(0, { timeout: 2000 });
   });
 
   // ──────────────────────────────────────────────────────────────────────

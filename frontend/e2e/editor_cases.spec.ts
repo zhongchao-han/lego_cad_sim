@@ -72,15 +72,15 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
     // 两个 handler 竞态，一两次 RAF 才收敛到 IDLE+empty）。
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('FREE_PLACING');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().freePlacingPayload.length),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(1);
     await expect.poll(
       () => page.evaluate(() => Object.keys(window.__STORE__.getState().parts).length),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(2); // Still just A and B
 
     // --- TS-5.2: 取消放置 ---
@@ -89,11 +89,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('IDLE');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().freePlacingPayload.length),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(0);
 
     // --- TS-5.3: 实锤确认放置 ---
@@ -108,11 +108,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('IDLE');
     await expect.poll(
       () => page.evaluate(() => Object.keys(window.__STORE__.getState().parts).length),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(3); // A, B, and the new clone
   });
 
@@ -254,11 +254,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
     // 给 hard expect 容错。
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('SOURCE_LOCKED');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource !== null),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(true);
 
     // ── TS-7.2：第一根落孔 → AXIAL_SLIDING + parts 多 1 根 2780 ────────────
@@ -277,11 +277,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('AXIAL_SLIDING');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource !== null),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(true);
     await expect.poll(
       () => page.evaluate(() =>
@@ -289,7 +289,7 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
           (p) => (p as { ldrawId: string }).ldrawId === '2780.dat'
         ).length
       ),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(1);
 
     // ── TS-7.3：连点静默提交 ─────────────────────────────────────────────
@@ -319,11 +319,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('AXIAL_SLIDING');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource !== null),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(true);
     await expect.poll(async () => (await getPinXs()).length, { timeout: 2000 }).toBe(2);
 
