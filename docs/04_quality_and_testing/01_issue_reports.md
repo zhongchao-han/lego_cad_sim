@@ -60,3 +60,105 @@ v3 修复后用户实测：灰板上 ≥2 个销同时插着红板，单一 anch
 1. ~~**AutoLatch 边集未回流前端 (高优先级)**~~ — **[已修复 ✅]**：`/api/snap_parts` 响应新增 `auto_latched_edges: [{src_part_id, dst_part_id, src_port_key, dst_port_key}, ...]`，由 `backend/auto_latch_scanner.py::serialize_port_key()` 生成与前端 `store.ts::portKey()` 逐字符一致的 key（含负零归一化）。前端在 `axios.post(/api/snap_parts)` 的 then 回调里把每条边幂等地并入 `connections` 与 `occupiedPorts`，并在 `snapPreState` 仍在场时追加到其 `addedConnections` / `addedPortKeys`，使 SnapCommand 的 undo 能一次性回滚整组（包括 AutoLatch 闭合的对扣边）。罕见竞态（用户在 axios.then 之前就触发 commitAxialSliding）下退化为"只更新当前状态、不进入 undo 栈"，AutoLatch 边在状态里仍持续存在；后续删除任一相关零件时会通过 stagePart/deletePart 的级联清理走正常路径。覆盖测试见 `frontend/src/__tests__/store_snap_api.test.ts`（合并 / undo 追加 / 幂等）与 `backend/tests/test_auto_latch_scanner.py::TestSerializePortKey`（前后端 portKey 一致性）。
 2. **TOL 阈值是单点观察硬编码 (低优先级)**: `0.02` LDU 来自 71709 板（孔间距 0.032、板厚差 0.008）。对孔距 < 0.04 的更紧凑零件可能误匹配相邻孔。根治方案是把 connection edge 升级为带端口标签的有向边（`{srcPortKey, dstPortKey}`），peer 查询直接 O(1) 准确，不靠浮点容差。
 3. **过约束 UX 待补 (低优先级)**: v4 仅在 log 里输出 ERROR，UI 上没有 spec Case 4.1 要求的"锁死图标"或浮动提示。功能正确但可发现性差。
+
+---
+
+## 4. UI 测试覆盖工作 Round 1 (B5/C7-10/D3-5/E3) — 12 项发现 audit log - [已立 issue 跟踪 ✅]
+
+### **概述**
+2026-05 一轮 UI e2e 测试覆盖工作（PR #57/#58/#59/#60，落地 TS-7 连续图章 / C7 Esc 复合 / C8 输入框焦点屏蔽 / C10 Marquee / D3 view 切换 / D4 mode 切换 / D5 ContextLost / E3 localStorage reload）在写 e2e 时反向暴露 12 项发现：3 项真 bug、4 项测试设计/老测试问题、5 项架构异味。绝大多数**未修**，仅做记录 + 立 issue 跟踪。
+
+---
+
+### **A. 真 bug（产品代码错） — 各立独立 issue**
+
+#### A.1 — Esc 双 handler 竞态（[issue #61](https://github.com/zhongchao-han/lego_cad_sim/issues/61)）
+- **现象**: FREE_PLACING + Esc 偶尔留下 `interactionPhase==='IDLE'` 但 `freePlacingPayload.length===1` 的中间态。
+- **根因**: 两个独立 keydown handler 监 window 上的 Escape：
+  - `frontend/src/Scene.jsx:367` — `commitFreePlacing(undefined)`（finalize 语义）
+  - `frontend/src/hooks/useKeyboardShortcuts.ts:104` — `abortCurrentInteraction() + deselectAll()`（abort 语义）
+  顺序由 DOM addEventListener 时序决定，且语义冲突。
+- **测试侧 workaround**: `editor_cases.spec.ts` TS-5 在 #58/#59 全部改 `expect.poll(5s)`；#60 仍 timeout，最终在 CI 加 `test.skip(!!process.env.CI)` 引用本 issue。
+- **历史**: TS-5 在 #57 round 1 过 → #57 round 2 flaky → #58 3-retry 全挂。单调恶化趋势。
+
+#### A.2 — `/api/snap_parts` axios fire-and-forget 缺 .catch（[issue #62](https://github.com/zhongchao-han/lego_cad_sim/issues/62)）
+- **现象**: 后端不在时浏览器 console 每次 snap 都打 unhandled promise rejection。
+- **根因**: `frontend/src/store.ts:804-806` `axios.post(...).then(...)` 没接 .catch。设计上 fire-and-forget 是 OK 的（本地 set 已生效，UI 不依赖响应），但缺 .catch 是疏忽。
+- **影响**: CI e2e 靠 `page.route` mock 屏蔽；生产环境后端短暂掉线时同样会刷屏。
+
+#### A.3 — `toggleMode` 失败被 try/catch 静默吞（[issue #63](https://github.com/zhongchao-han/lego_cad_sim/issues/63)）
+- **现象**: 切换 ASSEMBLY ↔ SIMULATION 失败时 store 不更新、UI 无任何提示，用户只看到点击没反应。
+- **根因**: `frontend/src/store.ts:432-441` 仅 addLog，不设 store error 字段，UI 无订阅入口。
+- **影响**: 仿真模式切换是 high-stakes 操作，静默失败掩盖系统层问题；#59 D4 反向 baseline 跳过的直接原因（无法严格区分"未变化" vs "toggle 失败"）。
+
+---
+
+### **B. 测试设计 / 老测试问题**
+
+#### B.1 — TS-7 命名错位
+- **现象**: `frontend/e2e/editor_cases.spec.ts:362` 旧 "TS-7: Display Ports on Hover Without Crash" 跟规范 `docs/EDITOR_TEST_CASES.md` TS-7（连续图章）完全无关——测的是 hover 不崩。
+- **修复状态**: #57 新增的连续图章 e2e 命名 `TS-7-ContinuousStamp` 消歧义；老命名保留不改避免 git blame 噪声。**长期建议**: 老测试改名为 `Robustness-HoverCrash` 或类似准确描述。
+
+#### B.2 — 老 TS-7 hover-crash 在 CI 不可救
+- **现象**: 测试用真 LDraw `6558` + `simulateHumanJitter(3s)`；CI 上 backend 没起 → R3F 几何加载链路 hang + WebSocket 重试洪流 → event loop 拖到 30s test timeout 三次 retry 全挂。
+- **修复状态**: #57 round 2 加 `test.skip(!!process.env.CI, 'Needs LDraw + ws mock')`；TODO 接通 LDraw 资源 mock + WebSocket mock 后开回。
+
+#### B.3 — `e2e-editor-cases` job 命令是文件名 grep（已修复 ✅）
+- **现象**: PR #57 落地的 CI job 用 `npx playwright test editor_cases`——是文件名 grep filter，新加的 `editor_keyboard_marquee.spec.ts` 等无法被抓。
+- **修复**: PR #58 改成 `--grep-invert "Canvas pixel sentinels|Generator pixel rendering"`，job 改名 `e2e-non-pixel`。后续新 spec 自动接入，无需改 CI。
+
+#### B.4 — TS-5 baseline 写死 `expect(...).toBe(...)`（部分修复 ⚠️）
+- **现象**: 多次 hard `expect(payload.length).toBe(0)` 在 React batching + Esc race 收敛慢的 CI 必 flaky。
+- **修复**: #58/#59 全部改 `expect.poll(5s)`；#60 仍偶发 5s 不够，CI skip 引 issue #61。**根因仍在产品侧**（A.1）。
+
+---
+
+### **C. 架构异味 — umbrella [issue #64](https://github.com/zhongchao-han/lego_cad_sim/issues/64)**
+
+5 项不阻塞功能、但都在"未来某次重构会咬人"位置的设计层面问题，集中跟踪：
+
+#### C.1 — 多 handler 同时监 window keydown，顺序敏感
+- `App.jsx:132` Cmd+K/Esc / `Scene.jsx:367` Esc / `useKeyboardShortcuts.ts:104` Esc 兜底——三处独立 `window.addEventListener('keydown', ...)`，优先级靠声明顺序 + `e.preventDefault()` 不阻 propagation。新加 handler 极易引入 race（A.1 即此）。
+- **建议**: 集中到 reducer 风格的 keymap dispatcher，context-aware 路由。
+
+#### C.2 — `isContextLost` vs `setContextLost` 命名不对称
+- `frontend/src/store.ts:114/179` state 字段带 `is` 前缀，setter 不带。typo cost。
+- **建议**: 统一约定（同保留 `is*` 或同去掉）。
+
+#### C.3 — `view` 与 `mode` 共用 'ASSEMBLY' literal
+- `frontend/src/store.ts:71-72`：
+  ```ts
+  mode: 'ASSEMBLY' | 'SIMULATION';      // 物理仿真状态
+  view: 'ASSEMBLY' | 'LIBRARY_VERIFY';  // UI 视图
+  ```
+  语义完全不同但共用同一字符串值，TypeScript 无法捕（都是 string literal union）。某天 if 判断写串就静默炸。
+- **建议**: 重命名 `view: 'EDITOR' | 'WORKBENCH'` 或 `mode: 'EDIT' | 'SIMULATE'`，消除字符串重叠。**umbrella 中标"高优先级"**。
+
+#### C.4 — 持久化字段隐式契约
+- `frontend/src/store.ts:1720` `partialize` 手写白名单 7 个字段。新加 store 字段忘记加进去 → reload 后悄悄丢失，无任何编译/运行时检查。
+- **建议**: 抽 `type PersistedFields = Pick<StoreState, ...>` 让 store 接口和 partialize 共享，新加字段被强制做"持久化决策"。
+
+#### C.5 — 多组件用 R3F Canvas，`page.locator('canvas')` 不可靠
+- `App.jsx:156`、`VerificationWorkbench.tsx:5+`、`PartLibraryPanel` 缩略图都用 R3F Canvas。`canvas` 全局至少匹配一个，无法用计数判 view 状态（D3 e2e 第一版踩坑）。
+- **建议**: 给主 Canvas 加 `data-testid="assembly-canvas"`；e2e 用 testid 精确定位。
+
+---
+
+### **测试侧产物**
+本轮工作除暴露问题外，落地的 e2e 资产（已 merge 到 main）：
+
+| ID | 用例 | spec 文件 |
+|---|---|---|
+| TS-7 | 连续图章 7.1/7.2/7.3 | `frontend/e2e/editor_cases.spec.ts` |
+| C7-EscCompound | Cmd+K 开搜索 / Esc 关 + 清 selection | `frontend/e2e/editor_keyboard_marquee.spec.ts` |
+| C8-InputFocusGuard | input 焦点屏蔽 F/Delete/Cmd+C | 同上 |
+| C10-MarqueeShiftDrag | Shift+drag 框选（命中失败 fallback） | 同上 |
+| D3-ViewSwitch | ASSEMBLY ↔ LIBRARY_VERIFY 可逆 | `frontend/e2e/editor_view_mode_context.spec.ts` |
+| D4-ModeToggle | toggleMode + 三项交互态清空 | 同上 |
+| D5-ContextLost | webglcontextlost + UI 覆盖层 | 同上 |
+| E3-LocalStorageReload | zustand persist 端到端 | `frontend/e2e/editor_persistence.spec.ts` |
+
+CI 基础设施加固：`e2e-non-pixel` job grep-invert 自动抓所有非像素哨兵 e2e（#58）。
+
+### **未覆盖项（待 Round 2）**
+按用户矩阵编号清单仍欠：A2 / A4 / A5 / A6 / A7 / C9 / F2 / F3 / F4。下轮启动前应优先消化本节 A.1 - A.3 的真 bug，避免新一轮测试再触达同一个 race。
