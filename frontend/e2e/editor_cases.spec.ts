@@ -11,6 +11,22 @@ declare global {
 test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
   test.beforeEach(async ({ page }) => {
+    // CI 上 backend 未起：usePartSearch 拉 /api/search/key 三次重试失败后会触发
+    // RenderErrorBoundary 全屏 z-[100] "核心依赖熔断" 覆盖，盖死 canvas + 把
+    // event loop 拖到 mouse.move / waitForTimeout 都会超时（对依赖鼠标手势的
+    // 测试如 TS-7 hover crash 致命）。给 hook 一个"凭证拿到了"的假象走开。
+    // canvas_pixel.spec.ts 同款套路。
+    await page.route('**/api/search/key', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          host: 'http://localhost:7700',
+          search_key: 'mock-key-for-e2e',
+        }),
+      }),
+    );
+
     // Navigate to the app
     await page.goto('/');
 
