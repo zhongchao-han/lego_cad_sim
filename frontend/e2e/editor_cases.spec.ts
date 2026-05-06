@@ -66,41 +66,54 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
     await page.keyboard.press(`${modifier}+C`);
     await page.keyboard.press(`${modifier}+V`);
 
-    // Verify system changed phase and created payload without polluting parts
-    let phase = await page.evaluate(() => window.__STORE__.getState().interactionPhase);
-    let payload = await page.evaluate(() => window.__STORE__.getState().freePlacingPayload);
-    let partsRef = await page.evaluate(() => Object.keys(window.__STORE__.getState().parts).length);
-    
-    expect(phase).toBe('FREE_PLACING');
-    expect(payload.length).toBe(1);
-    expect(partsRef).toBe(2); // Still just A and B
+    // expect.poll 给 React state batching + Esc 多 handler 异步收敛留出时间。
+    // 历史：2026-05 PR #58 第一次 e2e-non-pixel run 上 hard expect 三连挂
+    // payload.length=1（Esc 后 commitFreePlacing/abortCurrentInteraction
+    // 两个 handler 竞态，一两次 RAF 才收敛到 IDLE+empty）。
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
+      { timeout: 2000 }
+    ).toBe('FREE_PLACING');
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().freePlacingPayload.length),
+      { timeout: 2000 }
+    ).toBe(1);
+    await expect.poll(
+      () => page.evaluate(() => Object.keys(window.__STORE__.getState().parts).length),
+      { timeout: 2000 }
+    ).toBe(2); // Still just A and B
 
     // --- TS-5.2: 取消放置 ---
     // User presses Escape
     await page.keyboard.press('Escape');
-    
-    phase = await page.evaluate(() => window.__STORE__.getState().interactionPhase);
-    payload = await page.evaluate(() => window.__STORE__.getState().freePlacingPayload);
-    
-    expect(phase).toBe('IDLE');
-    expect(payload.length).toBe(0);
+
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
+      { timeout: 2000 }
+    ).toBe('IDLE');
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().freePlacingPayload.length),
+      { timeout: 2000 }
+    ).toBe(0);
 
     // --- TS-5.3: 实锤确认放置 ---
     // Copy and Paste again
     await page.keyboard.press(`${modifier}+C`);
     await page.keyboard.press(`${modifier}+V`);
-    
+
     // Wait for ghost to follow mouse, then click anywhere on screen to commit
     await page.mouse.move(300, 300);
     await page.waitForTimeout(100);
     await page.mouse.click(300, 300); // Drop the part
 
-    phase = await page.evaluate(() => window.__STORE__.getState().interactionPhase);
-    partsRef = await page.evaluate(() => Object.keys(window.__STORE__.getState().parts).length);
-    
-    // Assert placement was committed
-    expect(phase).toBe('IDLE');
-    expect(partsRef).toBe(3); // A, B, and the new clone
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
+      { timeout: 2000 }
+    ).toBe('IDLE');
+    await expect.poll(
+      () => page.evaluate(() => Object.keys(window.__STORE__.getState().parts).length),
+      { timeout: 2000 }
+    ).toBe(3); // A, B, and the new clone
   });
 
   test('TS-6: Advanced Mouse & Keyboard Tricks (TS-6.1, TS-6.2, TS-6.3)', async ({ page }) => {
@@ -234,15 +247,19 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
       return window.__STORE__.getState().handlePortClick(pinSrc);
     }, EYE3);
 
-    let snap = await page.evaluate(() => {
-      const s = window.__STORE__.getState();
-      return {
-        phase: s.interactionPhase,
-        hasSource: s.continuousPlacementSource !== null,
-      };
-    });
-    expect(snap.phase).toBe('SOURCE_LOCKED');
-    expect(snap.hasSource).toBe(true);
+    // expect.poll 给 React state batching + handlePortClick 异步收敛留出时间。
+    // 历史：2026-05 PR #58 第一次 e2e-non-pixel run 上 TS-7-ContinuousStamp
+    // flaky（page.evaluate 偶发 hang，retry 后恢复）。poll 不能直接救 hang，
+    // 但状态晚到时（snapParts 内 await + fire-and-forget axios 链路收敛慢）
+    // 给 hard expect 容错。
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
+      { timeout: 2000 }
+    ).toBe('SOURCE_LOCKED');
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource !== null),
+      { timeout: 2000 }
+    ).toBe(true);
 
     // ── TS-7.2：第一根落孔 → AXIAL_SLIDING + parts 多 1 根 2780 ────────────
     // continuousPlacementSource 不能因第一根落盘而清空，否则 stamp 接力中断。
@@ -258,20 +275,22 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
       });
     }, EYE3);
 
-    snap = await page.evaluate(() => {
-      const s = window.__STORE__.getState();
-      const pins = Object.values(s.parts).filter(
-        (p) => (p as { ldrawId: string }).ldrawId === '2780.dat'
-      );
-      return {
-        phase: s.interactionPhase,
-        hasSource: s.continuousPlacementSource !== null,
-        pinCount: pins.length,
-      };
-    });
-    expect(snap.phase).toBe('AXIAL_SLIDING');
-    expect(snap.hasSource).toBe(true);
-    expect(snap.pinCount).toBe(1);
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
+      { timeout: 2000 }
+    ).toBe('AXIAL_SLIDING');
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource !== null),
+      { timeout: 2000 }
+    ).toBe(true);
+    await expect.poll(
+      () => page.evaluate(() =>
+        Object.values(window.__STORE__.getState().parts).filter(
+          (p) => (p as { ldrawId: string }).ldrawId === '2780.dat'
+        ).length
+      ),
+      { timeout: 2000 }
+    ).toBe(1);
 
     // ── TS-7.3：连点静默提交 ─────────────────────────────────────────────
     // 处于 AXIAL_SLIDING 时再点 hole2 → handlePortClick 入口处自动 commit
@@ -290,23 +309,27 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
       });
     }, EYE3);
 
-    const stamp2 = await page.evaluate(() => {
-      const s = window.__STORE__.getState();
-      const pinXs = Object.values(s.parts)
-        .filter((p) => (p as { ldrawId: string }).ldrawId === '2780.dat')
-        .map((p) => (p as { position: number[] }).position[0])
-        .sort((a, b) => a - b);
-      return {
-        phase: s.interactionPhase,
-        hasSource: s.continuousPlacementSource !== null,
-        pinXs,
-      };
-    });
-    expect(stamp2.phase).toBe('AXIAL_SLIDING');
-    expect(stamp2.hasSource).toBe(true);
-    expect(stamp2.pinXs.length).toBe(2);
-    expect(stamp2.pinXs[0]).toBeCloseTo(0.10, 3);
-    expect(stamp2.pinXs[1]).toBeCloseTo(0.20, 3);
+    const getPinXs = () =>
+      page.evaluate(() =>
+        Object.values(window.__STORE__.getState().parts)
+          .filter((p) => (p as { ldrawId: string }).ldrawId === '2780.dat')
+          .map((p) => (p as { position: number[] }).position[0])
+          .sort((a, b) => a - b)
+      );
+
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
+      { timeout: 2000 }
+    ).toBe('AXIAL_SLIDING');
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource !== null),
+      { timeout: 2000 }
+    ).toBe(true);
+    await expect.poll(async () => (await getPinXs()).length, { timeout: 2000 }).toBe(2);
+
+    const stamp2Pins = await getPinXs();
+    expect(stamp2Pins[0]).toBeCloseTo(0.10, 3);
+    expect(stamp2Pins[1]).toBeCloseTo(0.20, 3);
 
     // 再点 hole3 验证累计模式可持续：3 根销分别落在三个孔上。
     await page.evaluate((eye) => {
@@ -321,18 +344,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
       });
     }, EYE3);
 
-    const stamp3 = await page.evaluate(() => {
-      const s = window.__STORE__.getState();
-      const pinXs = Object.values(s.parts)
-        .filter((p) => (p as { ldrawId: string }).ldrawId === '2780.dat')
-        .map((p) => (p as { position: number[] }).position[0])
-        .sort((a, b) => a - b);
-      return { pinCount: pinXs.length, pinXs };
-    });
-    expect(stamp3.pinCount).toBe(3);
-    expect(stamp3.pinXs[0]).toBeCloseTo(0.10, 3);
-    expect(stamp3.pinXs[1]).toBeCloseTo(0.20, 3);
-    expect(stamp3.pinXs[2]).toBeCloseTo(0.30, 3);
+    await expect.poll(async () => (await getPinXs()).length, { timeout: 2000 }).toBe(3);
+    const stamp3Pins = await getPinXs();
+    expect(stamp3Pins[0]).toBeCloseTo(0.10, 3);
+    expect(stamp3Pins[1]).toBeCloseTo(0.20, 3);
+    expect(stamp3Pins[2]).toBeCloseTo(0.30, 3);
   });
 
   test('TS-7: Display Ports on Hover Without Crash', async ({ page }) => {
