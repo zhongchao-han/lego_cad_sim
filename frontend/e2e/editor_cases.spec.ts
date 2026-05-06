@@ -155,6 +155,170 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
     // we proved the system doesn't error out during this manual UI gesture.
   });
 
+  test('TS-7-ContinuousStamp: Continuous Stamp Assembly (TS-7.1, TS-7.2, TS-7.3)', async ({ page }) => {
+    // CI 上 backend 未起；与 canvas_pixel 同样 mock /api/search/key 防止
+    // RenderErrorBoundary 把画布盖死。/api/snap_parts 在 store.snapParts 里
+    // 是 fire-and-forget（详见 store.ts L804），但 mock 一下能压掉 unhandled
+    // rejection 噪音 + 让 CI 行为跟有后端时一致。
+    await page.route('**/api/search/key', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          host: 'http://localhost:7700',
+          search_key: 'mock-key-for-e2e',
+        }),
+      }),
+    );
+    await page.route('**/api/snap_parts', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          auto_latched_count: 0,
+          auto_latched_edges: [],
+        }),
+      }),
+    );
+
+    await page.goto('/');
+    await page.waitForFunction(() => window.__STORE__ !== undefined);
+
+    // 重置 beforeEach 注入的 mock_A/mock_B，换成 71709 平板当地基。
+    // 关键：必须保证 ACTIVE_ARENA 里有非 0 个零件，否则
+    // handlePortClick 会走 "first-part shortcut" 直接落盘，跳过
+    // SOURCE_LOCKED + continuousPlacementSource 这条分支。
+    await page.evaluate(() => {
+      const store = window.__STORE__.getState();
+      store.reset();
+      store.addParts(['plate_base']);
+      store.updatePartState('plate_base', { position: [0, 0, 0] });
+      // 模拟从零件库 PartPreviewOverlay 选中预览：previewPartId 不影响
+      // handlePortClick 路由判定，但跟用户行为对齐，避免 phase 残留。
+      window.__STORE__.setState({ previewPartId: '2780' });
+    });
+    await page.waitForTimeout(500);
+
+    const EYE3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+
+    // ── TS-7.1：连续图章激活 ──────────────────────────────────────────────
+    // 从预览面板点销端口（isFromPreview:true）→ phase=SOURCE_LOCKED +
+    // continuousPlacementSource set。
+    await page.evaluate((eye) => {
+      const pinSrc = {
+        partId: '2780.dat_initial',
+        ldrawId: '2780.dat',
+        portType: 'peg.dat',
+        position: [0, 0, 0],
+        rotation: eye,
+        globalPos: [0, 0, 0],
+        globalQuat: [0, 0, 0, 1],
+        isFromPreview: true,
+      };
+      return window.__STORE__.getState().handlePortClick(pinSrc);
+    }, EYE3);
+
+    let snap = await page.evaluate(() => {
+      const s = window.__STORE__.getState();
+      return {
+        phase: s.interactionPhase,
+        hasSource: s.continuousPlacementSource !== null,
+      };
+    });
+    expect(snap.phase).toBe('SOURCE_LOCKED');
+    expect(snap.hasSource).toBe(true);
+
+    // ── TS-7.2：第一根落孔 → AXIAL_SLIDING + parts 多 1 根 2780 ────────────
+    // continuousPlacementSource 不能因第一根落盘而清空，否则 stamp 接力中断。
+    await page.evaluate((eye) => {
+      return window.__STORE__.getState().handlePortClick({
+        partId: 'plate_base',
+        ldrawId: '71709.dat',
+        portType: 'peghole.0',
+        position: [0.10, 0, 0],
+        rotation: eye,
+        globalPos: [0.10, 0, 0],
+        globalQuat: [0, 0, 0, 1],
+      });
+    }, EYE3);
+
+    snap = await page.evaluate(() => {
+      const s = window.__STORE__.getState();
+      const pins = Object.values(s.parts).filter(
+        (p) => (p as { ldrawId: string }).ldrawId === '2780.dat'
+      );
+      return {
+        phase: s.interactionPhase,
+        hasSource: s.continuousPlacementSource !== null,
+        pinCount: pins.length,
+      };
+    });
+    expect(snap.phase).toBe('AXIAL_SLIDING');
+    expect(snap.hasSource).toBe(true);
+    expect(snap.pinCount).toBe(1);
+
+    // ── TS-7.3：连点静默提交 ─────────────────────────────────────────────
+    // 处于 AXIAL_SLIDING 时再点 hole2 → handlePortClick 入口处自动 commit
+    // 上一根（commitAxialSliding 在 continuousPlacementSource 路径下静默
+    // 重入 SOURCE_LOCKED 而非 IDLE）→ 又落一根 → 累计 2 根 + 重入 AXIAL_SLIDING。
+    // 历史回归：第一根销不能被搬到 hole2（旧 selectedPort 闭包 Bug）。
+    await page.evaluate((eye) => {
+      return window.__STORE__.getState().handlePortClick({
+        partId: 'plate_base',
+        ldrawId: '71709.dat',
+        portType: 'peghole.1',
+        position: [0.20, 0, 0],
+        rotation: eye,
+        globalPos: [0.20, 0, 0],
+        globalQuat: [0, 0, 0, 1],
+      });
+    }, EYE3);
+
+    const stamp2 = await page.evaluate(() => {
+      const s = window.__STORE__.getState();
+      const pinXs = Object.values(s.parts)
+        .filter((p) => (p as { ldrawId: string }).ldrawId === '2780.dat')
+        .map((p) => (p as { position: number[] }).position[0])
+        .sort((a, b) => a - b);
+      return {
+        phase: s.interactionPhase,
+        hasSource: s.continuousPlacementSource !== null,
+        pinXs,
+      };
+    });
+    expect(stamp2.phase).toBe('AXIAL_SLIDING');
+    expect(stamp2.hasSource).toBe(true);
+    expect(stamp2.pinXs.length).toBe(2);
+    expect(stamp2.pinXs[0]).toBeCloseTo(0.10, 3);
+    expect(stamp2.pinXs[1]).toBeCloseTo(0.20, 3);
+
+    // 再点 hole3 验证累计模式可持续：3 根销分别落在三个孔上。
+    await page.evaluate((eye) => {
+      return window.__STORE__.getState().handlePortClick({
+        partId: 'plate_base',
+        ldrawId: '71709.dat',
+        portType: 'peghole.2',
+        position: [0.30, 0, 0],
+        rotation: eye,
+        globalPos: [0.30, 0, 0],
+        globalQuat: [0, 0, 0, 1],
+      });
+    }, EYE3);
+
+    const stamp3 = await page.evaluate(() => {
+      const s = window.__STORE__.getState();
+      const pinXs = Object.values(s.parts)
+        .filter((p) => (p as { ldrawId: string }).ldrawId === '2780.dat')
+        .map((p) => (p as { position: number[] }).position[0])
+        .sort((a, b) => a - b);
+      return { pinCount: pinXs.length, pinXs };
+    });
+    expect(stamp3.pinCount).toBe(3);
+    expect(stamp3.pinXs[0]).toBeCloseTo(0.10, 3);
+    expect(stamp3.pinXs[1]).toBeCloseTo(0.20, 3);
+    expect(stamp3.pinXs[2]).toBeCloseTo(0.30, 3);
+  });
+
   test('TS-7: Display Ports on Hover Without Crash', async ({ page }) => {
     // Inject a real part precisely so it loads actual ports (SiteGizmos)
     // 6558 is the 3L friction pin, which definitely has ports.
