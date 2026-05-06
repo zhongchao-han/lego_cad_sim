@@ -73,7 +73,7 @@ jobs:
         retention-days: 7
         if-no-files-found: ignore
 
-  e2e-editor-cases:
+  e2e-non-pixel:
     runs-on: ubuntu-latest
     needs: frontend-check
     defaults:
@@ -95,17 +95,20 @@ jobs:
     - name: Install Playwright Chromium (with system deps)
       run: npx playwright install --with-deps chromium
 
-    # editor_cases 系列：覆盖 EDITOR_TEST_CASES.md 的产品级交互用例（TS-5/6/7…）。
-    # 后端在 CI 没起，凡是真打 /api/* 的路径都要 page.route mock；测试本身不
-    # 依赖像素基线，跨 OS 跑稳。
-    - name: Run Playwright editor cases
-      run: npx playwright test editor_cases
+    # 跑所有非像素哨兵 e2e（editor_cases / editor_keyboard_marquee / 后续新加的
+    # 行为测试）。从 PR #57 的 `npx playwright test editor_cases`（文件名 grep）
+    # 改为 grep-invert by describe title，让后续新 spec 不用改 CI 自动接入；
+    # 像素哨兵两个 describe 名稳定（"Canvas pixel sentinels" / "Generator pixel
+    # rendering"），跑在专属 `e2e-pixel-check` job 里独立验。后端在 CI 没起，
+    # 凡是真打 /api/* 的路径都要 page.route mock。
+    - name: Run Playwright non-pixel e2e
+      run: npx playwright test --grep-invert "Canvas pixel sentinels|Generator pixel rendering"
 
     - name: Upload Playwright report on failure
       if: failure() || always()
       uses: actions/upload-artifact@v4
       with:
-        name: playwright-report-editor-cases
+        name: playwright-report-non-pixel
         path: |
           frontend/playwright-report/
           frontend/test-results/
