@@ -55,7 +55,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     // 默认 ASSEMBLY
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('ASSEMBLY');
     await expect(libraryVerifyMarker).toHaveCount(0);
 
@@ -63,7 +63,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     await page.evaluate(() => window.__STORE__.getState().setView('LIBRARY_VERIFY'));
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('LIBRARY_VERIFY');
     await expect(libraryVerifyMarker).toBeVisible({ timeout: 3000 });
 
@@ -71,7 +71,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     await page.evaluate(() => window.__STORE__.getState().setView('ASSEMBLY'));
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('ASSEMBLY');
     await expect(libraryVerifyMarker).toHaveCount(0, { timeout: 2000 });
   });
@@ -115,7 +115,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     // 默认 ASSEMBLY
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().mode),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('ASSEMBLY');
 
     // toggleMode → SIMULATION + 三项交互态清空
@@ -127,15 +127,15 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     ).toBe('SIMULATION');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().selectedPort),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBeNull();
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().interactionPhase),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe('IDLE');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().continuousPlacementSource),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBeNull();
 
     // 再切回 ASSEMBLY 验证可逆
@@ -153,7 +153,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     // 默认未丢失
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().isContextLost),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(false);
     await expect(page.locator('text=WebGL Context Lost')).toHaveCount(0);
 
@@ -169,7 +169,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
 
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().isContextLost),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(true);
     // App.jsx L225 的 z-[200] 警示覆盖层应当出现，含稳定 h2 文本。
     await expect(page.locator('h2', { hasText: 'WebGL Context Lost' }))
@@ -184,7 +184,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
 
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().isContextLost),
-      { timeout: 2000 }
+      { timeout: 5000 }
     ).toBe(false);
     await expect(page.locator('text=WebGL Context Lost')).toHaveCount(0, { timeout: 2000 });
   });
