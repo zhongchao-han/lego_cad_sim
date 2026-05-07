@@ -69,6 +69,10 @@ interface StoreLog {
 
 interface StoreState {
   mode: 'ASSEMBLY' | 'SIMULATION';
+  /** toggleMode 失败时的最近错误（issue #63）。成功后清。UI 层订阅显示 toast / status。 */
+  modeToggleError: string | null;
+  /** toggleMode 进行中状态（issue #63）。true 时按钮应 disabled 防双击。 */
+  modeToggling: boolean;
   view: 'ASSEMBLY' | 'LIBRARY_VERIFY';
   parts: Record<string, PartState>;
   connections: ConnectionGraph;
@@ -292,6 +296,8 @@ export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
   mode: 'ASSEMBLY',
+  modeToggleError: null,
+  modeToggling: false,
   view: 'ASSEMBLY',
   parts: {},
   connections: {},
@@ -430,14 +436,28 @@ export const useStore = create<StoreState>()(
   },
 
   toggleMode: async () => {
+    // 修自 issue #63：失败时把 error 暴露到 store 字段供 UI 订阅，不再仅 log 静默。
+    // 进行中防双击：modeToggling=true 时早退。
+    if (get().modeToggling) return;
+
     const nextMode = get().mode === 'ASSEMBLY' ? 'SIMULATION' : 'ASSEMBLY';
     get().addLog(`Toggling mode to: ${nextMode}`, 'ACTION');
+    set({ modeToggling: true, modeToggleError: null });
     try {
       // 路由与后端 FastAPI 定义保持一致：/api/toggle_mode
       await axios.post(`${API_URL}/api/toggle_mode?mode=${nextMode}`);
-      set({ mode: nextMode, selectedPort: null, interactionPhase: InteractionPhase.IDLE, continuousPlacementSource: null });
+      set({
+        mode: nextMode,
+        selectedPort: null,
+        interactionPhase: InteractionPhase.IDLE,
+        continuousPlacementSource: null,
+        modeToggling: false,
+        modeToggleError: null,
+      });
     } catch (e) {
-      get().addLog(`Failed to toggle mode: ${e}`, 'ERROR');
+      const message = e instanceof Error ? e.message : String(e);
+      get().addLog(`Failed to toggle mode: ${message}`, 'ERROR');
+      set({ modeToggling: false, modeToggleError: message });
     }
   },
 
