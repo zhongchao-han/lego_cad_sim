@@ -103,8 +103,15 @@ export function useKeyboardShortcuts() {
             break;
           case 'Escape':
             e.preventDefault();
-            abortCurrentInteraction(); // 打断当前吸附
-            deselectAll(); // 以及取消所有选择
+            // 修自 issue #61：Esc 路径单一 dispatcher，按 phase 分发，避免
+            // 跟 Scene.jsx 旧 keydown handler 并行产生 phase=IDLE 但
+            // freePlacingPayload 非空的中间态。
+            if (interactionPhase === InteractionPhase.FREE_PLACING) {
+              useStore.getState().commitFreePlacing(undefined);
+            } else {
+              abortCurrentInteraction(); // 打断当前吸附
+              deselectAll(); // 以及取消所有选择
+            }
             break;
           case 'h':
           case 'H':

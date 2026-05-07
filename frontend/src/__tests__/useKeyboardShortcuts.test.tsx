@@ -133,7 +133,7 @@ describe('useKeyboardShortcuts — 全键映射', () => {
     unmount();
   });
 
-  it('case 8: Esc → abortCurrentInteraction (phase IDLE + selectedPort null + deselectAll)', () => {
+  it('case 8: Esc 在非 FREE_PLACING phase → abortCurrentInteraction + deselectAll', () => {
     useStore.setState({
       interactionPhase: InteractionPhase.SOURCE_LOCKED,
       selectedPort: makePort('A') as any,
@@ -143,6 +143,25 @@ describe('useKeyboardShortcuts — 全键映射', () => {
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
     expect(useStore.getState().selectedPort).toBeNull();
     expect(useStore.getState().selection.allConnectedIds.length).toBe(0);
+    unmount();
+  });
+
+  it('case 8b: Esc 在 FREE_PLACING phase → 单点 commitFreePlacing(undefined) 走 abort 分支 (修自 issue #61)', () => {
+    // 修法 B：phase==FREE_PLACING 时只调 commitFreePlacing(undefined)，
+    // 不调 abortCurrentInteraction + deselectAll，避免跟 Scene.jsx 旧 keydown
+    // handler 并行的中间态。
+    useStore.setState({
+      interactionPhase: InteractionPhase.FREE_PLACING,
+      freePlacingPayload: [{
+        id: 'pasted_xxx',
+        state: { ldrawId: 'A.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      }],
+    } as any);
+    const { unmount } = renderHook(() => useKeyboardShortcuts());
+    fireKey({ key: 'Escape' });
+    // commitFreePlacing(undefined) 清 payload + IDLE
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
+    expect(useStore.getState().freePlacingPayload).toEqual([]);
     unmount();
   });
 

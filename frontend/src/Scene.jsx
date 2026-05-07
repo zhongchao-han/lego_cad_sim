@@ -363,16 +363,14 @@ const FreePlacerGhost = () => {
             }
         };
 
-        const handleKey = (e) => {
-            if (e.key === 'Escape') commitFreePlacing(undefined);
-        };
-
-        // 捕获阶段拦截，防止点击到下面的零件
+        // 修自 issue #61：Esc 在 FREE_PLACING 阶段的 abort 行为统一交给
+        // useKeyboardShortcuts 处理（按 phase 分发到 commitFreePlacing(undefined)），
+        // Scene.jsx 不再自己监听 keydown，避免两 handler 并行产生中间态
+        // (phase=IDLE 但 freePlacingPayload 非空)。
+        // 捕获阶段拦截 mousedown，防止点击到下面的零件。
         window.addEventListener('mousedown', handleClick, { capture: true });
-        window.addEventListener('keydown', handleKey);
         return () => {
             window.removeEventListener('mousedown', handleClick, { capture: true });
-            window.removeEventListener('keydown', handleKey);
         };
     }, [isPlacing, isGroundPlane, payload, commitFreePlacing, previewCamQuatThree, camera]);
 
