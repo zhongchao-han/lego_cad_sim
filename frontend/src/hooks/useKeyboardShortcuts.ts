@@ -129,7 +129,7 @@ export function useKeyboardShortcuts() {
               const step = computeSlideStep(e.shiftKey);
               if (step !== 0) {
                 const offset = useStore.getState().slideOffset;
-                useStore.getState().updateSlideOffset(offset + step);
+                useStore.getState().updateSlideOffset(offset + step, e.shiftKey);
               }
             }
             break;
@@ -139,7 +139,7 @@ export function useKeyboardShortcuts() {
               const step = computeSlideStep(e.shiftKey);
               if (step !== 0) {
                 const offset = useStore.getState().slideOffset;
-                useStore.getState().updateSlideOffset(offset - step);
+                useStore.getState().updateSlideOffset(offset - step, e.shiftKey);
               }
             }
             break;

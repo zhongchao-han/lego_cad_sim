@@ -127,21 +127,66 @@ test.describe('Sliding / Shift Override / Rotate — A2/A4/A6', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────────
-  // A4 — Shift Override（SKIPPED until issue #66 fixed）
+  // A4 — Shift Override（接通 issue #66 后开回 CI）
   // ──────────────────────────────────────────────────────────────────────
-  // calculateClampedOffset 是死代码（snapMath.ts:7 定义+单测覆盖，但产品
-  // 运行时从未被调用——InteractivePart.tsx:11 仅 import 不用，updateSlideOffset
-  // 与 calculateSnapPose 都不 clamp）。e2e 上 dispatch shiftKey 当前等于
-  // 测试假象——store 路径上根本无 shiftKey 接收方。
-  // issue #66 修了之后开回这个 test，验证 Shift+ArrowUp×N 让 offset
-  // 越过默认 limit (8 LDU)，不带 Shift 时 clamp 在 ±8。
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  test.skip('A4-ShiftOverride [SKIPPED issue #66]: Shift bypasses collision clamp', async ({ page }) => {
-    // Placeholder — 接通 issue #66 后预期：
-    // 1. AXIAL_SLIDING 状态下 ArrowUp×20 不带 Shift → offset clamp 在 8 LDU
-    // 2. Shift+ArrowUp×20 → offset = 200（无 clamp，shiftKey 真生效）
-    // 当前 test.skip 让本体不执行；body 留在文件里作为接通后的回填模板。
-    throw new Error('Tracked by issue #66; remove test.skip after calculateClampedOffset wired into snap pipeline.');
+  // store.snapParts / updateSlideOffset 现在透传 shiftKey，调用
+  // calculateClampedOffset(offset, shiftKey, 8 LDU) — 不带 Shift 时 clamp
+  // 在 ±8 LDU；带 Shift 时绕过 clamp，offset 原样穿透。
+  test('A4-ShiftOverride: ArrowUp×20 不带 Shift clamp 在 8 / Shift+ArrowUp×20 穿透', async ({ page }) => {
+    // 注入 source / target + AXIAL_SLIDING phase（同 A2）
+    await page.evaluate(() => {
+      const store = window.__STORE__.getState();
+      store.reset();
+      store.addParts(['source_pin']);
+      store.updatePartState('source_pin', { position: [0, 0, 0] });
+      store.addParts(['target_plate']);
+      store.updatePartState('target_plate', { position: [0.10, 0, 0] });
+
+      const EYE3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+      window.__STORE__.setState({
+        selectedPort: {
+          partId: 'source_pin',
+          ldrawId: 'mock_A.dat',
+          portType: 'peg.dat',
+          position: [0, 0, 0],
+          rotation: EYE3,
+          globalPos: [0, 0, 0],
+          globalQuat: [0, 0, 0, 1],
+        },
+        slidingTarget: {
+          partId: 'target_plate',
+          ldrawId: 'mock_B.dat',
+          portType: 'peghole.0',
+          position: [0.10, 0, 0],
+          rotation: EYE3,
+          globalPos: [0.10, 0, 0],
+          globalQuat: [0, 0, 0, 1],
+        },
+        interactionPhase: 'AXIAL_SLIDING',
+        slideOffset: 0,
+      });
+    });
+
+    // ── 不带 Shift × 20 — 累计请求 +20 LDU，clamp 应锁在 8 ──
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press('ArrowUp');
+    }
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().slideOffset),
+      { timeout: 5000 }
+    ).toBeCloseTo(8, 6);
+
+    // 重置 slideOffset
+    await page.evaluate(() => window.__STORE__.setState({ slideOffset: 0 }));
+
+    // ── Shift+ArrowUp × 20 — 每次 step=10，累计 200 LDU，无 clamp 穿透 ──
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press('Shift+ArrowUp');
+    }
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().slideOffset),
+      { timeout: 5000 }
+    ).toBeCloseTo(200, 6);
   });
 
   // ──────────────────────────────────────────────────────────────────────

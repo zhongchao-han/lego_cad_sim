@@ -19,7 +19,7 @@ import {
 import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
-import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta } from './utils/snapMath';
+import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset } from './utils/snapMath';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -169,7 +169,7 @@ interface StoreState {
 
   handlePortClick: (port: SelectedPortInfo) => Promise<void>;
   setHoveredPort: (port: SelectedPortInfo | null) => void;
-  snapParts: (source: SelectedPortInfo, target: SelectedPortInfo, slideOffset?: number) => Promise<boolean>;
+  snapParts: (source: SelectedPortInfo, target: SelectedPortInfo, slideOffset?: number, shiftKey?: boolean) => Promise<boolean>;
   abortCurrentInteraction: () => void;
   
   // 日志 Actions
@@ -194,7 +194,7 @@ interface StoreState {
   connectParts: (a: string, pa: string, b: string, pb: string) => void;
   selectPart: (id: string | null, level?: SelectionLevel, append?: boolean) => void;
   updateSelection: (level: SelectionLevel) => void;
-  updateSlideOffset: (offset: number) => void;
+  updateSlideOffset: (offset: number, shiftKey?: boolean) => void;
   rotateSelectedPart: (angleRads: number) => void;
   setBlocked: (report: InterferenceReport) => void;
   setPhase: (phase: InteractionPhase) => void;
@@ -654,10 +654,15 @@ export const useStore = create<StoreState>()(
     }, 300);
   },
 
-  snapParts: async (source, target, slideOffset = 0) => {
+  snapParts: async (source, target, slideOffset = 0, shiftKey = false) => {
     const { parts, connections, stagingGrid, occupiedPorts } = get();
     const targetPart = parts[target.partId];
     if (!targetPart || targetPart.zone !== ZoneType.ACTIVE_ARENA) return false;
+    // 修自 issue #66：calculateClampedOffset 在生产路径接通。
+    // 默认 limit 8 LDU；shiftKey=true 时屏蔽限位（穿模）。
+    // 之前 calculateClampedOffset 仅在 snapMath.test 单测中被调用，源码 import
+    // 但从未触达 snap pipeline，导致用户拖动可任意穿透障碍。
+    const effectiveOffset = calculateClampedOffset(slideOffset, shiftKey);
 
     const srcGroup = getConnectedGroup(connections, source.partId, target.partId);
     let sourcePart = parts[source.partId] || {
@@ -675,7 +680,7 @@ export const useStore = create<StoreState>()(
       getQuatFromMat3(source.rotation as Mat3),
       target.globalPos as Vec3,
       (target.globalQuat || [0, 0, 0, 1]) as Quat, // 增加安全回退
-      slideOffset
+      effectiveOffset
     );
 
     // 刚体组吸附：把 source 的位姿位移作为 delta，整体施加给整个 srcGroup。
@@ -1357,11 +1362,14 @@ export const useStore = create<StoreState>()(
       });
   },
   updateSelection: (level) => set({ selection: { ...get().selection, level } }),
-  updateSlideOffset: (o) => {
+  updateSlideOffset: (o, shiftKey = false) => {
     const { selectedPort, slidingTarget, snapParts } = get();
     if (selectedPort && slidingTarget) {
-      set({ slideOffset: o });
-      snapParts(selectedPort, slidingTarget, o); // 实时更新位置
+      // 修自 issue #66：clamp 在 store 层完成，slideOffset 字段记 clamp 后值，
+      // shiftKey 透传给 snapParts 让其内部决定是否走穿模分支。
+      const clamped = calculateClampedOffset(o, shiftKey);
+      set({ slideOffset: clamped });
+      snapParts(selectedPort, slidingTarget, clamped, shiftKey);
     }
   },
   
