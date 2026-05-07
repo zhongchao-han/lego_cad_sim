@@ -98,21 +98,24 @@ test.describe('Sliding / Shift Override / Rotate — A2/A4/A6', () => {
       { timeout: 5000 }
     ).toBeCloseTo(1, 6);
 
-    // ── Shift+ArrowUp → +10（step ×10 由 useKeyboardShortcuts.ts:34 baseStep 控制）──
-    await page.keyboard.press('Shift+ArrowUp');
+    // ── 再 ArrowUp ×3 → 4 (clamp 范围 ±8 内，不触穿模分支)──
+    // ⚠ A4-ShiftOverride 专责测 Shift 步长 ×10 + clamp 穿透 (issue #66 修后)；
+    //   A2 仅覆盖小步长 + 反向 + Enter，避开 clamp 行为防误读。
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().slideOffset),
       { timeout: 5000 }
-    ).toBeCloseTo(11, 6);
+    ).toBeCloseTo(4, 6);
 
-    // ── ArrowDown × 3 → -1 each → 11 - 3 = 8 ──
-    await page.keyboard.press('ArrowDown');
+    // ── ArrowDown × 2 → 4 - 2 = 2 (反向 step) ──
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().slideOffset),
       { timeout: 5000 }
-    ).toBeCloseTo(8, 6);
+    ).toBeCloseTo(2, 6);
 
     // ── Enter → commitAxialSliding → phase=IDLE, slideOffset=0 ──
     await page.keyboard.press('Enter');
