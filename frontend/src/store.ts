@@ -73,7 +73,10 @@ interface StoreState {
   modeToggleError: string | null;
   /** toggleMode 进行中状态（issue #63）。true 时按钮应 disabled 防双击。 */
   modeToggling: boolean;
-  view: 'ASSEMBLY' | 'LIBRARY_VERIFY';
+  /** UI 主视图选择（issue #64 C.3 重命名前为 'ASSEMBLY' | 'LIBRARY_VERIFY'，
+   *  跟 mode='ASSEMBLY' 字面值重叠，TypeScript 无法区分。改为
+   *  'EDITOR' | 'WORKBENCH' 直接对应 AssemblyUI / VerificationWorkbench。 */
+  view: 'EDITOR' | 'WORKBENCH';
   parts: Record<string, PartState>;
   connections: ConnectionGraph;
   /** 端口占用图：见 OccupiedPortMap 注释。 */
@@ -150,7 +153,7 @@ interface StoreState {
   /** L51b PR-B：拉一次反力，写入 reactionForces。失败时不抛，写空对象。 */
   refreshReactionForces: () => Promise<void>;
   setShowReactionForces: (v: boolean) => void;
-  setView: (view: 'ASSEMBLY' | 'LIBRARY_VERIFY') => void;
+  setView: (view: 'EDITOR' | 'WORKBENCH') => void;
   toggleMode: () => Promise<void>;
   updatePartState: (partId: string, state: Partial<PartState>) => void;
   batchUpdatePartStates: (updates: Record<string, Partial<PartState>>) => void;
@@ -298,7 +301,7 @@ export const useStore = create<StoreState>()(
   mode: 'ASSEMBLY',
   modeToggleError: null,
   modeToggling: false,
-  view: 'ASSEMBLY',
+  view: 'EDITOR',
   parts: {},
   connections: {},
   occupiedPorts: {},

@@ -125,14 +125,14 @@ v3 修复后用户实测：灰板上 ≥2 个销同时插着红板，单一 anch
 - `frontend/src/store.ts:114/179` state 字段带 `is` 前缀，setter 不带。typo cost。
 - **建议**: 统一约定（同保留 `is*` 或同去掉）。
 
-#### C.3 — `view` 与 `mode` 共用 'ASSEMBLY' literal
-- `frontend/src/store.ts:71-72`：
+#### C.3 — `view` 与 `mode` 共用 'ASSEMBLY' literal — [已修复 ✅]
+- `frontend/src/store.ts` 原本：
   ```ts
   mode: 'ASSEMBLY' | 'SIMULATION';      // 物理仿真状态
-  view: 'ASSEMBLY' | 'LIBRARY_VERIFY';  // UI 视图
+  view: 'ASSEMBLY' | 'LIBRARY_VERIFY';  // UI 视图（已重命名）
   ```
-  语义完全不同但共用同一字符串值，TypeScript 无法捕（都是 string literal union）。某天 if 判断写串就静默炸。
-- **建议**: 重命名 `view: 'EDITOR' | 'WORKBENCH'` 或 `mode: 'EDIT' | 'SIMULATE'`，消除字符串重叠。**umbrella 中标"高优先级"**。
+  语义完全不同但共用同一字符串值，TypeScript 无法捕（都是 string literal union）。
+- **修复**: 已重命名 `view: 'EDITOR' | 'WORKBENCH'`（改 view 比改 mode blast radius 小，后端 `/api/toggle_mode` 仍接收 'ASSEMBLY'/'SIMULATION'，不动后端契约）。`mode` 字面值保留。13 处替换 + e2e D3 测试同步更新。
 
 #### C.4 — 持久化字段隐式契约
 - `frontend/src/store.ts:1720` `partialize` 手写白名单 7 个字段。新加 store 字段忘记加进去 → reload 后悄悄丢失，无任何编译/运行时检查。

@@ -53,30 +53,30 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     const libraryVerifyMarker = page.locator('h3', { hasText: '搜索零件' });
     const assemblyCanvas = page.locator('[data-testid="assembly-canvas"]');
 
-    // 默认 ASSEMBLY
+    // 默认 EDITOR
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
       { timeout: 5000 }
-    ).toBe('ASSEMBLY');
+    ).toBe('EDITOR');
     await expect(libraryVerifyMarker).toHaveCount(0);
     await expect(assemblyCanvas).toBeVisible();
 
-    // 切到 LIBRARY_VERIFY
-    await page.evaluate(() => window.__STORE__.getState().setView('LIBRARY_VERIFY'));
+    // 切到 WORKBENCH
+    await page.evaluate(() => window.__STORE__.getState().setView('WORKBENCH'));
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
       { timeout: 5000 }
-    ).toBe('LIBRARY_VERIFY');
+    ).toBe('WORKBENCH');
     await expect(libraryVerifyMarker).toBeVisible({ timeout: 3000 });
     // 主 R3F canvas（assembly-canvas testid）应被卸载
     await expect(assemblyCanvas).toHaveCount(0, { timeout: 2000 });
 
-    // 切回 ASSEMBLY 验证可逆
-    await page.evaluate(() => window.__STORE__.getState().setView('ASSEMBLY'));
+    // 切回 EDITOR 验证可逆
+    await page.evaluate(() => window.__STORE__.getState().setView('EDITOR'));
     await expect.poll(
       () => page.evaluate(() => window.__STORE__.getState().view),
       { timeout: 5000 }
-    ).toBe('ASSEMBLY');
+    ).toBe('EDITOR');
     await expect(libraryVerifyMarker).toHaveCount(0, { timeout: 2000 });
     await expect(assemblyCanvas).toBeVisible({ timeout: 2000 });
   });
