@@ -33,9 +33,9 @@ function AssemblyUI() {
           <div className="w-72 shrink-0" /> {/* 避让侧边栏 */}
           <div className="flex items-center gap-3 bg-white/80 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border border-white/20 pointer-events-auto">
             <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            <button onClick={() => setView('ASSEMBLY')} className="text-xs font-bold text-blue-600">ASSEMBLY</button>
+            <button onClick={() => setView('EDITOR')} className="text-xs font-bold text-blue-600">ASSEMBLY</button>
             <div className="w-px h-3 bg-slate-200" />
-            <button onClick={() => setView('LIBRARY_VERIFY')} className="text-xs font-bold text-slate-400 hover:text-slate-600 focus:outline-none">LIBRARY</button>
+            <button onClick={() => setView('WORKBENCH')} className="text-xs font-bold text-slate-400 hover:text-slate-600 focus:outline-none">LIBRARY</button>
           </div>
         </div>
 
@@ -71,9 +71,9 @@ function LibraryNav() {
     const setView = useStore((state) => state.setView);
     return (
         <div className="absolute top-6 left-6 z-[60] flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border border-white/20 pointer-events-auto">
-            <button onClick={() => setView('ASSEMBLY')} className="text-xs font-bold text-slate-400 hover:text-slate-600">ASSEMBLY</button>
+            <button onClick={() => setView('EDITOR')} className="text-xs font-bold text-slate-400 hover:text-slate-600">ASSEMBLY</button>
             <div className="w-px h-3 bg-slate-200" />
-            <button onClick={() => setView('LIBRARY_VERIFY')} className="text-xs font-bold text-blue-600">LIBRARY VERIFY</button>
+            <button onClick={() => setView('WORKBENCH')} className="text-xs font-bold text-blue-600">LIBRARY VERIFY</button>
         </div>
     );
 }
@@ -149,9 +149,9 @@ function App() {
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">
       {/* 宏观策略：分视图渲染 UI，互不干扰 */}
-      {view === 'ASSEMBLY' ? <AssemblyUI /> : <LibraryNav />}
+      {view === 'EDITOR' ? <AssemblyUI /> : <LibraryNav />}
 
-      {view === 'ASSEMBLY' ? (
+      {view === 'EDITOR' ? (
         <div className="w-full h-full" data-testid="assembly-canvas-container">
           {/* 主 R3F Canvas 加 data-testid 让 e2e 能跟 PartLibraryPanel 缩略图 /
               VerificationWorkbench 内部 canvas / DebugOverlay 子 canvas 精确区分。
@@ -213,7 +213,7 @@ function App() {
           isOpen={isSearchOpen} 
           onClose={() => setIsSearchOpen(false)} 
           onSelectPart={(partNum) => {
-            if (view === 'ASSEMBLY') {
+            if (view === 'EDITOR') {
               const partId = partNum + ".dat";
               // 添加到暂存区，并同时激活大弹窗预览模式
               addStagedPart?.({ part_id: partId });
