@@ -47,10 +47,11 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     //   ASSEMBLY → 不存在 LIBRARY_VERIFY 的"搜索零件" h3（VerificationWorkbench
     //              里写死的标题文本，稳定）
     //   LIBRARY_VERIFY → "搜索零件" h3 可见
-    // 历史：第一版 toHaveCount(canvas, 0) 在 LIBRARY_VERIFY 失败——
-    // VerificationWorkbench 内部也有 R3F Canvas（L5 import @react-three/fiber），
-    // PartLibraryPanel 缩略图也是 canvas，全局 canvas 计数永远 ≥1。
+    // issue #64 C.5 修后：主 R3F canvas 加了 data-testid="assembly-canvas"，
+    //   可作为 ASSEMBLY 视图独有的稳定标记（VerificationWorkbench 内部 canvas
+    //   不带这个 testid）。下面同时双重断言：libraryVerifyMarker + assemblyCanvas。
     const libraryVerifyMarker = page.locator('h3', { hasText: '搜索零件' });
+    const assemblyCanvas = page.locator('[data-testid="assembly-canvas"]');
 
     // 默认 ASSEMBLY
     await expect.poll(
@@ -58,6 +59,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
       { timeout: 5000 }
     ).toBe('ASSEMBLY');
     await expect(libraryVerifyMarker).toHaveCount(0);
+    await expect(assemblyCanvas).toBeVisible();
 
     // 切到 LIBRARY_VERIFY
     await page.evaluate(() => window.__STORE__.getState().setView('LIBRARY_VERIFY'));
@@ -66,6 +68,8 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
       { timeout: 5000 }
     ).toBe('LIBRARY_VERIFY');
     await expect(libraryVerifyMarker).toBeVisible({ timeout: 3000 });
+    // 主 R3F canvas（assembly-canvas testid）应被卸载
+    await expect(assemblyCanvas).toHaveCount(0, { timeout: 2000 });
 
     // 切回 ASSEMBLY 验证可逆
     await page.evaluate(() => window.__STORE__.getState().setView('ASSEMBLY'));
@@ -74,6 +78,7 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
       { timeout: 5000 }
     ).toBe('ASSEMBLY');
     await expect(libraryVerifyMarker).toHaveCount(0, { timeout: 2000 });
+    await expect(assemblyCanvas).toBeVisible({ timeout: 2000 });
   });
 
   // ──────────────────────────────────────────────────────────────────────
