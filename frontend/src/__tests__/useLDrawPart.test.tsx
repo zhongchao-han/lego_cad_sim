@@ -95,9 +95,9 @@ describe('useLDrawPart — fetch + cache + cancelled race', () => {
     expect(mockAxios.get).not.toHaveBeenCalled();
   });
 
-  it('case 6: clearPartCache 前缀 startsWith — partId="3001" 误删 "30015" (issue #75 待立)', async () => {
-    // ⚠ 已知 quirk：clearPartCache 用 key.startsWith(partId) 而不是 startsWith(partId+"_")，
-    //   "3001" 会同时匹配 "30015_c7_p0"、"3001x_c7_p0"。这里锁住 quirk + 立 issue。
+  it('case 6: clearPartCache 用 `${partId}_` 前缀 — partId="3001" 不误删 "30015" (修自 issue #75)', async () => {
+    // 修复后 clearPartCache 用 startsWith(partId+"_") 严格前缀匹配，
+    // "3001" 不再误命中 "30015_c7_p0"。
     (mockAxios.get as any).mockResolvedValue({ data: { ports: [], sites: [], mesh_url: '/m' } });
 
     const { result: r1 } = renderHook(() => useLDrawPart('3001'));
@@ -106,14 +106,19 @@ describe('useLDrawPart — fetch + cache + cancelled race', () => {
     await waitFor(() => expect(r2.current.loading).toBe(false));
     expect(mockAxios.get).toHaveBeenCalledTimes(2);
 
-    // clear "3001" — 实际会同时清掉 "30015_*" 因为前缀匹配
+    // clear "3001" — 仅清 "3001_*"，"30015_*" 保留
     clearPartCache('3001');
     (mockAxios.get as any).mockClear();
 
-    // 重 hook "30015" 应该重新 fetch（被误删）
+    // "30015" 应仍命中 cache，不重新 fetch
     const { result: r3 } = renderHook(() => useLDrawPart('30015'));
     await waitFor(() => expect(r3.current.loading).toBe(false));
-    expect(mockAxios.get).toHaveBeenCalledTimes(1); // 误删导致需重新 fetch
+    expect(mockAxios.get).not.toHaveBeenCalled();
+
+    // 反向验证：被 clear 的 "3001" 重 hook 应重新 fetch
+    const { result: r4 } = renderHook(() => useLDrawPart('3001'));
+    await waitFor(() => expect(r4.current.loading).toBe(false));
+    expect(mockAxios.get).toHaveBeenCalledTimes(1);
   });
 
   it('case 7: clearAllPartCache 清掉所有 cache key', async () => {
