@@ -184,6 +184,32 @@ describe('store.snapParts — 后端 API 联调', () => {
     });
   });
 
+  it('axios.post 失败被 .catch 接住，不产生 unhandled promise rejection (issue #62 regression lock)', async () => {
+    // store.ts:805 .catch 已在 commit 76d4f502 (2026-03-25) 加上，本 case 锁住
+    // 现状防止未来回归。如果 .catch 被误删，await 期间 vitest unhandled rejection
+    // 会让此 case 红，且 log 文本检查也会失败。
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('ECONNREFUSED')
+    );
+
+    const source = makeMockPort('source.dat');
+    const target = makeMockTargetPort('target.dat');
+
+    // 不应 throw，不应有 unhandled rejection
+    await expect(
+      useStore.getState().snapParts(source as any, target as any)
+    ).resolves.toBe(true);
+
+    // 等 fire-and-forget .catch 写入 log
+    await vi.waitFor(() => {
+      const log = useStore.getState().logs.find(l =>
+        l.message.includes('snap_parts 调用失败') && l.message.includes('ECONNREFUSED')
+      );
+      expect(log).toBeDefined();
+      expect(log?.type).toBe('ERROR');
+    });
+  });
+
   it('后端调用失败不应改变 connections 图（本地已写入）', async () => {
     (mockAxios.post as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new Error('Timeout')
