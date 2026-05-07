@@ -213,21 +213,24 @@ describe('store.undo/redo — SnapCommand round-trip', () => {
     expect(s.canRedo).toBe(true);
   });
 
-  it('case 8: redo 重建 connections + occupiedPorts，但 quirk：addedPartIds 整零件不重建 (issue #73)', () => {
-    // ⚠ 当前实现 quirk：redo lambda 用 `if (rp[id]) rp[id] = ...` 仅更新已存在
-    //   零件，不创建被 undo 删除的 addedPartIds。导致 undo→redo round-trip
-    //   对 snap 新增零件不对称（issue #73）。锁住当前行为；修产品后这两条
-    //   expect 翻红 → 取消 quirk 标记并改成"应 defined"。
+  it('case 8: redo 完整重建 — addedPartIds 用 capture 的 PartState 重建 + nextPositions 应用最终位姿 + connections / occupiedPorts 重建 (修自 issue #73)', () => {
+    // 修复后 SnapCommand 在 commit 时额外 capture addedPartStates；redo 先用
+    // capture state 重建被 undo 删过的 addedPartIds，再 apply nextPositions
+    // 更新位姿。round-trip 对新增零件完全可逆。
     setupSnappedState();
+    const pinPosBeforeCommit = { ...useStore.getState().parts.pin };
     useStore.getState().commitAxialSliding();
     useStore.getState().undo();
     expect(useStore.getState().parts.pin).toBeUndefined(); // pin 整删
     useStore.getState().redo();
     const s = useStore.getState();
-    // QUIRK: pin 不被 redo 重建（产品 bug，issue 跟踪）
-    expect(s.parts.pin).toBeUndefined();
-    // 但 connections / occupiedPorts 在 redo lambda 里直接 add，会重建（甚至引用了
-    // 已被删的 pin 作为 peer，造成不一致状态——"connection 指向不存在的 part"）
+    // pin 被 redo 重建：完整 PartState（ldrawId / colorCode / zone / pose）
+    expect(s.parts.pin).toBeDefined();
+    expect(s.parts.pin.ldrawId).toBe(pinPosBeforeCommit.ldrawId);
+    expect(s.parts.pin.colorCode).toBe(pinPosBeforeCommit.colorCode);
+    expect(s.parts.pin.zone).toBe(pinPosBeforeCommit.zone);
+    expect(s.parts.pin.position).toEqual(pinPosBeforeCommit.position);
+    // connections / occupiedPorts 重建后不再引用 dangling part（pin 真实存在了）
     expect(s.connections.plate?.has('pin')).toBe(true);
     expect(s.occupiedPorts.plate?.['pkey1|nz1']).toBe('pin');
     expect(s.canRedo).toBe(false);

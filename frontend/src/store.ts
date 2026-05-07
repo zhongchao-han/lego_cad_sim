@@ -1474,11 +1474,27 @@ export const useStore = create<StoreState>()(
             if (p) nextPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
         });
 
+        // 修自 issue #73：capture addedPartIds 各自的完整 PartState（含 ldrawId/
+        // colorCode/zone），让 redo 能重建被 undo 删除的新增零件。原 redo 仅用
+        // nextPositions（只含 position+quaternion）+ `if (rp[id])` 守卫，对 undo
+        // 删过的 part 永远不会重建 → connection / occupiedPorts 引用 dangling part。
+        const addedPartStates: Record<string, PartState> = {};
+        (snapPreState.addedPartIds || []).forEach(pid => {
+            const p = parts[pid];
+            if (p) addedPartStates[pid] = JSON.parse(JSON.stringify(p)) as PartState;
+        });
+
         const cmd = createSnapCommand(
             snapPreState,
             () => { // redo
                 set(prev => {
                     const rp = { ...prev.parts };
+                    // 1) 先把被 undo 删除的 addedPartIds 用 capture 的完整 state 重建
+                    Object.entries(addedPartStates).forEach(([id, state]) => {
+                        if (!rp[id]) rp[id] = state;
+                    });
+                    // 2) 再 apply nextPositions（含 movedPartIds 的最终位姿；新建零件
+                    //    的最终位姿在 nextPositions 里，会覆盖步骤 1 的 capture pose）
                     Object.entries(nextPositions).forEach(([id, s]) => { if (rp[id]) rp[id] = { ...rp[id], ...(s as Partial<PartState>) }; });
                     const rc = { ...prev.connections };
                     snapPreState.addedConnections.forEach(({ from, to }) => {
