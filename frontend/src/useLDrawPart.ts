@@ -31,10 +31,14 @@ export interface LDrawPartState {
 
 const partCache = new Map<string, LDrawPartState>();
 
-/** 手动清除特定零件的缓存（用于保存验证结果后） */
+/** 手动清除特定零件的缓存（用于保存验证结果后）。
+ *  用 `${partId}_` 前缀（带分隔符）避免 partId="3001" 误删 "30015_*"
+ *  等前缀重叠的 cache key — 见 issue #75。
+ */
 export function clearPartCache(partId: string) {
+  const prefix = `${partId}_`;
   for (const key of partCache.keys()) {
-    if (key.startsWith(partId)) {
+    if (key.startsWith(prefix)) {
       partCache.delete(key);
     }
   }
