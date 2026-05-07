@@ -152,12 +152,16 @@ function App() {
       {view === 'ASSEMBLY' ? <AssemblyUI /> : <LibraryNav />}
 
       {view === 'ASSEMBLY' ? (
-        <div className="w-full h-full">
+        <div className="w-full h-full" data-testid="assembly-canvas-container">
+          {/* 主 R3F Canvas 加 data-testid 让 e2e 能跟 PartLibraryPanel 缩略图 /
+              VerificationWorkbench 内部 canvas / DebugOverlay 子 canvas 精确区分。
+              修自 issue #64 C.5：解决 page.locator('canvas') 全局至少匹配一个的可达性问题。 */}
           <Canvas
             camera={{ position: [0.15, 0.2, 0.25], fov: 45, near: 0.0001, far: 50 }}
             shadows
             gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
             className="w-full h-full"
+            data-testid="assembly-canvas"
             onPointerMissed={(e) => {
                 // 只响应鼠标左键点击底板空白处
                 if (e.button === 0) {
