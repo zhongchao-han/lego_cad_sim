@@ -20,57 +20,14 @@ import axios from 'axios';
 import { useStore } from '../store';
 import { Search, Box, ChevronRight, ChevronDown, Star } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
+import {
+  type VerifiedPart,
+  FREQUENT_BUCKET,
+  computeBuckets,
+  orderBucketNames,
+} from '../utils/partLibraryBuckets';
 
 const BACKEND_ORIGIN: string = ((import.meta as unknown as Record<string, Record<string, string>>).env?.['VITE_BACKEND_ORIGIN']) || 'http://127.0.0.1:8000';
-
-interface VerifiedPart {
-  part_id: string;
-  port_count: number;
-  mesh_url: string;
-  // L50：backend categorize_part() 注入
-  name?: string;
-  category?: string;
-  // L44：backend extract_tooth_count() 注入；非齿轮 / 异形齿轮 = null
-  tooth_count?: number | null;
-  // L51：backend mass_estimator 注入；GLB 没烘 = null
-  mass_kg?: number | null;
-  com_local?: [number, number, number] | null;
-  // L51b：backend port_lib_manager.cached_data["bounding_box"] 注入；缺失 = null
-  bbox_size?: [number, number, number] | null;
-  bbox_center?: [number, number, number] | null;
-}
-
-const FREQUENT_BUCKET = '★ Frequent';
-
-// 与 backend/category.py 的 CATEGORY_ORDER 保持一致（出现顺序）。
-// 注入新桶时两处必须同步，否则前端会把它兜到列表末尾。
-const CATEGORY_ORDER = [
-  'Pin', 'Axle', 'Connector', 'Beam', 'Gear', 'Wheel',
-  'Plate', 'Tile', 'Brick', 'Panel',
-  'Cylinder', 'Pneumatic', 'Steering', 'Electric',
-  'Sticker', 'Other',
-] as const;
-
-const HIGH_PRIORITY_PARTS = [
-  // 经典常用销 (Pins)
-  '2780.dat',    // Blue friction pin (default color)
-  '3673.dat',    // Light gray pin
-  '43093.dat',   // Blue axle pin friction
-  '11214.dat',   // 3L axle pin
-  '6558.dat',    // 3L blue friction pin
-  '32002.dat',   // 3/4 pin
-
-  // 经典车轴 (Axles)
-  '32062.dat',   // 2L notched axle (red)
-  '4519.dat',    // 3L axle
-  '3705.dat',    // 4L axle
-
-  // 特殊件 / 电子件 / 大面板
-  '10089c01.dat',// Motor
-  '10090.dat',   // Motor / hub alternative
-  '39369.dat',   // 11x19 Baseplate
-  '71709.dat',   // Main hub or large panel
-];
 
 export function PartLibraryPanel() {
   const [parts, setParts] = useState<VerifiedPart[]>([]);
@@ -116,47 +73,9 @@ export function PartLibraryPanel() {
     fetchParts();
   }, [setPartCatalog]);
 
-  // 把 parts 切成 { '★ Frequent': [...], 'Pin': [...], ... }，仅含非空桶
-  const buckets = useMemo(() => {
-    const out: Record<string, VerifiedPart[]> = {};
-    const isHigh = (id: string) => HIGH_PRIORITY_PARTS.includes(id);
-
-    // 1) Frequent 桶：会话内用过 OR 在高优清单。按 (usage desc, HIGH_PRIORITY index) 排
-    const freq = parts
-      .filter(p => (partUsages[p.part_id] || 0) > 0 || isHigh(p.part_id))
-      .sort((a, b) => {
-        const ua = partUsages[a.part_id] || 0;
-        const ub = partUsages[b.part_id] || 0;
-        if (ua !== ub) return ub - ua;
-        const ia = HIGH_PRIORITY_PARTS.indexOf(a.part_id);
-        const ib = HIGH_PRIORITY_PARTS.indexOf(b.part_id);
-        if (ia !== ib) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-        return a.part_id.localeCompare(b.part_id);
-      });
-    if (freq.length > 0) out[FREQUENT_BUCKET] = freq;
-
-    // 2) 按 category 分组（含 Other）；每桶按 part_id 字母序
-    parts.forEach(p => {
-      const cat = p.category || 'Other';
-      if (!out[cat]) out[cat] = [];
-      out[cat].push(p);
-    });
-    Object.keys(out).forEach(k => {
-      if (k !== FREQUENT_BUCKET) {
-        out[k].sort((a, b) => a.part_id.localeCompare(b.part_id));
-      }
-    });
-    return out;
-  }, [parts, partUsages]);
-
-  // 渲染顺序：Frequent 在最前；其余按 CATEGORY_ORDER 顺序，未在表里的桶兜底到末尾
-  const orderedBucketNames = useMemo(() => {
-    const known = [FREQUENT_BUCKET, ...CATEGORY_ORDER];
-    const present = Object.keys(buckets);
-    const ordered = known.filter(k => present.includes(k));
-    const tail = present.filter(k => !known.includes(k)).sort();
-    return [...ordered, ...tail];
-  }, [buckets]);
+  // 桶分类 + 排序逻辑见 utils/partLibraryBuckets.ts；这里仅负责把 props 喂进去 + useMemo 缓存。
+  const buckets = useMemo(() => computeBuckets(parts, partUsages), [parts, partUsages]);
+  const orderedBucketNames = useMemo(() => orderBucketNames(buckets), [buckets]);
 
   const toggleBucket = (name: string) => {
     setOpenBuckets(prev => {
