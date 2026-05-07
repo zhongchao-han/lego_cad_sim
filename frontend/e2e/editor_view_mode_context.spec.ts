@@ -146,6 +146,40 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
     ).toBe('ASSEMBLY');
   });
 
+  // D4 反向 baseline (issue #63 修复后开通)：toggleMode 失败 → modeToggleError 设 + mode 不变
+  test('D4-ModeToggleFailure: 后端 5xx → modeToggleError 非 null + mode 不变', async ({ page }) => {
+    await page.route('**/api/toggle_mode**', (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'text/plain',
+        body: 'Internal Server Error',
+      }),
+    );
+
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().mode),
+      { timeout: 3000 }
+    ).toBe('ASSEMBLY');
+
+    await page.evaluate(() => window.__STORE__.getState().toggleMode());
+
+    // mode 不变（失败回滚）
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().mode),
+      { timeout: 3000 }
+    ).toBe('ASSEMBLY');
+    // modeToggleError 应非 null（UI 可订阅显示）
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().modeToggleError !== null),
+      { timeout: 3000 }
+    ).toBe(true);
+    // modeToggling 应回 false（不卡 loading）
+    await expect.poll(
+      () => page.evaluate(() => window.__STORE__.getState().modeToggling),
+      { timeout: 3000 }
+    ).toBe(false);
+  });
+
   // ──────────────────────────────────────────────────────────────────────
   // D5 — WebGL ContextLost
   // ──────────────────────────────────────────────────────────────────────

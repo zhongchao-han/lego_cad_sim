@@ -453,4 +453,45 @@ describe('store.toggleMode — 路由前缀验证', () => {
 
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
   });
+
+  // ─── issue #63 fix：modeToggleError + modeToggling 字段 ───────────────────
+  it('toggleMode 失败时 modeToggleError 设为 error message (issue #63)', async () => {
+    useStore.setState({ modeToggleError: null, modeToggling: false } as any);
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('Backend 5xx')
+    );
+    await useStore.getState().toggleMode();
+    expect(useStore.getState().modeToggleError).toContain('Backend 5xx');
+    expect(useStore.getState().modeToggling).toBe(false);
+    expect(useStore.getState().mode).toBe('ASSEMBLY'); // 失败 mode 不变
+  });
+
+  it('toggleMode 成功后 modeToggleError 被清回 null', async () => {
+    // 先制造一次失败把 modeToggleError 设上
+    useStore.setState({ modeToggleError: 'previous failure', modeToggling: false } as any);
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ data: {} });
+    await useStore.getState().toggleMode();
+    expect(useStore.getState().modeToggleError).toBeNull();
+  });
+
+  it('toggleMode 进行中再调被早退 (modeToggling 防双击)', async () => {
+    // 第一次调用 — 让 axios 阻塞在 pending promise
+    let resolveFirst: ((v: any) => void) | undefined;
+    (mockAxios.post as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => new Promise(r => { resolveFirst = r; })
+    );
+    const firstCall = useStore.getState().toggleMode();
+    // axios 仍未 resolve，modeToggling 应 true
+    expect(useStore.getState().modeToggling).toBe(true);
+
+    // 第二次调用应被早退（不发新 axios 请求）
+    await useStore.getState().toggleMode();
+    expect((mockAxios.post as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
+
+    // resolve 第一次 → 切换完成 + modeToggling=false
+    resolveFirst?.({ data: {} });
+    await firstCall;
+    expect(useStore.getState().modeToggling).toBe(false);
+    expect(useStore.getState().mode).toBe('SIMULATION');
+  });
 });
