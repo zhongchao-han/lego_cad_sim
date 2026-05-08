@@ -6,6 +6,14 @@
 
 ## ✅ 已完成 (Completed)
 
+- [x] **🧪 测试覆盖与质量加固 (Round 1-4, 2026-05)**：4 轮系统化覆盖追平 + 7 个真 bug 修复。
+    - Round 1 (UI e2e): TS-7 / C7-10 / D3-5 / E3 / A2-A6 / B5 矩阵清单完整覆盖；建立 `e2e-non-pixel` CI job（`--grep-invert` 自动接入新 spec）。
+    - Round 2 (Top 4 unit): rotateSelectedPart / abortCurrentInteraction / analyzeStability 边界 / setHoveredPort + useKeyboardShortcuts。
+    - Round 3 (审计补遗): commitAxialSliding cp 分支 + SnapCommand undo/redo / verificationStore + useLDrawPart / handlePortClick 分支 + pasteClipboard + selectPart / partColorDefaults。
+    - Round 4 (后端覆盖追平): physics_engine 真 pybullet DIRECT mode 18 case / urdf_exporter export() 边界 8 case / server.py insertion_check + apply_force + WebSocket physics_stream 12 case。
+    - **真 bug 修复**: #61 Esc 双 handler 竞态 / #62 snap_parts .catch（已早修，回归 lock）/ #63 toggleMode 静默吞 / #66 calculateClampedOffset 死代码 / #73 SnapCommand redo 不重建 / #75 clearPartCache 前缀误删 / #87 p.JOINT_CONTINUOUS 不存在。
+    - **架构小锐**: #64 C.3 view 字面值 'ASSEMBLY'→'EDITOR' 消除字符串重叠 / C.5 主 R3F canvas 加 `data-testid`。
+    - 详细 audit 见 `docs/04_quality_and_testing/01_issue_reports.md` §4。
 - [x] **语义重构**：将所有 `Workbench` 术语统一为更专业的 **`Staging (暂存)`**。
 - [x] **后台脚本更名与优化**：
     - `port_discovery.py` -> **`analyze_ports.py`**（提升了轴孔分类精度）。

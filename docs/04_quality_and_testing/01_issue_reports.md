@@ -162,3 +162,62 @@ CI 基础设施加固：`e2e-non-pixel` job grep-invert 自动抓所有非像素
 
 ### **未覆盖项（待 Round 2）**
 按用户矩阵编号清单仍欠：A2 / A4 / A5 / A6 / A7 / C9 / F2 / F3 / F4。下轮启动前应优先消化本节 A.1 - A.3 的真 bug，避免新一轮测试再触达同一个 race。
+
+---
+
+## 5. UI 测试覆盖工作 Round 2-4 + 真 bug 闭环 (2026-05) - [全部已修复 ✅]
+
+### **概述**
+延续 §4 的覆盖工作，完成矩阵清单剩余 + 全仓审计 + 真 bug 全部修复 + 后端覆盖追平。
+
+### **Round 2：UI e2e 矩阵清单完结 + Top 4 unit 主线**
+- 矩阵剩余完整覆盖：A2 sliding / A4 override (skip 引 #66) / A6 旋转 / A5/A7/C9 单测 / F2 F3 F4 搜索+库
+- 全仓 audit Top 4 unit 主线：
+  - rotateSelectedPart 11 case + abortCurrentInteraction 8 case (PR #70)
+  - analyzeStability 边界 + 退化 footprint 9 case (PR #71)
+  - setHoveredPort 9 case + useKeyboardShortcuts 16 case (PR #72)
+
+### **Round 3：审计补遗**
+- commitAxialSliding cp 分支 + SnapCommand undo/redo round-trip 11 case (PR #74) — 反向暴露 [#73 redo 不重建](https://github.com/zhongchao-han/lego_cad_sim/issues/73)
+- verificationStore 12 case + useLDrawPart 7 case (PR #76) — 反向暴露 [#75 clearPartCache 前缀](https://github.com/zhongchao-han/lego_cad_sim/issues/75)
+- handlePortClick 分支 + pasteClipboard 中心 + selectPart 14 case (PR #77)
+- partColorDefaults 7 case (PR #78)
+
+### **Round 4：后端覆盖追平**
+- `backend/physics_engine.py` 真 pybullet DIRECT mode 18 case (PR #88) — 反向暴露 [#87 p.JOINT_CONTINUOUS 不存在](https://github.com/zhongchao-han/lego_cad_sim/issues/87)
+- `backend/urdf_exporter.py` export() 边界 8 case (PR #89)
+- `backend/server.py` insertion_check + apply_force + WebSocket physics_stream 12 case (PR #90)
+- `frontend/src/hooks/useHoverDebounce.ts` 7 case (PR #91)
+
+### **真 bug 修复全部闭环**
+
+| Issue | 修复 PR | 修法摘要 |
+|---|---|---|
+| [#61](https://github.com/zhongchao-han/lego_cad_sim/issues/61) Esc 双 handler 竞态 | #83 | Scene.jsx 删 keydown handler，统一到 useKeyboardShortcuts 按 phase 分发 |
+| [#62](https://github.com/zhongchao-han/lego_cad_sim/issues/62) snap_parts 缺 .catch | #80 | audit false positive — `.catch` 早在 commit 76d4f502 加上，PR 仅 regression lock |
+| [#63](https://github.com/zhongchao-han/lego_cad_sim/issues/63) toggleMode 静默吞 | #84 | store 加 `modeToggleError` 字段 + `modeToggling` 防双击；UI 集成 follow-up |
+| [#66](https://github.com/zhongchao-han/lego_cad_sim/issues/66) calculateClampedOffset 死代码 | #82 | snapParts / updateSlideOffset 透传 shiftKey；A4-ShiftOverride unskip |
+| [#73](https://github.com/zhongchao-han/lego_cad_sim/issues/73) SnapCommand redo 不重建 | #81 | commitAxialSliding capture addedPartStates；redo 用完整 PartState 重建 |
+| [#75](https://github.com/zhongchao-han/lego_cad_sim/issues/75) clearPartCache 前缀误删 | #79 | `startsWith(partId+'_')` 严格前缀，避免 "3001" 误清 "30015_*" |
+| [#87](https://github.com/zhongchao-han/lego_cad_sim/issues/87) p.JOINT_CONTINUOUS 不存在 | #88 | URDF parser 把 continuous 归 REVOLUTE，移除 invalid 引用 |
+
+**架构小锐**（umbrella [#64](https://github.com/zhongchao-han/lego_cad_sim/issues/64)）：
+- C.3 view 字面值 'ASSEMBLY'→'EDITOR'/'WORKBENCH' (PR #86) — 消除跟 mode 的字符串重叠
+- C.5 主 R3F canvas 加 `data-testid="assembly-canvas"` (PR #85) — D3 e2e 双重断言改用 testid
+
+### **CI 上 skip 解锁**
+所有 quirk-lock 测试都已取消 skip / quirk 标记，回归正常断言：
+- TS-5 Free Placing Paste（#83 修 Esc race 后 unskip CI）
+- A4-ShiftOverride（#82 修 calculateClampedOffset 后 unskip）
+- store_commit_undo case 8（#81 修 redo 后取消 quirk）
+- useLDrawPart case 6（#79 修前缀后取消 quirk）
+
+### **未取消的 skip**
+仅剩 1 个：`editor_cases.spec.ts` TS-7 hover-crash — 等接通 LDraw 资源 mock + WebSocket mock 才能在 CI 跑（与本轮无关，独立基础设施工作）。
+
+### **整体测量**
+- 17 个 PR merged（#57-91）
+- 7 个 bug issue + 1 umbrella + 1 follow-up
+- 35 个 vitest test files / 410+ unit test 总数
+- 8 个 e2e spec 文件 / 25+ e2e test
+- 后端：18 case physics_engine + 8 case urdf_exporter 边界 + 12 case server 三 endpoint
