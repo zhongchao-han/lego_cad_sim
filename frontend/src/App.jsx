@@ -25,6 +25,9 @@ function AssemblyUI() {
   const setView = useStore((state) => state.setView);
   const toggleMode = useStore((state) => state.toggleMode);
   const wsConnected = useStore((state) => state.wsConnected);
+  // issue #63 fix follow-up：UI 订阅 store 字段反馈 toggleMode 失败 / 进行中。
+  const modeToggleError = useStore((state) => state.modeToggleError);
+  const modeToggling = useStore((state) => state.modeToggling);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50 flex flex-col">
@@ -39,9 +42,33 @@ function AssemblyUI() {
           </div>
         </div>
 
-        <button onClick={() => toggleMode()} className="pointer-events-auto px-8 py-3 rounded-2xl font-black text-sm bg-slate-900 text-white shadow-2xl">
-          {mode === 'ASSEMBLY' ? 'GO SIMULATION →' : '← BACK TO DESIGN'}
-        </button>
+        {/* 模式切换按钮 + 失败 inline 错误提示。modeToggling 期间 disabled 防双击；
+            modeToggleError 非 null 时按钮下方显示红色 banner（持续到下次切换）。 */}
+        <div className="flex flex-col items-end gap-2 pointer-events-auto">
+          <button
+            onClick={() => toggleMode()}
+            disabled={modeToggling}
+            data-testid="mode-toggle-button"
+            className={`px-8 py-3 rounded-2xl font-black text-sm shadow-2xl transition-all ${
+              modeToggling
+                ? 'bg-slate-400 text-white cursor-not-allowed opacity-70'
+                : 'bg-slate-900 text-white hover:bg-slate-800'
+            }`}
+          >
+            {modeToggling
+              ? '切换中…'
+              : mode === 'ASSEMBLY' ? 'GO SIMULATION →' : '← BACK TO DESIGN'}
+          </button>
+          {modeToggleError && (
+            <div
+              data-testid="mode-toggle-error"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 border border-red-300 text-red-800 max-w-xs shadow-md"
+              title={modeToggleError}
+            >
+              切换失败：<span className="truncate inline-block max-w-[14rem] align-bottom">{modeToggleError}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="absolute top-0 bottom-7 left-0 flex pointer-events-none z-10">

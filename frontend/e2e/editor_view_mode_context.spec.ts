@@ -183,6 +183,40 @@ test.describe('View / Mode / ContextLost — D3/D4/D5', () => {
       () => page.evaluate(() => window.__STORE__.getState().modeToggling),
       { timeout: 3000 }
     ).toBe(false);
+
+    // UI 集成 (issue #63 follow-up)：error banner 出现在 mode 按钮下
+    await expect(page.locator('[data-testid="mode-toggle-error"]'))
+      .toBeVisible({ timeout: 3000 });
+  });
+
+  // UI 集成（issue #63 follow-up）：modeToggling=true 时按钮应 disabled 防双击
+  test('D4-ModeToggleLoading: pending toggle → button disabled + 文字"切换中…"', async ({ page }) => {
+    // mock /api/toggle_mode 用 delay 让 modeToggling=true 状态可观察
+    let resolveRoute: ((value: void) => void) | undefined;
+    await page.route('**/api/toggle_mode**', async (route) => {
+      // 阻塞这次 fulfill，让 modeToggling 在 "true" 状态停留
+      await new Promise<void>((resolve) => { resolveRoute = resolve; });
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success' }),
+      });
+    });
+
+    const button = page.locator('[data-testid="mode-toggle-button"]');
+    await expect(button).toBeEnabled();
+
+    // 触发 toggle（不 await，让请求挂起）
+    void page.evaluate(() => window.__STORE__.getState().toggleMode());
+
+    // 按钮应变 disabled + 文字含"切换中"
+    await expect(button).toBeDisabled({ timeout: 3000 });
+    await expect(button).toContainText('切换中', { timeout: 3000 });
+
+    // 释放 mock，让请求完成
+    resolveRoute?.();
+
+    // 完成后按钮恢复 enabled
+    await expect(button).toBeEnabled({ timeout: 3000 });
   });
 
   // ──────────────────────────────────────────────────────────────────────
