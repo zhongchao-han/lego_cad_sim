@@ -27,6 +27,30 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
       }),
     );
 
+    // LDraw 资源 mock：让 useLDrawPart 拿到 sites/ports 数据（SiteGizmo 仍能
+    // 渲染交互），但 mesh_url 留空让 InteractivePart 走 fallback box 渲染
+    // （L199 if-else），避免 CI 上没后端时 GLB fetch 失败让 R3F 几何加载链
+    // 路 hang 把 event loop 拖到 simulateHumanJitter 超时（TS-7 hover-crash
+    // 第一次 unskip CI 的关键阻塞点）。
+    await page.route('**/api/ldraw_part/**', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ports: [
+            { name: 'p1', type: 'peg.dat',
+              position: [0, 0, 0], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+          ],
+          sites: [
+            { id: 'site_0', position: [0, 0, 0], occupied_by: null,
+              ports: [{ name: 'p1', type: 'peg.dat',
+                position: [0, 0, 0], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }] },
+          ],
+          // mesh_url 不返（或返 undefined）→ InteractivePart 走 fallback box
+          bounding_box: { size: [0.01, 0.01, 0.01], center: [0, 0, 0] },
+        }),
+      }),
+    );
+
     // Navigate to the app
     await page.goto('/');
 
@@ -355,13 +379,11 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
   });
 
   test('TS-7: Display Ports on Hover Without Crash', async ({ page }) => {
-    // TODO: 接通 LDraw 资源 mock + WebSocket(/ws/physics_stream) mock 后开回 CI。
-    // 当前 CI 上 backend 未起，ws://localhost:8000/ws/physics_stream 每 2s
-    // ERR_CONNECTION_REFUSED 触发一次 React state update；同时 6558 是真 LDraw
-    // 销零件，会走 R3F 几何加载链路（无后端时挂在某处）。两者叠加把 event loop
-    // 拖到 simulateHumanJitter(3s 鼠标抖动) 跑不完，30s test timeout 超 3 次
-    // retry 全挂。本地有 backend 时正常跑。详见 PR #57 第二轮 CI fail log。
-    test.skip(!!process.env.CI, 'Needs LDraw + ws mock to run headless without backend.');
+    // CI unskip：beforeEach mock /api/ldraw_part/** 返 sites/ports + 不带
+    // mesh_url，让 InteractivePart 走 fallback box 渲染（不 hang 在 GLB
+    // 加载）。WebSocket /ws/physics_stream 重试噪声仅污染 console，不阻
+    // 塞 simulateHumanJitter mouse.move 路径。详见 PR #57 第二轮 fail log
+    // 与 PR #94 unskip。
     // Inject a real part precisely so it loads actual ports (SiteGizmos)
     // 6558 is the 3L friction pin, which definitely has ports.
     await page.evaluate(() => {
