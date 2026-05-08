@@ -617,5 +617,161 @@ def _rot_to_align_z(world_z) -> np.ndarray:
     return np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * (K @ K)
 
 
+class TestExportEdgeCases(unittest.TestCase):
+    """export() 主流程边界 case：空树 / 单 link / 多 root / robot_name /
+    link 子元素完整性 / fixed vs continuous joint 字段。
+
+    audit 报告称"XML 树构造无单测"是 false positive (Mimic / Floating Base
+    已被 18 case 覆盖)，但 export 入口的边界条件确实漏 — 本组补 8 case。
+    """
+
+    def _export_to_root(
+        self, tree: nx.DiGraph, loops, **exporter_kwargs
+    ) -> ET.Element:
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter(**exporter_kwargs).export(
+                tree, loops, out, **(exporter_kwargs.get("export_kwargs", {})),
+            )
+            return ET.parse(out).getroot()
+
+    def test_empty_tree_writes_robot_with_no_links(self):
+        """空 graph：URDF 仍是合法 <robot>，只是无 link/joint。"""
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "empty.urdf")
+            URDFExporter().export(nx.DiGraph(), [], out)
+            root = ET.parse(out).getroot()
+        self.assertEqual(root.tag, "robot")
+        self.assertEqual(len(root.findall("link")), 0)
+        self.assertEqual(len(root.findall("joint")), 0)
+
+    def test_no_closed_loops_no_gazebo_block(self):
+        """closed_loops=[] → URDF 不应 emit <gazebo> 块。"""
+        tm = TopologyManager()
+        tm.add_part(_mk_part("A"))
+        tm.add_part(_mk_part("B"))
+        tm.connect_ports(ConnectionEdge(
+            "A", "B",
+            _mk_port("p", "peghole", [0, 0, 0]),
+            _mk_port("c", "pin", [0, 0, 0]),
+        ))
+        tree = tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, tm.closed_loops, out)
+            root = ET.parse(out).getroot()
+        self.assertEqual(len(root.findall("gazebo")), 0)
+
+    def test_single_part_one_link_no_joints(self):
+        """单零件 graph：1 link，0 joint。"""
+        tm = TopologyManager()
+        tm.add_part(_mk_part("solo"))
+        tree = tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, [], out)
+            root = ET.parse(out).getroot()
+        links = root.findall("link")
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0].get("name"), "solo")
+        self.assertEqual(len(root.findall("joint")), 0)
+
+    def test_link_has_inertial_visual_collision(self):
+        """每个 <link> 应同时含 inertial / visual / collision 三个子元素。"""
+        tm = TopologyManager()
+        tm.add_part(_mk_part("L"))
+        tree = tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, [], out)
+            root = ET.parse(out).getroot()
+        link = root.find("link")
+        assert link is not None
+        self.assertIsNotNone(link.find("inertial"))
+        self.assertIsNotNone(link.find("visual"))
+        self.assertIsNotNone(link.find("collision"))
+        # inertial 子结构
+        inertial = link.find("inertial")
+        assert inertial is not None
+        self.assertIsNotNone(inertial.find("mass"))
+        self.assertIsNotNone(inertial.find("inertia"))
+
+    def test_robot_name_custom(self):
+        """robot_name 参数生效，作为 <robot name=...> 顶层属性。"""
+        tm = TopologyManager()
+        tm.add_part(_mk_part("X"))
+        tree = tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, [], out, robot_name="my_lego_thing")
+            root = ET.parse(out).getroot()
+        self.assertEqual(root.get("name"), "my_lego_thing")
+
+    def test_floating_base_multi_root_skipped_no_world_link(self):
+        """spanning tree 多于一个入度 0 节点 → floating_base=True 也不 emit
+        world link（避免选错 root）。"""
+        # 强造一个 disconnected 双 root 图
+        tree = nx.DiGraph()
+        tree.add_node("R1", data=_mk_part("R1"))
+        tree.add_node("R2", data=_mk_part("R2"))
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter(floating_base=True).export(tree, [], out)
+            root = ET.parse(out).getroot()
+        link_names = [el.get("name") for el in root.findall("link")]
+        self.assertNotIn("world", link_names)
+        # 也不应有 floating joint
+        floating_joints = [
+            j for j in root.findall("joint") if j.get("type") == "floating"
+        ]
+        self.assertEqual(len(floating_joints), 0)
+
+    def test_continuous_joint_has_axis_and_dynamics(self):
+        """非 fixed joint 应含 <axis> + <dynamics> 子元素。"""
+        # pin/peghole → derive_joint 给 continuous（旋转销）
+        tm = TopologyManager()
+        tm.add_part(_mk_part("p"))
+        tm.add_part(_mk_part("h"))
+        tm.connect_ports(ConnectionEdge(
+            "p", "h",
+            _mk_port("a", "pin", [0, 0, 0]),
+            _mk_port("b", "peghole", [0, 0, 0]),
+        ))
+        tree = tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, [], out)
+            root = ET.parse(out).getroot()
+        joints = [j for j in root.findall("joint") if j.get("type") != "fixed"]
+        self.assertGreater(len(joints), 0, "至少应有 1 个非 fixed joint")
+        for joint in joints:
+            self.assertIsNotNone(joint.find("axis"), "非 fixed joint 应有 <axis>")
+            self.assertIsNotNone(
+                joint.find("dynamics"), "非 fixed joint 应有 <dynamics>"
+            )
+
+    def test_export_writes_valid_xml_to_disk(self):
+        """端到端 sanity：写出文件可被 ET.parse 重新读回（XML 合法 / 未截断）。"""
+        tm = TopologyManager()
+        tm.add_part(_mk_part("A"))
+        tm.add_part(_mk_part("B"))
+        tm.connect_ports(ConnectionEdge(
+            "A", "B",
+            _mk_port("p", "peghole", [0, 0, 0]),
+            _mk_port("c", "pin", [0, 0, 0]),
+        ))
+        tree = tm.build_spanning_tree()
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "out.urdf")
+            URDFExporter().export(tree, [], out)
+            self.assertTrue(os.path.isfile(out))
+            with open(out, "r", encoding="utf-8") as f:
+                content = f.read()
+            # 写出格式 minidom prettyxml，第一行应是 XML 声明
+            self.assertTrue(content.startswith("<?xml"))
+            # 端到端 reparse 不抛
+            ET.parse(out)
+
+
 if __name__ == "__main__":
     unittest.main()
