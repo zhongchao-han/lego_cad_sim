@@ -11,6 +11,28 @@ declare global {
 test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
   test.beforeEach(async ({ page }) => {
+    // WebSocket stub：替换 global WebSocket 让 ws://localhost:8000/ws/physics_stream
+    // 不真发起连接、不触发重连风暴。CI 上无后端时 ECONNREFUSED 每 2s 一次产生
+    // 大量 console error 把 event loop 拖到 simulateHumanJitter mouse.move 路径
+    // 30s timeout 失败（TS-7 hover crash unskip 的关键阻塞）。FakeWebSocket 永远
+    // 留在 CONNECTING(0)，前端 onerror/onclose 不触发就不会重连。
+    await page.addInitScript(() => {
+      // @ts-expect-error override DOM global for test isolation
+      window.WebSocket = class FakeWebSocket {
+        url: string;
+        readyState = 0; // CONNECTING — 永不切到 CLOSED 触发重连
+        onopen: ((ev: Event) => void) | null = null;
+        onclose: ((ev: CloseEvent) => void) | null = null;
+        onerror: ((ev: Event) => void) | null = null;
+        onmessage: ((ev: MessageEvent) => void) | null = null;
+        constructor(url: string) { this.url = url; }
+        addEventListener() {}
+        removeEventListener() {}
+        send() {}
+        close() { this.readyState = 3; }
+      };
+    });
+
     // CI 上 backend 未起：usePartSearch 拉 /api/search/key 三次重试失败后会触发
     // RenderErrorBoundary 全屏 z-[100] "核心依赖熔断" 覆盖，盖死 canvas + 把
     // event loop 拖到 mouse.move / waitForTimeout 都会超时（对依赖鼠标手势的
@@ -23,6 +45,30 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
           status: 'success',
           host: 'http://localhost:7700',
           search_key: 'mock-key-for-e2e',
+        }),
+      }),
+    );
+
+    // LDraw 资源 mock：让 useLDrawPart 拿到 sites/ports 数据（SiteGizmo 仍能
+    // 渲染交互），但 mesh_url 留空让 InteractivePart 走 fallback box 渲染
+    // （L199 if-else），避免 CI 上没后端时 GLB fetch 失败让 R3F 几何加载链
+    // 路 hang 把 event loop 拖到 simulateHumanJitter 超时（TS-7 hover-crash
+    // 第一次 unskip CI 的关键阻塞点）。
+    await page.route('**/api/ldraw_part/**', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ports: [
+            { name: 'p1', type: 'peg.dat',
+              position: [0, 0, 0], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] },
+          ],
+          sites: [
+            { id: 'site_0', position: [0, 0, 0], occupied_by: null,
+              ports: [{ name: 'p1', type: 'peg.dat',
+                position: [0, 0, 0], rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] }] },
+          ],
+          // mesh_url 不返（或返 undefined）→ InteractivePart 走 fallback box
+          bounding_box: { size: [0.01, 0.01, 0.01], center: [0, 0, 0] },
         }),
       }),
     );
@@ -355,13 +401,12 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
   });
 
   test('TS-7: Display Ports on Hover Without Crash', async ({ page }) => {
-    // TODO: 接通 LDraw 资源 mock + WebSocket(/ws/physics_stream) mock 后开回 CI。
-    // 当前 CI 上 backend 未起，ws://localhost:8000/ws/physics_stream 每 2s
-    // ERR_CONNECTION_REFUSED 触发一次 React state update；同时 6558 是真 LDraw
-    // 销零件，会走 R3F 几何加载链路（无后端时挂在某处）。两者叠加把 event loop
-    // 拖到 simulateHumanJitter(3s 鼠标抖动) 跑不完，30s test timeout 超 3 次
-    // retry 全挂。本地有 backend 时正常跑。详见 PR #57 第二轮 CI fail log。
-    test.skip(!!process.env.CI, 'Needs LDraw + ws mock to run headless without backend.');
+    // 仍 CI skip — 见 issue #95：LDraw mock + WebSocket stub 都已加（本 PR
+    // 保留），R3F + SwiftShader 软渲染下 simulateHumanJitter 3s mouse.move
+    // 仍超 30s test budget，CI 持续 timeout。本地有真后端时正常跑。
+    // 整轮工作收口选择 punt 这个鲁棒性测试，长尾排期由 issue #95 跟踪
+    // （4 个修复方向：缩 jitter / 合成 PointerEvent / 删测试 / GPU CI runner）。
+    test.skip(!!process.env.CI, 'Tracked by issue #95: R3F + SwiftShader render budget on CI.');
     // Inject a real part precisely so it loads actual ports (SiteGizmos)
     // 6558 is the 3L friction pin, which definitely has ports.
     await page.evaluate(() => {
