@@ -11,6 +11,28 @@ declare global {
 test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
   test.beforeEach(async ({ page }) => {
+    // WebSocket stub：替换 global WebSocket 让 ws://localhost:8000/ws/physics_stream
+    // 不真发起连接、不触发重连风暴。CI 上无后端时 ECONNREFUSED 每 2s 一次产生
+    // 大量 console error 把 event loop 拖到 simulateHumanJitter mouse.move 路径
+    // 30s timeout 失败（TS-7 hover crash unskip 的关键阻塞）。FakeWebSocket 永远
+    // 留在 CONNECTING(0)，前端 onerror/onclose 不触发就不会重连。
+    await page.addInitScript(() => {
+      // @ts-expect-error override DOM global for test isolation
+      window.WebSocket = class FakeWebSocket {
+        url: string;
+        readyState = 0; // CONNECTING — 永不切到 CLOSED 触发重连
+        onopen: ((ev: Event) => void) | null = null;
+        onclose: ((ev: CloseEvent) => void) | null = null;
+        onerror: ((ev: Event) => void) | null = null;
+        onmessage: ((ev: MessageEvent) => void) | null = null;
+        constructor(url: string) { this.url = url; }
+        addEventListener() {}
+        removeEventListener() {}
+        send() {}
+        close() { this.readyState = 3; }
+      };
+    });
+
     // CI 上 backend 未起：usePartSearch 拉 /api/search/key 三次重试失败后会触发
     // RenderErrorBoundary 全屏 z-[100] "核心依赖熔断" 覆盖，盖死 canvas + 把
     // event loop 拖到 mouse.move / waitForTimeout 都会超时（对依赖鼠标手势的
