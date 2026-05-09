@@ -2,9 +2,10 @@ import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import logging
-from typing import List, Tuple, Optional
+from typing import List, Set, Tuple, Optional
 import uuid
 
+from backend.auto_latch_scanner import serialize_port_key
 from backend.port import Port
 from backend.connection_edge import ConnectionEdge
 from backend.urdf_exporter import URDFExporter
@@ -98,6 +99,41 @@ class TopologyManager:
             )
         logger.debug(f"[DEBUG] batch_connect: 成功注册 {success_count} 条边。")
         return success_count
+
+    # ── 派生视图：占用 / 可用 port (走法 A 期 A1) ────────────────────────────
+    def get_occupied_port_keys(self, part_id: str) -> Set[str]:
+        """返回该零件上被任何 ConnectionEdge 占用的 port key 集合。
+
+        key 格式跟前端 ``store.ts portKey()`` 与 ``auto_latch_scanner.serialize_port_key``
+        逐字符一致 ``"x.xxxx,y.yyyy,z.zzzz|nx.xx,ny.yy,nz.zz"``，让前后端能用同一
+        命名空间索引。
+
+        语义：MultiDiGraph 里 part_id 作为父节点的 out-edges 取 ``port_parent``，
+        作为子节点的 in-edges 取 ``port_child`` —— 两侧都有可能在 part_id 上落
+        port 占用。
+
+        callsite 自己做减集合 ``free = sites_ports_keys - occupied_keys`` 派生
+        free_ports；本类不再持有 sites 数据，避免跟 port_lib_manager 强耦合。
+
+        Args:
+            part_id: 零件实例 ID。不在 graph 中时返空集（不抛）。
+
+        Returns:
+            Set[str]: 已占用 port key 集合。无连接时返空。
+        """
+        keys: Set[str] = set()
+        if part_id not in self.graph:
+            return keys
+        # part_id 作 parent: port_parent.position/rotation 是 part_id 上的 port
+        edge: ConnectionEdge
+        for _u, _v, data in self.graph.out_edges(part_id, data=True):
+            edge = data["data"]
+            keys.add(serialize_port_key(edge.port_parent.position, edge.port_parent.rotation))
+        # part_id 作 child: port_child 同理
+        for _u, _v, data in self.graph.in_edges(part_id, data=True):
+            edge = data["data"]
+            keys.add(serialize_port_key(edge.port_child.position, edge.port_child.rotation))
+        return keys
 
     def _derive_joint(self, edge: "ConnectionEdge") -> Tuple[str, float, float]:
         """
