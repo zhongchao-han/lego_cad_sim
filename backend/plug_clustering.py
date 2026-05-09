@@ -130,7 +130,7 @@ def _flatten_ports(sites: List[dict]) -> List[_FlatPort]:
             except (IndexError, TypeError):
                 continue
             g, p = _get_gender_profile(port.get("type", ""))
-            if g is None:
+            if g is None or p is None:
                 continue
             pos_raw = port.get("position", site.get("position", [0, 0, 0]))
             position: Tuple[float, float, float] = (pos_raw[0], pos_raw[1], pos_raw[2])

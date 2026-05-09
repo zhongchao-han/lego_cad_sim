@@ -59,6 +59,8 @@ def _port(ptype: str, position, normal=(0, 1, 0)):
 class TestBaselines(unittest.TestCase):
     """三个用户拍板的 baseline 案例 — 跑真实库数据。"""
 
+    lib: PortLibrary
+
     @classmethod
     def setUpClass(cls):
         cls.lib = PortLibrary()
@@ -223,6 +225,8 @@ class TestPlugSerialization(unittest.TestCase):
 
 class TestPortLibraryParsePlugs(unittest.TestCase):
     """PortLibrary.parse_plugs 加载路径：baked JSON 优先 + 老数据 fallback。"""
+
+    lib: PortLibrary
 
     @classmethod
     def setUpClass(cls):
