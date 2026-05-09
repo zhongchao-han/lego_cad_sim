@@ -21,6 +21,7 @@ from backend.port_semantics import get_interface, build_fit_result
 from backend.port import Port
 from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
+from backend.plug_clustering import compute_plugs as _compute_plugs
 from backend.auto_latch_scanner import AutoLatchScanner, serialize_port_key
 from backend.mesh_asset_manager import MeshAssetManager
 from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
@@ -126,6 +127,7 @@ class LDrawPort(BaseModel):
     position: list
     rotation: list
     is_manually_adjusted: bool = False
+    plug_id: Optional[str] = None  # 走法 A 期 A2：port 归属的 plug
 
 class LDrawSite(BaseModel):
     """物理坑位：共享同一中心点的一组端口。"""
@@ -133,6 +135,18 @@ class LDrawSite(BaseModel):
     position: list
     occupied_by: Optional[str] = None
     ports: List[LDrawPort]
+    plug_ids: List[str] = []  # 走法 A 期 A2：site 涉及的 plug（同 site 跨 plug 时含多个）
+
+class LDrawPlug(BaseModel):
+    """plug-level 抽象（走法 A 期 A2）— 用户视角下的整片接口聚合。"""
+    plug_id: str
+    label: str
+    gender: str
+    profile: str
+    direction: list
+    members: list  # List[(site_id, port_idx)] tuples — JSON 序列化为 [str, int]
+    port_count: int
+    site_ids: List[str]
 
 class BoundingBox(BaseModel):
     size: list
@@ -141,7 +155,8 @@ class BoundingBox(BaseModel):
 class LDrawPartResponse(BaseModel):
     part_id: str
     ports: List[LDrawPort]         # 向后兼容：保留扁平 Port 列表
-    sites: List[LDrawSite] = []   # 新增：按物理位点聚类后的 Site 列表
+    sites: List[LDrawSite] = []   # 按物理位点聚类后的 Site 列表
+    plugs: List[LDrawPlug] = []   # 走法 A 期 A2：plug-level 聚合
     mesh_url: Optional[str] = None
     bounding_box: Optional[BoundingBox] = None
 
@@ -463,10 +478,20 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
             elif "ports" in cached_data:
                 flattened_ports = [LDrawPort(**p) for p in cached_data["ports"]]
 
+            # 走法 A 期 A2：plug 字段。优先 baked，老数据 fallback runtime 现算。
+            if cached_data.get("plug_version") and "plugs" in cached_data:
+                plugs_serialized = [LDrawPlug(**p) for p in cached_data["plugs"]]
+            else:
+                plugs_serialized = [
+                    LDrawPlug(**p.to_dict())
+                    for p in _compute_plugs(cached_data.get("sites", []), dat_filename)
+                ]
+
             return LDrawPartResponse(
                 part_id=dat_filename,
                 ports=flattened_ports,
                 sites=[LDrawSite(**s) for s in cached_data.get("sites", [])],
+                plugs=plugs_serialized,
                 mesh_url=cached_data.get("mesh_url") or mesh_url,
                 bounding_box=BoundingBox(**bounding_box) if bounding_box else None
             )
@@ -497,12 +522,20 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
         # 动态聚类：无论从缓存还是实时解析，均在查询时计算 Sites
         ports_raw = [p.model_dump() for p in ports]
         computed_sites = cluster_ports_into_sites(ports_raw, dat_filename)
-        sites_serialized = [LDrawSite(**s) for s in sites_to_response(computed_sites)]
+        sites_response = sites_to_response(computed_sites)
+        sites_serialized = [LDrawSite(**s) for s in sites_response]
+
+        # plug-level 抽象（走法 A 期 A2）：动态聚类路径下 baked 数据缺失，runtime 现算
+        plugs_serialized = [
+            LDrawPlug(**p.to_dict())
+            for p in _compute_plugs(sites_response, dat_filename)
+        ]
 
         return LDrawPartResponse(
             part_id=dat_filename,
             ports=ports,
             sites=sites_serialized,
+            plugs=plugs_serialized,
             mesh_url=mesh_url,
             bounding_box=BoundingBox(**bounding_box) if bounding_box else None
         )

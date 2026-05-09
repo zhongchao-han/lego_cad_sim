@@ -10,6 +10,8 @@ export interface LDrawPort {
   position: [number, number, number];
   rotation: number[][];
   is_manually_adjusted?: boolean;
+  /** 走法 A 期 A2：port 归属的 plug.plug_id（baked 后端字段，老数据可能缺）*/
+  plug_id?: string;
 }
 
 /** 物理坑位：共享同一中心点的一组端口（来自后端 Site 聚类） */
@@ -18,13 +20,31 @@ export interface LDrawSite {
   position: [number, number, number];
   occupied_by: string | null;
   ports: LDrawPort[];
+  /** 走法 A 期 A2：site 涉及的 plug_id 列表（同 site 跨多 plug 时含多个）*/
+  plug_ids?: string[];
+}
+
+/** plug-level 抽象（走法 A 期 A2）—— 用户视角下的整片接口聚合
+ *  （"整片 stud" / "销头销尾分明" / "整排孔贯通合并"）。 */
+export interface LDrawPlug {
+  plug_id: string;
+  label: string;
+  gender: 'MALE' | 'FEMALE' | string;
+  profile: 'CYL' | 'CROSS' | 'STUD' | string;
+  /** 主法线方向（已归一化、xyz 三元）*/
+  direction: [number, number, number];
+  /** plug 包含的 (site_id, port_idx_in_site) 二元组列表 */
+  members: Array<[string, number]>;
+  port_count: number;
+  site_ids: string[];
 }
 
 export interface LDrawPartState {
   loading: boolean;
   error: string | null;
   ports: LDrawPort[];       // 向后兼容：扁平列表
-  sites: LDrawSite[];       // 新增：聚类后的 Site 列表
+  sites: LDrawSite[];       // 聚类后的 Site 列表
+  plugs: LDrawPlug[];       // 走法 A 期 A2：plug-level 聚合
   meshUrl?: string;
   exactBoundingBox?: { size: [number, number, number]; center: [number, number, number] };
 }
@@ -59,6 +79,7 @@ export function useLDrawPart(
     error: null,
     ports: [],
     sites: [],
+    plugs: [],
     meshUrl: undefined,
     exactBoundingBox: undefined,
   }));
@@ -72,6 +93,7 @@ export function useLDrawPart(
         error: null,
         ports: [],
         sites: [],
+        plugs: [],
         meshUrl: undefined,
         exactBoundingBox: undefined,
       });
@@ -92,6 +114,7 @@ export function useLDrawPart(
         error: null,
         ports: [],
         sites: [],
+        plugs: [],
         meshUrl: undefined,
         exactBoundingBox: undefined,
       });
@@ -110,6 +133,7 @@ export function useLDrawPart(
           error: null,
           ports: res.data?.ports ?? [],
           sites: res.data?.sites ?? [],
+          plugs: res.data?.plugs ?? [],
           meshUrl: res.data?.mesh_url ?? res.data?.meshUrl,
           exactBoundingBox: res.data?.bounding_box,
         };
@@ -124,6 +148,7 @@ export function useLDrawPart(
           error: message,
           ports: [],
           sites: [],
+          plugs: [],
           meshUrl: undefined,
           exactBoundingBox: undefined,
         };
