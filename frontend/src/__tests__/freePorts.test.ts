@@ -7,10 +7,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeFreePorts, computeAssemblyFreePorts } from '../utils/freePorts';
+import { computeFreePorts, computeAssemblyFreePorts, countAssemblyFreePortsCheap } from '../utils/freePorts';
 import type { LDrawSite, LDrawPort } from '../useLDrawPart';
 import { portKey } from '../store';
-import type { Mat3 } from '../types';
+import { ZoneType, type Mat3 } from '../types';
 
 // LDrawPort.rotation 是 number[][]，跟 Mat3 (固定 3x3 元组) 形状兼容但类型不同。
 // 用 number[][] 避免赋值时类型 narrowing 警告，portKey 调用点 cast 成 Mat3。
@@ -145,5 +145,64 @@ describe('computeAssemblyFreePorts', () => {
     const allOccupied = {}; // ghost 完全未在 store
     const result = computeAssemblyFreePorts(partsWithSites, allOccupied);
     expect(result.ghost.length).toBe(1);
+  });
+});
+
+describe('countAssemblyFreePortsCheap', () => {
+  it('case 12: 空装配 → 0', () => {
+    expect(countAssemblyFreePortsCheap({}, {}, {}, ZoneType.ACTIVE_ARENA)).toBe(0);
+  });
+
+  it('case 13: 单 part 无 occupied → portCount', () => {
+    const parts = { p1: { ldrawId: 'A.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { 'A.dat': { portCount: 8 } };
+    expect(countAssemblyFreePortsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA)).toBe(8);
+  });
+
+  it('case 14: 部分 occupied → portCount - 占用数', () => {
+    const parts = { p1: { ldrawId: 'A.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { 'A.dat': { portCount: 8 } };
+    const occupied = { p1: { 'k1|n1': 'peer', 'k2|n2': 'peer' } };
+    expect(countAssemblyFreePortsCheap(parts, catalog, occupied, ZoneType.ACTIVE_ARENA)).toBe(6);
+  });
+
+  it('case 15: 占用数超 portCount → clamp 0 (不返负数)', () => {
+    // 极端 corner：data 不一致情况下 occupiedPorts 比 portCount 多
+    const parts = { p1: { ldrawId: 'A.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { 'A.dat': { portCount: 2 } };
+    const occupied = { p1: { 'k1|n1': 'a', 'k2|n2': 'b', 'k3|n3': 'c' } };
+    expect(countAssemblyFreePortsCheap(parts, catalog, occupied, ZoneType.ACTIVE_ARENA)).toBe(0);
+  });
+
+  it('case 16: 非 ACTIVE_ARENA 零件被排除 (STAGED 不计入)', () => {
+    const parts = {
+      p1: { ldrawId: 'A.dat', zone: ZoneType.ACTIVE_ARENA },
+      p2: { ldrawId: 'A.dat', zone: ZoneType.STAGED },
+    };
+    const catalog = { 'A.dat': { portCount: 4 } };
+    expect(countAssemblyFreePortsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA)).toBe(4);
+  });
+
+  it('case 17: partCatalog 缺失该 ldrawId → 跳过该 part 不计数', () => {
+    const parts = {
+      p1: { ldrawId: 'KNOWN.dat', zone: ZoneType.ACTIVE_ARENA },
+      p2: { ldrawId: 'UNKNOWN.dat', zone: ZoneType.ACTIVE_ARENA }, // catalog 没
+    };
+    const catalog = { 'KNOWN.dat': { portCount: 3 } };
+    expect(countAssemblyFreePortsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA)).toBe(3);
+  });
+
+  it('case 18: 多 part 求和', () => {
+    const parts = {
+      p1: { ldrawId: 'A.dat', zone: ZoneType.ACTIVE_ARENA },
+      p2: { ldrawId: 'B.dat', zone: ZoneType.ACTIVE_ARENA },
+    };
+    const catalog = {
+      'A.dat': { portCount: 4 },
+      'B.dat': { portCount: 6 },
+    };
+    const occupied = { p1: { 'k|n': 'p2' }, p2: { 'kk|nn': 'p1' } };
+    // p1: 4-1=3, p2: 6-1=5, total=8
+    expect(countAssemblyFreePortsCheap(parts, catalog, occupied, ZoneType.ACTIVE_ARENA)).toBe(8);
   });
 });
