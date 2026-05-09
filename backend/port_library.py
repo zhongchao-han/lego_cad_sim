@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Any
 import numpy as np
 
 from backend.port import Port
+from backend.plug_clustering import Plug, compute_plugs
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -147,6 +148,49 @@ class PortLibrary:
                     json_ports.append(port)
                     
         return json_ports
+
+    def parse_plugs(self, filename: str, allow_pending: bool = False) -> List[Plug]:
+        """加载 part 的 plug 列表（走法 A 期 A2 plug-level 抽象）。
+
+        优先级：
+          1. baked JSON `plugs` + `plug_version` 字段 → 直接反序列化
+          2. 兜底：runtime 调 compute_plugs(sites) 现算（向后兼容老数据）
+
+        Args:
+            filename: LDraw 文件名（如 '6558.dat'）。
+            allow_pending: 是否允许加载未验证 (pending) 的零件，与 parse_dat_file 同语义。
+        """
+        filename = filename.strip().lower().replace('\\', '/')
+        part_name = os.path.basename(filename)
+
+        if part_name not in self._data:
+            return []
+
+        part_config = self._data[part_name]
+
+        if not allow_pending and part_config.get("status") != "verified":
+            return []
+
+        # 1. baked plug 数据（v1+ schema）
+        if part_config.get("plug_version") and "plugs" in part_config:
+            plugs: List[Plug] = []
+            for p in part_config["plugs"]:
+                plugs.append(Plug(
+                    plug_id=p["plug_id"],
+                    label=p.get("label", ""),
+                    gender=p.get("gender", ""),
+                    profile=p.get("profile", ""),
+                    direction=tuple(p.get("direction", (0.0, 0.0, 0.0))),
+                    members=[tuple(m) for m in p.get("members", [])],
+                ))
+            return plugs
+
+        # 2. fallback：老数据无 plug 字段，runtime 现算
+        sites = part_config.get("sites", [])
+        if not sites:
+            return []
+        return compute_plugs(sites, part_name)
+
 
 if __name__ == "__main__":
     library = PortLibrary()
