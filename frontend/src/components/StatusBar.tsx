@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { InteractionPhase, ZoneType } from '../types';
 import { fitDisplayLabel, fitForSlide } from '../utils/fitMath';
 import { analyzeStability } from '../utils/staticsMath';
+import { countAssemblyFreePortsCheap } from '../utils/freePorts';
 
 export function StatusBar() {
   const interactionPhase = useStore((state) => state.interactionPhase);
@@ -11,6 +12,7 @@ export function StatusBar() {
   const slideOffset = useStore((state) => state.slideOffset);
   const parts = useStore((state) => state.parts);
   const partCatalog = useStore((state) => state.partCatalog);
+  const occupiedPorts = useStore((state) => state.occupiedPorts);
   const mode = useStore((state) => state.mode);
   const activePartsCount = useStore((state) => {
     return Object.values(state.parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA).length;
@@ -62,6 +64,14 @@ export function StatusBar() {
       ? { text: '🟢 Stable', isUnstable: false }
       : { text: '⚠ Unstable', isUnstable: true };
   }, [parts, partCatalog, mode]);
+
+  // 走法 A 期 A1：装配体可用 port 数（estimate cheap：portCount - 已占用）。
+  // 完整 port-level 视图见 utils/freePorts.computeFreePorts；StatusBar hook
+  // 数量稳定限制无法每 part 拉 sites，走 partCatalog.portCount 估算。
+  const totalFreePorts = useMemo(
+    () => countAssemblyFreePortsCheap(parts, partCatalog, occupiedPorts, ZoneType.ACTIVE_ARENA),
+    [parts, partCatalog, occupiedPorts],
+  );
 
   // L46：AXIAL_SLIDING 时显示 source / target 端口的 FitType 标签，
   // 让用户知道为什么按 ↑ 慢/快（CLEARANCE 全速 / FRICTION 1/4 速 / 等）。
@@ -169,6 +179,14 @@ export function StatusBar() {
         )}
         <div className="w-px h-3 bg-slate-700" />
         <span>Parts: <span className="text-white font-bold">{activePartsCount}</span></span>
+        {activePartsCount > 0 && (
+          <span
+            data-testid="free-ports-count"
+            title="装配体可用接口数（估算）= 各零件 portCount - 已占用 portKey 数。双面 connhole 在 portCount 计 2 但占用通常只占一面，估值稍偏大。"
+          >
+            Free: <span className="text-cyan-400 font-bold">{totalFreePorts}</span>
+          </span>
+        )}
         <div className="w-px h-3 bg-slate-700" />
         <span>Grid: 1 LDU</span>
       </div>

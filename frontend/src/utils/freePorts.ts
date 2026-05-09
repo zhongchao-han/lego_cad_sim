@@ -16,7 +16,7 @@
 
 import type { LDrawSite, LDrawPort } from '../useLDrawPart';
 import { portKey } from '../store';
-import type { Mat3 } from '../types';
+import type { Mat3, ZoneType } from '../types';
 
 export interface FreePort {
   siteId: string;
@@ -71,4 +71,35 @@ export function computeAssemblyFreePorts(
     }
   }
   return result;
+}
+
+/**
+ * 装配体可用 port 数的快速估算 — 不依赖 sites（不调 useLDrawPart），仅靠
+ * store 已有字段：partCatalog.portCount（baked total）- occupiedPorts.length。
+ *
+ * 用例：StatusBar 顶部 lightweight 概览（"Free: X"）。Hook 限制让 StatusBar
+ * 没法对每个 part 调 useLDrawPart 拉 sites（hook 数量必须稳定），所以走估算
+ * 路径。精确视图应走 computeFreePorts（每 InteractivePart 已经持有 sites）。
+ *
+ * 已知不精确点：
+ *   - 双面 connhole 在 portCount 里计 2，但占用通常只占一面 → free 估值
+ *     稍偏大（用户感知层面通常仍合理：UI 上确实"另一面还能插"）。
+ *   - portCount 缺失（partCatalog 未到位时）该 part 跳过不计数。
+ */
+export function countAssemblyFreePortsCheap(
+  parts: Record<string, { ldrawId: string; zone: ZoneType }>,
+  partCatalog: Record<string, { portCount?: number | null }>,
+  occupiedPorts: Record<string, Record<string, string>>,
+  activeZone: ZoneType,
+): number {
+  let total = 0;
+  for (const [partId, partState] of Object.entries(parts)) {
+    if (partState.zone !== activeZone) continue;
+    const meta = partCatalog[partState.ldrawId];
+    const portCount = meta?.portCount ?? null;
+    if (portCount === null || portCount === undefined) continue;
+    const occupiedCount = Object.keys(occupiedPorts[partId] ?? {}).length;
+    total += Math.max(0, portCount - occupiedCount);
+  }
+  return total;
 }
