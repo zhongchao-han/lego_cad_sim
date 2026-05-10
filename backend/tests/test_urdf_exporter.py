@@ -67,16 +67,20 @@ class TestClosedLoopExport(unittest.TestCase):
     """3-beam 三角形的 closed_loop 边必须以 <gazebo><joint> 形式落到 URDF。"""
 
     def setUp(self) -> None:
-        # 三 beam + 三 pin 连接，topology 解环后会有 1 条 closed_loop
+        # 三 beam + 三 pin 连接，topology 解环后会有 1 条 closed_loop。
+        # issue #49 修：parent_port 必须 MALE (pin) / child_port 必须 FEMALE
+        # (peghole)，跟 derive_joint_params(plug=MALE, socket=FEMALE) 极性
+        # 一致。原 fixture 三条边都反了 → derive 全退化 fixed →
+        # closed_loop joint type fidelity 实际没验。
         self.tm = TopologyManager()
         self.tm.add_part(_mk_part("A"))
         self.tm.add_part(_mk_part("B"))
         self.tm.add_part(_mk_part("C"))
         self.tm.connect_ports(ConnectionEdge(
-            "A", "B", _mk_port("p", "peghole", [0, 0, 0]), _mk_port("c", "pin", [0, 0, 0]),
+            "A", "B", _mk_port("p", "pin", [0, 0, 0]), _mk_port("c", "peghole", [0, 0, 0]),
         ))
         self.tm.connect_ports(ConnectionEdge(
-            "B", "C", _mk_port("p", "peghole", [0, 0, 0]), _mk_port("c", "pin", [0, 0, 0]),
+            "B", "C", _mk_port("p", "pin", [0, 0, 0]), _mk_port("c", "peghole", [0, 0, 0]),
         ))
         self.tm.connect_ports(ConnectionEdge(
             "C", "A", _mk_port("p", "pin", [0, 0, 0]), _mk_port("c", "peghole", [0, 0, 0]),
@@ -105,7 +109,10 @@ class TestClosedLoopExport(unittest.TestCase):
         assert gj is not None  # mypy
         # 必有 name + type + parent + child + pose
         self.assertTrue(gj.get('name', '').startswith('loop_joint_'))
-        self.assertIn(gj.get('type'), ('fixed', 'continuous', 'revolute', 'prismatic'))
+        # issue #49 收紧：pin↔peghole 极性正确 → derive_joint_params 应返
+        # 'continuous'。原宽断言（type-in-set）让 fixture 三条边全退化
+        # 成 fixed 也能过，没真验"BFS 砍点保留 joint type fidelity"。
+        self.assertEqual(gj.get('type'), 'continuous')
         parent_el = gj.find('parent')
         child_el = gj.find('child')
         pose_el = gj.find('pose')
