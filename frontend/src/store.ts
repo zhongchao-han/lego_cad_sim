@@ -300,6 +300,120 @@ const _history = new HistoryStack(50);
  */
 let _hoveredPortClearTimer: ReturnType<typeof setTimeout> | null = null;
 
+// ---------------------------------------------------------------------------
+// 持久化 schema（issue #64 #4）
+// ---------------------------------------------------------------------------
+// 旧实现：partialize 手写白名单 + 没有任何编译时校验，新加 store 字段时
+// 漏更新 → reload 后悄悄丢失，无报错。
+//
+// 新实现：把所有 state 字段强制分类到 PERSISTED 或 TRANSIENT 两个 const
+// tuple；用类型层面 _ExhaustiveStateClassification 断言两 tuple 之并集
+// 覆盖全部 state 字段。新加 state 字段未分类 → tsc 编译失败，强制做决策。
+// Actions（函数签名）通过 utility 类型自动过滤，不参与分类。
+
+/** 持久化字段名单 — partialize 输出包含这些字段。新增持久化字段在此处加。 */
+const PERSISTED_FIELD_KEYS = [
+  'parts',
+  'connections',
+  'occupiedPorts',
+  'activeColorCode',
+  'cameraTarget',
+  'partUsages',
+  'hiddenParts',
+] as const satisfies readonly (keyof StoreState)[];
+
+type PersistedFieldKey = typeof PERSISTED_FIELD_KEYS[number];
+
+/** 显式 transient state 字段名单 — 不参与持久化，reload 后回 initialState。
+ *  新加 state 字段时若不打算持久化，必须在此追加，否则编译失败。 */
+const TRANSIENT_STATE_FIELD_KEYS = [
+  'mode',
+  'modeToggleError',
+  'modeToggling',
+  'view',
+  'wsConnected',
+  'selectedPort',
+  'hoveredPort',
+  'slidingTarget',
+  'interactionPhase',
+  'focusedPartId',
+  'focusMode',
+  'showPortGizmos',
+  'enableFocusAnimation',
+  'enableSSAO',
+  'enableContactShadows',
+  'debugMode',
+  'debugShowPorts',
+  'previewPartId',
+  'canUndo',
+  'canRedo',
+  'stagingGrid',
+  'snapPreState',
+  'continuousPlacementSource',
+  'logs',
+  'showLogPanel',
+  'isContextLost',
+  'isSearchOpen',
+  'selection',
+  'clipboard',
+  'freePlacingPayload',
+  'freePlacingPointer',
+  'freePlacingProjectionMode',
+  'freePlacingPreviewCamQuat',
+  'interferenceReport',
+  'slideOffset',
+  'partCatalog',
+  'reactionForces',
+  'showReactionForces',
+] as const satisfies readonly (keyof StoreState)[];
+
+/** 仅 state 字段名（过滤掉 actions —— value 是函数则排除）。 */
+type StateFieldKey = {
+  [K in keyof StoreState]: StoreState[K] extends (...args: never[]) => unknown ? never : K
+}[keyof StoreState];
+
+/** 编译期完备性 — 每个 state 字段必须分类到 PERSISTED 或 TRANSIENT。
+ *  新加未分类字段 → 此类型解析为 never → 下面 const 赋值 true 编译失败。 */
+type _ExhaustiveStateClassification = StateFieldKey extends
+  PersistedFieldKey | typeof TRANSIENT_STATE_FIELD_KEYS[number] ? true : never;
+const _verifyExhaustiveStateClassification: _ExhaustiveStateClassification = true;
+void _verifyExhaustiveStateClassification;
+
+/** partialize 输出形状 — 把 PERSISTED 字段映射到序列化形式。
+ *  Set 字段（hiddenParts）转 Array；ConnectionGraph 把 Set 内层转 Array。
+ *  其它原样透传。
+ *
+ *  这里类型仍写运行时形（Set / ConnectionGraph）是 zustand persist 类型
+ *  约束兜底；merge() 函数承担反序列化职责。 */
+type PersistShape = {
+  parts: StoreState['parts'];
+  connections: ConnectionGraph;
+  occupiedPorts: StoreState['occupiedPorts'];
+  activeColorCode: StoreState['activeColorCode'];
+  cameraTarget: StoreState['cameraTarget'];
+  partUsages: StoreState['partUsages'];
+  hiddenParts: StoreState['hiddenParts'];
+};
+
+/** partialize 输出构造器。返回类型 PersistShape 钉死字段集合：漏字段
+ *  tsc 红；多字段 satisfies 红。两道闸保证 partialize 输出 == 持久化白名单。 */
+function persistShape(state: StoreState): PersistShape {
+  return {
+    parts: state.parts,
+    connections: Object.fromEntries(
+      Object.entries(state.connections).map(([k, v]) => [k, Array.from(v)])
+    ) as unknown as ConnectionGraph,
+    occupiedPorts: state.occupiedPorts,
+    activeColorCode: state.activeColorCode,
+    cameraTarget: state.cameraTarget,
+    partUsages: state.partUsages,
+    hiddenParts: Array.from(state.hiddenParts) as unknown as Set<string>,
+  } satisfies Record<PersistedFieldKey, unknown>;
+}
+
+/** 测试 / debug 用 — 暴露持久化字段清单做断言。 */
+export const __persistFieldsForTest: readonly PersistedFieldKey[] = PERSISTED_FIELD_KEYS;
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
@@ -1772,17 +1886,7 @@ export const useStore = create<StoreState>()(
   }
 }), {
   name: 'lego-cad-assembly-storage',
-  partialize: (state) => ({
-    parts: state.parts,
-    connections: Object.fromEntries(
-      Object.entries(state.connections).map(([k, v]) => [k, Array.from(v)])
-    ) as unknown as ConnectionGraph, // 暂存为 array，因为 Set 无法序列化
-    occupiedPorts: state.occupiedPorts, // 已是 Record<string,Record<string,string>>，可直接 JSON 化
-    activeColorCode: state.activeColorCode,
-    cameraTarget: state.cameraTarget,
-    partUsages: state.partUsages,
-    hiddenParts: Array.from(state.hiddenParts) as unknown as Set<string>,
-  }),
+  partialize: (state) => persistShape(state),
   // Rehydrate 时需要把 connections 里的 Array 转回 Set
   merge: (persistedState: unknown, currentState: StoreState) => {
     const pState = persistedState as Partial<StoreState> & { connections?: Record<string, string[]>, hiddenParts?: string[] };
