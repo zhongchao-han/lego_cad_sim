@@ -40,7 +40,9 @@ export function useKeyboardDispatcher() {
   const interactionPhase = useStore((state) => state.interactionPhase);
   const selectedPort = useStore((state) => state.selectedPort);
   const focusCameraOnSelected = useStore((state) => state.focusCameraOnSelected);
-  const isSearchOpen = useStore((state) => state.isSearchOpen);
+  // setSearchOpen 是稳定 action 引用；isSearchOpen 在 handler 里改用
+  // useStore.getState() 实时读，不进 deps，避免 useEffect re-bind 与
+  // Cmd+K → Esc 之间的时序竞态（详见 handler 内 [优先级 3] 注释）。
   const setSearchOpen = useStore((state) => state.setSearchOpen);
 
   useEffect(() => {
@@ -78,8 +80,13 @@ export function useKeyboardDispatcher() {
         return;
       }
 
-      // [优先级 3] Esc + 搜索面板开 — 仅关面板，绝不下沉到 phase 处理
-      if (e.key === 'Escape' && isSearchOpen) {
+      // [优先级 3] Esc + 搜索面板开 — 仅关面板，绝不下沉到 phase 处理。
+      // 关键：isSearchOpen 必须从 store 实时读，不能用闭包变量。Cmd+K 触发
+      // setSearchOpen(true) 后，React 调度 re-render → useEffect cleanup +
+      // 重新绑 handler 是异步的；如果用户立即按 Esc（e2e 场景下确实会发生），
+      // 旧 handler 闭包里 isSearchOpen 仍是 false，会落到 phase 路由分支并
+      // 误关 selection / abort interaction，搜索却没关上 → C7 e2e 翻红。
+      if (e.key === 'Escape' && useStore.getState().isSearchOpen) {
         e.preventDefault();
         setSearchOpen(false);
         return;
@@ -235,7 +242,6 @@ export function useKeyboardDispatcher() {
     interactionPhase,
     selectedPort,
     focusCameraOnSelected,
-    isSearchOpen,
     setSearchOpen,
   ]);
 }
