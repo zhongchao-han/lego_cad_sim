@@ -95,13 +95,13 @@ v3 修复后用户实测：灰板上 ≥2 个销同时插着红板，单一 anch
 
 ### **B. 测试设计 / 老测试问题**
 
-#### B.1 — TS-7 命名错位
+#### B.1 — TS-7 命名错位（已闭 ✅ — 删除老测试，issue #95）
 - **现象**: `frontend/e2e/editor_cases.spec.ts:362` 旧 "TS-7: Display Ports on Hover Without Crash" 跟规范 `docs/EDITOR_TEST_CASES.md` TS-7（连续图章）完全无关——测的是 hover 不崩。
-- **修复状态**: #57 新增的连续图章 e2e 命名 `TS-7-ContinuousStamp` 消歧义；老命名保留不改避免 git blame 噪声。**长期建议**: 老测试改名为 `Robustness-HoverCrash` 或类似准确描述。
+- **修复状态**: #57 新增的连续图章 e2e 命名 `TS-7-ContinuousStamp` 消歧义；老命名 #95 走 option 3 删除（CI 永远 skip = 0 实际保护；hover 状态机由 vitest 5+ 单测覆盖：`useHoverDebounce` / `useHoverState` / `hoverInteraction` / `pureGeometricHover` / `store_setHoveredPort`；组件不崩由 `InteractivePartRender` 担保）。
 
-#### B.2 — 老 TS-7 hover-crash 在 CI 不可救
+#### B.2 — 老 TS-7 hover-crash 在 CI 不可救（已闭 ✅ — 删除老测试，issue #95）
 - **现象**: 测试用真 LDraw `6558` + `simulateHumanJitter(3s)`；CI 上 backend 没起 → R3F 几何加载链路 hang + WebSocket 重试洪流 → event loop 拖到 30s test timeout 三次 retry 全挂。
-- **修复状态**: #57 round 2 加 `test.skip(!!process.env.CI, 'Needs LDraw + ws mock')`；TODO 接通 LDraw 资源 mock + WebSocket mock 后开回。
+- **修复状态**: #57 round 2 加 `test.skip(!!process.env.CI, ...)`；#94 round 1/2 试加 LDraw mock + WebSocket stub 仍 timeout（R3F + SwiftShader 软渲染重）；#95 收口走 option 3 删测试 + 删 `frontend/e2e/utils/mouseBehavior.ts`（仅被该测试用）。WebSocket / LDraw mock 基础设施保留供其他 e2e 用。
 
 #### B.3 — `e2e-editor-cases` job 命令是文件名 grep（已修复 ✅）
 - **现象**: PR #57 落地的 CI job 用 `npx playwright test editor_cases`——是文件名 grep filter，新加的 `editor_keyboard_marquee.spec.ts` 等无法被抓。
@@ -213,7 +213,7 @@ CI 基础设施加固：`e2e-non-pixel` job grep-invert 自动抓所有非像素
 - useLDrawPart case 6（#79 修前缀后取消 quirk）
 
 ### **未取消的 skip**
-仅剩 1 个：`editor_cases.spec.ts` TS-7 hover-crash — 等接通 LDraw 资源 mock + WebSocket mock 才能在 CI 跑（与本轮无关，独立基础设施工作）。
+0 个 — `editor_cases.spec.ts` TS-7 hover-crash 在 issue #95 走 option 3 整体删除（详见 §B.1 / §B.2）。
 
 ### **整体测量**
 - 17 个 PR merged（#57-91）

@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { simulateHumanJitter } from './utils/mouseBehavior';
 
 // Define the window property locally for TypeScript 
 declare global {
@@ -13,9 +12,9 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
   test.beforeEach(async ({ page }) => {
     // WebSocket stub：替换 global WebSocket 让 ws://localhost:8000/ws/physics_stream
     // 不真发起连接、不触发重连风暴。CI 上无后端时 ECONNREFUSED 每 2s 一次产生
-    // 大量 console error 把 event loop 拖到 simulateHumanJitter mouse.move 路径
-    // 30s timeout 失败（TS-7 hover crash unskip 的关键阻塞）。FakeWebSocket 永远
-    // 留在 CONNECTING(0)，前端 onerror/onclose 不触发就不会重连。
+    // 大量 console error 把 event loop 拖到 mouse.move / waitForTimeout 这类
+    // 路径全 timeout。FakeWebSocket 永远留在 CONNECTING(0)，前端 onerror/onclose
+    // 不触发就不会重连。
     await page.addInitScript(() => {
       // @ts-expect-error override DOM global for test isolation
       window.WebSocket = class FakeWebSocket {
@@ -35,9 +34,8 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
 
     // CI 上 backend 未起：usePartSearch 拉 /api/search/key 三次重试失败后会触发
     // RenderErrorBoundary 全屏 z-[100] "核心依赖熔断" 覆盖，盖死 canvas + 把
-    // event loop 拖到 mouse.move / waitForTimeout 都会超时（对依赖鼠标手势的
-    // 测试如 TS-7 hover crash 致命）。给 hook 一个"凭证拿到了"的假象走开。
-    // canvas_pixel.spec.ts 同款套路。
+    // event loop 拖到 mouse.move / waitForTimeout 都会超时。给 hook 一个
+    // "凭证拿到了"的假象走开。canvas_pixel.spec.ts 同款套路。
     await page.route('**/api/search/key', (route) =>
       route.fulfill({
         contentType: 'application/json',
@@ -52,8 +50,7 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
     // LDraw 资源 mock：让 useLDrawPart 拿到 sites/ports 数据（SiteGizmo 仍能
     // 渲染交互），但 mesh_url 留空让 InteractivePart 走 fallback box 渲染
     // （L199 if-else），避免 CI 上没后端时 GLB fetch 失败让 R3F 几何加载链
-    // 路 hang 把 event loop 拖到 simulateHumanJitter 超时（TS-7 hover-crash
-    // 第一次 unskip CI 的关键阻塞点）。
+    // 路 hang 把 event loop 拖到 mouse 手势 / waitForTimeout 超时。
     await page.route('**/api/ldraw_part/**', (route) =>
       route.fulfill({
         contentType: 'application/json',
@@ -400,55 +397,14 @@ test.describe('EDITOR_TEST_CASES - E2E Core Interactions', () => {
     expect(stamp3Pins[2]).toBeCloseTo(0.30, 3);
   });
 
-  test('TS-7: Display Ports on Hover Without Crash', async ({ page }) => {
-    // 仍 CI skip — 见 issue #95：LDraw mock + WebSocket stub 都已加（本 PR
-    // 保留），R3F + SwiftShader 软渲染下 simulateHumanJitter 3s mouse.move
-    // 仍超 30s test budget，CI 持续 timeout。本地有真后端时正常跑。
-    // 整轮工作收口选择 punt 这个鲁棒性测试，长尾排期由 issue #95 跟踪
-    // （4 个修复方向：缩 jitter / 合成 PointerEvent / 删测试 / GPU CI runner）。
-    test.skip(!!process.env.CI, 'Tracked by issue #95: R3F + SwiftShader render budget on CI.');
-    // Inject a real part precisely so it loads actual ports (SiteGizmos)
-    // 6558 is the 3L friction pin, which definitely has ports.
-    await page.evaluate(() => {
-        const store = window.__STORE__.getState();
-        store.reset();
-        store.addParts(['6558']);
-        store.updatePartState('6558', { position: [0, 0, 0] });
-    });
-
-    // Wait for mesh to be established
-    await page.waitForTimeout(1000);
-
-    const errors: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'error' || msg.type() === 'warning') {
-        const text = msg.text();
-        console.log(`[Browser ${msg.type()}]`, text);
-        if (text.includes('Maximum update depth exceeded') || text.includes('Uncaught ReferenceError')) {
-          errors.push(text);
-        }
-      }
-    });
-
-    page.on('pageerror', (err) => {
-      console.log(`[Browser PageError]`, err.message);
-      errors.push(err.message);
-    });
-
-    // Move to the exact center where mock_C lives
-    // Note: Playwright's mouse.move targets screen coordinates. 
-    // Assuming 1280x720, center is ~640x360. We do a sweep.
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(100);
-    
-    // Sweep into center
-    await page.mouse.move(640, 360, { steps: 20 });
-    
-    // Simulate "Human Hand" jitter over the port/part area to forcefully provoke rendering loops
-    await simulateHumanJitter(page, 640, 360, { durationMs: 3000, radius: 15 });
-
-    // Verify hover state flipped logic in the store internally (or just verify no crash occurred)
-    expect(errors.length).toBe(0);
-  });
+  // 旧 'TS-7: Display Ports on Hover Without Crash' 测试已删除（issue #95
+  // 收口走 option 3）。理由：
+  //   - 误命名 — 测的是 hover 不崩，跟 spec TS-7 (continuous stamp，由
+  //     TS-7-ContinuousStamp 覆盖) 无关；audit §B.1 已记。
+  //   - CI 永远 skip — R3F + SwiftShader 下 3s simulateHumanJitter 超 30s
+  //     test budget，从未给过实际回归保护。
+  //   - hover 状态机已有 5+ vitest 单测覆盖（useHoverDebounce / useHoverState
+  //     / hoverInteraction / pureGeometricHover / store_setHoveredPort）；
+  //     "组件不崩"由 InteractivePartRender 单测担保。
 
 });

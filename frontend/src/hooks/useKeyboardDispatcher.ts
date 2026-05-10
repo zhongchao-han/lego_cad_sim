@@ -10,9 +10,11 @@ import { fitForSlide, getSlideStepFactor } from '../utils/fitMath';
  * 消除 Esc 等键在多 listener 间的执行顺序不确定性。
  *
  * 路由优先级（自上而下，命中即返）：
- *   1. INPUT/TEXTAREA/contentEditable 焦点 — 不拦任何键，让浏览器原生处理
- *   2. Cmd/Ctrl+K — 开搜索面板（任何 phase 都生效）
- *   3. Esc + 搜索面板开 — 仅关搜索面板，不动 phase / selection
+ *   1. Esc + 搜索面板开 — 仅关搜索面板，不动 phase / selection（必须早于
+ *      input-focus 守卫；搜索框 mount 后会自动 focus 自己的 input，否则
+ *      Esc 会被 input-focus 短路吞掉）
+ *   2. INPUT/TEXTAREA/contentEditable 焦点 — 不拦任何键，让浏览器原生处理
+ *   3. Cmd/Ctrl+K — 开搜索面板（任何 phase 都生效）
  *   4. Esc + 其他 — 按 phase 路由（FREE_PLACING commit / 其他 abort+deselect）
  *   5. Cmd/Ctrl + 字母 — undo/redo/copy/paste/duplicate/select all/save
  *   6. 单键 — Delete/Backspace、F、H、Enter、方向键、[/]
@@ -61,7 +63,21 @@ export function useKeyboardDispatcher() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // [优先级 1] 输入框焦点 — 不拦任何键
+      // [优先级 1] Esc + 搜索面板开 — 关搜索。**必须在 input-focus 检查
+      // 之前**：PartSearchDialog mount 后 50ms 自动 focus 自己的 input
+      // (PartSearchDialog.tsx:30)，所以"用户在搜索面板里按 Esc"几乎一定
+      // 在 input focused 状态下发生。如果走到下面 input-focus 短路就没法
+      // 关搜索面板。CI 慢 CPU 上这条路径概率大幅提升 → C7-EscCompound
+      // e2e 反复翻红的真根因（之前以为是 closure 时序，其实是 focus 守卫
+      // 顺序）。isSearchOpen 用 useStore.getState() 实时读，避免 React
+      // useEffect cleanup 时序与 Cmd+K → Esc 同帧连发产生闭包陈旧值。
+      if (e.key === 'Escape' && useStore.getState().isSearchOpen) {
+        e.preventDefault();
+        setSearchOpen(false);
+        return;
+      }
+
+      // [优先级 2] 输入框焦点 — 不拦任何其他键，让浏览器原生处理
       const activeElement = document.activeElement;
       const isInputFocused =
         activeElement &&
@@ -72,23 +88,10 @@ export function useKeyboardDispatcher() {
 
       const cmdOrCtrl = e.metaKey || e.ctrlKey;
 
-      // [优先级 2] Cmd/Ctrl+K — 开搜索面板（在 isInputFocused 之后处理，让
-      // 搜索框自身的 input 不被打断）
+      // [优先级 3] Cmd/Ctrl+K — 开搜索面板
       if (cmdOrCtrl && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearchOpen(true);
-        return;
-      }
-
-      // [优先级 3] Esc + 搜索面板开 — 仅关面板，绝不下沉到 phase 处理。
-      // 关键：isSearchOpen 必须从 store 实时读，不能用闭包变量。Cmd+K 触发
-      // setSearchOpen(true) 后，React 调度 re-render → useEffect cleanup +
-      // 重新绑 handler 是异步的；如果用户立即按 Esc（e2e 场景下确实会发生），
-      // 旧 handler 闭包里 isSearchOpen 仍是 false，会落到 phase 路由分支并
-      // 误关 selection / abort interaction，搜索却没关上 → C7 e2e 翻红。
-      if (e.key === 'Escape' && useStore.getState().isSearchOpen) {
-        e.preventDefault();
-        setSearchOpen(false);
         return;
       }
 
