@@ -103,6 +103,9 @@ export interface PartCatalogEntry {
   /** L51b PR-A：bbox 中心相对 part origin 的偏移（米，part-local 坐标系）。 */
   bboxCenter: Vec3 | null;
   portCount?: number;
+  /** 走法 A 期 A2 — 1b：plug 总数。baked 自 ldraw_port_configs.json
+   *  plug_version=v1；老数据缺字段时 = 0 / undefined。 */
+  plugCount?: number;
   meshUrl?:   string;
 }
 

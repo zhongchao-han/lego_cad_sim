@@ -4,6 +4,10 @@ import { InteractionPhase, ZoneType } from '../types';
 import { fitDisplayLabel, fitForSlide } from '../utils/fitMath';
 import { analyzeStability } from '../utils/staticsMath';
 import { countAssemblyFreePortsCheap } from '../utils/freePorts';
+import {
+  countAssemblyFreePlugsCheap,
+  countAssemblyTotalPlugsCheap,
+} from '../utils/freePlugs';
 
 export function StatusBar() {
   const interactionPhase = useStore((state) => state.interactionPhase);
@@ -70,6 +74,18 @@ export function StatusBar() {
   // 数量稳定限制无法每 part 拉 sites，走 partCatalog.portCount 估算。
   const totalFreePorts = useMemo(
     () => countAssemblyFreePortsCheap(parts, partCatalog, occupiedPorts, ZoneType.ACTIVE_ARENA),
+    [parts, partCatalog, occupiedPorts],
+  );
+
+  // 走法 A 期 A2 — 1b：plug 概览（总容量 + 可用估算下界）。
+  // 同样走 cheap 路径，跟 totalFreePorts 对称。精确视图应走
+  // utils/freePlugs.computeFreePlugs（每 InteractivePart 已持有 plugs）。
+  const totalPlugs = useMemo(
+    () => countAssemblyTotalPlugsCheap(parts, partCatalog, ZoneType.ACTIVE_ARENA),
+    [parts, partCatalog],
+  );
+  const totalFreePlugs = useMemo(
+    () => countAssemblyFreePlugsCheap(parts, partCatalog, occupiedPorts, ZoneType.ACTIVE_ARENA),
     [parts, partCatalog, occupiedPorts],
   );
 
@@ -185,6 +201,19 @@ export function StatusBar() {
             title="装配体可用接口数（估算）= 各零件 portCount - 已占用 portKey 数。双面 connhole 在 portCount 计 2 但占用通常只占一面，估值稍偏大。"
           >
             Free: <span className="text-cyan-400 font-bold">{totalFreePorts}</span>
+          </span>
+        )}
+        {/* 走法 A 期 A2 — 1b：plug 概览（plug = 用户视角的整片接口聚合）。
+            "Plugs: total / free" — total 来自 partCatalog.plugCount baked，
+            free 是下界估算（实际 free plug 数 ≥ 此值）。 */}
+        {activePartsCount > 0 && totalPlugs > 0 && (
+          <span
+            data-testid="free-plugs-count"
+            title="装配体 plug 概览：total = ACTIVE_ARENA 各零件 plugCount 求和（plug 是用户视角的整片接口聚合，比如 2x4 plate 顶/底各 1 plug，2780 销头/尾各 1 plug）。free = 估算下界（plugCount - floor(occupied × plugCount / portCount)），实际 free plug 数 ≥ 此值。"
+          >
+            Plugs: <span className="text-violet-400 font-bold">{totalPlugs}</span>
+            {' / '}
+            <span className="text-emerald-400 font-bold">{totalFreePlugs}</span>
           </span>
         )}
         <div className="w-px h-3 bg-slate-700" />

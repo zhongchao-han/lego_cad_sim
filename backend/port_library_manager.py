@@ -170,9 +170,16 @@ class PortLibraryManager:
                     else:
                         count = len(cfg.get("ports", []))
 
+                    # 走法 A 期 A2 — 1b：plug_count baked 字段。优先用注入的
+                    # plugs[]，2144 part 已全填；老数据 fallback 0（StatusBar
+                    # cheap 估算时跳过）。runtime 现算开销大，让 /ldraw_part
+                    # 路径承担。
+                    plug_count = len(cfg.get("plugs", [])) if cfg.get("plug_version") else 0
+
                     verified.append({
                         "part_id": pid,
                         "port_count": count,
+                        "plug_count": plug_count,
                         # 默认颜色设为灰黑色 (color=7) 的 GLB 路径
                         "mesh_url": f"/ldraw_meshes/{pid.replace('.dat', '')}_c7.glb"
                     })

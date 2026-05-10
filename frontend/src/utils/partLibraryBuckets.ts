@@ -11,6 +11,8 @@
 export interface VerifiedPart {
   part_id: string;
   port_count: number;
+  /** 走法 A 期 A2 — 1b：plug-level 抽象的 plug 总数（baked 自 plug_version=v1）*/
+  plug_count?: number;
   mesh_url: string;
   // L50：backend categorize_part() 注入
   name?: string;

@@ -60,6 +60,7 @@ export function PartLibraryPanel() {
             bboxSize:   p.bbox_size ?? null,
             bboxCenter: p.bbox_center ?? null,
             portCount:  p.port_count,
+            plugCount:  p.plug_count,
             meshUrl:    p.mesh_url,
           };
         });

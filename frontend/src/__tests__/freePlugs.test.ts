@@ -8,10 +8,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeFreePlugs, computeAssemblyFreePlugs } from '../utils/freePlugs';
+import {
+  computeFreePlugs,
+  computeAssemblyFreePlugs,
+  countAssemblyFreePlugsCheap,
+  countAssemblyTotalPlugsCheap,
+} from '../utils/freePlugs';
 import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import { portKey } from '../store';
-import type { Mat3 } from '../types';
+import { ZoneType, type Mat3 } from '../types';
 
 const EYE3: number[][] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 
@@ -208,5 +213,159 @@ describe('computeAssemblyFreePlugs', () => {
     };
     const result = computeAssemblyFreePlugs(partsMeta, {});
     expect(result.ghost[0].status).toBe('free');
+  });
+});
+
+describe('countAssemblyTotalPlugsCheap', () => {
+  it('case 13: 空装配 → 0', () => {
+    expect(countAssemblyTotalPlugsCheap({}, {}, ZoneType.ACTIVE_ARENA)).toBe(0);
+  });
+
+  it('case 14: 单 part — 返 plugCount', () => {
+    const parts = { p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { '170.dat': { plugCount: 2 } };
+    expect(countAssemblyTotalPlugsCheap(parts, catalog, ZoneType.ACTIVE_ARENA)).toBe(2);
+  });
+
+  it('case 15: 多 part 求和', () => {
+    const parts = {
+      p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },   // 2 plug
+      p2: { ldrawId: '2780.dat', zone: ZoneType.ACTIVE_ARENA },  // 2 plug
+      p3: { ldrawId: '40490.dat', zone: ZoneType.ACTIVE_ARENA }, // 1 plug
+    };
+    const catalog = {
+      '170.dat': { plugCount: 2 },
+      '2780.dat': { plugCount: 2 },
+      '40490.dat': { plugCount: 1 },
+    };
+    expect(countAssemblyTotalPlugsCheap(parts, catalog, ZoneType.ACTIVE_ARENA)).toBe(5);
+  });
+
+  it('case 16: 非 ACTIVE_ARENA 零件不计入', () => {
+    const parts = {
+      p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },
+      p2: { ldrawId: '170.dat', zone: ZoneType.STAGED },
+    };
+    const catalog = { '170.dat': { plugCount: 2 } };
+    expect(countAssemblyTotalPlugsCheap(parts, catalog, ZoneType.ACTIVE_ARENA)).toBe(2);
+  });
+
+  it('case 17: 装饰类零件 plugCount=0 → 不计数', () => {
+    const parts = {
+      decor: { ldrawId: 'sticker.dat', zone: ZoneType.ACTIVE_ARENA },
+    };
+    const catalog = { 'sticker.dat': { plugCount: 0 } };
+    expect(countAssemblyTotalPlugsCheap(parts, catalog, ZoneType.ACTIVE_ARENA)).toBe(0);
+  });
+
+  it('case 18: 老数据 plugCount 缺失 → 跳过该 part', () => {
+    const parts = {
+      p1: { ldrawId: 'NEW.dat', zone: ZoneType.ACTIVE_ARENA },
+      p2: { ldrawId: 'OLD.dat', zone: ZoneType.ACTIVE_ARENA },
+    };
+    const catalog = {
+      'NEW.dat': { plugCount: 3 },
+      'OLD.dat': {},  // plugCount undefined
+    };
+    expect(countAssemblyTotalPlugsCheap(parts, catalog, ZoneType.ACTIVE_ARENA)).toBe(3);
+  });
+});
+
+describe('countAssemblyFreePlugsCheap', () => {
+  it('case 19: 空装配 → 0', () => {
+    expect(countAssemblyFreePlugsCheap({}, {}, {}, ZoneType.ACTIVE_ARENA)).toBe(0);
+  });
+
+  it('case 20: 全无 occupied → plugCount 全可用', () => {
+    const parts = { p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { '170.dat': { portCount: 8, plugCount: 2 } };
+    expect(countAssemblyFreePlugsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA)).toBe(2);
+  });
+
+  it('case 21: 部分 occupied → 下界 = plugCount - floor(occ × plugCount / portCount)', () => {
+    // 2x4 plate: 8 port, 2 plug, avg=4
+    const parts = { p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { '170.dat': { portCount: 8, plugCount: 2 } };
+    // 2 occupied → 2 - floor(2*2/8) = 2 - 0 = 2
+    expect(
+      countAssemblyFreePlugsCheap(
+        parts, catalog, { p1: { 'k1': 'a', 'k2': 'b' } }, ZoneType.ACTIVE_ARENA,
+      ),
+    ).toBe(2);
+    // 4 occupied → 2 - floor(4*2/8) = 2 - 1 = 1（下界）
+    expect(
+      countAssemblyFreePlugsCheap(
+        parts, catalog, { p1: { 'k1': 'a', 'k2': 'b', 'k3': 'c', 'k4': 'd' } },
+        ZoneType.ACTIVE_ARENA,
+      ),
+    ).toBe(1);
+  });
+
+  it('case 22: 全占 → 0', () => {
+    const parts = { p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { '170.dat': { portCount: 8, plugCount: 2 } };
+    const allOccupied: Record<string, string> = {};
+    for (let i = 0; i < 8; i++) allOccupied[`k${i}`] = 'peer';
+    expect(
+      countAssemblyFreePlugsCheap(parts, catalog, { p1: allOccupied }, ZoneType.ACTIVE_ARENA),
+    ).toBe(0);
+  });
+
+  it('case 23: 占用数超 portCount（数据不一致）→ clamp 到 0', () => {
+    const parts = { p1: { ldrawId: 'X.dat', zone: ZoneType.ACTIVE_ARENA } };
+    const catalog = { 'X.dat': { portCount: 4, plugCount: 1 } };
+    // occupied=10 → 1 - floor(10/4) = 1 - 2 = -1 → clamp 0
+    const occ: Record<string, string> = {};
+    for (let i = 0; i < 10; i++) occ[`k${i}`] = 'peer';
+    expect(
+      countAssemblyFreePlugsCheap(parts, catalog, { p1: occ }, ZoneType.ACTIVE_ARENA),
+    ).toBe(0);
+  });
+
+  it('case 24: portCount / plugCount 缺失 → 跳过', () => {
+    const parts = {
+      p1: { ldrawId: 'GOOD.dat', zone: ZoneType.ACTIVE_ARENA },
+      p2: { ldrawId: 'NO_PORT.dat', zone: ZoneType.ACTIVE_ARENA },
+      p3: { ldrawId: 'NO_PLUG.dat', zone: ZoneType.ACTIVE_ARENA },
+    };
+    const catalog = {
+      'GOOD.dat': { portCount: 2, plugCount: 1 },
+      'NO_PORT.dat': { plugCount: 1 },          // portCount 缺
+      'NO_PLUG.dat': { portCount: 4 },          // plugCount 缺
+    };
+    expect(
+      countAssemblyFreePlugsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA),
+    ).toBe(1);  // 只 GOOD.dat 计入
+  });
+
+  it('case 25: 多 part 聚合（2 plate + 1 销）', () => {
+    const parts = {
+      a: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },   // 8p / 2plug
+      b: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },
+      c: { ldrawId: '2780.dat', zone: ZoneType.ACTIVE_ARENA },  // 2p / 2plug
+    };
+    const catalog = {
+      '170.dat': { portCount: 8, plugCount: 2 },
+      '2780.dat': { portCount: 2, plugCount: 2 },
+    };
+    // a 1 占 → 2-floor(1*2/8)=2; b 全 free → 2; c 1 占 → 2-floor(1*2/2)=1
+    const occupied = {
+      a: { 'ka': 'peer' },
+      c: { 'kc': 'peer' },
+    };
+    expect(
+      countAssemblyFreePlugsCheap(parts, catalog, occupied, ZoneType.ACTIVE_ARENA),
+    ).toBe(5);
+  });
+
+  it('case 26: 非 ACTIVE_ARENA 零件被排除 (STAGED 不计入)', () => {
+    const parts = {
+      a: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },
+      b: { ldrawId: '170.dat', zone: ZoneType.STAGED },
+    };
+    const catalog = { '170.dat': { portCount: 8, plugCount: 2 } };
+    expect(
+      countAssemblyFreePlugsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA),
+    ).toBe(2);
   });
 });
