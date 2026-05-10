@@ -344,6 +344,23 @@ describe('useKeyboardDispatcher — 搜索面板 + Esc 路由（issue #64 #1）'
     unmount();
   });
 
+  it('case 24a: Esc + 搜索开 + 搜索框 input 已 focus → 仍关搜索（CI C7 修：Esc 路由必须先于 input-focus 守卫）', () => {
+    // 模拟真实场景：PartSearchDialog mount 后 50ms 自动 focus 自己的 input。
+    // 用户按 Esc 时焦点几乎一定在 search input 里。如果 input-focus 短路
+    // 早于 Esc 处理，搜索就关不掉 → C7-EscCompound 在 CI 慢机器上反复翻红。
+    useStore.setState({ isSearchOpen: true } as any);
+    const searchInput = document.createElement('input');
+    document.body.appendChild(searchInput);
+    searchInput.focus();
+    expect(document.activeElement).toBe(searchInput);
+
+    const { unmount } = renderHook(() => useKeyboardDispatcher());
+    fireKey({ key: 'Escape' });
+
+    expect(useStore.getState().isSearchOpen).toBe(false);
+    unmount();
+  });
+
   it('case 24: Cmd+K → Esc 同帧内连发 → 搜索关闭（不依赖 useEffect re-bind 时序）', () => {
     // C7 e2e 翻红的真正起因：handler 闭包里 isSearchOpen 是上一次 render
     // 时的快照。Cmd+K → setSearchOpen(true) → 还没等到 useEffect 重绑
