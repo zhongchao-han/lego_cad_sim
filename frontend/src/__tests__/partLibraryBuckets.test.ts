@@ -20,6 +20,7 @@ import {
   HIGH_PRIORITY_PARTS,
   computeBuckets,
   orderBucketNames,
+  formatPortPlugLabel,
 } from '../utils/partLibraryBuckets';
 
 function part(id: string, category?: string): VerifiedPart {
@@ -137,5 +138,34 @@ describe('orderBucketNames — 渲染顺序', () => {
     expect(HIGH_PRIORITY_PARTS).toContain('2780.dat');
     expect(HIGH_PRIORITY_PARTS).toContain('3673.dat');
     expect(HIGH_PRIORITY_PARTS).toContain('43093.dat');
+  });
+});
+
+describe('formatPortPlugLabel — 物料库卡片副标题（走法 A 期 A2 — 1c）', () => {
+  it('case 14: 有 plug_count > 0 → "{port} ports · {plug} plugs"', () => {
+    // 2x4 plate baseline：8 port / 2 plug
+    expect(formatPortPlugLabel(8, 2)).toBe('8 ports · 2 plugs');
+  });
+
+  it('case 15: plug_count == port_count → 仍展示双数（销 baseline 2/2）', () => {
+    // 销 (2780.dat) baseline：2 port / 2 plug
+    expect(formatPortPlugLabel(2, 2)).toBe('2 ports · 2 plugs');
+  });
+
+  it('case 16: 9-hole 梁 baseline → 18 port / 1 plug（贯通孔合并）', () => {
+    expect(formatPortPlugLabel(18, 1)).toBe('18 ports · 1 plugs');
+  });
+
+  it('case 17: plug_count undefined（老数据）→ 旧文案 fallback', () => {
+    expect(formatPortPlugLabel(8, undefined)).toBe('8 Connection Ports');
+  });
+
+  it('case 18: plug_count == 0（装饰类零件）→ 旧文案 fallback', () => {
+    // 显示卡片层应该过滤 0 端口；这里只验文案降级行为不抛错
+    expect(formatPortPlugLabel(0, 0)).toBe('0 Connection Ports');
+  });
+
+  it('case 19: port == 0 + plug 缺 → 旧文案（向后兼容老数据）', () => {
+    expect(formatPortPlugLabel(0)).toBe('0 Connection Ports');
   });
 });

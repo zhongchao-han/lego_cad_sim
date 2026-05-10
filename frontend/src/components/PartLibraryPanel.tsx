@@ -25,6 +25,7 @@ import {
   FREQUENT_BUCKET,
   computeBuckets,
   orderBucketNames,
+  formatPortPlugLabel,
 } from '../utils/partLibraryBuckets';
 
 const BACKEND_ORIGIN: string = ((import.meta as unknown as Record<string, Record<string, string>>).env?.['VITE_BACKEND_ORIGIN']) || 'http://127.0.0.1:8000';
@@ -185,8 +186,15 @@ export function PartLibraryPanel() {
                             <div className="text-sm font-semibold text-slate-700 truncate">
                               {part.part_id.replace('.dat', '')}
                             </div>
-                            <div className="text-[10px] text-slate-400 uppercase tracking-wider">
-                              {part.port_count} Connection Ports
+                            <div
+                              className="text-[10px] text-slate-400 uppercase tracking-wider"
+                              title={
+                                part.plug_count != null && part.plug_count > 0
+                                  ? '走法 A 期 A2：ports = 物理 commit 单元（底层怎么接）；plugs = 视觉/选择聚合层（用户怎么看）。例：2x4 plate 8 port / 2 plug（顶/底各 1 整片 stud）。'
+                                  : undefined
+                              }
+                            >
+                              {formatPortPlugLabel(part.port_count, part.plug_count)}
                             </div>
                             {isAutoColor && (
                               <div className="text-[9px] text-amber-500 font-bold tracking-wide mt-0.5">

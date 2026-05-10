@@ -108,3 +108,25 @@ export function orderBucketNames(buckets: Record<string, VerifiedPart[]>): strin
   const tail = present.filter(k => !known.includes(k)).sort();
   return [...ordered, ...tail];
 }
+
+/**
+ * 走法 A 期 A2 — 1c：物料库卡片副标题文本。
+ *
+ * 有 plug_count（baked v1+）→ "{port} ports · {plug} plugs"
+ *   把 plug-level 抽象暴露给选购阶段：用户在还没拖入场景前就能看到
+ *   "这个 part 有 N 个独立接口聚合"，做更明智的搭配决策。
+ *
+ * 缺 plug_count（老数据 / 装饰类零件 plug_count==0）→ 旧文案
+ *   "{port} Connection Ports"，行为零回归。
+ *
+ * 不在这层强约束 plugCount > 0；装饰类 0/0 调用方应过滤掉整张卡片。
+ */
+export function formatPortPlugLabel(
+  portCount: number,
+  plugCount?: number,
+): string {
+  if (plugCount != null && plugCount > 0) {
+    return `${portCount} ports · ${plugCount} plugs`;
+  }
+  return `${portCount} Connection Ports`;
+}
