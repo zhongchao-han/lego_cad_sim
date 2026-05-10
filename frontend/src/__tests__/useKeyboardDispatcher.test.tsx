@@ -343,4 +343,24 @@ describe('useKeyboardDispatcher — 搜索面板 + Esc 路由（issue #64 #1）'
     expect(useStore.getState().isSearchOpen).toBe(true);
     unmount();
   });
+
+  it('case 24: Cmd+K → Esc 同帧内连发 → 搜索关闭（不依赖 useEffect re-bind 时序）', () => {
+    // C7 e2e 翻红的真正起因：handler 闭包里 isSearchOpen 是上一次 render
+    // 时的快照。Cmd+K → setSearchOpen(true) → 还没等到 useEffect 重绑
+    // handler，紧接着的 Esc 仍走旧 closure → isSearchOpen=false → 落 phase
+    // 路由分支 → 搜索没关。修后 handler 用 useStore.getState() 实时读，
+    // 同帧两连击稳定。
+    const { unmount } = renderHook(() => useKeyboardDispatcher());
+
+    // 在 act() 同步触发 Cmd+K + Esc，模拟 React 还没 commit 下一帧的窗口
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(useStore.getState().isSearchOpen).toBe(false);
+    // 同时验证：phase 路由分支没被误触发（selection 应保留）
+    expect(useStore.getState().selection.primaryId).toBe('A');
+    unmount();
+  });
 });
