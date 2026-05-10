@@ -40,6 +40,7 @@ export function PartLibraryPanel() {
   const previewPartId = useStore((s) => s.previewPartId);
   const partUsages = useStore((s) => s.partUsages);
   const setPartCatalog = useStore((s) => s.setPartCatalog);
+  const setSearchOpen = useStore((s) => s.setSearchOpen);
 
   useEffect(() => {
     const fetchParts = async () => {
@@ -104,7 +105,7 @@ export function PartLibraryPanel() {
             readOnly
             placeholder="Search parts (Cmd+K)..."
             className="w-full pl-9 pr-4 py-2 text-sm bg-slate-100 border border-slate-200 rounded-md cursor-pointer hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-500 font-medium tracking-wide"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-part-search'))}
+            onClick={() => setSearchOpen(true)}
           />
         </div>
       </div>

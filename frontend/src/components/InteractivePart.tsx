@@ -120,7 +120,7 @@ export const InteractivePart = memo(({
     onDoubleClick?.(); // 兼容外部传入的钩子
   };
 
-  // ── 沿轴滑动由纯键盘接管（useKeyboardShortcuts） ─────────────────────────
+  // ── 沿轴滑动由纯键盘接管（useKeyboardDispatcher） ─────────────────────────
   // 这里不再需要绑定 pointermove 和 pointerup。
   // ── 脉冲动画（干涉状态） ──────────────────────────────────────────────────
   useFrame(({ clock }) => {
