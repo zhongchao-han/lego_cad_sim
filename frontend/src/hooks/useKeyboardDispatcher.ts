@@ -4,10 +4,26 @@ import { InteractionPhase } from '../types';
 import { fitForSlide, getSlideStepFactor } from '../utils/fitMath';
 
 /**
- * 监听全局 CAD 标准快捷键的 Hook。
- * 包含防止与文本框冲突的防抖与隔离机制。
+ * 全局键盘 dispatcher（issue #64 #1）— 单 window keydown handler，按
+ * context（isSearchOpen / isInputFocused / interactionPhase）路由到对应
+ * action。替代旧的 useKeyboardShortcuts + App.jsx 双 handler 并行架构，
+ * 消除 Esc 等键在多 listener 间的执行顺序不确定性。
+ *
+ * 路由优先级（自上而下，命中即返）：
+ *   1. INPUT/TEXTAREA/contentEditable 焦点 — 不拦任何键，让浏览器原生处理
+ *   2. Cmd/Ctrl+K — 开搜索面板（任何 phase 都生效）
+ *   3. Esc + 搜索面板开 — 仅关搜索面板，不动 phase / selection
+ *   4. Esc + 其他 — 按 phase 路由（FREE_PLACING commit / 其他 abort+deselect）
+ *   5. Cmd/Ctrl + 字母 — undo/redo/copy/paste/duplicate/select all/save
+ *   6. 单键 — Delete/Backspace、F、H、Enter、方向键、[/]
+ *   7. Alt+H — show all
+ *
+ * 跟旧 useKeyboardShortcuts 的语义差异：
+ *   - 加 Cmd+K → 开搜索面板（原本是 App.jsx 独立 handler）
+ *   - Esc 在搜索面板开时不再误触发 abort interaction（修 race）
+ *   - 其它键路由不变
  */
-export function useKeyboardShortcuts() {
+export function useKeyboardDispatcher() {
   const undo = useStore((state) => state.undo);
   const redo = useStore((state) => state.redo);
   const deleteSelected = useStore((state) => state.deleteSelected);
@@ -19,11 +35,13 @@ export function useKeyboardShortcuts() {
   const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
   const setHiddenSelected = useStore((state) => state.setHiddenSelected);
   const showAll = useStore((state) => state.showAll);
-  
+
   const rotateSelectedPart = useStore((state) => state.rotateSelectedPart);
   const interactionPhase = useStore((state) => state.interactionPhase);
   const selectedPort = useStore((state) => state.selectedPort);
   const focusCameraOnSelected = useStore((state) => state.focusCameraOnSelected);
+  const isSearchOpen = useStore((state) => state.isSearchOpen);
+  const setSearchOpen = useStore((state) => state.setSearchOpen);
 
   useEffect(() => {
     /**
@@ -41,19 +59,34 @@ export function useKeyboardShortcuts() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 安全隔离：如果当前焦点在输入框或文本域内，不拦截任何 3D 快捷键
+      // [优先级 1] 输入框焦点 — 不拦任何键
       const activeElement = document.activeElement;
       const isInputFocused =
         activeElement &&
         (activeElement.tagName === 'INPUT' ||
           activeElement.tagName === 'TEXTAREA' ||
           (activeElement as HTMLElement).isContentEditable);
-
       if (isInputFocused) return;
 
       const cmdOrCtrl = e.metaKey || e.ctrlKey;
 
+      // [优先级 2] Cmd/Ctrl+K — 开搜索面板（在 isInputFocused 之后处理，让
+      // 搜索框自身的 input 不被打断）
+      if (cmdOrCtrl && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+
+      // [优先级 3] Esc + 搜索面板开 — 仅关面板，绝不下沉到 phase 处理
+      if (e.key === 'Escape' && isSearchOpen) {
+        e.preventDefault();
+        setSearchOpen(false);
+        return;
+      }
+
       if (cmdOrCtrl) {
+        // [优先级 5] Cmd/Ctrl + 字母
         switch (e.key.toLowerCase()) {
           case 'z':
             e.preventDefault();
@@ -93,7 +126,7 @@ export function useKeyboardShortcuts() {
             break;
         }
       } else {
-        // 无组合键
+        // [优先级 6] 单键
         switch (e.key) {
           case 'Delete':
           case 'Backspace':
@@ -103,9 +136,9 @@ export function useKeyboardShortcuts() {
             break;
           case 'Escape':
             e.preventDefault();
-            // 修自 issue #61：Esc 路径单一 dispatcher，按 phase 分发，避免
-            // 跟 Scene.jsx 旧 keydown handler 并行产生 phase=IDLE 但
-            // freePlacingPayload 非空的中间态。
+            // [优先级 4] Esc + 搜索面板关 — 按 phase 分发。修自 issue #61
+            // (Esc 路径单 dispatcher) + #64 #1（合并 App.jsx Esc handler，
+            // 避免双 listener 并发）。
             if (interactionPhase === InteractionPhase.FREE_PLACING) {
               useStore.getState().commitFreePlacing(undefined);
             } else {
@@ -152,7 +185,7 @@ export function useKeyboardShortcuts() {
             break;
           case '[':
           case 'ArrowLeft':
-            if (selectedPort && 
+            if (selectedPort &&
                (interactionPhase === InteractionPhase.SOURCE_LOCKED || interactionPhase === InteractionPhase.AXIAL_SLIDING) &&
                !selectedPort.portType.includes('axle')) {
                  e.preventDefault();
@@ -161,7 +194,7 @@ export function useKeyboardShortcuts() {
             break;
           case ']':
           case 'ArrowRight':
-            if (selectedPort && 
+            if (selectedPort &&
                (interactionPhase === InteractionPhase.SOURCE_LOCKED || interactionPhase === InteractionPhase.AXIAL_SLIDING) &&
                !selectedPort.portType.includes('axle')) {
                  e.preventDefault();
@@ -173,7 +206,7 @@ export function useKeyboardShortcuts() {
         }
       }
 
-      // Alt based shortcuts
+      // [优先级 7] Alt+H — show all
       if (e.altKey) {
         if (e.key.toLowerCase() === 'h') {
           e.preventDefault();
@@ -201,6 +234,8 @@ export function useKeyboardShortcuts() {
     rotateSelectedPart,
     interactionPhase,
     selectedPort,
-    focusCameraOnSelected
+    focusCameraOnSelected,
+    isSearchOpen,
+    setSearchOpen,
   ]);
 }

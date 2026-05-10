@@ -120,6 +120,10 @@ interface StoreState {
   showLogPanel: boolean;
   isContextLost: boolean;
 
+  /** Cmd+K 全局搜索面板的开/关状态。从 App.jsx 局部 useState 提到 store
+   *  让 useKeyboardDispatcher 能 phase-aware 路由 Esc（issue #64 #1）。 */
+  isSearchOpen: boolean;
+
   // v1.2 State
   selection: {
     primaryId: string | null;
@@ -184,6 +188,7 @@ interface StoreState {
   clearLogs: () => void;
   toggleLogPanel: (show?: boolean) => void;
   setContextLost: (lost: boolean) => void;
+  setSearchOpen: (open: boolean) => void;
 
   // v1.2 Actions
   deleteSelected: () => void;
@@ -331,6 +336,7 @@ export const useStore = create<StoreState>()(
   logs: [],
   showLogPanel: false,
   isContextLost: false,
+  isSearchOpen: false,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
@@ -1004,6 +1010,8 @@ export const useStore = create<StoreState>()(
       get().addLog(`WebGL Context ${lost ? 'Lost' : 'Restored'}`, lost ? 'ERROR' : 'INFO');
       set({ isContextLost: lost });
   },
+
+  setSearchOpen: (open: boolean) => set({ isSearchOpen: open }),
 
   deleteSelected: () => {
     const { parts, connections, selection, occupiedPorts } = get();

@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -13,7 +13,7 @@ import { LogPanel } from './components/LogPanel';
 import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useKeyboardDispatcher } from './hooks/useKeyboardDispatcher';
 import { DebugOverlay } from './components/DebugOverlay';
 import { StatusBar } from './components/StatusBar';
 
@@ -141,37 +141,15 @@ function App() {
   const addStagedPart = useStore((state) => state.addStagedPart);
   const previewPart = useStore((state) => state.previewPart);
 
-  // 全局搜索面板状态
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // 搜索面板开/关状态。Issue #64 #1：从局部 useState 提到 store，让
+  // useKeyboardDispatcher 单 handler 能 phase-aware 路由 Esc。
+  const isSearchOpen = useStore((s) => s.isSearchOpen);
+  const setSearchOpen = useStore((s) => s.setSearchOpen);
 
-  // 挂载全局 3D 快捷键监听
-  useKeyboardShortcuts();
-
-  // 键盘全局监听：专属的 Cmd+K 和 自定义事件
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Cmd+K 或 Ctrl+K 呼出快速搜索面板
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-      // 搜索面板打开时，Esc 键关面板
-      if (e.key === 'Escape' && isSearchOpen) {
-         e.preventDefault(); // 阻断传递给 useKeyboardShortcuts，这里用 stopPropagation 可能不行因为是分别绑在 window 的，依赖执行顺序。
-         // 不过 React setState 本身处理无碍
-         setIsSearchOpen(false);
-      }
-    };
-    
-    const handleOpenSearch = () => setIsSearchOpen(true);
-    
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('open-part-search', handleOpenSearch);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('open-part-search', handleOpenSearch);
-    };
-  }, [isSearchOpen]);
+  // 唯一全局键盘 dispatcher。包揽 Cmd+K（开搜索） / Esc（按 phase 路由：
+  // 搜索开则关搜索；FREE_PLACING commit；其他 abort+deselect） / 全部
+  // 编辑快捷键。原 App.jsx 的 keydown useEffect 已并入。
+  useKeyboardDispatcher();
 
   return (
     <div className="w-screen h-screen relative bg-slate-50 overflow-hidden">
@@ -236,9 +214,9 @@ function App() {
           </div>
         }
       >
-        <PartSearchDialog 
-          isOpen={isSearchOpen} 
-          onClose={() => setIsSearchOpen(false)} 
+        <PartSearchDialog
+          isOpen={isSearchOpen}
+          onClose={() => setSearchOpen(false)}
           onSelectPart={(partNum) => {
             if (view === 'EDITOR') {
               const partId = partNum + ".dat";
