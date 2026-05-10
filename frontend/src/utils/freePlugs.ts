@@ -19,7 +19,7 @@
 
 import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import { portKey } from '../store';
-import type { Mat3 } from '../types';
+import type { Mat3, ZoneType } from '../types';
 
 export type PlugStatusKind = 'free' | 'partial' | 'full';
 
@@ -101,4 +101,68 @@ export function computeAssemblyFreePlugs(
     result[partId] = computeFreePlugs(meta.sites, meta.plugs, occupied);
   }
   return result;
+}
+
+/**
+ * 装配体可用 plug 数的快速估算 — 不依赖 sites/plugs（不调 useLDrawPart），
+ * 仅靠 store 已有字段：partCatalog.plugCount + portCount + occupiedPorts。
+ *
+ * 用例：StatusBar 概览（"Plugs: total / Free: K"）。Hook 限制让 StatusBar
+ * 没法对每 part 调 useLDrawPart 拉 plugs；走估算路径。精确视图应走
+ * computeFreePlugs（每 InteractivePart 已经持有 sites + plugs）。
+ *
+ * 估算公式（"非满 plug 数"下界 — 假设最坏聚集）：
+ *   freePlugs ≈ plugCount - floor(occupiedCount × plugCount / portCount)
+ *
+ * 直观：occupied 全部 cluster 进同一组 plug 时，最多 floor(occupied / avg)
+ * 个 plug 满；其余至少剩 1 port 可用 → 仍是"free 或 partial"。
+ *
+ * 例：2x4 plate (8 port, 2 plug，avg=4)：
+ *   occupied=2 → 2 - floor(2*2/8) = 2 - 0 = 2  ✓ (全部 partial / free)
+ *   occupied=4 → 2 - floor(4*2/8) = 2 - 1 = 1  (下界；实际可能仍是 2 partial)
+ *   occupied=8 → 0  ✓ (全 full)
+ *
+ * 已知偏差：
+ *   - portCount / plugCount 缺失 → 该 part 不计数
+ *   - 估算下界 → 实际 free plug 数 ≥ 此值（用户感知偏保守）
+ */
+export function countAssemblyFreePlugsCheap(
+  parts: Record<string, { ldrawId: string; zone: ZoneType }>,
+  partCatalog: Record<string, {
+    portCount?: number | null; plugCount?: number | null;
+  }>,
+  occupiedPorts: Record<string, Record<string, string>>,
+  activeZone: ZoneType,
+): number {
+  let total = 0;
+  for (const [partId, partState] of Object.entries(parts)) {
+    if (partState.zone !== activeZone) continue;
+    const meta = partCatalog[partState.ldrawId];
+    const portCount = meta?.portCount ?? 0;
+    const plugCount = meta?.plugCount ?? 0;
+    if (portCount <= 0 || plugCount <= 0) continue;
+    const occupiedCount = Object.keys(occupiedPorts[partId] ?? {}).length;
+    const fullPlugsLB = Math.floor((occupiedCount * plugCount) / portCount);
+    total += Math.max(0, plugCount - fullPlugsLB);
+  }
+  return total;
+}
+
+/**
+ * 装配体 plug 总容量 — 单纯求和 ACTIVE_ARENA 内 plugCount。
+ *
+ * 用例：StatusBar "Plugs: <N>"（区别于"Free Plugs: K" — 总容量 vs 可用估算）。
+ */
+export function countAssemblyTotalPlugsCheap(
+  parts: Record<string, { ldrawId: string; zone: ZoneType }>,
+  partCatalog: Record<string, { plugCount?: number | null }>,
+  activeZone: ZoneType,
+): number {
+  let total = 0;
+  for (const partState of Object.values(parts)) {
+    if (partState.zone !== activeZone) continue;
+    const meta = partCatalog[partState.ldrawId];
+    total += meta?.plugCount ?? 0;
+  }
+  return total;
 }
