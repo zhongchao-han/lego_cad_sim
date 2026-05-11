@@ -22,6 +22,11 @@ export enum InteractionPhase {
 export enum SelectionLevel {
   GROUP = 'GROUP',           // 选中物理连通组
   INDIVIDUAL = 'INDIVIDUAL', // 选中单个零件
+  /** 走法 A 期 B.1：plug-level 视觉/选择层（user 视角的"整片接口"，
+   *  比如 2x4 plate 顶面 = 1 plug、2780 销头/销尾 = 各 1 plug）。
+   *  B.1 仅 hover 联动 — port hover 时同 plug 兄弟 port 全亮发现性反馈；
+   *  click / commit 仍走 port-level，留 B.2/B.3。 */
+  PLUG = 'PLUG',
 }
 
 /** 选中锚点详情 */
@@ -144,4 +149,8 @@ export interface SelectedPortInfo {
   globalPos: Vec3;
   globalQuat: Quat;
   isFromPreview?: boolean; // 用于标记此端口是否刚从零件库选出，以开启连续拼接(Stamp)模式
+  /** 走法 A 期 B.1：plug-level 联动需要 — 同 plug 兄弟 port hover 时
+   *  通过比较此字段联动高亮。baked 自 ldraw_port_configs.json；老
+   *  数据或装饰零件可能缺。 */
+  plug_id?: string;
 }
