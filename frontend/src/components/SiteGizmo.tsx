@@ -46,6 +46,34 @@ export function isFemale(port: LDrawPort): boolean {
   return t.includes('hole') || t.includes('hol') || t === 'peghole' || t === 'axlehole';
 }
 
+/**
+ * B.1：plug-sibling halo 触发条件（纯函数 — 让 siteGizmo_plug_halo.test.ts
+ * 直接验，不走 React render）。
+ *
+ * 返 true 表示"该 port 应渲染暖黄 halo"：
+ *   - 它有 plug_id（装饰类零件 / 老数据无 plug 直接跳过）
+ *   - 有 port 在被 hover（store.hoveredPort 非空）
+ *   - 那个 hovered port 跟本 port 在同一 part 实例 + 同一 plug
+ *   - 本 port 不是被 hover 的那个本身（走常规 hover 视觉）
+ *   - 本 port 也不是 selected（已经有 ACTIVE_COLOR 高亮）
+ */
+export function shouldHaloPlugSibling(args: {
+  portPlugId: string | undefined;
+  portPartId: string;
+  hoveredPort: SelectedPortInfo | null;
+  isThisPortHovered: boolean;
+  isThisPortSelected: boolean;
+}): boolean {
+  const { portPlugId, portPartId, hoveredPort, isThisPortHovered, isThisPortSelected } = args;
+  if (!portPlugId) return false;
+  if (!hoveredPort || !hoveredPort.plug_id) return false;
+  if (hoveredPort.partId !== portPartId) return false;
+  if (hoveredPort.plug_id !== portPlugId) return false;
+  if (isThisPortHovered) return false;
+  if (isThisPortSelected) return false;
+  return true;
+}
+
 export function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
   if (!sourcePortType) return true; // SOURCE_LOCKED 未设置时，全部显示
   
@@ -84,12 +112,29 @@ interface PortArrowProps {
 
 // 球体半径：7 LDU (2.8mm)。标准孔半径约 6 LDU (2.4mm)。
 // 略大于孔径，用于纯几何 Hover 拦截，防止射线穿模导致闪烁。
-const GIZMO_SPHERE_R_ENLARGED = 7 * LDU; 
+const GIZMO_SPHERE_R_ENLARGED = 7 * LDU;
+
+// B.1：plug-sibling halo 比 hit-box 略大，alpha 较低、不写深度 — 让用户
+// "看见 plug 边界"但不抢主 port arrow 视觉焦点。
+const PLUG_SIBLING_HALO_R = 11 * LDU;
+const PLUG_SIBLING_HALO_COLOR = '#fff176'; // 暖黄，跟蓝/紫极性色都对比明显
+const PLUG_SIBLING_HALO_OPACITY = 0.35;
 
 function PortArrow({
   port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
+
+  // B.1：plug-level 联动 — 订阅 hoveredPort，把 sibling 判定全权交给
+  // 纯函数 shouldHaloPlugSibling（单测覆盖；改逻辑只动一处）。
+  const hoveredPort = useStore(s => s.hoveredPort);
+  const isPlugSibling = shouldHaloPlugSibling({
+    portPlugId: port.plug_id,
+    portPartId: partId,
+    hoveredPort,
+    isThisPortHovered: hovered,
+    isThisPortSelected: isSelected,
+  });
 
   const isLocallyActive = hovered || isSelected;
   const debugShowPorts = useStore(s => s.debugShowPorts);
@@ -143,6 +188,7 @@ function PortArrow({
       rotation: port.rotation as Mat3,
       globalPos: [worldPos.x, worldPos.y, worldPos.z],
       globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],
+      plug_id: port.plug_id,  // B.1：透传给 store hoveredPort 让兄弟 port 联动
     };
   }, [pos, quaternion, groupRef, partId, ldrawId, port]);
 
@@ -246,6 +292,21 @@ function PortArrow({
         >
           <cylinderGeometry args={[10 * LDU, 10 * LDU, ARROW_LENGTH, 12]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
+
+      {/* B.1：plug-sibling halo — 当某个兄弟 port hover 时本 port 加一层
+          暖黄半透明球壳。纯发现性反馈，不参与 raycast。 */}
+      {isPlugSibling && shouldShowVisuals && (
+        <mesh raycast={() => {}}>
+          <sphereGeometry args={[PLUG_SIBLING_HALO_R, 16, 16]} />
+          <meshBasicMaterial
+            color={PLUG_SIBLING_HALO_COLOR}
+            toneMapped={false}
+            opacity={PLUG_SIBLING_HALO_OPACITY}
+            transparent
+            depthWrite={false}
+          />
         </mesh>
       )}
     </group>
