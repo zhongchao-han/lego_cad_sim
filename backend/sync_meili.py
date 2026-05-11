@@ -13,8 +13,17 @@ MEILI_HOST = os.getenv("MEILI_HOST", "http://localhost:7700")
 MEILI_MASTER_KEY = os.getenv("MEILI_MASTER_KEY", "Lego_CAD_Sim_Meili_Master_Key_2026")
 # 配置文件默认路径
 DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json")
-# LDraw 零件库默认路径
-LDRAW_PARTS_DIR = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(os.path.dirname(__file__), "..", "ldraw_lib", "parts"))
+# LDraw 零件库默认路径。
+# 约定：LDRAW_PARTS_ROOT 是**库根目录**（含 parts/、p/ 等子目录），跟
+# backend/server.py 同源。.dat 实际放在 root/parts/，所以这里手动 join。
+# 旧实现误把 env 当 parts/ 子目录用，导致 get_part_name 文件找不到 →
+# 全部 fallback 到 "170.dat" 这种 filename，Meili 索引名字段失效，
+# 用户搜 "plate"/"2x4"/"brick" 全部 0 hit。
+_LDRAW_LIB_ROOT = os.environ.get(
+    "LDRAW_PARTS_ROOT",
+    os.path.join(os.path.dirname(__file__), "..", "ldraw_lib"),
+)
+LDRAW_PARTS_DIR = os.path.join(_LDRAW_LIB_ROOT, "parts")
 
 
 def get_part_name(part_id: str) -> str:
