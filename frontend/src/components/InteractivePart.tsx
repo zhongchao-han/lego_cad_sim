@@ -10,6 +10,7 @@ import { RenderErrorBoundary } from './RenderErrorBoundary';
 import { AutoFitCamera } from './AutoFitCamera';
 import { calculateClampedOffset } from '../utils/snapMath';
 import { useHoverState } from '../hooks/useHoverState';
+import { pickPlugAnchorPort } from '../utils/pickPlugAnchor';
 import React from 'react';
 
 // Vite injects env into import.meta
@@ -137,6 +138,22 @@ export const InteractivePart = memo(({
     onPortHover?.(info);
   }, [onPortHover]);
 
+  // ── B.2：plug-level click 路由 ───────────────────────────────────────────
+  // Shift+Click + 有 plug_id → pickPlugAnchorPort 重新选 anchor + 切到
+  // PLUG 模式；普通 click → 切回 INDIVIDUAL + 透传 clicked port info。
+  // 装饰类零件（无 plug_id）Shift+Click 静默退回 PORT 模式。
+  const handlePortClickLocal = useCallback((info: SelectedPortInfo, opts?: { shiftKey: boolean }) => {
+    const setLevel = useStore.getState().setPortSelectionLevel;
+    if (opts?.shiftKey && info.plug_id) {
+      setLevel(SelectionLevel.PLUG);
+      const anchor = pickPlugAnchorPort(info, ldrawPart.plugs, ldrawPart.sites);
+      onPortClick?.(anchor);
+    } else {
+      setLevel(SelectionLevel.INDIVIDUAL);
+      onPortClick?.(info);
+    }
+  }, [onPortClick, ldrawPart.plugs, ldrawPart.sites]);
+
   // ── 高亮计算 ──────────────────────────────────────────────────────────────
   const highlight = useMemo(() => {
     // 穿模报错保持刺眼红光和高闪烁
@@ -153,6 +170,7 @@ export const InteractivePart = memo(({
   const interactionPhase = useStore(s => s.interactionPhase);
   const isTargetSeeking = useIsTargetSeekingPhase();
   const selectedPort = useStore(s => s.selectedPort);
+  const portSelectionLevel = useStore(s => s.portSelectionLevel);
   const continuousPlacementSource = useStore(s => s.continuousPlacementSource);
   const activeMeshUrl = useMemo(() => encodeModelUrl(ldrawPart.meshUrl), [ldrawPart.meshUrl]);
 
@@ -247,9 +265,10 @@ export const InteractivePart = memo(({
           phase={interactionPhase}
           sourcePortType={effectiveSourcePortType}
           selectedPort={selectedPort}
+          portSelectionLevel={portSelectionLevel}
           showVisuals={finalShowPorts}
           occupiedKeys={occupiedKeys}
-          onPortClick={onPortClick}
+          onPortClick={handlePortClickLocal}
           onPortHover={handlePortHoverLocal}
         />
       ))}
