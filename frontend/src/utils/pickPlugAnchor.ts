@@ -22,6 +22,7 @@
 
 import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import type { SelectedPortInfo, Vec3, Mat3 } from '../types';
+import { checkFitByTypes, FitType } from './fitMath';
 
 const ROT_EPS = 1e-4;
 
@@ -120,13 +121,15 @@ export function pickPlugAnchorPort(
   const anchor = findAnchorMember(plug, sites, clickedPort.rotation);
   if (!anchor) return clickedPort;
 
-  // anchor === clicked（按 position 比较）→ 不构造新对象，节省一次 commit
+  // anchor === clicked（按 position 比较）→ 不重算 globalPos / rotation，
+  // 仅在 clicked 上补 plug_port_count（B.3-extension 需要的预览上界）。
+  // 单 port plug 走这条路。
   if (
     Math.abs(anchor.position[0] - clickedPort.position[0]) < ROT_EPS
     && Math.abs(anchor.position[1] - clickedPort.position[1]) < ROT_EPS
     && Math.abs(anchor.position[2] - clickedPort.position[2]) < ROT_EPS
   ) {
-    return clickedPort;
+    return { ...clickedPort, plug_port_count: plug.port_count };
   }
 
   // anchor 跟 clicked 同 part 刚体 + 同 rotation → globalQuat 不变；
@@ -148,6 +151,39 @@ export function pickPlugAnchorPort(
     ],
     globalQuat: clickedPort.globalQuat,
     plug_id: clickedPort.plug_id,
+    // B.3-extension：透传 plug 成员总数让 hover target 时算预览上界
+    plug_port_count: plug.port_count,
     isFromPreview: clickedPort.isFromPreview,
   };
+}
+
+/**
+ * B.3-extension：pre-commit 预览上界。
+ *
+ * 给"用户已 PLUG-locked source + hover target plug"算预计闭合 pair 数：
+ *   min(sourcePortCount, targetPortCount)，前提是 sourcePortType ↔
+ *   targetPortType 兼容（gender + profile）。
+ *
+ * 上界（不精确）：实际 Auto-Latch 会按 1mm 几何阈值筛；如果 plug 之间几何
+ * 错位，commit 后可能少于 min。UX 上 "Will snap **up to** N pairs" 措辞
+ * 让用户对偏差有预期。
+ *
+ * 返 null 表示无预测（缺源 plug 上下文 / 不兼容 / plug_id 缺）；callsite
+ * 据此判定是否显示。
+ */
+export function predictPlugSnapUpperBound(args: {
+  sourcePortType?: string;
+  sourcePlugPortCount?: number;
+  targetPortType?: string;
+  targetPlugPortCount?: number;
+}): number | null {
+  const { sourcePortType, sourcePlugPortCount, targetPortType, targetPlugPortCount } = args;
+  if (!sourcePortType || !targetPortType) return null;
+  if (sourcePlugPortCount === undefined || targetPlugPortCount === undefined) return null;
+  if (sourcePlugPortCount <= 0 || targetPlugPortCount <= 0) return null;
+  // 双向 fit 试（plug/socket 顺序敏感，端口实例可能任意极性）
+  const fitA = checkFitByTypes(sourcePortType, targetPortType);
+  const fitB = checkFitByTypes(targetPortType, sourcePortType);
+  if (fitA === FitType.INCOMPATIBLE && fitB === FitType.INCOMPATIBLE) return null;
+  return Math.min(sourcePlugPortCount, targetPlugPortCount);
 }

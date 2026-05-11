@@ -27,6 +27,10 @@ export function StatusBar() {
   // 反馈；常态单点 snap = 1，不显示。abort/deselect 清 0 → 隐藏。
   const lastSnapPairCount = useStore((s) => s.lastSnapPairCount);
 
+  // B.3-extension：pre-commit 预览 — SOURCE_LOCKED + PLUG hover target 时
+  // 的预计 pair 数上界。null = 无预测 / 不在 PLUG hover 状态，不显示。
+  const predictedSnapPairCount = useStore((s) => s.predictedSnapPairCount);
+
   // L51：稳定性指示。ASSEMBLY 模式 + 多 part 时显示，unstable 走醒目红字。
   const showReactionForces = useStore((s) => s.showReactionForces);
   const setShowReactionForces = useStore((s) => s.setShowReactionForces);
@@ -219,6 +223,18 @@ export function StatusBar() {
             Plugs: <span className="text-violet-400 font-bold">{totalPlugs}</span>
             {' / '}
             <span className="text-emerald-400 font-bold">{totalFreePlugs}</span>
+          </span>
+        )}
+        {/* B.3-extension：pre-commit 预览 — PLUG mode hover target 时显
+            "Will snap up to N pairs" 上界估计。amber 跟 commit 后的橙
+            色 ✓ N pairs 区分（预测 vs 落地）。仅 > 1 时显示。 */}
+        {predictedSnapPairCount !== null && predictedSnapPairCount > 1 && (
+          <span
+            data-testid="predicted-snap-pair-count"
+            title="预计 snap 后将闭合的 port pair 数上界 = min(source.plug.port_count, target.plug.port_count)，仅在源 / 目标兼容时显示。上界，不是精确值 — 几何错位时实际 Auto-Latch 可能少于此值，commit 后看 ✓ N pairs 真值。"
+            className="text-amber-300 font-bold"
+          >
+            ≤ {predictedSnapPairCount} pairs
           </span>
         )}
         {/* B.3-3：plug-snap 反馈 — 上一次 snap 命中的 port pair 总数。

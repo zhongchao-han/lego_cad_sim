@@ -10,7 +10,7 @@ import { RenderErrorBoundary } from './RenderErrorBoundary';
 import { AutoFitCamera } from './AutoFitCamera';
 import { calculateClampedOffset } from '../utils/snapMath';
 import { useHoverState } from '../hooks/useHoverState';
-import { pickPlugAnchorPort } from '../utils/pickPlugAnchor';
+import { pickPlugAnchorPort, predictPlugSnapUpperBound } from '../utils/pickPlugAnchor';
 import React from 'react';
 
 // Vite injects env into import.meta
@@ -133,10 +133,42 @@ export const InteractivePart = memo(({
   });
 
   // ── SiteGizmo 端口 hover 本地代理 ─────────────────────────────────────────
+  // B.3-extension：在 SOURCE_LOCKED + PLUG 模式下 hover target plug 时，
+  // 同步把"预计 snap pair 数上界"写入 store.predictedSnapPairCount，让
+  // StatusBar 渲染 "Will snap up to N pairs" 预览。clear hover 时清 null。
+  //
+  // 实现说明：这个 hover handler 跑在 target part 上（用户鼠标移到的零件），
+  // 所以 ldrawPart.plugs 是 target 的 plug 列表。source 的 plug_port_count
+  // 走 store.selectedPort.plug_port_count（B.2 anchor pick 已透传）。
   const handlePortHoverLocal = useCallback((info: SelectedPortInfo | null) => {
     setIsPortHovered(!!info);
     onPortHover?.(info);
-  }, [onPortHover]);
+
+    // 预测仅在严格 PLUG-hover 状态下跑
+    const state = useStore.getState();
+    if (
+      info
+      && state.interactionPhase === InteractionPhase.SOURCE_LOCKED
+      && state.portSelectionLevel === SelectionLevel.PLUG
+      && state.selectedPort
+      && state.selectedPort.plug_port_count
+      && info.plug_id
+    ) {
+      const targetPlug = ldrawPart.plugs.find(p => p.plug_id === info.plug_id);
+      const prediction = predictPlugSnapUpperBound({
+        sourcePortType: state.selectedPort.portType,
+        sourcePlugPortCount: state.selectedPort.plug_port_count,
+        targetPortType: info.portType,
+        targetPlugPortCount: targetPlug?.port_count,
+      });
+      if (prediction !== state.predictedSnapPairCount) {
+        useStore.setState({ predictedSnapPairCount: prediction });
+      }
+    } else if (state.predictedSnapPairCount !== null) {
+      // hover 出去 / 非 PLUG mode → 清预测
+      useStore.setState({ predictedSnapPairCount: null });
+    }
+  }, [onPortHover, ldrawPart.plugs]);
 
   // ── B.2：plug-level click 路由 ───────────────────────────────────────────
   // Shift+Click + 有 plug_id → pickPlugAnchorPort 重新选 anchor + 切到

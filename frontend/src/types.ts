@@ -153,4 +153,9 @@ export interface SelectedPortInfo {
    *  通过比较此字段联动高亮。baked 自 ldraw_port_configs.json；老
    *  数据或装饰零件可能缺。 */
   plug_id?: string;
+  /** 走法 A 期 B.3-extension：selected source port 所属 plug 的 member
+   *  总数。让 pre-commit 预览能算 min(source_count, target_count) 上界，
+   *  不需要从 plugs 数组反查。仅在 B.2 anchor pick 路径填入；普通 port
+   *  click 不设。 */
+  plug_port_count?: number;
 }
