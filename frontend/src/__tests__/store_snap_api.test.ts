@@ -143,7 +143,7 @@ describe('store.snapParts — 后端 API 联调', () => {
     });
   });
 
-  it('后端返回 auto_latched_count=2 时 LOG 中应有 AutoLatch 相关记录', async () => {
+  it('后端返回 auto_latched_count=2 时 LOG 中应有 PlugSnap 记录 + lastSnapPairCount=3', async () => {
     (mockAxios.post as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       data: { status: 'success', auto_latched_count: 2 },
     });
@@ -153,12 +153,17 @@ describe('store.snapParts — 后端 API 联调', () => {
 
     await useStore.getState().snapParts(source as any, target as any);
 
-    // 等待异步回调写入 log
+    // 等待异步回调写入 log + 设置 lastSnapPairCount。
+    // 走法 A 期 B.3-3：日志前缀从 [AutoLatch] 改成 [PlugSnap]（用户友好术语）；
+    // 总 pair 数 = 1 main + 2 auto-latched = 3，写入 store.lastSnapPairCount
+    // 供 StatusBar 显示。
     await vi.waitFor(() => {
-      const logs = useStore.getState().logs;
-      const autoLatchLog = logs.find(l => l.message.includes('AutoLatch'));
-      expect(autoLatchLog).toBeDefined();
-      expect(autoLatchLog?.message).toContain('2');
+      const state = useStore.getState();
+      const plugSnapLog = state.logs.find(l => l.message.includes('PlugSnap'));
+      expect(plugSnapLog).toBeDefined();
+      expect(plugSnapLog?.message).toContain('3 port pairs');
+      expect(plugSnapLog?.message).toContain('1 main + 2 auto-latched');
+      expect(state.lastSnapPairCount).toBe(3);
     });
   });
 
