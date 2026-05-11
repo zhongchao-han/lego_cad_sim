@@ -247,6 +247,122 @@ class TestAutoLatchScanner(unittest.TestCase):
         self.assertEqual(len(edges), 0, "父 Site 为空时应返回 0 条边。")
 
 
+class TestAutoLatchPlugScenarios(unittest.TestCase):
+    """走法 A 期 B.3-2 — plug-snap 整片闭合集成验证。
+
+    现有 case 1/2 已覆盖 1/2 Site 对；本类加 plug 级密度（8 / 4 / 双面）的
+    场景，跟前端 predictPlugSnapPairs（B.3-1）做配对计数对照：
+
+      - 8↔8 plate-on-plate（2x4 plate stud↔tube 全连）
+      - 8↔4 asymmetric（2x4 plate 部分覆盖 1x4 plate）
+      - 主连接幂等 + plug 整片 → main 边 + plug-1 个 auto-latched
+    """
+
+    def setUp(self) -> None:
+        self.scanner = AutoLatchScanner(threshold_m=AUTO_LATCH_THRESHOLD_M)
+
+    @staticmethod
+    def _2x4_grid_sites(prefix: str, port_name_prefix: str, port_type: str) -> list:
+        """生成 2x4 网格 (8 stud/tube)：x ∈ {0, 0.008}, z ∈ {0..0.024:0.008}."""
+        sites = []
+        idx = 0
+        for x in range(2):
+            for z in range(4):
+                sites.append(_make_site(
+                    f"{prefix}_s{idx}",
+                    f"{port_name_prefix}_{idx}",
+                    port_type,
+                    [x * 0.008, 0.0, z * 0.008],
+                ))
+                idx += 1
+        return sites
+
+    @staticmethod
+    def _1x4_grid_sites(prefix: str, port_name_prefix: str, port_type: str) -> list:
+        """生成 1x4 网格 (4 stud/tube)：x = 0, z ∈ {0..0.024:0.008}."""
+        sites = []
+        for z in range(4):
+            sites.append(_make_site(
+                f"{prefix}_s{z}",
+                f"{port_name_prefix}_{z}",
+                port_type,
+                [0.0, 0.0, z * 0.008],
+            ))
+        return sites
+
+    def test_8_stud_to_8_tube_full_plate_snap(self):
+        """[Case P1] 2x4 plate 顶 stud (8 MALE) ↔ 2x4 plate 底 tube (8 FEMALE)
+        完美对齐 → Auto-Latch 应返 8 条边（无 main connection exclusion）。
+
+        跟前端 predictPlugSnapPairs 在同几何输入下应返 8 对一致。
+        """
+        parent_sites = self._2x4_grid_sites("p", "stud", "stud.dat")  # MALE
+        child_sites = self._2x4_grid_sites("c", "tube", "tube.dat")   # FEMALE
+        edges = self.scanner.scan(
+            parent_id="plate_top",
+            child_id="plate_bot",
+            parent_sites=parent_sites,
+            child_sites=child_sites,
+            parent_world_transform=_identity_transform(),
+            child_world_transform=_identity_transform(),
+        )
+        self.assertEqual(len(edges), 8, "8 stud ↔ 8 tube 完美对齐应全 8 对 latch。")
+
+    def test_8_stud_to_4_tube_asymmetric_partial_overlap(self):
+        """[Case P2] 8 stud 源（2x4）↔ 4 tube 目标（1x4），目标只覆盖源的中
+        间 4 个 → Auto-Latch 应返 4 条边（其余 4 个无目标）。
+
+        镜像前端 predictPlugSnapPairs case 3。
+        """
+        parent_sites = self._2x4_grid_sites("p", "stud", "stud.dat")  # 8 个
+        child_sites = self._1x4_grid_sites("c", "tube", "tube.dat")   # 4 个
+        edges = self.scanner.scan(
+            parent_id="plate_2x4",
+            child_id="plate_1x4",
+            parent_sites=parent_sites,
+            child_sites=child_sites,
+            parent_world_transform=_identity_transform(),
+            child_world_transform=_identity_transform(),
+        )
+        # 4 个 tube 各自找到 x=0 那一列的 stud — 因 1x4 在 x=0
+        self.assertEqual(len(edges), 4, "8 stud / 4 tube 部分覆盖应返 4 对。")
+
+    def test_plug_snap_with_main_exclusion_leaves_n_minus_1(self):
+        """[Case P3] 8↔8 plug snap，主连接端口对已注册（main_pair exclude）
+        → Auto-Latch 应返剩 7 对。模拟"用户 Shift+Click anchor → snap_parts
+        把 anchor 作 main，Auto-Latch 闭合其余 plug member"。
+        """
+        parent_sites = self._2x4_grid_sites("p", "stud", "stud.dat")
+        child_sites = self._2x4_grid_sites("c", "tube", "tube.dat")
+        # 主连接：parent 的 stud_0 ↔ child 的 tube_0（位置 [0,0,0]）
+        edges = self.scanner.scan(
+            parent_id="plate_top",
+            child_id="plate_bot",
+            parent_sites=parent_sites,
+            child_sites=child_sites,
+            parent_world_transform=_identity_transform(),
+            child_world_transform=_identity_transform(),
+            exclude_port_pair=("stud_0", "tube_0"),
+        )
+        self.assertEqual(len(edges), 7, "Main pair excluded → 8-1=7 auto-latched。")
+
+    def test_plug_member_beyond_threshold_drops_out(self):
+        """[Case P4] 8↔8 网格，子零件整体偏移 5mm > 1mm 阈值 → 0 对。
+        证明 Auto-Latch 严守距离阈值，不会因 plug 概念放宽。
+        """
+        parent_sites = self._2x4_grid_sites("p", "stud", "stud.dat")
+        child_sites = self._2x4_grid_sites("c", "tube", "tube.dat")
+        edges = self.scanner.scan(
+            parent_id="plate_top",
+            child_id="plate_bot",
+            parent_sites=parent_sites,
+            child_sites=child_sites,
+            parent_world_transform=_identity_transform(),
+            child_world_transform=_translate_transform(0.005, 0.0, 0.0),
+        )
+        self.assertEqual(len(edges), 0, "整体偏移 5mm，所有 stud↔tube 都超阈值。")
+
+
 class TestTopologyManagerBatchConnect(unittest.TestCase):
     """TopologyManager.batch_connect 单元测试。"""
 
