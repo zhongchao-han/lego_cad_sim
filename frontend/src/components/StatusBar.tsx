@@ -22,6 +22,11 @@ export function StatusBar() {
     return Object.values(state.parts).filter(p => p.zone === ZoneType.ACTIVE_ARENA).length;
   });
 
+  // B.3-3：上一次 snap 命中的 port pair 总数（plug-snap = >1）。
+  // 用户做完 plug 整片 snap 之后，立刻能在 StatusBar 看到"刚刚一次连了 N 颗"
+  // 反馈；常态单点 snap = 1，不显示。abort/deselect 清 0 → 隐藏。
+  const lastSnapPairCount = useStore((s) => s.lastSnapPairCount);
+
   // L51：稳定性指示。ASSEMBLY 模式 + 多 part 时显示，unstable 走醒目红字。
   const showReactionForces = useStore((s) => s.showReactionForces);
   const setShowReactionForces = useStore((s) => s.setShowReactionForces);
@@ -214,6 +219,18 @@ export function StatusBar() {
             Plugs: <span className="text-violet-400 font-bold">{totalPlugs}</span>
             {' / '}
             <span className="text-emerald-400 font-bold">{totalFreePlugs}</span>
+          </span>
+        )}
+        {/* B.3-3：plug-snap 反馈 — 上一次 snap 命中的 port pair 总数。
+            只在 > 1 时显示（单点 snap = 1，无新信息；plug 整片 snap 多对）。
+            橙色配 ACTIVE_COLOR 让用户感受"刚刚整片落地"。 */}
+        {lastSnapPairCount > 1 && (
+          <span
+            data-testid="last-snap-pair-count"
+            title="上一次 snap 命中的 port pair 总数 = 1 个主连接 + 后端 Auto-Latch 自动闭合的额外连接。常态单点 snap = 1 不显示；plug 整片 snap 时多对一起落地。abort/deselect/下一次 snap 会刷新此值。"
+            className="text-orange-400 font-bold"
+          >
+            ✓ {lastSnapPairCount} pairs
           </span>
         )}
         <div className="w-px h-3 bg-slate-700" />

@@ -131,6 +131,12 @@ interface StoreState {
    *  GROUP 在此字段无意义（GROUP 是 selection.level 的部分级别 — 见上）。 */
   portSelectionLevel: SelectionLevel;
 
+  /** 走法 A 期 B.3-3：上一次 snap 命中的 port-pair 总数（含主连接 + 后端
+   *  Auto-Latch 闭合的对）。 用户在 PLUG mode 整片 snap 后用来给 UX
+   *  反馈"刚才一次性插了 N 颗"。0 表示无最近 snap / 已被新交互清。
+   *  abort/deselect/下一次 port click 重置。 */
+  lastSnapPairCount: number;
+
   // v1.2 State
   selection: {
     primaryId: string | null;
@@ -363,6 +369,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'isContextLost',
   'isSearchOpen',
   'portSelectionLevel',
+  'lastSnapPairCount',
   'selection',
   'clipboard',
   'freePlacingPayload',
@@ -461,6 +468,7 @@ export const useStore = create<StoreState>()(
   isContextLost: false,
   isSearchOpen: false,
   portSelectionLevel: SelectionLevel.INDIVIDUAL,
+  lastSnapPairCount: 0,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
@@ -972,10 +980,20 @@ export const useStore = create<StoreState>()(
         }>;
       };
       const edges = data.auto_latched_edges ?? [];
-      if (data.auto_latched_count && data.auto_latched_count > 0) {
+      const autoLatched = data.auto_latched_count ?? 0;
+      const totalPairs = 1 + autoLatched;  // 主连接 + Auto-Latch 附加
+
+      // B.3-3 UX 提示：snap 总 pair 数写入 store，StatusBar 据此显
+      // "Last snap: N pairs"。常态单点 snap 仍写 1（用户看见 = 1 表示无
+      // Auto-Latch，知道这是单点；> 1 表示后端帮把 plug 整片闭合）。
+      set({ lastSnapPairCount: totalPairs });
+
+      if (autoLatched > 0) {
+        // 当前 snap 是 plug-snap（多 pair）— 用 [PlugSnap] 前缀让 LogPanel
+        // 醒目，跟单点 [AutoLatch] 区分
         get().addLog(
-          `[AutoLatch] Snap(${source.partId} ↔ ${target.partId}): 后端自动闭合 ${data.auto_latched_count} 条额外连接。`,
-          'INFO'
+          `[PlugSnap] Snap(${source.partId} ↔ ${target.partId}): ${totalPairs} port pairs (1 main + ${autoLatched} auto-latched).`,
+          'ACTION'
         );
       }
       if (edges.length === 0) return;
@@ -1122,6 +1140,8 @@ export const useStore = create<StoreState>()(
       continuousPlacementSource: null,
       // B.2：abort 复位 plug 选择模式，下一次交互回 PORT 默认
       portSelectionLevel: SelectionLevel.INDIVIDUAL,
+      // B.3-3：abort 清最近 snap 计数，StatusBar 不再显示陈旧值
+      lastSnapPairCount: 0,
     });
   },
 
@@ -1420,6 +1440,8 @@ export const useStore = create<StoreState>()(
       selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
       // B.2：deselect 也清 plug 模式，跟 abortCurrentInteraction 行为对齐
       portSelectionLevel: SelectionLevel.INDIVIDUAL,
+      // B.3-3：deselect 也清 snap 计数（用户离开当前 commit 上下文）
+      lastSnapPairCount: 0,
     });
   },
 
