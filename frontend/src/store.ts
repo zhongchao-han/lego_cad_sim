@@ -124,6 +124,13 @@ interface StoreState {
    *  让 useKeyboardDispatcher 能 phase-aware 路由 Esc（issue #64 #1）。 */
   isSearchOpen: boolean;
 
+  /** 走法 A 期 B.2：port-level 选择的粒度。
+   *   - INDIVIDUAL: 单 port 选中（默认；普通 click）
+   *   - PLUG:      整片 plug 选中（Shift+Click；视觉上 plug 全 member
+   *                橙色高亮，selectedPort 落在 plug anchor port）
+   *  GROUP 在此字段无意义（GROUP 是 selection.level 的部分级别 — 见上）。 */
+  portSelectionLevel: SelectionLevel;
+
   // v1.2 State
   selection: {
     primaryId: string | null;
@@ -189,6 +196,7 @@ interface StoreState {
   toggleLogPanel: (show?: boolean) => void;
   setContextLost: (lost: boolean) => void;
   setSearchOpen: (open: boolean) => void;
+  setPortSelectionLevel: (level: SelectionLevel) => void;
 
   // v1.2 Actions
   deleteSelected: () => void;
@@ -354,6 +362,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'showLogPanel',
   'isContextLost',
   'isSearchOpen',
+  'portSelectionLevel',
   'selection',
   'clipboard',
   'freePlacingPayload',
@@ -451,6 +460,7 @@ export const useStore = create<StoreState>()(
   showLogPanel: false,
   isContextLost: false,
   isSearchOpen: false,
+  portSelectionLevel: SelectionLevel.INDIVIDUAL,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
@@ -1102,14 +1112,16 @@ export const useStore = create<StoreState>()(
     }
 
     get().addLog("Aborting port interaction.");
-    set({ 
-      interactionPhase: InteractionPhase.IDLE, 
-      selectedPort: null, 
+    set({
+      interactionPhase: InteractionPhase.IDLE,
+      selectedPort: null,
       hoveredPort: null,
       slidingTarget: null,
       slideOffset: 0,
       snapPreState: null,
-      continuousPlacementSource: null
+      continuousPlacementSource: null,
+      // B.2：abort 复位 plug 选择模式，下一次交互回 PORT 默认
+      portSelectionLevel: SelectionLevel.INDIVIDUAL,
     });
   },
 
@@ -1126,6 +1138,8 @@ export const useStore = create<StoreState>()(
   },
 
   setSearchOpen: (open: boolean) => set({ isSearchOpen: open }),
+
+  setPortSelectionLevel: (level: SelectionLevel) => set({ portSelectionLevel: level }),
 
   deleteSelected: () => {
     const { parts, connections, selection, occupiedPorts } = get();
@@ -1402,7 +1416,11 @@ export const useStore = create<StoreState>()(
   },
 
   deselectAll: () => {
-    set({ selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] } });
+    set({
+      selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
+      // B.2：deselect 也清 plug 模式，跟 abortCurrentInteraction 行为对齐
+      portSelectionLevel: SelectionLevel.INDIVIDUAL,
+    });
   },
 
   setMarqueeSelection: (ids: string[]) => {

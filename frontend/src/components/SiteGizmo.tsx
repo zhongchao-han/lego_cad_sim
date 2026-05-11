@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import type { LDrawSite, LDrawPort } from '../useLDrawPart';
 import type { Vec3, Mat3, SelectedPortInfo } from '../types';
-import { InteractionPhase } from '../types';
+import { InteractionPhase, SelectionLevel } from '../types';
 import { useStore, portKey } from '../store';
 
 const LDU = 0.0004;
@@ -106,7 +106,9 @@ interface PortArrowProps {
   partId: string;
   ldrawId: string;
   showVisuals: boolean;
-  onPortClick?: (info: SelectedPortInfo) => void;
+  /** B.2：click handler 接收 shiftKey 让 callsite 决定是否走 plug 模式。
+   *  Optional 第二参数保持向后兼容（旧 callsite 忽略即可）。 */
+  onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
   onPortHover?: (info: SelectedPortInfo | null) => void;
 }
 
@@ -245,7 +247,8 @@ function PortArrow({
         }
         if (!isCompatiblePort) return;
         e.stopPropagation();
-        onPortClick?.(buildPortInfo());
+        // B.2：Shift+Click → 上层决定走 plug-anchor 路径
+        onPortClick?.(buildPortInfo(), { shiftKey: !!(e as unknown as { shiftKey?: boolean }).shiftKey });
       }}
       onDoubleClick={(e) => {
         if (!showVisuals) return;
@@ -323,16 +326,19 @@ export interface SiteGizmoProps {
   phase: InteractionPhase;
   sourcePortType?: string | null;
   selectedPort?: SelectedPortInfo | null;
+  /** B.2：当前 plug 选择模式。PLUG 时，所有跟 selectedPort 同 plug
+   *  的 member port 都视为 isSelected（橙色高亮，不只是 selectedPort 单颗）。 */
+  portSelectionLevel?: SelectionLevel;
   showVisuals: boolean;
   /** 该零件上已被占用（已被对端塞住）的端口 key 集合；命中即整体跳过渲染。 */
   occupiedKeys?: Set<string>;
-  onPortClick?: (info: SelectedPortInfo) => void;
+  onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
   onPortHover?: (info: SelectedPortInfo | null) => void;
 }
 
 export function SiteGizmo({
   site, groupRef, partId, ldrawId, phase, sourcePortType = null,
-  selectedPort, showVisuals, occupiedKeys, onPortClick, onPortHover
+  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
 
@@ -345,11 +351,19 @@ export function SiteGizmo({
         );
 
         const portPos = port.position as Vec3;
-        const portIsSelected = !!selectedPort
+        const portIsExactSelected = !!selectedPort
           && selectedPort.partId === partId
           && Math.abs(selectedPort.position[0] - portPos[0]) < 1e-4
           && Math.abs(selectedPort.position[1] - portPos[1]) < 1e-4
           && Math.abs(selectedPort.position[2] - portPos[2]) < 1e-4;
+        // B.2：PLUG 选择模式下，所有同 plug member 都视为 selected（橙色）
+        const portIsPlugMember = portSelectionLevel === SelectionLevel.PLUG
+          && !!selectedPort
+          && selectedPort.partId === partId
+          && !!selectedPort.plug_id
+          && !!port.plug_id
+          && selectedPort.plug_id === port.plug_id;
+        const portIsSelected = portIsExactSelected || portIsPlugMember;
 
         // 占用过滤：portKey 已经把端口的 Z 轴方向也算进 key，所以同位置不同方向的端口
         // （比如 2780 销 site 里 p0/p1 共享 (0,0,0) 但方向相反）只会有"被 snap 实际用掉的
