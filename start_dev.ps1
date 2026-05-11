@@ -146,13 +146,15 @@ Write-Host "  -> Meilisearch (127.0.0.1:7700) is HEALTHY [GREEN]" -ForegroundCol
 
 Write-Host "`n[3/5] Syncing LDraw configurations to inverted index..." -ForegroundColor Yellow
 try {
-    python backend/sync_meili.py
+    # 用 module 形式 (-m) 而非脚本式调用，否则 backend.category 之类的
+    # 相对导入会因 sys.path 缺主仓根而 ModuleNotFoundError。
+    python -m backend.sync_meili
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Fatal: Data sync script exited with non-zero status."
         exit 1
     }
 } catch {
-    Write-Error "Fatal: Failed to execute python backend/sync_meili.py"
+    Write-Error "Fatal: Failed to execute python -m backend.sync_meili"
     exit 1
 }
 Write-Host "  -> Data sync sequence completed." -ForegroundColor Green

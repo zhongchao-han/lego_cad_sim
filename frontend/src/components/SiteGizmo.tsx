@@ -116,11 +116,13 @@ interface PortArrowProps {
 // 略大于孔径，用于纯几何 Hover 拦截，防止射线穿模导致闪烁。
 const GIZMO_SPHERE_R_ENLARGED = 7 * LDU;
 
-// B.1：plug-sibling halo 比 hit-box 略大，alpha 较低、不写深度 — 让用户
-// "看见 plug 边界"但不抢主 port arrow 视觉焦点。
-const PLUG_SIBLING_HALO_R = 11 * LDU;
-const PLUG_SIBLING_HALO_COLOR = '#fff176'; // 暖黄，跟蓝/紫极性色都对比明显
-const PLUG_SIBLING_HALO_OPACITY = 0.35;
+// B.1：plug-sibling halo 比 hit-box 略大，alpha 较高、不写深度 — 让用户
+// 第一眼看见 plug 边界。原 alpha 0.35 在 Technic Beam 9 这种小孔密集
+// 部件上肉眼难辨；提到 0.75 + 加大半径 + 改荧光黄绿，确保跟红色部件
+// 主体 / 橙色 selected port arrow 都对比鲜明。
+const PLUG_SIBLING_HALO_R = 13 * LDU;
+const PLUG_SIBLING_HALO_COLOR = '#ffff00'; // 纯黄，最大对比
+const PLUG_SIBLING_HALO_OPACITY = 0.75;
 
 function PortArrow({
   port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, onPortClick, onPortHover
@@ -299,9 +301,12 @@ function PortArrow({
       )}
 
       {/* B.1：plug-sibling halo — 当某个兄弟 port hover 时本 port 加一层
-          暖黄半透明球壳。纯发现性反馈，不参与 raycast。 */}
+          暖黄半透明球壳。纯发现性反馈，不参与 raycast。
+          depthTest 也关掉 — port 物理上嵌入零件 mesh 内（孔在板中），
+          halo 球壳会被 beam 实体部分遮挡 → 用户只看到端口附近的 halo。
+          关 depthTest 让 halo "穿透"显示，所有 plug member 一视同仁。 */}
       {isPlugSibling && shouldShowVisuals && (
-        <mesh raycast={() => {}}>
+        <mesh raycast={() => {}} renderOrder={1000}>
           <sphereGeometry args={[PLUG_SIBLING_HALO_R, 16, 16]} />
           <meshBasicMaterial
             color={PLUG_SIBLING_HALO_COLOR}
@@ -309,6 +314,7 @@ function PortArrow({
             opacity={PLUG_SIBLING_HALO_OPACITY}
             transparent
             depthWrite={false}
+            depthTest={false}
           />
         </mesh>
       )}
