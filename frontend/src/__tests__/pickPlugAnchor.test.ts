@@ -165,13 +165,19 @@ describe('pickPlugAnchorPort', () => {
     expect(pickPlugAnchorPort(c, [], sites)).toBe(c);
   });
 
-  it('case 9: anchor 等于 clicked → 返 clicked（不构造新对象，引用稳定）', () => {
+  it('case 9: anchor 等于 clicked → 复用大部分字段，仅补 plug_port_count', () => {
+    // B.3-extension：单 port plug 走这条；为了让 StatusBar 算预览上界，
+    // 需要把 plug.port_count 透传出去。原"引用稳定"优化在此让位 — 但
+    // 几何字段（position/rotation/globalPos）都跟 clicked 完全一致。
     const p = port('p0', [0, 0.004, 0]);
     const sites = [site('s0', [0, 0, 0], [p])];
     const pl = plug('plug_single', [['s0', 0]]);
     const c = clicked([0, 0.004, 0], 'plug_single');
     const r = pickPlugAnchorPort(c, [pl], sites);
-    expect(r).toBe(c);
+    expect(r.position).toEqual(c.position);
+    expect(r.globalPos).toEqual(c.globalPos);
+    expect(r.plug_id).toBe(c.plug_id);
+    expect(r.plug_port_count).toBe(1);  // 单 port plug
   });
 
   it('case 10: anchor 跟 clicked 不同 → globalPos 按局部位移平移', () => {
@@ -192,6 +198,8 @@ describe('pickPlugAnchorPort', () => {
     expect(r.globalPos[2]).toBeCloseTo(3, 6);
     // plug_id 透传
     expect(r.plug_id).toBe('plug_dual');
+    // B.3-extension: plug_port_count 透传（plug 有 2 个 member）
+    expect(r.plug_port_count).toBe(2);
     // partId / ldrawId / globalQuat 不变
     expect(r.partId).toBe('partA');
     expect(r.ldrawId).toBe('170.dat');

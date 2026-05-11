@@ -69,4 +69,25 @@ describe('store.lastSnapPairCount — B.3-3 snap UX 反馈契约', () => {
       expect(parsed.state).not.toHaveProperty('lastSnapPairCount');
     }
   });
+
+  // ─── B.3-extension：predictedSnapPairCount 同款契约 ─────────────────────
+  it('case 6: predictedSnapPairCount 初始 null', () => {
+    expect(useStore.getState().predictedSnapPairCount).toBeNull();
+  });
+
+  it('case 7: abortCurrentInteraction → predictedSnapPairCount 复位 null', () => {
+    useStore.setState({ predictedSnapPairCount: 8 } as any);
+    useStore.getState().abortCurrentInteraction();
+    expect(useStore.getState().predictedSnapPairCount).toBeNull();
+  });
+
+  it('case 8: deselectAll → predictedSnapPairCount 复位 null', () => {
+    useStore.setState({ predictedSnapPairCount: 4 } as any);
+    useStore.getState().deselectAll();
+    expect(useStore.getState().predictedSnapPairCount).toBeNull();
+  });
+
+  it('case 9: predictedSnapPairCount 不进持久化白名单', () => {
+    expect(__persistFieldsForTest).not.toContain('predictedSnapPairCount' as never);
+  });
 });

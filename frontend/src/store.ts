@@ -137,6 +137,13 @@ interface StoreState {
    *  abort/deselect/下一次 port click 重置。 */
   lastSnapPairCount: number;
 
+  /** 走法 A 期 B.3-extension：pre-commit 预览 — SOURCE_LOCKED + PLUG 模式
+   *  下，hover target plug 时算 min(source.plug_port_count, target_plug
+   *  .port_count) 作为预计闭合 pair 数上界。null 表示无预测（不在 PLUG
+   *  hover 状态 / 不兼容 / 装饰类零件）。 上界，不是精确值 — 实际几何
+   *  错位时 Auto-Latch 可能漏检；commit 后由 lastSnapPairCount 给真值。 */
+  predictedSnapPairCount: number | null;
+
   // v1.2 State
   selection: {
     primaryId: string | null;
@@ -370,6 +377,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'isSearchOpen',
   'portSelectionLevel',
   'lastSnapPairCount',
+  'predictedSnapPairCount',
   'selection',
   'clipboard',
   'freePlacingPayload',
@@ -469,6 +477,7 @@ export const useStore = create<StoreState>()(
   isSearchOpen: false,
   portSelectionLevel: SelectionLevel.INDIVIDUAL,
   lastSnapPairCount: 0,
+  predictedSnapPairCount: null,
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
@@ -1142,6 +1151,8 @@ export const useStore = create<StoreState>()(
       portSelectionLevel: SelectionLevel.INDIVIDUAL,
       // B.3-3：abort 清最近 snap 计数，StatusBar 不再显示陈旧值
       lastSnapPairCount: 0,
+      // B.3-extension：abort 清 hover 预览（hoveredPort 已被清，预览也无意义）
+      predictedSnapPairCount: null,
     });
   },
 
@@ -1442,6 +1453,8 @@ export const useStore = create<StoreState>()(
       portSelectionLevel: SelectionLevel.INDIVIDUAL,
       // B.3-3：deselect 也清 snap 计数（用户离开当前 commit 上下文）
       lastSnapPairCount: 0,
+      // B.3-extension：deselect 清 hover 预览
+      predictedSnapPairCount: null,
     });
   },
 
