@@ -1,7 +1,5 @@
-import os
 import json
-import pytest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open
 from backend.rebuild_port_db import process_single_part, rebuild_all
 
 @patch("backend.rebuild_port_db.GeometryProcessor")

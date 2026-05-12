@@ -1,9 +1,6 @@
-import os
-import json
-import pytest
 import logging
 from unittest.mock import patch, mock_open, MagicMock
-from backend.sync_meili import sync_to_meilisearch, get_part_name, logger
+from backend.sync_meili import sync_to_meilisearch, get_part_name
 
 def test_get_part_name():
     with patch("backend.sync_meili._get_part_name") as mock_get_part_name:
