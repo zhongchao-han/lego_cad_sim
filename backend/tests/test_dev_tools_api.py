@@ -50,7 +50,7 @@ def test_upload_thumbnail_success(mock_remove, mock_copy, mock_move, mock_exists
     # exists side effect:
     # 1. target_file exists (to trigger backup)
     # 2. backup_file exists (to trigger remove)
-    mock_exists.side_effect = [True, True]
+    mock_exists.side_effect = [True, True, True, True]
 
     m_open = mock_open()
     with patch("builtins.open", m_open):
@@ -73,7 +73,7 @@ def test_upload_thumbnail_exception(mock_copy, mock_move, mock_exists):
     # exists side effect:
     # 1. target_file exists (to trigger backup)
     # 2. backup_file exists (in exception block, to trigger restore)
-    mock_exists.side_effect = [True, True]
+    mock_exists.side_effect = [True, True, True, True]
     mock_copy.side_effect = Exception("Copy Error")
 
     m_open = mock_open()

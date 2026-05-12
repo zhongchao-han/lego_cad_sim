@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import trimesh
+import pytest
 
 # 注入项目根目录以支持 backend 导入
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -29,6 +30,9 @@ class TestV3_0Integration(unittest.TestCase):
         [Test 2.1] 验证模型顶点与端口解析在 Y-Up 归一化坐标系下的强同步。
         目标: 32316.dat (3L 梁)
         """
+        if not os.path.exists("ldraw_lib/parts/32316.dat"):
+            pytest.skip("ldraw_lib not populated")
+
         part_id = "32316.dat"
         glb_path = os.path.join(self.test_output, "32316.glb")
         
@@ -52,6 +56,9 @@ class TestV3_0Integration(unittest.TestCase):
         """
         [Test 2.2] 验证资产重建的幂等性。
         """
+        if not os.path.exists("ldraw_lib/parts/2780.dat"):
+            pytest.skip("ldraw_lib not populated")
+
         part_id = "2780.dat" # 常见黑色销钉
         p1 = self.gp.discover_ports(part_id)
         p2 = self.gp.discover_ports(part_id)

@@ -52,6 +52,10 @@ class TestV3_0Metrics(unittest.TestCase):
         """
         [Test 1.3] 验证梁类零件的长采样完整性 (32316.dat 3L 梁)。
         """
+        import pytest
+        if not os.path.exists("ldraw_lib/parts/32316.dat"):
+            pytest.skip("ldraw_lib not populated")
+
         gp = GeometryProcessor(ldraw_path="ldraw_lib")
         part_id = "32316.dat"
         
