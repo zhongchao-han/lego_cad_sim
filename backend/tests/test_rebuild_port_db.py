@@ -1,8 +1,7 @@
 import os
 import sys
 import json
-import pytest
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open
 
 # Needs to be absolute to avoid module import issues.
 from backend.rebuild_port_db import process_single_part, rebuild_all
@@ -106,7 +105,6 @@ class TestRebuildPortDB:
 
 def test_main_block():
     import subprocess
-    import os
 
     script_path = os.path.join(os.path.dirname(__file__), "..", "rebuild_port_db.py")
 
@@ -120,7 +118,7 @@ def test_main_block():
     assert "Usage" in res.stdout
 
     # Test correct args triggering logic by mocking rebuild_all using import module patching instead of exec() which was evaluating it and calling rebuild_all un-mocked
-    test_code = f"""
+    test_code = """
 import sys
 from unittest.mock import patch
 import backend.rebuild_port_db as rb

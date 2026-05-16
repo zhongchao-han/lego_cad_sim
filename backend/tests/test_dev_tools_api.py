@@ -1,9 +1,6 @@
-import os
-import json
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import patch, mock_open, MagicMock
+from unittest.mock import patch, mock_open
 
 from backend.dev_tools_api import router
 

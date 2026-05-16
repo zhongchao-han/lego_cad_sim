@@ -1,6 +1,3 @@
-import os
-import json
-import pytest
 from unittest.mock import patch, mock_open, MagicMock
 
 from backend.sync_meili import sync_to_meilisearch, get_part_name
