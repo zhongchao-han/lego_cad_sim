@@ -120,7 +120,15 @@ const GIZMO_SPHERE_R_ENLARGED = 7 * LDU;
 // 第一眼看见 plug 边界。原 alpha 0.35 在 Technic Beam 9 这种小孔密集
 // 部件上肉眼难辨；提到 0.75 + 加大半径 + 改荧光黄绿，确保跟红色部件
 // 主体 / 橙色 selected port arrow 都对比鲜明。
-const PLUG_SIBLING_HALO_R = 13 * LDU;
+//
+// Bug 4 follow-up：底面 plug member 在默认俯视 camera 下，halo 球壳虽然有
+// depthTest:false 不被 beam 遮挡，但中心点本身在 beam 厚度内部，silhouette
+// 投影只露出薄薄一圈。把半径 13→16 LDU（≈ 6.4mm，跨过 7-8mm 板厚），底面
+// halo 在屏幕空间多出 ~50% 可见面积；同时保留 0.75 透明度，多 port 同时
+// 亮时也不至于糊成一片。Trade-off：顶面 halo 也变大 → port 间距小（如
+// 40490 那种 8mm 间距）时相邻 halo 略微重叠，但合 plug 视觉反而更"一体"，
+// 不算 regression。
+const PLUG_SIBLING_HALO_R = 16 * LDU;
 const PLUG_SIBLING_HALO_COLOR = '#ffff00'; // 纯黄，最大对比
 const PLUG_SIBLING_HALO_OPACITY = 0.75;
 

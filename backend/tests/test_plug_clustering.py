@@ -69,7 +69,12 @@ class TestBaselines(unittest.TestCase):
         return self.lib._data.get(part_id, {}).get("sites", [])
 
     def test_170_2x4_plate_two_plugs(self):
-        """170.dat: 2x4 plate — 顶 + 底 → 严格分 2 plug（face direction 反向）。"""
+        """170.dat: Technic Gearbox — 顶/底两组 stud，face label 按 centroid 排名。
+
+        Bug 2 锁定：之前 direction-only 标签把 cy=-0.0208 的下侧 plug 叫成
+        'top_studs'、cy=0 的上侧 plug 叫成 'bottom_studs'，跟视觉相反。
+        新 cross-plug 排名后：cy 较小 → 'bottom'，cy 较大 → 'top'。
+        """
         sites = self._sites_for("170.dat")
         self.assertGreater(len(sites), 0, "170.dat 缺数据")
         plugs = compute_plugs(sites, "170.dat")
@@ -78,14 +83,20 @@ class TestBaselines(unittest.TestCase):
         d0, d1 = plugs[0].direction, plugs[1].direction
         dot = d0[0] * d1[0] + d0[1] * d1[1] + d0[2] * d1[2]
         self.assertLess(dot, -0.95)
-        # 二者 face label 应分别含 top/bottom（或对称的 ±x/±z 面）
-        labels = {p.label for p in plugs}
-        # 至少其中一个 label 含 face 关键词
-        self.assertTrue(
-            any("top" in lbl or "bottom" in lbl or "+" in lbl or "-" in lbl
-                for lbl in labels),
-            f"labels={labels}",
-        )
+        # Bug 2 修复：label 必须有一个 bottom_ 和一个 top_，且对应 centroid
+        # cy 较小者 = bottom，较大者 = top
+        by_cy = []
+        for p in plugs:
+            cy = sum(
+                next(s for s in sites if s["id"] == sid)["ports"][pidx]["position"][1]
+                for sid, pidx in p.members
+            ) / len(p.members)
+            by_cy.append((cy, p.label))
+        by_cy.sort()
+        self.assertTrue(by_cy[0][1].startswith("bottom_"),
+                        f"smallest cy {by_cy[0][0]:+.4f} should be bottom_*, got {by_cy[0][1]}")
+        self.assertTrue(by_cy[-1][1].startswith("top_"),
+                        f"largest cy {by_cy[-1][0]:+.4f} should be top_*, got {by_cy[-1][1]}")
 
     def test_2780_pin_two_plugs(self):
         """2780.dat: 销 — 头/尾分开成 2 plug（MALE 不合反向）。"""
@@ -206,6 +217,110 @@ class TestGeometricSplit(unittest.TestCase):
         plugs = compute_plugs(sites, "synth_grid.dat")
         self.assertEqual(len(plugs), 1)
         self.assertEqual(plugs[0].port_count, 8)
+
+
+class TestFaceLabelRanking(unittest.TestCase):
+    """Bug 2 修复 — face label 由 cross-plug centroid 排名拍板，不再 direction-only。"""
+
+    def test_two_y_plugs_ranked_by_centroid(self):
+        """Y 轴上 2 个 plug → cy 较小者 = bottom，较大者 = top（即使 direction 颠倒）。"""
+        # plug A: cy=-0.0208, direction +Y（旧 heuristic 错叫 top）
+        # plug B: cy=0,       direction -Y（旧 heuristic 错叫 bottom）
+        # 新 heuristic：按 centroid 排，A 在下 → bottom_studs；B 在上 → top_studs
+        sites = [
+            _site("sA", (0, -0.0208, 0), [
+                _port("stud4", (0, -0.0208, 0.0), normal=(0, 1, 0)),
+                _port("stud4", (0, -0.0208, 0.008), normal=(0, 1, 0)),
+            ]),
+            _site("sB", (0, 0, 0), [
+                _port("stud2", (0.004, 0, -0.004), normal=(0, -1, 0)),
+                _port("stud2", (0.004, 0, 0.004), normal=(0, -1, 0)),
+                _port("stud2", (-0.004, 0, -0.004), normal=(0, -1, 0)),
+                _port("stud2", (-0.004, 0, 0.004), normal=(0, -1, 0)),
+            ]),
+        ]
+        plugs = compute_plugs(sites, "synth_170.dat")
+        self.assertEqual(len(plugs), 2)
+        # 按 centroid_y 排序后断言
+        def cy_of(plug):
+            return sum(
+                next(s for s in sites if s["id"] == sid)["ports"][pidx]["position"][1]
+                for sid, pidx in plug.members
+            ) / len(plug.members)
+        sorted_by_cy = sorted(plugs, key=cy_of)
+        self.assertTrue(sorted_by_cy[0].label.startswith("bottom_"),
+                        f"lower plug should be bottom_*, got {sorted_by_cy[0].label}")
+        self.assertTrue(sorted_by_cy[-1].label.startswith("top_"),
+                        f"upper plug should be top_*, got {sorted_by_cy[-1].label}")
+
+    def test_single_y_plug_uses_centroid_sign(self):
+        """单 Y 轴 plug 偏离原点 → 按 centroid 符号；卡原点 → 按 direction 兜底。"""
+        # cy > 0 → 'top'
+        sites_top = [_site("s0", (0, 0.004, 0), [
+            _port("stud", (0, 0.004, 0), normal=(0, 1, 0)),
+        ])]
+        plugs = compute_plugs(sites_top, "single_top.dat")
+        self.assertEqual(plugs[0].label, "top_studs")
+
+        # cy < 0 → 'bottom'
+        sites_bot = [_site("s0", (0, -0.004, 0), [
+            _port("stud", (0, -0.004, 0), normal=(0, 1, 0)),
+        ])]
+        plugs = compute_plugs(sites_bot, "single_bot.dat")
+        self.assertEqual(plugs[0].label, "bottom_studs")
+
+        # cy ≈ 0 + dir +Y → 'top'（direction 兜底）
+        sites_origin = [_site("s0", (0, 0, 0), [
+            _port("stud", (0, 0, 0), normal=(0, 1, 0)),
+        ])]
+        plugs = compute_plugs(sites_origin, "single_origin.dat")
+        self.assertEqual(plugs[0].label, "top_studs")
+
+    def test_pin_centroids_degenerate_falls_back_to_direction(self):
+        """销两端 centroid 都在原点（spread<eps）→ 按 direction 兜底，得 -x/+x。"""
+        sites = [_site("s0", (0, 0, 0), [
+            _port("confric5", (0, 0, 0), normal=(1, 0, 0)),
+            _port("confric5", (0, 0, 0), normal=(-1, 0, 0)),
+        ])]
+        plugs = compute_plugs(sites, "synth_2780.dat")
+        self.assertEqual(len(plugs), 2)
+        labels = sorted(p.label for p in plugs)
+        self.assertEqual(labels, ["+x_pin_end", "-x_pin_end"])
+
+    def test_three_y_plugs_middle_gets_mid_label(self):
+        """3+ 个 Y 轴 plug → 极端 top/bottom，中间 mid_y<rank> 区分（防重名）。
+
+        注：经 _geometric_split 后 3 个均匀 stud 通常合一（median == max → 不切），
+        所以 compute_plugs 端到端构造不出 3-plug Y-axis 场景；直接调底层
+        _assign_face_labels 验证 mid 路径。
+        """
+        from backend.plug_clustering import (
+            _assign_face_labels, _FlatPort,
+            GENDER_MALE, PROFILE_STUD,
+        )
+        fp_bot = _FlatPort("s0", 0, "stud", (0, -0.02, 0), (0, 1, 0), GENDER_MALE, PROFILE_STUD)
+        fp_mid = _FlatPort("s0", 1, "stud", (0, 0, 0),     (0, 1, 0), GENDER_MALE, PROFILE_STUD)
+        fp_top = _FlatPort("s0", 2, "stud", (0, 0.02, 0),  (0, 1, 0), GENDER_MALE, PROFILE_STUD)
+        meta = [
+            ([fp_bot], GENDER_MALE, PROFILE_STUD, (0, 1, 0)),
+            ([fp_mid], GENDER_MALE, PROFILE_STUD, (0, 1, 0)),
+            ([fp_top], GENDER_MALE, PROFILE_STUD, (0, 1, 0)),
+        ]
+        faces = _assign_face_labels(meta)
+        self.assertEqual(faces[0], "bottom")
+        self.assertEqual(faces[1], "mid_y1")
+        self.assertEqual(faces[2], "top")
+
+    def test_x_axis_plugs_use_plus_minus_x(self):
+        """X 轴 plug 用 ±x 命名（不是 top/bottom）— 保持向后兼容。"""
+        sites = [_site("s0", (0, 0, 0), [
+            _port("confric5", (-0.005, 0, 0), normal=(-1, 0, 0)),
+            _port("confric5", (0.005, 0, 0),  normal=(1, 0, 0)),
+        ])]
+        plugs = compute_plugs(sites, "synth_x_pin.dat")
+        labels = sorted(p.label for p in plugs)
+        # 注意：销两端 port 共 site，centroid 各自单 port，cx 分离 0.01 → rank 命名
+        self.assertEqual(labels, ["+x_pin_end", "-x_pin_end"])
 
 
 class TestPlugSerialization(unittest.TestCase):
