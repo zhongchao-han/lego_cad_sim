@@ -104,57 +104,36 @@ export function findAnchorMember(
 }
 
 /**
- * 主入口：算 anchor port 对应的 SelectedPortInfo。
- *   - clickedPort 无 plug_id / plug 查不到 / anchor 等于 clicked → 返 clickedPort
- *   - 否则返 anchor 的 SelectedPortInfo（partId / ldrawId / globalQuat /
- *     globalPos 都按 part 刚体平移 / 同 rotation 推算）
+ * 主入口：Shift+Click 时算"PLUG 模式下要记录哪个 port 当 selectedPort"。
+ *
+ * **更新（bug fix）**：原 "重心 anchor" 启发式被用户实际测试推翻 — 用户
+ * 点 plug 端点期望 source 是该端点，但 anchor 跳到重心可能位移 4 个孔位
+ * (32mm)，下次 snap 走的轴跟点击意图错位。
+ *
+ * 现在改为 "**原位 anchor**"：直接返 clickedPort，仅补 `plug_port_count`
+ * 让 B.3-extension 预览上界能算。Plug 视觉整片高亮（B.2 ACTIVE_COLOR）
+ * 仍正常 — 跟 plug member 集合相关，跟 selectedPort 落在哪颗无关。
+ *
+ * 保留 `findAnchorMember` 不导出移除 — 它仍被单测复用，未来若需要
+ * 重新引入 anchor 策略（比如基于相机视线挑面对用户的那颗）可直接用。
+ *
+ * Degenerate 路径（不进 anchor 改造）：
+ *   - clickedPort 无 plug_id → 装饰类零件，直接返 clickedPort 不动
+ *   - plug 查不到（数据不同步）→ 返 clickedPort 不动
  */
 export function pickPlugAnchorPort(
   clickedPort: SelectedPortInfo,
   plugs: LDrawPlug[],
+  // sites 参数保留，签名稳定 — 未来若启发式回来要用
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   sites: LDrawSite[],
 ): SelectedPortInfo {
   if (!clickedPort.plug_id) return clickedPort;
   const plug = plugs.find(p => p.plug_id === clickedPort.plug_id);
   if (!plug) return clickedPort;
 
-  const anchor = findAnchorMember(plug, sites, clickedPort.rotation);
-  if (!anchor) return clickedPort;
-
-  // anchor === clicked（按 position 比较）→ 不重算 globalPos / rotation，
-  // 仅在 clicked 上补 plug_port_count（B.3-extension 需要的预览上界）。
-  // 单 port plug 走这条路。
-  if (
-    Math.abs(anchor.position[0] - clickedPort.position[0]) < ROT_EPS
-    && Math.abs(anchor.position[1] - clickedPort.position[1]) < ROT_EPS
-    && Math.abs(anchor.position[2] - clickedPort.position[2]) < ROT_EPS
-  ) {
-    return { ...clickedPort, plug_port_count: plug.port_count };
-  }
-
-  // anchor 跟 clicked 同 part 刚体 + 同 rotation → globalQuat 不变；
-  // globalPos 按局部位移平移（局部位移 = 世界位移，刚体前提）
-  const dx = anchor.position[0] - clickedPort.position[0];
-  const dy = anchor.position[1] - clickedPort.position[1];
-  const dz = anchor.position[2] - clickedPort.position[2];
-
-  return {
-    partId: clickedPort.partId,
-    ldrawId: clickedPort.ldrawId,
-    portType: anchor.type,
-    position: anchor.position as Vec3,
-    rotation: anchor.rotation as Mat3,
-    globalPos: [
-      clickedPort.globalPos[0] + dx,
-      clickedPort.globalPos[1] + dy,
-      clickedPort.globalPos[2] + dz,
-    ],
-    globalQuat: clickedPort.globalQuat,
-    plug_id: clickedPort.plug_id,
-    // B.3-extension：透传 plug 成员总数让 hover target 时算预览上界
-    plug_port_count: plug.port_count,
-    isFromPreview: clickedPort.isFromPreview,
-  };
+  // "原位 anchor"：直接复用 clickedPort，仅补 plug_port_count
+  return { ...clickedPort, plug_port_count: plug.port_count };
 }
 
 /**

@@ -231,11 +231,20 @@ export const InteractivePart = memo(({
     : opacity;
     
   // 端口指示器（箭头）显示逻辑：
-  // 2. 如果是非 Debug 模式，遵循“极简盲操”原则：默认只有正式选中的零件会暴露端口。
-  //    但是！如果当前处于寻找目标阶段（TargetSeeking），必须在悬停时显示靶点，否则用户无法吸附。
-  const finalShowPorts = debugShowPorts 
+  // - Debug 模式：showPorts && isRenderingActive（一律显）
+  // - 非 Debug：
+  //   - selected / static：常态显（已有契约）
+  //   - isTargetSeeking && hovered：SOURCE_LOCKED 下 hover 此部件作为目标，必须显靶点
+  //   - **新增 hovered**（bug fix）：用户 hover 部件本体（IDLE 阶段也算），
+  //     立刻显本部件 port arrows + 让 B.1 plug-sibling halo 可见。原"只在
+  //     SOURCE_LOCKED 才显"逻辑导致 plug 发现性反馈链超长 — 必须先 click
+  //     一个 port 才能看到 halo，违背"先 hover 探索后 click 决策"直觉。
+  //     代价：场景里 hover 任一 part 都显该 part 的 18 个 arrows，可能有
+  //     视觉杂讯；但比 plug 看不见的成本低。Debug Show All Ports 一直
+  //     都能强制全显，是已有逃生口。
+  const finalShowPorts = debugShowPorts
     ? (showPorts && isRenderingActive)
-    : (showPorts && (isSelected || isStatic || (isTargetSeeking && hovered)));
+    : (showPorts && (isSelected || isStatic || hovered));
 
   return (
     <group

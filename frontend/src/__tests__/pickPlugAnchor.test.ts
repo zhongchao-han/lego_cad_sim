@@ -180,27 +180,24 @@ describe('pickPlugAnchorPort', () => {
     expect(r.plug_port_count).toBe(1);  // 单 port plug
   });
 
-  it('case 10: anchor 跟 clicked 不同 → globalPos 按局部位移平移', () => {
-    // plug 含 2 个 stud：p0=(0,0.004,0) p1=(0.01,0.004,0)。centroid=(0.005,...)
-    // 离 centroid 最近的是 p0 或 p1（距 0.005，对称）；返第一个 = p0
+  it('case 10: bug fix — anchor 改为"原位 anchor"，不再跳到重心', () => {
+    // **行为变更**：原启发式是 nearest-to-centroid → 用户 click p1 (端点)
+    // 会跳到 p0 (重心最近) → 32mm 位移反直觉。新行为：直接返 clicked，
+    // 只补 plug_port_count。Plug 视觉整片高亮仍正常（B.2 ACTIVE_COLOR
+    // 依赖 plug member 集合，跟 selectedPort 落哪颗无关）。
     const p0 = port('p0', [0, 0.004, 0]);
     const p1 = port('p1', [0.01, 0.004, 0]);
     const sites = [site('s0', [0, 0, 0], [p0, p1])];
     const pl = plug('plug_dual', [['s0', 0], ['s0', 1]]);
-    // 用户点 p1（远离 anchor），world offset (1,2,3) → p1.globalPos=(1.01,2.004,3)
-    const c = clicked([0.01, 0.004, 0], 'plug_dual');
+    const c = clicked([0.01, 0.004, 0], 'plug_dual');  // 点 p1
     const r = pickPlugAnchorPort(c, [pl], sites);
-    // anchor = p0，position=(0,0.004,0)
-    expect(r.position).toEqual([0, 0.004, 0]);
-    // dx=-0.01, dy=0, dz=0 → globalPos = clicked.globalPos + (-0.01,0,0)
-    expect(r.globalPos[0]).toBeCloseTo(1.01 - 0.01, 6);
-    expect(r.globalPos[1]).toBeCloseTo(2.004, 6);
-    expect(r.globalPos[2]).toBeCloseTo(3, 6);
-    // plug_id 透传
+    // anchor 保持 = clicked，不跳到 p0
+    expect(r.position).toEqual([0.01, 0.004, 0]);
+    expect(r.globalPos).toEqual(c.globalPos);
+    // plug_id + plug_port_count 透传
     expect(r.plug_id).toBe('plug_dual');
-    // B.3-extension: plug_port_count 透传（plug 有 2 个 member）
     expect(r.plug_port_count).toBe(2);
-    // partId / ldrawId / globalQuat 不变
+    // partId / ldrawId / globalQuat 全保留
     expect(r.partId).toBe('partA');
     expect(r.ldrawId).toBe('170.dat');
     expect(r.globalQuat).toEqual([0, 0, 0, 1]);
@@ -212,5 +209,30 @@ describe('pickPlugAnchorPort', () => {
     const c = clicked([0, 0, 0]);  // 无 plug_id
     const r = pickPlugAnchorPort(c, [], []);
     expect(r).toBe(c);
+  });
+
+  it('case 12: bug fix 回归 — 9-hole beam 端点 click，anchor 必须落在端点（不跳重心）', () => {
+    // 真实场景：用户 Shift+Click 40490 (Beam 9) 最右端孔，期望 source 是
+    // 该孔。原启发式让 anchor 跳到中央 z=0，距离最远 32mm（4 个孔位）。
+    // 修后 anchor === clicked。
+    const ports: LDrawPort[] = [];
+    for (let i = 0; i < 9; i++) {
+      ports.push(port(`p${i}`, [0, 0.004, (i - 4) * 0.008]));  // z = -32, -24, ..., +32 mm
+    }
+    const sites = [site('s_top', [0, 0, 0], ports)];
+    const pl = plug('plug_through', ports.map((_, i) => ['s_top', i] as [string, number]));
+
+    // 测 3 个 click 位置：左端 / 右端 / 中央
+    const cases: Array<[string, [number, number, number]]> = [
+      ['left_end',  [0, 0.004, -0.032]],
+      ['right_end', [0, 0.004,  0.032]],
+      ['center',    [0, 0.004,  0]],
+    ];
+    for (const [label, pos] of cases) {
+      const c = clicked(pos, 'plug_through');
+      const r = pickPlugAnchorPort(c, [pl], sites);
+      expect(r.position, `${label}: anchor 不应跳`).toEqual(pos);
+      expect(r.plug_port_count).toBe(9);
+    }
   });
 });
