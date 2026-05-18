@@ -244,23 +244,111 @@ def _merge_female_dual_face(initial_plugs: List[Tuple[List[_FlatPort], str, str,
     return merged
 
 
-def _label_plug(plug_ports: List[_FlatPort], gender: str, profile: str,
-                direction: Tuple[float, float, float], idx: int) -> str:
-    """启发式 label：face(主轴方向) × type_class(stud/holes/axle_holes/...)。
+# face 命名约定：(axis → (-side, +side))
+# Y 轴用 top/bottom，X/Z 用 ±x/±z（保持向后兼容 — 之前 face 关键词就这样）。
+# 跨 plug 排名时：centroid 较小的一侧用 -side 名（bottom / -x / -z），较大用 +side（top / +x / +z）。
+_AXIS_FACE_NAMES: Dict[str, Tuple[str, str]] = {
+    "x": ("-x", "+x"),
+    "y": ("bottom", "top"),
+    "z": ("-z", "+z"),
+}
+_AXIS_INDEX: Dict[str, int] = {"x": 0, "y": 1, "z": 2}
+_FACE_EPSILON = 1e-6  # 1 micron — 区分"真同位置"和"有几何分离"
 
+
+def _primary_axis(direction: Tuple[float, float, float]) -> str:
+    """direction 的主轴 — y/x/z 之一，斜面返 'oblique'。"""
+    nx, ny, nz = direction
+    if abs(ny) > 0.9:
+        return "y"
+    if abs(nx) > 0.9:
+        return "x"
+    if abs(nz) > 0.9:
+        return "z"
+    return "oblique"
+
+
+def _plug_centroid(plug_ports: List[_FlatPort]) -> Tuple[float, float, float]:
+    """plug member 的几何重心（part 局部坐标）。"""
+    n = len(plug_ports)
+    cx = sum(p.position[0] for p in plug_ports) / n
+    cy = sum(p.position[1] for p in plug_ports) / n
+    cz = sum(p.position[2] for p in plug_ports) / n
+    return (cx, cy, cz)
+
+
+def _assign_face_labels(
+    plugs_meta: List[Tuple[List[_FlatPort], str, str, Tuple[float, float, float]]],
+) -> List[str]:
+    """跨 plug face label 分配 — 修 Bug 2（170 plug 标签反了）。
+
+    旧逻辑：每个 plug 独立按 direction 符号定 face（"+Y → top"）。这在多个同方向
+    plug 共存时会重名，且对 LDraw 那种 part-local 坐标系约定模糊的情况会出反直觉
+    标签（170 Gearbox：直接按 direction 给出 top_studs / bottom_studs，跟视觉位
+    置上下颠倒）。
+
+    新逻辑：按主轴分组，组内按 centroid 沿该轴排名；最小坐标 → -side 名（bottom/
+    -x/-z），最大 → +side 名（top/+x/+z）。退化路径：
+      - 单 plug：centroid 偏离原点 → 按 centroid 符号；卡原点 → 按 direction 符号
+      - 多 plug centroid 几乎相同（销两端共原点等）→ 各自按 direction 符号兜底
+      - 3+ plug：极端用 -side/+side，中间用 mid_<axis><rank> 区分
+    """
+    n_plugs = len(plugs_meta)
+    faces: List[Optional[str]] = [None] * n_plugs
+    centroids = [_plug_centroid(pm[0]) for pm in plugs_meta]
+
+    by_axis: Dict[str, List[int]] = defaultdict(list)
+    for i, (_pports, _g, _p, direction) in enumerate(plugs_meta):
+        by_axis[_primary_axis(direction)].append(i)
+
+    for axis, idxs in by_axis.items():
+        if axis == "oblique":
+            for i in idxs:
+                faces[i] = "oblique"
+            continue
+        ai = _AXIS_INDEX[axis]
+        minus_name, plus_name = _AXIS_FACE_NAMES[axis]
+
+        if len(idxs) == 1:
+            i = idxs[0]
+            c_val = centroids[i][ai]
+            if abs(c_val) < _FACE_EPSILON:
+                # 单 plug 卡原点 — 用 direction 符号兜底
+                dir_val = plugs_meta[i][3][ai]
+                faces[i] = plus_name if dir_val > 0 else minus_name
+            else:
+                faces[i] = plus_name if c_val > 0 else minus_name
+            continue
+
+        # 多 plug：先看 centroid 是否真有分离；同位置则各自按 direction 兜底
+        sorted_idxs = sorted(idxs, key=lambda i: centroids[i][ai])
+        spread = centroids[sorted_idxs[-1]][ai] - centroids[sorted_idxs[0]][ai]
+        if spread < _FACE_EPSILON:
+            for i in idxs:
+                dir_val = plugs_meta[i][3][ai]
+                faces[i] = plus_name if dir_val > 0 else minus_name
+            continue
+
+        n = len(sorted_idxs)
+        for rank, i in enumerate(sorted_idxs):
+            if rank == 0:
+                faces[i] = minus_name
+            elif rank == n - 1:
+                faces[i] = plus_name
+            else:
+                faces[i] = f"mid_{axis}{rank}"
+
+    # 静态类型完整性 — 上面 4 个 branch 全覆盖
+    return [f if f is not None else "unknown" for f in faces]
+
+
+def _label_plug(plug_ports: List[_FlatPort], gender: str, profile: str,
+                face: str, idx: int) -> str:
+    """plug label = face × type_class（stud/holes/axle_holes/...）。
+
+    face 由 `_assign_face_labels` 跨 plug 拍板传入（不再每 plug 独立看 direction）。
     label 仅供调试 / UX 显示。plug_id 始终是 deterministic hash 形式，跨 bake 稳定。
     """
-    nx, ny, nz = direction
-    abs_x, abs_y, abs_z = abs(nx), abs(ny), abs(nz)
-    if abs_y > 0.9:
-        face = "top" if ny > 0 else "bottom"
-    elif abs_x > 0.9:
-        face = "+x" if nx > 0 else "-x"
-    elif abs_z > 0.9:
-        face = "+z" if nz > 0 else "-z"
-    else:
-        face = "oblique"
-
     types = set(fp.port_type for fp in plug_ports)
     primary = next(iter(types)).lower()
     if primary.endswith(".dat"):
@@ -307,12 +395,13 @@ def compute_plugs(sites: List[dict], part_id: str) -> List[Plug]:
         for cluster in _geometric_split(group):
             initial.append((cluster, gender, profile, direction))
     merged = _merge_female_dual_face(initial)
+    faces = _assign_face_labels(merged)
 
     plugs: List[Plug] = []
-    for idx, (plug_ports, gender, profile, direction) in enumerate(merged):
+    for idx, ((plug_ports, gender, profile, direction), face) in enumerate(zip(merged, faces)):
         plug = Plug(
             plug_id=f"{part_id}_plug_{idx}",
-            label=_label_plug(plug_ports, gender, profile, direction, idx),
+            label=_label_plug(plug_ports, gender, profile, face, idx),
             gender=gender,
             profile=profile,
             direction=tuple(round(d, 4) for d in direction),
