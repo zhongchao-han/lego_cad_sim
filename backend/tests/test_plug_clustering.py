@@ -288,26 +288,12 @@ class TestFaceLabelRanking(unittest.TestCase):
         self.assertEqual(labels, ["+x_pin_end", "-x_pin_end"])
 
     def test_three_y_plugs_middle_gets_mid_label(self):
-        """3+ 个 Y 轴 plug → 极端 top/bottom，中间 mid_y<rank> 区分（防重名）。"""
-        sites = [
-            _site("sBot", (0, -0.02, 0), [_port("stud", (0, -0.02, 0), normal=(0, 1, 0))]),
-            _site("sMid", (0, 0, 0),     [_port("stud", (0, 0, 0),     normal=(0, 1, 0))]),
-            _site("sTop", (0, 0.02, 0),  [_port("stud", (0, 0.02, 0),  normal=(0, 1, 0))]),
-        ]
-        plugs = compute_plugs(sites, "synth_three_levels.dat")
-        # 因 max-gap split：3 个均匀 stud 可能合一或分三；这里距 0.02 远超 stud
-        # 直径，每对间 gap 相同 → median == max → 不切。所以会合并为 1 plug。
-        # 用更紧凑的位置 + outlier 触发 split：
-        sites = [
-            _site("s0", (0, 0, 0), [
-                _port("stud", (0, -0.04, 0), normal=(0, 1, 0)),  # 远下
-                _port("stud", (0, 0, 0),     normal=(0, 1, 0)),  # 中
-                _port("stud", (0, 0.04, 0),  normal=(0, 1, 0)),  # 远上
-            ]),
-        ]
-        plugs = compute_plugs(sites, "synth_three_levels_v2.dat")
-        # 这里 3 个 stud 均匀分布也合并 — gap 相等 → 1 plug，不触发 3 plug 路径
-        # 验证 _assign_face_labels 的 mid 路径需要直接调函数测：
+        """3+ 个 Y 轴 plug → 极端 top/bottom，中间 mid_y<rank> 区分（防重名）。
+
+        注：经 _geometric_split 后 3 个均匀 stud 通常合一（median == max → 不切），
+        所以 compute_plugs 端到端构造不出 3-plug Y-axis 场景；直接调底层
+        _assign_face_labels 验证 mid 路径。
+        """
         from backend.plug_clustering import (
             _assign_face_labels, _FlatPort,
             GENDER_MALE, PROFILE_STUD,
