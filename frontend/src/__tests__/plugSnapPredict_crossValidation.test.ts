@@ -9,10 +9,13 @@
  * 极性 / profile 筛选）。
  *
  * Case 对照表（手动维护，CR 时跟后端 case 数字 1:1 看齐）：
- *   P1 8↔8 plate-on-plate  → 8 对
- *   P2 8↔4 asymmetric       → 4 对
- *   P3 主连接 exclude        → frontend 不模拟 exclude，跑全部 8 对
- *   P4 整体偏移 > 阈值       → 0 对
+ *   P1 8↔8 plate-on-plate         → 8 对
+ *   P2 8↔4 asymmetric              → 4 对
+ *   P3 主连接 exclude               → frontend 不模拟 exclude，跑全部 8 对
+ *   P4 整体偏移 > 阈值              → 0 对
+ *   P5 3-part chain 顺次配对        → 4 次 predict 各 1 对、跨链 0 对
+ *   P6 9 vs 3 中央覆盖               → 3 对（剩余 6 不"贪婪扩配"）
+ *   P7 axle vs tube profile-mismatch → 0 对
  */
 
 import { describe, it, expect } from 'vitest';
@@ -87,5 +90,71 @@ describe('predictPlugSnapPairs — 跨语言 cross-validation 与后端 Auto-Lat
 
   it('阈值常量同源 — AUTO_LATCH_DISTANCE_THRESHOLD == backend AUTO_LATCH_THRESHOLD_M (1mm)', () => {
     expect(AUTO_LATCH_DISTANCE_THRESHOLD).toBe(0.001);
+  });
+
+  // ─── 走法 A 期 B.3-ext: 真实装配 stress 镜像（跟 backend P5/P6/P7 对应）────
+
+  it('P5: 3-part chain — 4 次 predict 各 1 对，跨链零鬼配', () => {
+    // 几何跟 backend test_three_part_chain_each_pair_independent 1:1
+    // A (z=0) — P1 (z=0, z=0.020) — B (z=0.020, z=0.040) — P2 (z=0.040, z=0.060) — C (z=0.060)
+    const a: PortWorldInfo[] = [{ memberIdx: 0, worldPos: [0, 0, 0],     portType: 'stud.dat' }];
+    const p1: PortWorldInfo[] = [
+      { memberIdx: 0, worldPos: [0, 0, 0],     portType: 'tube.dat' },
+      { memberIdx: 1, worldPos: [0, 0, 0.020], portType: 'tube.dat' },
+    ];
+    const b: PortWorldInfo[] = [
+      { memberIdx: 0, worldPos: [0, 0, 0.020], portType: 'stud.dat' },
+      { memberIdx: 1, worldPos: [0, 0, 0.040], portType: 'stud.dat' },
+    ];
+    const p2: PortWorldInfo[] = [
+      { memberIdx: 0, worldPos: [0, 0, 0.040], portType: 'tube.dat' },
+      { memberIdx: 1, worldPos: [0, 0, 0.060], portType: 'tube.dat' },
+    ];
+    const c: PortWorldInfo[] = [{ memberIdx: 0, worldPos: [0, 0, 0.060], portType: 'stud.dat' }];
+
+    // 4 次相邻配对都应 1 对
+    expect(predictPlugSnapPairs(a,  p1)).toHaveLength(1);
+    expect(predictPlugSnapPairs(p1, b)).toHaveLength(1);
+    expect(predictPlugSnapPairs(b,  p2)).toHaveLength(1);
+    expect(predictPlugSnapPairs(p2, c)).toHaveLength(1);
+
+    // 跨链 A↔C 距离 60mm — 绝对不该返边
+    expect(predictPlugSnapPairs(a, c)).toEqual([]);
+  });
+
+  it('P6: 9 stud × 3 tube 中央 subset → 仅 3 对（剩 6 stud 不贪婪扩配）', () => {
+    const big: PortWorldInfo[] = Array.from({ length: 9 }, (_, i) => ({
+      memberIdx: i,
+      worldPos: [0, 0, i * 0.008] as Vec3,
+      portType: 'stud.dat',
+    }));
+    const small: PortWorldInfo[] = [0.024, 0.032, 0.040].map((z, j) => ({
+      memberIdx: j,
+      worldPos: [0, 0, z] as Vec3,
+      portType: 'tube.dat',
+    }));
+    const pairs = predictPlugSnapPairs(big, small);
+    expect(pairs).toHaveLength(3);
+    // target 全配上（每个 small.memberIdx 都在结果里）
+    const tgtIdxs = pairs.map(p => p.targetMemberIdx).sort();
+    expect(tgtIdxs).toEqual([0, 1, 2]);
+    // source 命中的应是中间 3 个 (memberIdx 3, 4, 5)
+    const srcIdxs = pairs.map(p => p.sourceMemberIdx).sort();
+    expect(srcIdxs).toEqual([3, 4, 5]);
+  });
+
+  it('P7: axle (CROSS profile) vs tube (STUD profile) 位置重合 → 0 对', () => {
+    // 4 个 axle 和 4 个 tube 沿 X 完美重叠，但 profile 不匹配 → 跨语义守门
+    const axles: PortWorldInfo[] = Array.from({ length: 4 }, (_, i) => ({
+      memberIdx: i,
+      worldPos: [i * 0.008, 0, 0] as Vec3,
+      portType: 'axle.dat',
+    }));
+    const tubes: PortWorldInfo[] = Array.from({ length: 4 }, (_, j) => ({
+      memberIdx: j,
+      worldPos: [j * 0.008, 0, 0] as Vec3,
+      portType: 'tube.dat',
+    }));
+    expect(predictPlugSnapPairs(axles, tubes)).toEqual([]);
   });
 });
