@@ -207,6 +207,10 @@ interface StoreState {
   addLog: (msg: string, type?: StoreLog['type']) => void;
   clearLogs: () => void;
   toggleLogPanel: (show?: boolean) => void;
+  // ── 命名约定（issue #64 #2 收口）──────────────────────────────────────────
+  // boolean state 用 `is*` 前缀；其 setter **去掉 is**，名字表达 intent 而非
+  // 字段名。全 store 一致：isSearchOpen→setSearchOpen / isContextLost→
+  // setContextLost。新加 bool state 时照此办，别写成 setIsXxx。
   setContextLost: (lost: boolean) => void;
   setSearchOpen: (open: boolean) => void;
   setPortSelectionLevel: (level: SelectionLevel) => void;
