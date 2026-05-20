@@ -362,6 +362,121 @@ class TestAutoLatchPlugScenarios(unittest.TestCase):
         )
         self.assertEqual(len(edges), 0, "整体偏移 5mm，所有 stud↔tube 都超阈值。")
 
+    # ─── 走法 A 期 B.3-ext: 真实装配 stress（多 part / chain / 跨语义不闭合）─
+
+    def test_three_part_chain_each_pair_independent(self):
+        """[Case P5] 3-part chain 装配 stress — 链上每对都跑一次 scanner，
+        中间零件被两边各连一次；scanner 是 stateless 的，第 N 次 scan 不会
+        因为 N-1 次的边而少算或多算。模拟用户"Shift+Click beam_A↔pin → 再
+        Shift+Click pin↔beam_B → 再 Shift+Click beam_B↔pin2 → ..."的真实串
+        联装配场景。
+
+        Setup（极简版 3-beam-2-pin 链，每个零件 1 个 site）：
+          A_stud (0,0,0)  ←→  P1_tube_in (0,0,0)
+          P1_tube_out (0,0,0.020)  ←→  B_stud (0,0,0.020)
+          B_stud2 (0,0,0.040)  ←→  P2_tube_in (0,0,0.040)
+          P2_tube_out (0,0,0.060)  ←→  C_stud (0,0,0.060)
+
+        期望：每次 scan(adj_a, adj_b) 都返 1 对，互不影响。4 次 scan 共 4 边。
+        """
+        # Beam A：1 stud at z=0
+        a_sites = [_make_site("A_s0", "A_stud", "stud.dat", [0.0, 0.0, 0.0])]
+        # Pin 1：两端 tube (反向 normal 在 _make_site 没建模，OK — scanner 看
+        # 的是 distance + interface 不看 normal)
+        p1_sites = [
+            _make_site("P1_s0", "P1_in",  "tube.dat", [0.0, 0.0, 0.0]),
+            _make_site("P1_s1", "P1_out", "tube.dat", [0.0, 0.0, 0.020]),
+        ]
+        # Beam B：两端 stud
+        b_sites = [
+            _make_site("B_s0", "B_stud_a", "stud.dat", [0.0, 0.0, 0.020]),
+            _make_site("B_s1", "B_stud_b", "stud.dat", [0.0, 0.0, 0.040]),
+        ]
+        # Pin 2：两端 tube
+        p2_sites = [
+            _make_site("P2_s0", "P2_in",  "tube.dat", [0.0, 0.0, 0.040]),
+            _make_site("P2_s1", "P2_out", "tube.dat", [0.0, 0.0, 0.060]),
+        ]
+        # Beam C：1 stud at z=0.060
+        c_sites = [_make_site("C_s0", "C_stud", "stud.dat", [0.0, 0.0, 0.060])]
+
+        eye4 = _identity_transform()
+        e_a_p1 = self.scanner.scan("A", "P1", a_sites,  p1_sites, eye4, eye4)
+        e_p1_b = self.scanner.scan("P1", "B", p1_sites, b_sites, eye4, eye4)
+        e_b_p2 = self.scanner.scan("B", "P2", b_sites,  p2_sites, eye4, eye4)
+        e_p2_c = self.scanner.scan("P2", "C", p2_sites, c_sites, eye4, eye4)
+
+        self.assertEqual(len(e_a_p1), 1, "A_stud ↔ P1_in 单对独立配对")
+        self.assertEqual(len(e_p1_b), 1, "P1_out ↔ B_stud_a 单对（B_stud_b 太远）")
+        self.assertEqual(len(e_b_p2), 1, "B_stud_b ↔ P2_in 单对")
+        self.assertEqual(len(e_p2_c), 1, "P2_out ↔ C_stud 单对")
+        # 验证没有跨链的鬼边 — A ↔ C 距离 60mm，scanner 直接给 0
+        e_a_c = self.scanner.scan("A", "C", a_sites, c_sites, eye4, eye4)
+        self.assertEqual(len(e_a_c), 0, "A 和 C 隔 60mm，绝不该跨链 latch")
+
+    def test_large_plug_partial_overlap_central_subset(self):
+        """[Case P6] 大 plug × 小 plug 部分覆盖 — 真实场景：9-hole beam 顶面 9
+        孔，垂直叠一个 3-hole beam 在中央，pin 阵列只在中间 3 孔位置对齐。
+
+        几何：
+          parent 9 个 stud 沿 Z: z ∈ {0..0.064:0.008}
+          child  3 个 tube 沿 Z: z ∈ {0.024, 0.032, 0.040}（对齐 parent[3..5]）
+
+        期望：3 对（child 每个都找到对应 parent；parent 的 0..2 和 6..8 无配对）。
+        证明 Auto-Latch 不"贪婪扩配"——剩 6 个 stud 不会被强行匹配。
+        """
+        parent_sites = []
+        for i in range(9):
+            parent_sites.append(_make_site(
+                f"big_s{i}", f"stud_{i}", "stud.dat",
+                [0.0, 0.0, i * 0.008],
+            ))
+        child_sites = []
+        for j, z in enumerate([0.024, 0.032, 0.040]):
+            child_sites.append(_make_site(
+                f"small_s{j}", f"tube_{j}", "tube.dat",
+                [0.0, 0.0, z],
+            ))
+        eye4 = _identity_transform()
+        edges = self.scanner.scan(
+            "beam_9", "beam_3",
+            parent_sites, child_sites, eye4, eye4,
+        )
+        self.assertEqual(len(edges), 3,
+                         "9-stud × 3-tube 中央覆盖 → 仅中间 3 对")
+
+    def test_axle_vs_stud_profile_mismatch_zero_pairs(self):
+        """[Case P7] 跨 profile 不闭合 — 4 个 axle (CROSS profile) 跟 4 个
+        tube (STUD profile) 几何位置完美对齐，scanner 应判 INCOMPATIBLE 返
+        0 对。
+
+        模拟"用户在装配体里把 axle 端塞进 stud 孔"的非法对接——几何近但
+        语义错。Auto-Latch 必须只看几何 + 兼容性。
+
+        4 个 axle 沿 X：x ∈ {0, 0.008, 0.016, 0.024}
+        4 个 tube 同位置（即便挪到一起也不该 latch）
+        """
+        parent_sites = []
+        for i in range(4):
+            parent_sites.append(_make_site(
+                f"axle_s{i}", f"axle_{i}", "axle.dat",
+                [i * 0.008, 0.0, 0.0],
+            ))
+        child_sites = []
+        for j in range(4):
+            child_sites.append(_make_site(
+                f"tube_s{j}", f"tube_{j}", "tube.dat",
+                [j * 0.008, 0.0, 0.0],
+            ))
+        eye4 = _identity_transform()
+        edges = self.scanner.scan(
+            "axle_rod", "stud_plate",
+            parent_sites, child_sites, eye4, eye4,
+        )
+        self.assertEqual(len(edges), 0,
+                         "axle (CROSS) 跟 tube (STUD) profile 不匹配，"
+                         "几何重合也不该 latch")
+
 
 class TestTopologyManagerBatchConnect(unittest.TestCase):
     """TopologyManager.batch_connect 单元测试。"""
