@@ -18,7 +18,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import type { LDrawSite, LDrawPort } from '../useLDrawPart';
+import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import type { Vec3, Mat3, SelectedPortInfo } from '../types';
 import { InteractionPhase, SelectionLevel } from '../types';
 import { useStore, portKey } from '../store';
@@ -47,31 +47,70 @@ export function isFemale(port: LDrawPort): boolean {
 }
 
 /**
- * B.1：plug-sibling halo 触发条件（纯函数 — 让 siteGizmo_plug_halo.test.ts
- * 直接验，不走 React render）。
+ * B.1（v2，UX 反馈迭代）：plug hover 反馈从"每孔叠一个黄球"改为"整个 plug
+ * 画一圈线框轮廓"。原方案在 40490 这种 8mm 间距密集孔梁上，18 个 16-LDU 球
+ * 重叠糊成一坨黄，看不清单个孔。改用 part-local 包围盒线框：既表达"这一整组
+ * 是一个 plug"，又不遮住孔/箭头。
  *
- * 返 true 表示"该 port 应渲染暖黄 halo"：
- *   - 它有 plug_id（装饰类零件 / 老数据无 plug 直接跳过）
- *   - 有 port 在被 hover（store.hoveredPort 非空）
- *   - 那个 hovered port 跟本 port 在同一 part 实例 + 同一 plug
- *   - 本 port 不是被 hover 的那个本身（走常规 hover 视觉）
- *   - 本 port 也不是 selected（已经有 ACTIVE_COLOR 高亮）
+ * 本纯函数算 plug 的 part-local AABB（让 __tests__ 直接验，不走 React）：
+ *   - hoveredPort 为空 / 无 plug_id / 不在本 part → null（不画）
+ *   - 找不到对应 plug / plug member < 2 → null（单 port plug 画框没意义）
+ *   - 否则聚所有 member 的 port.position 求 AABB，按 margin 外扩，并对每个轴
+ *     施加 minThickness 防"共面 plug 退化成 0 厚度面"看不见
+ *
+ * 返回的 center/size 是 part-local 坐标，直接喂给挂在 part group（groupRef，
+ * 已携带世界位姿）下的 BoxGeometry。
  */
-export function shouldHaloPlugSibling(args: {
-  portPlugId: string | undefined;
-  portPartId: string;
+export interface PlugOutlineBox {
+  center: Vec3;
+  size: Vec3;
+}
+
+export function computePlugOutlineBox(args: {
   hoveredPort: SelectedPortInfo | null;
-  isThisPortHovered: boolean;
-  isThisPortSelected: boolean;
-}): boolean {
-  const { portPlugId, portPartId, hoveredPort, isThisPortHovered, isThisPortSelected } = args;
-  if (!portPlugId) return false;
-  if (!hoveredPort || !hoveredPort.plug_id) return false;
-  if (hoveredPort.partId !== portPartId) return false;
-  if (hoveredPort.plug_id !== portPlugId) return false;
-  if (isThisPortHovered) return false;
-  if (isThisPortSelected) return false;
-  return true;
+  partId: string;
+  plugs: LDrawPlug[];
+  sites: LDrawSite[];
+  margin?: number;
+  minThickness?: number;
+}): PlugOutlineBox | null {
+  const {
+    hoveredPort, partId, plugs, sites,
+    margin = 9 * LDU, minThickness = 6 * LDU,
+  } = args;
+  if (!hoveredPort || !hoveredPort.plug_id) return null;
+  if (hoveredPort.partId !== partId) return null;
+  const plug = plugs.find(p => p.plug_id === hoveredPort.plug_id);
+  if (!plug || plug.members.length < 2) return null;
+
+  const siteMap = new Map(sites.map(s => [s.id, s]));
+  const pts: Vec3[] = [];
+  for (const [siteId, portIdx] of plug.members) {
+    const port = siteMap.get(siteId)?.ports?.[portIdx];
+    if (port) pts.push(port.position as Vec3);
+  }
+  if (pts.length < 2) return null;
+
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts) {
+    for (let i = 0; i < 3; i++) {
+      if (p[i] < min[i]) min[i] = p[i];
+      if (p[i] > max[i]) max[i] = p[i];
+    }
+  }
+
+  const center: Vec3 = [
+    (min[0] + max[0]) / 2,
+    (min[1] + max[1]) / 2,
+    (min[2] + max[2]) / 2,
+  ];
+  const size: Vec3 = [
+    Math.max(max[0] - min[0] + 2 * margin, minThickness),
+    Math.max(max[1] - min[1] + 2 * margin, minThickness),
+    Math.max(max[2] - min[2] + 2 * margin, minThickness),
+  ];
+  return { center, size };
 }
 
 export function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
@@ -116,37 +155,15 @@ interface PortArrowProps {
 // 略大于孔径，用于纯几何 Hover 拦截，防止射线穿模导致闪烁。
 const GIZMO_SPHERE_R_ENLARGED = 7 * LDU;
 
-// B.1：plug-sibling halo 比 hit-box 略大，alpha 较高、不写深度 — 让用户
-// 第一眼看见 plug 边界。原 alpha 0.35 在 Technic Beam 9 这种小孔密集
-// 部件上肉眼难辨；提到 0.75 + 加大半径 + 改荧光黄绿，确保跟红色部件
-// 主体 / 橙色 selected port arrow 都对比鲜明。
-//
-// Bug 4 follow-up：底面 plug member 在默认俯视 camera 下，halo 球壳虽然有
-// depthTest:false 不被 beam 遮挡，但中心点本身在 beam 厚度内部，silhouette
-// 投影只露出薄薄一圈。把半径 13→16 LDU（≈ 6.4mm，跨过 7-8mm 板厚），底面
-// halo 在屏幕空间多出 ~50% 可见面积；同时保留 0.75 透明度，多 port 同时
-// 亮时也不至于糊成一片。Trade-off：顶面 halo 也变大 → port 间距小（如
-// 40490 那种 8mm 间距）时相邻 halo 略微重叠，但合 plug 视觉反而更"一体"，
-// 不算 regression。
-const PLUG_SIBLING_HALO_R = 16 * LDU;
-const PLUG_SIBLING_HALO_COLOR = '#ffff00'; // 纯黄，最大对比
-const PLUG_SIBLING_HALO_OPACITY = 0.75;
+// B.1（v2）：plug hover 反馈用整组线框轮廓（见 PlugSiblingOutline），不再每孔
+// 叠球。荧光黄、不写/不测深度，确保从任意相机角度都能穿过 beam 实体看到。
+const PLUG_OUTLINE_COLOR = '#ffd400';
+const PLUG_OUTLINE_OPACITY = 0.95;
 
 function PortArrow({
   port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
-
-  // B.1：plug-level 联动 — 订阅 hoveredPort，把 sibling 判定全权交给
-  // 纯函数 shouldHaloPlugSibling（单测覆盖；改逻辑只动一处）。
-  const hoveredPort = useStore(s => s.hoveredPort);
-  const isPlugSibling = shouldHaloPlugSibling({
-    portPlugId: port.plug_id,
-    portPartId: partId,
-    hoveredPort,
-    isThisPortHovered: hovered,
-    isThisPortSelected: isSelected,
-  });
 
   const isLocallyActive = hovered || isSelected;
   const debugShowPorts = useStore(s => s.debugShowPorts);
@@ -308,25 +325,62 @@ function PortArrow({
         </mesh>
       )}
 
-      {/* B.1：plug-sibling halo — 当某个兄弟 port hover 时本 port 加一层
-          暖黄半透明球壳。纯发现性反馈，不参与 raycast。
-          depthTest 也关掉 — port 物理上嵌入零件 mesh 内（孔在板中），
-          halo 球壳会被 beam 实体部分遮挡 → 用户只看到端口附近的 halo。
-          关 depthTest 让 halo "穿透"显示，所有 plug member 一视同仁。 */}
-      {isPlugSibling && shouldShowVisuals && (
-        <mesh raycast={() => {}} renderOrder={1000}>
-          <sphereGeometry args={[PLUG_SIBLING_HALO_R, 16, 16]} />
-          <meshBasicMaterial
-            color={PLUG_SIBLING_HALO_COLOR}
-            toneMapped={false}
-            opacity={PLUG_SIBLING_HALO_OPACITY}
-            transparent
-            depthWrite={false}
-            depthTest={false}
-          />
-        </mesh>
-      )}
+      {/* B.1（v2）：plug-sibling 反馈已上移到 part 层的 PlugSiblingOutline
+          （整组线框轮廓），PortArrow 不再画 per-port halo 球。 */}
     </group>
+  );
+}
+
+// ─── PlugSiblingOutline：plug hover 整组线框轮廓（part 层渲染） ───────────────
+
+export interface PlugSiblingOutlineProps {
+  partId: string;
+  plugs: LDrawPlug[];
+  sites: LDrawSite[];
+}
+
+/**
+ * 渲染"被 hover 的 plug"的 part-local 包围盒线框。挂在 InteractivePart 的
+ * groupRef（携带世界位姿）下，跟 SiteGizmo 同帧。订阅 store.hoveredPort，
+ * 几何由 computePlugOutlineBox 纯函数算（单测覆盖）。线框用 EdgesGeometry
+ * （只 12 条棱、无对角线），depthTest 关 → 穿过 beam 实体可见。
+ */
+export function PlugSiblingOutline({ partId, plugs, sites }: PlugSiblingOutlineProps) {
+  const hoveredPort = useStore(s => s.hoveredPort);
+
+  const box = useMemo(
+    () => computePlugOutlineBox({ hoveredPort, partId, plugs, sites }),
+    [hoveredPort, partId, plugs, sites],
+  );
+
+  const edges = useMemo(() => {
+    if (!box) return null;
+    const boxGeo = new THREE.BoxGeometry(box.size[0], box.size[1], box.size[2]);
+    const e = new THREE.EdgesGeometry(boxGeo);
+    boxGeo.dispose();
+    return e;
+  }, [box]);
+
+  // EdgesGeometry 经 geometry prop 传入 → R3F 不自动 dispose，手动在变更/卸载时释放
+  useEffect(() => () => { edges?.dispose(); }, [edges]);
+
+  if (!box || !edges) return null;
+  return (
+    <lineSegments
+      geometry={edges}
+      position={box.center}
+      raycast={() => {}}
+      renderOrder={1000}
+    >
+      <lineBasicMaterial
+        color={PLUG_OUTLINE_COLOR}
+        transparent
+        opacity={PLUG_OUTLINE_OPACITY}
+        depthTest={false}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </lineSegments>
   );
 }
 
