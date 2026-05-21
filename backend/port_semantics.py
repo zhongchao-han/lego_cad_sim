@@ -172,11 +172,23 @@ def check_fit(plug: ConnectionInterface, socket: ConnectionInterface) -> FitType
       0 < Delta <= 0.3mm     -> 摩擦配合（Friction）
       Delta > 0.3mm          -> 几何干涉（Blocked）
 
-    前置条件：极性互补（MALE + FEMALE）且截面形状相同。
+    前置条件：极性互补（MALE + FEMALE）且截面形状兼容。
+
+    截面兼容规则：
+      - 相同 profile 直接兼容（CYLINDER↔CYLINDER / CROSS↔CROSS / STUD↔STUD）
+      - 额外放行 **CROSS plug 穿 CYLINDER socket**（十字轴插圆孔）—— 真实
+        Technic 里十字轴在圆梁孔中自由旋转是最基础玩法之一（issue #50）。
+        轴外接半径 (3.9 LDU) < 圆孔内径 (6.0 LDU)，几何上间隙配合。
+      - 反向 CYLINDER plug 进 CROSS socket（圆销插十字孔）仍不兼容：圆销
+        直径 > 十字孔内切圆，且非标准连接。
     """
     if plug.gender != Gender.MALE or socket.gender != Gender.FEMALE:
         return FitType.INCOMPATIBLE
-    if plug.profile != socket.profile:
+    profile_compatible = (
+        plug.profile == socket.profile
+        or (plug.profile == Profile.CROSS and socket.profile == Profile.CYLINDER)
+    )
+    if not profile_compatible:
         return FitType.INCOMPATIBLE
 
     delta = plug.radius - socket.radius
@@ -200,6 +212,7 @@ def derive_joint_params(
       过约束（多销连接同一对零件）         -> fixed
       CYLINDER + CYLINDER (间隙) -> continuous，低阻尼
       CYLINDER + CYLINDER (摩擦) -> continuous，高阻尼（注入摩擦感）
+      CROSS    + CYLINDER         -> continuous，低阻尼（轴穿圆孔自由转，issue #50）
       CROSS    + CROSS            -> fixed（轴锁止无自由度）
       不兼容                       -> fixed（保守降级）
 
@@ -220,6 +233,11 @@ def derive_joint_params(
         else:
             # 普通销：低阻尼，可自由旋转
             return "continuous", 0.05, 0.05
+
+    # axle(CROSS) 穿圆孔(CYLINDER)：自由旋转，低阻尼（issue #50）。
+    # 必须先于下面的 CROSS+CROSS fixed 分支判定。
+    if plug.profile == Profile.CROSS and socket.profile == Profile.CYLINDER:
+        return "continuous", 0.05, 0.05
 
     if plug.profile == Profile.CROSS and socket.profile == Profile.CROSS:
         return "fixed", 0.0, 0.0

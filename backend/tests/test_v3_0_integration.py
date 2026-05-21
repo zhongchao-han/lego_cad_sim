@@ -60,19 +60,21 @@ class TestV3_0Integration(unittest.TestCase):
         self.assertEqual(json.dumps(p1, sort_keys=True), json.dumps(p2, sort_keys=True),
                          "资产重建不具备幂等性！存在浮点抖动或非确定性生成。")
 
-    def test_4_2_incompatible_fit_rejection(self):
+    def test_4_2_axle_in_round_hole_is_clearance(self):
         """
-        [Test 4.2] 验证物理拦截语义：十字轴 (Axle) 插入圆孔 (PegHole)。
+        [Test 4.2] 十字轴穿圆孔 (Axle CROSS → PegHole CYLINDER) 配合语义。
+
+        issue #50：原断言 INCOMPATIBLE，但真实 Technic 里十字轴在圆梁孔中自由
+        旋转是基础玩法。轴外接半径 (3.9 LDU) < 圆孔内径 (6.0 LDU) → CLEARANCE。
         """
         # 十字轴男头
         axle_male = Port.from_raw("axle", "axle.dat", [0, 0, 0], np.eye(3))
         # 圆孔女头
         peghole_female = Port.from_raw("hole", "peghole.dat", [0, 0.008, 0], np.eye(3))
-        
-        # 执行拦截测试
+
         fit = axle_male.test_fit_with(peghole_female)
-        self.assertEqual(fit, FitType.INCOMPATIBLE, 
-                         f"系统未能正确拦截非法配合！预期: INCOMPATIBLE, 当前: {fit}")
+        self.assertEqual(fit, FitType.CLEARANCE,
+                         f"十字轴穿圆孔应为 CLEARANCE (issue #50)，当前: {fit}")
 
 if __name__ == '__main__':
     unittest.main()

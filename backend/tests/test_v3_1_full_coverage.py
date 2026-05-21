@@ -377,16 +377,33 @@ class TestSection4_PhysicsConstraints(unittest.TestCase):
         self.assertEqual(fit, FitType.INCOMPATIBLE,
                          "两个 Male Peg 配合应被拦截为 INCOMPATIBLE。")
 
-    def test_4_2_axle_to_peghole_is_incompatible(self):
+    def test_4_2_axle_to_peghole_is_clearance(self):
         """
-        [Test 4.2.b] 非法配合: 十字轴插入圆孔 (Profile Mismatch) 应被拦截。
+        [Test 4.2.b] 合法配合: 十字轴穿圆孔 (CROSS plug → CYLINDER socket)。
+
+        issue #50：原断言这是 INCOMPATIBLE，但真实 Technic 里十字轴在圆梁孔中
+        自由旋转是基础玩法。轴外接半径 (3.9 LDU) < 圆孔内径 (6.0 LDU)，几何上
+        间隙配合 → CLEARANCE，可形成 continuous 关节。
         """
-        logger.debug("[Test 4.2.b] 截面不匹配配合拦截测试。")
+        logger.debug("[Test 4.2.b] 十字轴穿圆孔间隙配合测试 (issue #50)。")
         axle = _build_port("axle", "axle.dat", [0, 0, 0])
         peghole = _build_port("peghole", "peghole.dat", [0.008, 0, 0])
         fit = axle.test_fit_with(peghole)
+        self.assertEqual(fit, FitType.CLEARANCE,
+                         "十字轴穿圆孔轴径 < 孔径 → CLEARANCE（issue #50）。")
+
+    def test_4_2_peg_to_axlehole_is_incompatible(self):
+        """
+        [Test 4.2.b2] 非法配合: 圆销插十字孔 (CYLINDER plug → CROSS socket)
+        仍应 INCOMPATIBLE。issue #50 只放行 CROSS→CYLINDER 单向，反向圆销
+        直径 > 十字孔内切圆，非标准连接不放。
+        """
+        logger.debug("[Test 4.2.b2] 圆销插十字孔反向不兼容测试 (issue #50)。")
+        peg = _build_port("peg", "peg.dat", [0, 0, 0])
+        axlehole = _build_port("axlehole", "axlehole.dat", [0.008, 0, 0])
+        fit = peg.test_fit_with(axlehole)
         self.assertEqual(fit, FitType.INCOMPATIBLE,
-                         "十字轴插入圆孔应因截面不兼容而被拦截为 INCOMPATIBLE。")
+                         "圆销插十字孔方向仍不兼容（issue #50 仅放行 CROSS→CYLINDER）。")
 
     def test_4_2_hole_to_hole_is_incompatible(self):
         """
@@ -584,6 +601,23 @@ class TestSection6_CornerCasesAndDefense(unittest.TestCase):
         j_type, _, _ = peg.derive_joint(hole, is_merged=False)
         self.assertEqual(j_type, "continuous",
                          "圆柱截面配合 (CYLINDER) 应推导为 'continuous' 连续旋转关节。")
+
+    def test_6_3_axle_in_round_hole_derived_as_continuous(self):
+        """
+        [Test 6.3.d] 十字轴穿圆孔 (Axle CROSS → PegHole CYLINDER) 有旋转自由度，
+        derive_joint_params 应推导为 'continuous'（issue #50）。
+
+        区别于 6.3.b（axle→axlehole 是 CROSS↔CROSS 锁死 fixed）：这里 socket
+        是圆孔，轴可自由旋转。是 L44b 中介齿轮链能真实造福用户的关键前置。
+        """
+        logger.debug("[Test 6.3.d] 十字轴穿圆孔 Continuous Joint 推导测试 (issue #50)。")
+        axle = Port.from_raw("a", "axle.dat", np.zeros(3), np.eye(3))
+        hole = Port.from_raw("h", "peghole.dat", np.zeros(3), np.eye(3))
+        if axle is None or hole is None:
+            self.skipTest("axle.dat 或 peghole.dat 未在 port_semantics 注册，跳过。")
+        j_type, _, _ = axle.derive_joint(hole, is_merged=False)
+        self.assertEqual(j_type, "continuous",
+                         "十字轴穿圆孔应推导为 'continuous'（轴在圆孔中自由旋转，issue #50）。")
 
     # ── 6.4: Site 占用与释放 (Site Occupation Lifecycle) ─────────────────────
 

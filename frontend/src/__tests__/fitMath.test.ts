@@ -75,6 +75,17 @@ describe('checkFit', () => {
     expect(checkFitByTypes('pin', 'axlehole')).toBe(FitType.INCOMPATIBLE);
   });
 
+  it('axle (CROSS) 穿 peghole (CYLINDER) = CLEARANCE (3.9 < 6.0, issue #50)', () => {
+    // 十字轴穿圆孔自由旋转——issue #50 放行 CROSS→CYLINDER 单向
+    expect(checkFitByTypes('axle', 'peghole')).toBe(FitType.CLEARANCE);
+    expect(checkFitByTypes('axle.dat', 'beamhole.dat')).toBe(FitType.CLEARANCE);
+  });
+
+  it('反向 peg/pin (CYLINDER) 插 axlehole (CROSS) 仍 INCOMPATIBLE (issue #50 单向)', () => {
+    // 只放行 CROSS plug → CYLINDER socket；反向圆销进十字孔不放
+    expect(checkFitByTypes('peg', 'axlehole')).toBe(FitType.INCOMPATIBLE);
+  });
+
   it('BLOCKED 路径（手工伪造一个超大销径）', () => {
     const oversized = {
       gender: Gender.MALE, profile: Profile.CYLINDER,
