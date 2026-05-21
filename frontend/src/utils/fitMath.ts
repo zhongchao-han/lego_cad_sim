@@ -119,7 +119,11 @@ export function getInterface(portType: string): ConnectionInterface | null {
   return null;
 }
 
-/** 后端 check_fit 同语义：极性 + 截面 + 半径差判定。 */
+/** 后端 check_fit 同语义：极性 + 截面 + 半径差判定。
+ *
+ *  截面兼容：相同 profile OK；额外放行 CROSS plug 穿 CYLINDER socket（十字轴
+ *  插圆孔自由旋转，issue #50）。反向 CYLINDER→CROSS 仍不兼容。改这里务必同步
+ *  backend/port_semantics.py check_fit（fitMath 是其前端复刻）。 */
 export function checkFit(
   plug: ConnectionInterface,
   socket: ConnectionInterface,
@@ -127,7 +131,10 @@ export function checkFit(
   if (plug.gender !== Gender.MALE || socket.gender !== Gender.FEMALE) {
     return FitType.INCOMPATIBLE;
   }
-  if (plug.profile !== socket.profile) {
+  const profileCompatible =
+    plug.profile === socket.profile
+    || (plug.profile === Profile.CROSS && socket.profile === Profile.CYLINDER);
+  if (!profileCompatible) {
     return FitType.INCOMPATIBLE;
   }
   const delta = plug.radius - socket.radius;

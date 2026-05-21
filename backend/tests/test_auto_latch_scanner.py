@@ -168,9 +168,12 @@ class TestAutoLatchScanner(unittest.TestCase):
         )
         self.assertEqual(len(edges), 0, "孔对孔语义不兼容，应返回空列表。")
 
-    def test_incompatible_cross_to_round_returns_empty(self):
+    def test_axle_into_round_hole_latches(self):
         """
-        [Case 4b] 十字轴插圆孔（Profile Mismatch）→ 返回 0 条边。
+        [Case 4b] 十字轴插圆孔（CROSS→CYLINDER）→ issue #50 后应 latch 1 条边。
+
+        原断言这是 profile mismatch 返 0 边；issue #50 放行十字轴穿圆孔自由
+        旋转，axle→peghole 现在兼容（CLEARANCE）→ Auto-Latch 应闭合 1 对。
         """
         parent_sites = [_make_site("s_p", "axle_p", "axle.dat", [0.0, 0.0, 0.0])]
         child_sites  = [_make_site("s_c", "hole_c", "peghole.dat", [0.0, 0.0, 0.0])]
@@ -183,7 +186,27 @@ class TestAutoLatchScanner(unittest.TestCase):
             parent_world_transform=_identity_transform(),
             child_world_transform=_identity_transform(),
         )
-        self.assertEqual(len(edges), 0, "截面不兼容，应返回空列表。")
+        self.assertEqual(len(edges), 1, "十字轴穿圆孔 issue #50 后应 latch 1 对。")
+
+    def test_round_peg_into_cross_hole_returns_empty(self):
+        """
+        [Case 4c] 圆销插十字孔（CYLINDER→CROSS）→ 仍返回 0 条边。
+
+        issue #50 只放行 CROSS→CYLINDER 单向；反向圆销进十字孔（直径 > 内切圆）
+        仍 INCOMPATIBLE，守住非标准连接。
+        """
+        parent_sites = [_make_site("s_p", "peg_p", "peg.dat", [0.0, 0.0, 0.0])]
+        child_sites  = [_make_site("s_c", "axhole_c", "axlehole.dat", [0.0, 0.0, 0.0])]
+
+        edges = self.scanner.scan(
+            parent_id="pin_part",
+            child_id="axle_beam",
+            parent_sites=parent_sites,
+            child_sites=child_sites,
+            parent_world_transform=_identity_transform(),
+            child_world_transform=_identity_transform(),
+        )
+        self.assertEqual(len(edges), 0, "圆销插十字孔方向仍不兼容（issue #50 单向）。")
 
     # ── 距离超出阈值测试 ──────────────────────────────────────────────────────
 
