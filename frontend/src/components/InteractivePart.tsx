@@ -5,7 +5,7 @@ import { useStore, useIsTargetSeekingPhase } from '../store';
 import { SelectionLevel, InteractionPhase, SelectedPortInfo } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
-import { SiteGizmo } from './SiteGizmo';
+import { SiteGizmo, PlugSiblingOutline } from './SiteGizmo';
 import { RenderErrorBoundary } from './RenderErrorBoundary';
 import { AutoFitCamera } from './AutoFitCamera';
 import { calculateClampedOffset } from '../utils/snapMath';
@@ -313,6 +313,16 @@ export const InteractivePart = memo(({
           onPortHover={handlePortHoverLocal}
         />
       ))}
+
+      {/* B.1（v2）：plug hover 整组线框轮廓 — 替代 SiteGizmo 内每孔叠球，
+          避免密集孔梁糊成一坨黄。挂 part-local 帧，跟 SiteGizmo 同帧。 */}
+      {!disableEvents && ldrawPart.plugs?.length > 0 && (
+        <PlugSiblingOutline
+          partId={partId}
+          plugs={ldrawPart.plugs}
+          sites={ldrawPart.sites}
+        />
+      )}
     </group>
   );
 });
