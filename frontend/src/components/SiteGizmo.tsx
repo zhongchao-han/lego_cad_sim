@@ -160,6 +160,12 @@ const GIZMO_SPHERE_R_ENLARGED = 7 * LDU;
 const PLUG_OUTLINE_COLOR = '#ffd400';
 const PLUG_OUTLINE_OPACITY = 0.95;
 
+// 方案 1（UX 反馈）：part-hover 展开全部 port 时，只有鼠标直接悬停 / 选中的 port
+// 画成完整方向箭头 + 全亮球；其余 port 淡化成低透明度小点 —— 既保留"哪里有孔"
+// 的可发现性，又消除密集孔梁（如 40490）一次性弹 18 个箭头的视觉杂讯。
+// Debug「Show All Ports」仍强制全亮箭头，是已有逃生口。
+const DIMMED_PORT_OPACITY = 0.2;
+
 function PortArrow({
   port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, onPortClick, onPortHover
 }: PortArrowProps) {
@@ -167,9 +173,13 @@ function PortArrow({
 
   const isLocallyActive = hovered || isSelected;
   const debugShowPorts = useStore(s => s.debugShowPorts);
-  
-  // 解除封印：只要父组件认为该端口热区处于激活态（showVisuals = true），视觉箭头就应当光明正大显示出来，不再要求悬停和 Debug
+
+  // showVisuals = 父组件认为该 part 处于激活态（hover / 选中 / static）→ port 热区
+  // 始终渲染（拦射线）。但 *视觉强度* 分两档（方案 1）：
+  //   - prominent（鼠标直接悬停该 port / 选中 / Debug 全显）→ 完整箭头 + 全亮球
+  //   - 否则（仅因 part-hover 被展开）→ 淡化成低透明度小点
   const shouldShowVisuals = showVisuals;
+  const prominent = isLocallyActive || debugShowPorts;
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
   const ACTIVE_COLOR = '#ff9800'; // Source Locked 激活高亮色
@@ -282,8 +292,9 @@ function PortArrow({
         e.stopPropagation();
       }}
     >
-      {/* 视觉箭头：仅当精确悬停或选中时 (shouldShowVisuals=true) 渲染 */}
-      {shouldShowVisuals && (
+      {/* 视觉箭头：仅当 prominent（直接悬停 / 选中 / Debug 全显）才画完整箭头。
+          方案 1：part-hover 仅展开热区时不画 18 个箭头，只留下面淡化的小球点。 */}
+      {shouldShowVisuals && prominent && (
         <arrowHelper
           args={[
             direction,
@@ -292,7 +303,7 @@ function PortArrow({
           ]}
           onUpdate={(self) => {
             self.traverse((child) => {
-              child.raycast = () => {}; 
+              child.raycast = () => {};
             });
           }}
         />
@@ -303,12 +314,12 @@ function PortArrow({
           当未被悬停时，透明且不写深度，但参与射线检测，防止鼠标落入孔洞。 */}
       <mesh quaternion={quaternion}>
         <sphereGeometry args={[GIZMO_SPHERE_R_ENLARGED, 16, 16]} />
-        <meshBasicMaterial 
-          color={color} 
-          toneMapped={false} 
-          opacity={shouldShowVisuals ? opacity : 0} 
-          transparent 
-          depthWrite={shouldShowVisuals}
+        <meshBasicMaterial
+          color={color}
+          toneMapped={false}
+          opacity={shouldShowVisuals ? (prominent ? opacity : DIMMED_PORT_OPACITY) : 0}
+          transparent
+          depthWrite={shouldShowVisuals && prominent}
           colorWrite={shouldShowVisuals}
         />
       </mesh>
