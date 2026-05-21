@@ -155,9 +155,6 @@ interface StoreState {
   freePlacingPayload: { id: string; state: PartState }[];
   freePlacingPointer: { clientX: number; clientY: number } | null;
   freePlacingProjectionMode: FreePlacingProjectionMode;
-  // 模态预览那一刻相机相对零件的朝向。落地时与场景相机朝向一起算出旋转，让
-  // "落地后的零件 + 场景相机视角" 看起来等价于 "模态预览 + 模态相机视角"。
-  freePlacingPreviewCamQuat: Quat | null;
   hiddenParts: Set<string>;
   interferenceReport: InterferenceReport;
   slideOffset: number;
@@ -245,7 +242,6 @@ interface StoreState {
     options?: {
       pointer?: { clientX: number; clientY: number } | null;
       projectionMode?: FreePlacingProjectionMode;
-      previewCamQuat?: Quat | null;
     }
   ) => void;
   commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
@@ -387,7 +383,6 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'freePlacingPayload',
   'freePlacingPointer',
   'freePlacingProjectionMode',
-  'freePlacingPreviewCamQuat',
   'interferenceReport',
   'slideOffset',
   'partCatalog',
@@ -488,7 +483,6 @@ export const useStore = create<StoreState>()(
   freePlacingPayload: [],
   freePlacingPointer: null,
   freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
-  freePlacingPreviewCamQuat: null,
   hiddenParts: new Set(),
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
   slideOffset: 0,
@@ -573,7 +567,6 @@ export const useStore = create<StoreState>()(
         freePlacingPayload: [],
         freePlacingPointer: null,
         freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
-        freePlacingPreviewCamQuat: null,
         hiddenParts: new Set(),
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
         slideOffset: 0,
@@ -1332,7 +1325,6 @@ export const useStore = create<StoreState>()(
     const {
       pointer = null,
       projectionMode = FreePlacingProjectionMode.SCENE_RAYCAST,
-      previewCamQuat = null
     } = options;
     const newId = ldrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0,8);
     const payload = [{
@@ -1349,7 +1341,6 @@ export const useStore = create<StoreState>()(
       freePlacingPayload: payload,
       freePlacingPointer: pointer,
       freePlacingProjectionMode: projectionMode,
-      freePlacingPreviewCamQuat: previewCamQuat,
       interactionPhase: InteractionPhase.FREE_PLACING,
       previewPartId: null // 关掉预览层
     });
@@ -1366,7 +1357,6 @@ export const useStore = create<StoreState>()(
         freePlacingPayload: [],
         freePlacingPointer: null,
         freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
-        freePlacingPreviewCamQuat: null,
         interactionPhase: InteractionPhase.IDLE
       });
       return;
@@ -1406,7 +1396,6 @@ export const useStore = create<StoreState>()(
       freePlacingPayload: [],
       freePlacingPointer: null,
       freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
-      freePlacingPreviewCamQuat: null,
       interactionPhase: InteractionPhase.IDLE
     });
     get().addLog(`Committed ${newIds.length} parts.`, 'ACTION');

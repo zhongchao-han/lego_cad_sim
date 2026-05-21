@@ -212,20 +212,16 @@ const FreePlacerGhost = () => {
     const payload = useStore(s => s.freePlacingPayload);
     const projectionMode = useStore(s => s.freePlacingProjectionMode);
     const initialPointer = useStore(s => s.freePlacingPointer);
-    const previewCamQuat = useStore(s => s.freePlacingPreviewCamQuat);
     const commitFreePlacing = useStore(s => s.commitFreePlacing);
     const groupRef = useRef(null);
-    // 内层 group 的 ref：用于在 useFrame 里实时把 quaternion 设为
-    // sceneCam.quat * previewCam.quat^-1，做到"模态看到的那一面就是落地后的顶面"。
-    const innerRefs = useRef([]);
     const { raycaster, mouse, camera, scene, gl } = useThree();
 
-    // 把 [x,y,z,w] 数组形式的预览相机 quaternion 提前转成 THREE.Quaternion，
-    // useFrame 里只做 multiply / copy，不再每帧 new 对象。
-    const previewCamQuatThree = useMemo(() => {
-        if (!previewCamQuat) return null;
-        return new THREE.Quaternion(previewCamQuat[0], previewCamQuat[1], previewCamQuat[2], previewCamQuat[3]).invert();
-    }, [previewCamQuat]);
+    // 朝向说明（UX 反馈修复）：Drop to Ground / 自由放置一律落在零件的**原始
+    // 朝向**（payload state.quaternion，新建零件 = identity 平躺）。
+    // 旧实现把"模态相机朝向"经 sceneCam·previewCam⁻¹ 带进落地姿态，想做到
+    // "落地看到的面 = 模态里看到的面"，但只要用户在模态里 orbit 转过视角，
+    // 这个相机相对旋转几乎必然不是轴对齐 → 零件落地歪斜、难操作。改为永远
+    // 轴对齐平躺；用户落地后用 [ / ] 做 90° 旋转即可，行为可预期。
 
     const isPlacing = phase === InteractionPhase.FREE_PLACING && payload && payload.length > 0;
     const isGroundPlane = projectionMode === FreePlacingProjectionMode.GROUND_PLANE;
@@ -237,25 +233,16 @@ const FreePlacerGhost = () => {
     // 防止"触发 Drop to Ground 的那次 mousedown"被全局监听器解读为放置确认。
     const canConfirmGroundRef = useRef(false);
 
-    // 实时把内层 group 的 quaternion 设为 sceneCam.quat * previewCam.quat^-1：
-    // 这样从场景相机看下去，零件呈现的面与用户在模态预览里看到的那一面一致。
-    // 用户在场景里转动相机，ghost 也会跟着重旋（朝向永远迎合当前视角）。
-    const _ghostQuatScratch = useMemo(() => new THREE.Quaternion(), []);
     // L54 对象池：useFrame 60Hz 跑，过去每帧 new Plane + Vector3 触发 GC 尖刺。
     // y=0 地面是常量、intersectPoint 只读出来 copy 走，全部 useMemo 提一次即可。
     const _groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
     const _intersectScratch = useMemo(() => new THREE.Vector3(), []);
-    const updateGhostOrientation = () => {
-        if (!previewCamQuatThree) return;
-        _ghostQuatScratch.copy(camera.quaternion).multiply(previewCamQuatThree);
-        innerRefs.current.forEach(el => { if (el) el.quaternion.copy(_ghostQuatScratch); });
-    };
 
     useFrame(() => {
         if (!isPlacing || !groupRef.current) return;
 
-        // 朝向实时跟随场景相机（如未传 previewCamQuat 则保持 identity，向后兼容）
-        updateGhostOrientation();
+        // ghost 朝向 = 零件原始姿态（quaternion 由渲染 prop 给，identity 平躺），
+        // 不再随相机重旋 —— 落地永远轴对齐，避免歪斜（见上方朝向说明）。
 
         if (isGroundPlane) {
             // 仅与 y=0 平面求交，忽略环境软箱、阴影面与现有零件
@@ -343,18 +330,13 @@ const FreePlacerGhost = () => {
             if (e.button === 0) { // 左键放置
                 const finalStates = {};
                 const pos = groupRef.current.position;
-                // 与 ghost 同样逻辑：把模态视角对齐到场景视角，保证落地后看到的还是
-                // 模态里那一面。previewCamQuatThree 缺席时退回 identity，行为不变。
-                let finalQuat = null;
-                if (previewCamQuatThree) {
-                    const q = new THREE.Quaternion().copy(camera.quaternion).multiply(previewCamQuatThree);
-                    finalQuat = [q.x, q.y, q.z, q.w];
-                }
+                // 朝向 = 零件原始姿态（item.state.quaternion，新建 = identity 平躺）。
+                // 不再用相机相对旋转，落地永远轴对齐（见上方朝向说明）。
                 payload.forEach(item => {
                     finalStates[item.id] = {
                         ...item.state,
                         position: [item.state.position[0] + pos.x, item.state.position[1] + pos.y, item.state.position[2] + pos.z],
-                        quaternion: finalQuat || item.state.quaternion
+                        quaternion: item.state.quaternion
                     };
                 });
                 commitFreePlacing(finalStates);
@@ -372,21 +354,19 @@ const FreePlacerGhost = () => {
         return () => {
             window.removeEventListener('mousedown', handleClick, { capture: true });
         };
-    }, [isPlacing, isGroundPlane, payload, commitFreePlacing, previewCamQuatThree, camera]);
+    }, [isPlacing, isGroundPlane, payload, commitFreePlacing]);
 
     if (!isPlacing) return null;
 
     return (
         <group ref={groupRef}>
-            {payload.map((item, idx) => (
+            {payload.map((item) => (
                 <group
                     key={item.id}
-                    ref={el => { innerRefs.current[idx] = el; }}
                     position={item.state.position}
                     quaternion={item.state.quaternion}
                 >
-                    {/* quaternion 写在初始化 prop 上仅作首帧兜底；previewCamQuat 在场时
-                        useFrame 每帧 copy 真正的目标朝向，覆盖 R3F 重新 commit 的值。 */}
+                    {/* 朝向固定为零件原始姿态（identity 平躺）；ghost 不再随相机重旋。 */}
                     <InteractivePart
                         partId={`ghost_${item.id}`}
                         ldrawId={item.state.ldrawId}
