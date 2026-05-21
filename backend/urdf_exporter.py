@@ -386,3 +386,17 @@ def export_urdf(
     else:
         exporter = _default_exporter
     exporter.export(urdf_tree, closed_loops, output_file, robot_name)
+
+
+def floating_base_for_mode(mode: str) -> bool:
+    """系统 mode → 是否给导出的 URDF 加浮空根（issue #51）。
+
+    - ``SIMULATION`` → ``True``：整体 6DOF 浮空，符合 ROS 2 / Gazebo 物理预期
+      （重力 / 外力下自由运动）。
+    - ``ASSEMBLY`` / 其它 → ``False``：装配体钉死在 world，避免重力把它拉走，
+      贴合本仓"装配建模 + 静力分析"主场景。
+
+    纯函数，大小写不敏感。callsite（server.toggle_mode）据此透传 floating_base，
+    替代过去无论哪个 mode 都漏传默认 False 的行为。
+    """
+    return (mode or "").strip().upper() == "SIMULATION"

@@ -23,6 +23,7 @@ from backend.math_utils import purify_rotation_matrix, matrix_to_list
 from backend.site_utils import cluster_ports_into_sites, sites_to_response
 from backend.plug_clustering import compute_plugs as _compute_plugs
 from backend.auto_latch_scanner import AutoLatchScanner, serialize_port_key
+from backend.urdf_exporter import floating_base_for_mode
 from backend.mesh_asset_manager import MeshAssetManager
 from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
 from backend.category import categorize_part, extract_tooth_count
@@ -400,8 +401,12 @@ async def toggle_mode(mode: str):
             tree = topo_manager.build_spanning_tree()
             urdf_path = "current_assembly.urdf"
             # L45：传入 LDraw parts 目录，让 urdf_exporter 给齿轮对生成 <mimic>。
+            # issue #51：按 mode 决定浮空根。进 SIMULATION → floating_base=True
+            # （6DOF 浮空，符合 Gazebo/ROS2 物理预期），ASSEMBLY 钉死不导出。
             topo_manager.export_urdf(
-                tree, urdf_path, ldraw_parts_dir=os.path.join(LDRAW_PARTS_ROOT, "parts"),
+                tree, urdf_path,
+                ldraw_parts_dir=os.path.join(LDRAW_PARTS_ROOT, "parts"),
+                floating_base=floating_base_for_mode(mode),
             )
 
             # L55：所有 engine 调用走 to_thread 避免阻塞 asyncio。reset() 在锁内

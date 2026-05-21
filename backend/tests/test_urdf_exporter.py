@@ -29,7 +29,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from backend.connection_edge import ConnectionEdge  # noqa: E402
 from backend.port import Port  # noqa: E402
 from backend.topology_manager import PartNode, TopologyManager  # noqa: E402
-from backend.urdf_exporter import LEGO_GEAR_MODULE_M, URDFExporter  # noqa: E402
+from backend.urdf_exporter import (  # noqa: E402
+    LEGO_GEAR_MODULE_M,
+    URDFExporter,
+    export_urdf,
+    floating_base_for_mode,
+)
 
 
 # ─── 测试夹具 ──────────────────────────────────────────────────────────────
@@ -778,6 +783,79 @@ class TestExportEdgeCases(unittest.TestCase):
             self.assertTrue(content.startswith("<?xml"))
             # 端到端 reparse 不抛
             ET.parse(out)
+
+
+class TestModeAwareFloatingBase(unittest.TestCase):
+    """issue #51：mode → floating_base 接通。
+
+    floating_base_for_mode 纯函数 + 经 module-level export_urdf（server.toggle_mode
+    实际调 topology_manager.export_urdf → 同一 exporter 入口）端到端验：
+    SIMULATION 导出含 world link，ASSEMBLY 不含。补齐 server 层 wiring 的回归，
+    与 TestFloatingBase（exporter 内部行为）互补。
+    """
+
+    def _build_simple_tree(self):
+        tm = TopologyManager()
+        tm.add_part(_mk_part("frame"))
+        tm.add_part(_mk_part("A"))
+        tm.connect_ports(ConnectionEdge(
+            "frame", "A",
+            _mk_port("p", "pin",     [0, 0, 0]),
+            _mk_port("c", "peghole", [0, 0, 0]),
+        ))
+        return tm.build_spanning_tree(), tm.closed_loops
+
+    # ── 纯函数 floating_base_for_mode ────────────────────────────────────────
+
+    def test_simulation_mode_floats(self):
+        self.assertTrue(floating_base_for_mode("SIMULATION"))
+
+    def test_assembly_mode_pinned(self):
+        self.assertFalse(floating_base_for_mode("ASSEMBLY"))
+
+    def test_case_insensitive_and_whitespace(self):
+        self.assertTrue(floating_base_for_mode("  simulation "))
+        self.assertFalse(floating_base_for_mode("Assembly"))
+
+    def test_unknown_mode_defaults_pinned(self):
+        # 未知 mode 保守钉死（贴合装配主场景）
+        self.assertFalse(floating_base_for_mode("WHATEVER"))
+        self.assertFalse(floating_base_for_mode(""))
+
+    # ── 集成冒烟：经 export_urdf 入口，URDF 头按 mode 差异 ───────────────────
+
+    def test_simulation_export_emits_world_link(self):
+        """mode=SIMULATION → export_urdf(floating_base=True) → URDF 含 world link。"""
+        tree, loops = self._build_simple_tree()
+        with TemporaryDirectory() as out_dir:
+            out = os.path.join(out_dir, "sim.urdf")
+            export_urdf(
+                tree, loops, out,
+                floating_base=floating_base_for_mode("SIMULATION"),
+            )
+            root = ET.parse(out).getroot()
+        link_names = [el.get("name") for el in root.findall("link")]
+        self.assertIn("world", link_names,
+                      "SIMULATION 导出应含 world link（6DOF 浮空）")
+        floating = [j for j in root.findall("joint") if j.get("type") == "floating"]
+        self.assertEqual(len(floating), 1, "SIMULATION 应恰好 1 条 floating 根 joint")
+
+    def test_assembly_export_omits_world_link(self):
+        """mode=ASSEMBLY → export_urdf(floating_base=False) → URDF 不含 world link。"""
+        tree, loops = self._build_simple_tree()
+        with TemporaryDirectory() as out_dir:
+            out = os.path.join(out_dir, "asm.urdf")
+            export_urdf(
+                tree, loops, out,
+                floating_base=floating_base_for_mode("ASSEMBLY"),
+            )
+            root = ET.parse(out).getroot()
+        link_names = [el.get("name") for el in root.findall("link")]
+        self.assertNotIn("world", link_names,
+                         "ASSEMBLY 导出应钉死，不含 world link")
+        for joint in root.findall("joint"):
+            self.assertNotEqual(joint.get("type"), "floating",
+                                "ASSEMBLY 不应出现 floating joint")
 
 
 if __name__ == "__main__":
