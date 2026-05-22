@@ -17,7 +17,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from '../store';
-import { ZoneType, InteractionPhase } from '../types';
+import { ZoneType, InteractionPhase, SelectionLevel } from '../types';
 
 const EYE3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as [number[], number[], number[]];
 
@@ -370,5 +370,80 @@ describe('store.undo/redo — mid-snap（snapPreState 非空）拦截', () => {
     // pin 没被 redo 重建，canRedo 仍 true（命令还在 redo 栈里）
     expect(useStore.getState().parts.pin).toBeUndefined();
     expect(useStore.getState().canRedo).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// 已放置零件自由编辑：rotateSelectedGroup / translateSelectedGroup + undo
+// ─────────────────────────────────────────────────────────────────────────
+describe('store.rotateSelectedGroup / translateSelectedGroup — 整组变换 + undo', () => {
+  beforeEach(resetStore);
+
+  function setupConnectedPair() {
+    // plate（primary）+ pin，已连接。selection 选中 plate。
+    useStore.setState({
+      parts: {
+        plate: { ldrawId: 'plate.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        pin:   { ldrawId: 'pin.dat',   position: [0.02, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: { plate: new Set(['pin']), pin: new Set(['plate']) },
+      selection: { primaryId: 'plate', level: SelectionLevel.GROUP, allConnectedIds: ['plate', 'pin'], excludedIds: [] },
+      interactionPhase: InteractionPhase.IDLE,
+    } as any);
+  }
+
+  it('case 15: translateSelectedGroup 整组平移 + 可 undo', () => {
+    setupConnectedPair();
+    useStore.getState().translateSelectedGroup([0.008, 0, 0]);
+    let s = useStore.getState();
+    // primary + 连通的 pin 都平移 +8mm
+    expect(s.parts.plate.position[0]).toBeCloseTo(0.008, 6);
+    expect(s.parts.pin.position[0]).toBeCloseTo(0.028, 6);
+    expect(s.canUndo).toBe(true);
+    // undo 还原
+    useStore.getState().undo();
+    s = useStore.getState();
+    expect(s.parts.plate.position[0]).toBeCloseTo(0, 6);
+    expect(s.parts.pin.position[0]).toBeCloseTo(0.02, 6);
+  });
+
+  it('case 16: rotateSelectedGroup 绕 Y 90° → pin 绕 plate 原点转 + 可 undo', () => {
+    setupConnectedPair();
+    useStore.getState().rotateSelectedGroup(Math.PI / 2);
+    let s = useStore.getState();
+    // 绕世界 Y 转 90°，pivot=plate(原点)：pin 从 (0.02,0,0) 转到 (0,0,-0.02) 或 (0,0,0.02)
+    expect(Math.abs(s.parts.pin.position[0])).toBeLessThan(1e-6);
+    expect(Math.abs(s.parts.pin.position[2])).toBeCloseTo(0.02, 6);
+    // plate 原点不动（pivot）
+    expect(s.parts.plate.position[0]).toBeCloseTo(0, 6);
+    expect(s.canUndo).toBe(true);
+    // undo 还原 pin 位置
+    useStore.getState().undo();
+    s = useStore.getState();
+    expect(s.parts.pin.position[0]).toBeCloseTo(0.02, 6);
+    expect(s.parts.pin.position[2]).toBeCloseTo(0, 6);
+  });
+
+  it('case 17: 无 selection.primaryId → rotate/translate no-op', () => {
+    useStore.setState({
+      parts: { plate: { ldrawId: 'plate.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA } },
+      selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
+    } as any);
+    useStore.getState().rotateSelectedGroup(Math.PI / 2);
+    useStore.getState().translateSelectedGroup([0.01, 0, 0]);
+    const s = useStore.getState();
+    expect(s.parts.plate.position).toEqual([0, 0, 0]);
+    expect(s.canUndo).toBe(false);
+  });
+
+  it('case 18: 单个孤立零件（无连接）也能转/移', () => {
+    useStore.setState({
+      parts: { solo: { ldrawId: 'p.dat', position: [0.05, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA } },
+      connections: {},
+      selection: { primaryId: 'solo', level: SelectionLevel.GROUP, allConnectedIds: ['solo'], excludedIds: [] },
+      interactionPhase: InteractionPhase.IDLE,
+    } as any);
+    useStore.getState().translateSelectedGroup([0, 0, 0.008]);
+    expect(useStore.getState().parts.solo.position[2]).toBeCloseTo(0.008, 6);
   });
 });

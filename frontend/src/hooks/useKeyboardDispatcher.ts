@@ -29,6 +29,7 @@ export function useKeyboardDispatcher() {
       selectedPort: () => useStore.getState().selectedPort,
       slidingTarget: () => useStore.getState().slidingTarget,
       slideOffset: () => useStore.getState().slideOffset,
+      hasSelection: () => useStore.getState().selection.primaryId !== null,
 
       // Actions — Zustand 保证函数引用稳定，直接取一次即可
       setSearchOpen: useStore.getState().setSearchOpen,
@@ -45,6 +46,8 @@ export function useKeyboardDispatcher() {
       showAll: useStore.getState().showAll,
       focusCameraOnSelected: useStore.getState().focusCameraOnSelected,
       rotateSelectedPart: useStore.getState().rotateSelectedPart,
+      rotateSelectedGroup: useStore.getState().rotateSelectedGroup,
+      translateSelectedGroup: useStore.getState().translateSelectedGroup,
       commitFreePlacing: useStore.getState().commitFreePlacing,
       commitAxialSliding: useStore.getState().commitAxialSliding,
       updateSlideOffset: useStore.getState().updateSlideOffset,
