@@ -663,12 +663,24 @@ export const useStore = create<StoreState>()(
   },
 
   undo: () => {
+    // 修：snap 已落但尚未 commit（AXIAL_SLIDING 中，snapPreState 非空）时，
+    // 该 snap 还没进 _history。此刻 Cmd+Z 的直觉是"撤掉我刚做的这步 snap"，
+    // 而不是去翻更早的已提交命令——后者会让旧操作被撤、当前 snap 还挂着，
+    // 状态错位（用户反馈"Cmd+Z 不好用"的真因）。abortCurrentInteraction 用
+    // 同一套 snapPreState 逻辑干净回退当前 snap 并复位到 IDLE。
+    if (get().snapPreState) {
+      get().abortCurrentInteraction();
+      return;
+    }
     _history.undo();
     get().addLog("Undo performed", 'ACTION');
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
   },
 
   redo: () => {
+    // 进行中的 snap（snapPreState 非空）期间 redo 无意义：当前这步还没落历史，
+    // redo 翻出的是更早被 undo 的命令，会跟 live snap 打架。直接忽略。
+    if (get().snapPreState) return;
     _history.redo();
     get().addLog("Redo performed", 'ACTION');
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });

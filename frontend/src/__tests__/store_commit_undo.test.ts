@@ -281,3 +281,94 @@ describe('store.undo/redo — SnapCommand round-trip', () => {
     expect(useStore.getState().canUndo).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Cmd+Z mid-snap（snap 已落未 commit）— undo 撤当前操作而非翻旧历史
+// 修自用户反馈："Cmd+Z 不好用"。AXIAL_SLIDING 中 snapPreState 非空，该 snap
+// 还没进 _history；此刻 undo 应 abort 当前 snap，而不是去 _history.undo() 翻更
+// 早的已提交命令（否则旧操作被撤、当前 snap 还挂着，状态错位）。
+// ─────────────────────────────────────────────────────────────────────────
+describe('store.undo/redo — mid-snap（snapPreState 非空）拦截', () => {
+  beforeEach(resetStore);
+
+  function commitOnePinIntoHistory() {
+    // 提交一个 snap 进历史（pin 落地 + cmd1），commit 后 snapPreState 被清。
+    useStore.setState({
+      parts: {
+        plate: { ldrawId: 'plate.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        pin:   { ldrawId: 'pin.dat',   position: [0.05, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: { plate: new Set(['pin']), pin: new Set(['plate']) },
+      occupiedPorts: {},
+      snapPreState: {
+        movedPartIds: ['pin'],
+        prevPositions: { pin: { position: [0, 0, 0], quaternion: [0, 0, 0, 1] } },
+        addedConnections: [{ from: 'pin', to: 'plate' }],
+        addedPartIds: ['pin'],
+        addedPortKeys: [],
+      },
+      interactionPhase: InteractionPhase.AXIAL_SLIDING,
+    } as any);
+    useStore.getState().commitAxialSliding();
+  }
+
+  function startLivePin2() {
+    // 模拟用户又 snap 了 pin2，处于 AXIAL_SLIDING 未 commit（snapPreState 非空）。
+    useStore.setState({
+      parts: {
+        ...useStore.getState().parts,
+        pin2: { ldrawId: 'pin.dat', position: [0.1, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      snapPreState: {
+        movedPartIds: ['pin2'],
+        prevPositions: { pin2: { position: [0, 0, 0], quaternion: [0, 0, 0, 1] } },
+        addedConnections: [{ from: 'pin2', to: 'plate' }],
+        addedPartIds: ['pin2'],
+        addedPortKeys: [],
+      },
+      interactionPhase: InteractionPhase.AXIAL_SLIDING,
+    } as any);
+  }
+
+  it('case 12: undo during live snap → abort 当前 snap（删 pin2 / 回 IDLE / 清 snapPreState），不动已提交历史', () => {
+    commitOnePinIntoHistory();
+    expect(useStore.getState().canUndo).toBe(true);
+    startLivePin2();
+
+    useStore.getState().undo(); // mid-slide Cmd+Z
+
+    const s = useStore.getState();
+    // 当前未提交 snap 被 abort
+    expect(s.parts.pin2).toBeUndefined();
+    expect(s.interactionPhase).toBe(InteractionPhase.IDLE);
+    expect(s.snapPreState).toBeNull();
+    // 关键：第一个已提交命令没被乱撤
+    expect(s.parts.pin).toBeDefined();
+    expect(s.canUndo).toBe(true);
+  });
+
+  it('case 13: abort 后再 undo（已 IDLE / 无 snapPreState）→ 正常撤第一个 commit（pin 删）', () => {
+    commitOnePinIntoHistory();
+    startLivePin2();
+    useStore.getState().undo();                       // abort pin2
+    expect(useStore.getState().snapPreState).toBeNull();
+    useStore.getState().undo();                       // 走历史撤 cmd1
+    expect(useStore.getState().parts.pin).toBeUndefined();
+  });
+
+  it('case 14: redo 在 snapPreState 非空时 no-op（不翻被 undo 的命令）', () => {
+    commitOnePinIntoHistory();
+    useStore.getState().undo();                        // 撤 cmd1（pin 删, canRedo=true）
+    expect(useStore.getState().parts.pin).toBeUndefined();
+    expect(useStore.getState().canRedo).toBe(true);
+    // 起 live snap
+    useStore.setState({
+      snapPreState: { movedPartIds: [], prevPositions: {}, addedConnections: [], addedPartIds: [], addedPortKeys: [] },
+      interactionPhase: InteractionPhase.AXIAL_SLIDING,
+    } as any);
+    useStore.getState().redo();                        // 应 no-op
+    // pin 没被 redo 重建，canRedo 仍 true（命令还在 redo 栈里）
+    expect(useStore.getState().parts.pin).toBeUndefined();
+    expect(useStore.getState().canRedo).toBe(true);
+  });
+});
