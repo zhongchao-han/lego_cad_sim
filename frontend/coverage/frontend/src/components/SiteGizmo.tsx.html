@@ -1,0 +1,1506 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for frontend/src/components/SiteGizmo.tsx</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../prettify.css" />
+    <link rel="stylesheet" href="../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">frontend/src/components</a> SiteGizmo.tsx</h1>
+        <div class='clearfix'>
+
+            <div class='fl pad1y space-right2'>
+                <span class="strong">23.65% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>66/279</span>
+            </div>
+
+
+            <div class='fl pad1y space-right2'>
+                <span class="strong">96.96% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>32/33</span>
+            </div>
+
+
+            <div class='fl pad1y space-right2'>
+                <span class="strong">42.85% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>3/7</span>
+            </div>
+
+
+            <div class='fl pad1y space-right2'>
+                <span class="strong">23.65% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>66/279</span>
+            </div>
+
+
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a>
+<a name='L419'></a><a href='#L419'>419</a>
+<a name='L420'></a><a href='#L420'>420</a>
+<a name='L421'></a><a href='#L421'>421</a>
+<a name='L422'></a><a href='#L422'>422</a>
+<a name='L423'></a><a href='#L423'>423</a>
+<a name='L424'></a><a href='#L424'>424</a>
+<a name='L425'></a><a href='#L425'>425</a>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a>
+<a name='L439'></a><a href='#L439'>439</a>
+<a name='L440'></a><a href='#L440'>440</a>
+<a name='L441'></a><a href='#L441'>441</a>
+<a name='L442'></a><a href='#L442'>442</a>
+<a name='L443'></a><a href='#L443'>443</a>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a>
+<a name='L449'></a><a href='#L449'>449</a>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a>
+<a name='L452'></a><a href='#L452'>452</a>
+<a name='L453'></a><a href='#L453'>453</a>
+<a name='L454'></a><a href='#L454'>454</a>
+<a name='L455'></a><a href='#L455'>455</a>
+<a name='L456'></a><a href='#L456'>456</a>
+<a name='L457'></a><a href='#L457'>457</a>
+<a name='L458'></a><a href='#L458'>458</a>
+<a name='L459'></a><a href='#L459'>459</a>
+<a name='L460'></a><a href='#L460'>460</a>
+<a name='L461'></a><a href='#L461'>461</a>
+<a name='L462'></a><a href='#L462'>462</a>
+<a name='L463'></a><a href='#L463'>463</a>
+<a name='L464'></a><a href='#L464'>464</a>
+<a name='L465'></a><a href='#L465'>465</a>
+<a name='L466'></a><a href='#L466'>466</a>
+<a name='L467'></a><a href='#L467'>467</a>
+<a name='L468'></a><a href='#L468'>468</a>
+<a name='L469'></a><a href='#L469'>469</a>
+<a name='L470'></a><a href='#L470'>470</a>
+<a name='L471'></a><a href='#L471'>471</a>
+<a name='L472'></a><a href='#L472'>472</a>
+<a name='L473'></a><a href='#L473'>473</a>
+<a name='L474'></a><a href='#L474'>474</a>
+<a name='L475'></a><a href='#L475'>475</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * SiteGizmo.tsx
+ * =============
+ * 基于 Site 聚类的 3D 方向选择 Gizmo 组件。
+ *
+ * 交互阶段行为：
+ *   IDLE / PREVIEWING   : 显示小中性球（存在感提示），不展开箭头。
+ *   Hover（任意阶段）    : 展开该 Site 内所有 Port 的方向箭头。
+ *   SOURCE_LOCKED        : 仅展开与手持源端口兼容的方向（Intent 过滤）。
+ *   点击箭头             : 调用 onPortClick 传递所选端口信息。
+ *
+ * 颜色规范（与 UI 文档对齐）：
+ *   - 紫色 (#e040fb) : MALE 端口（销/轴）
+ *   - 蓝色 (#2196f3) : FEMALE 端口（孔）
+ *   - 橙色 (#ff9800) : Source Locked 激活态（覆盖极性色）
+ */
+&nbsp;
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
+import type { Vec3, Mat3, SelectedPortInfo } from '../types';
+import { InteractionPhase, SelectionLevel } from '../types';
+import { useStore, portKey } from '../store';
+&nbsp;
+const LDU = 0.0004;
+&nbsp;
+// ─── 常量 ──────────────────────────────────────────────────────────────────
+&nbsp;
+const IDLE_SPHERE_RADIUS = 2.5 * LDU;   // 静默态：小点提示（备用）
+const ARROW_LENGTH       = 24 * LDU;    // 展开态：箭头总长（根据要求放大）
+const ARROW_HEAD_LEN     = 8 * LDU;     // 箭头头部长度
+const ARROW_HEAD_WIDTH   = 4.5 * LDU;   // 箭头头部宽度
+const GIZMO_SPHERE_R     = 5 * LDU;     // 展开态：方向箭头根部球（稍微放大）
+&nbsp;
+// ─── 类型辅助 ──────────────────────────────────────────────────────────────
+&nbsp;
+// `isFemale` / `isCompatible` 暴露出去仅为了让 __tests__/siteGizmo_compat.test.ts
+// 可以直接做纯函数单测；运行时调用方仍然只在本文件内。改 SiteGizmo 极性规则时
+// 单测先红、定位极快。
+export function isFemale(port: LDrawPort): boolean {
+  if (port.gender) {
+    return port.gender === 'FEMALE';
+  }
+  const t = port.type?.toLowerCase(<span class="branch-0 cbranch-no" title="branch not covered" >) || '';</span>
+  return t.includes('hole') || t.includes('hol') || t === 'peghole' || t === 'axlehole';
+}
+&nbsp;
+/**
+ * B.1（v2，UX 反馈迭代）：plug hover 反馈从"每孔叠一个黄球"改为"整个 plug
+ * 画一圈线框轮廓"。原方案在 40490 这种 8mm 间距密集孔梁上，18 个 16-LDU 球
+ * 重叠糊成一坨黄，看不清单个孔。改用 part-local 包围盒线框：既表达"这一整组
+ * 是一个 plug"，又不遮住孔/箭头。
+ *
+ * 本纯函数算 plug 的 part-local AABB（让 __tests__ 直接验，不走 React）：
+ *   - hoveredPort 为空 / 无 plug_id / 不在本 part → null（不画）
+ *   - 找不到对应 plug / plug member &lt; 2 → null（单 port plug 画框没意义）
+ *   - 否则聚所有 member 的 port.position 求 AABB，按 margin 外扩，并对每个轴
+ *     施加 minThickness 防"共面 plug 退化成 0 厚度面"看不见
+ *
+ * 返回的 center/size 是 part-local 坐标，直接喂给挂在 part group（groupRef，
+ * 已携带世界位姿）下的 BoxGeometry。
+ */
+export interface PlugOutlineBox {
+  center: Vec3;
+  size: Vec3;
+}
+&nbsp;
+export function computePlugOutlineBox(args: {
+  hoveredPort: SelectedPortInfo | null;
+  partId: string;
+  plugs: LDrawPlug[];
+  sites: LDrawSite[];
+  margin?: number;
+  minThickness?: number;
+}): PlugOutlineBox | null {
+  const {
+    hoveredPort, partId, plugs, sites,
+    margin = 9 * LDU, minThickness = 6 * LDU,
+  } = args;
+  if (!hoveredPort || !hoveredPort.plug_id) return null;
+  if (hoveredPort.partId !== partId) return null;
+  const plug = plugs.find(p =&gt; p.plug_id === hoveredPort.plug_id);
+  if (!plug || plug.members.length &lt; 2) return null;
+&nbsp;
+  const siteMap = new Map(sites.map(s =&gt; [s.id, s]));
+  const pts: Vec3[] = [];
+  for (const [siteId, portIdx] of plug.members) {
+    const port = siteMap.get(siteId)?.ports?.[portIdx];
+    if (port) pts.push(port.position as Vec3);
+  }
+  if (pts.length &lt; 2) return null;
+&nbsp;
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (const p of pts) {
+    for (let i = 0; i &lt; 3; i++) {
+      if (p[i] &lt; min[i]) min[i] = p[i];
+      if (p[i] &gt; max[i]) max[i] = p[i];
+    }
+  }
+&nbsp;
+  const center: Vec3 = [
+    (min[0] + max[0]) / 2,
+    (min[1] + max[1]) / 2,
+    (min[2] + max[2]) / 2,
+  ];
+  const size: Vec3 = [
+    Math.max(max[0] - min[0] + 2 * margin, minThickness),
+    Math.max(max[1] - min[1] + 2 * margin, minThickness),
+    Math.max(max[2] - min[2] + 2 * margin, minThickness),
+  ];
+  return { center, size };
+}
+&nbsp;
+export function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
+  if (!sourcePortType) return true; // SOURCE_LOCKED 未设置时，全部显示
+
+  const srcIsFemale = sourcePortType.toLowerCase().includes('hole') || sourcePortType.toLowerCase().includes('hol');
+  const tgtIsFemale = isFemale(targetPort);
+
+  // 简单极性过滤：一孔一插才算兼容
+  return srcIsFemale !== tgtIsFemale;
+}
+&nbsp;
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function computePortQuaternion(rotation: number[][]): THREE.Quaternion {</span></span>
+<span class="cstat-no" title="statement not covered" >  const mat = new THREE.Matrix4().set(</span>
+<span class="cstat-no" title="statement not covered" >    rotation[0][0], rotation[0][1], rotation[0][2], 0,</span>
+<span class="cstat-no" title="statement not covered" >    rotation[1][0], rotation[1][1], rotation[1][2], 0,</span>
+<span class="cstat-no" title="statement not covered" >    rotation[2][0], rotation[2][1], rotation[2][2], 0,</span>
+<span class="cstat-no" title="statement not covered" >    0, 0, 0, 1</span>
+<span class="cstat-no" title="statement not covered" >  );</span>
+<span class="cstat-no" title="statement not covered" >  return new THREE.Quaternion().setFromRotationMatrix(mat);</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;
+// ─── 子组件：单箭头 ────────────────────────────────────────────────────────
+&nbsp;
+interface PortArrowProps {
+  port: LDrawPort;
+  /** Site 中心相对于零件的局部坐标（用于推算箭头的渲染偏移位置） */
+  sitePos: Vec3;
+  isSelected: boolean;
+  isCompatiblePort: boolean;
+  groupRef: React.RefObject&lt;THREE.Group&gt;;
+  partId: string;
+  ldrawId: string;
+  showVisuals: boolean;
+  /** B.2：click handler 接收 shiftKey 让 callsite 决定是否走 plug 模式。
+   *  Optional 第二参数保持向后兼容（旧 callsite 忽略即可）。 */
+  onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) =&gt; void;
+  onPortHover?: (info: SelectedPortInfo | null) =&gt; void;
+}
+&nbsp;
+// 球体半径：7 LDU (2.8mm)。标准孔半径约 6 LDU (2.4mm)。
+// 略大于孔径，用于纯几何 Hover 拦截，防止射线穿模导致闪烁。
+const GIZMO_SPHERE_R_ENLARGED = 7 * LDU;
+&nbsp;
+// B.1（v2）：plug hover 反馈用整组线框轮廓（见 PlugSiblingOutline），不再每孔
+// 叠球。荧光黄、不写/不测深度，确保从任意相机角度都能穿过 beam 实体看到。
+const PLUG_OUTLINE_COLOR = '#ffd400';
+const PLUG_OUTLINE_OPACITY = 0.95;
+&nbsp;
+// 方案 1（UX 反馈）：part-hover 展开全部 port 时，只有鼠标直接悬停 / 选中的 port
+// 画成完整方向箭头 + 全亮球；其余 port 淡化成低透明度小点 —— 既保留"哪里有孔"
+// 的可发现性，又消除密集孔梁（如 40490）一次性弹 18 个箭头的视觉杂讯。
+// Debug「Show All Ports」仍强制全亮箭头，是已有逃生口。
+const DIMMED_PORT_OPACITY = 0.2;
+&nbsp;
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >function PortArrow({</span></span>
+<span class="cstat-no" title="statement not covered" >  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, onPortClick, onPortHover</span>
+<span class="cstat-no" title="statement not covered" >}: PortArrowProps) {</span>
+<span class="cstat-no" title="statement not covered" >  const [hovered, setHovered] = useState(false);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const isLocallyActive = hovered || isSelected;</span>
+<span class="cstat-no" title="statement not covered" >  const debugShowPorts = useStore(s =&gt; s.debugShowPorts);</span>
+&nbsp;
+  // showVisuals = 父组件认为该 part 处于激活态（hover / 选中 / static）→ port 热区
+  // 始终渲染（拦射线）。但 *视觉强度* 分两档（方案 1）：
+  //   - prominent（鼠标直接悬停该 port / 选中 / Debug 全显）→ 完整箭头 + 全亮球
+  //   - 否则（仅因 part-hover 被展开）→ 淡化成低透明度小点
+<span class="cstat-no" title="statement not covered" >  const shouldShowVisuals = showVisuals;</span>
+<span class="cstat-no" title="statement not covered" >  const prominent = isLocallyActive || debugShowPorts;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';</span>
+<span class="cstat-no" title="statement not covered" >  const ACTIVE_COLOR = '#ff9800'; // Source Locked 激活高亮色</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  let color = genderColor;</span>
+<span class="cstat-no" title="statement not covered" >  let opacity = 0.9;</span>
+
+<span class="cstat-no" title="statement not covered" >  if (isSelected) {</span>
+    // 作为 Source 被选中时，它自身无需通过极性过滤（同极性相斥法则），必须强行高亮为原点色
+<span class="cstat-no" title="statement not covered" >    color = ACTIVE_COLOR;</span>
+<span class="cstat-no" title="statement not covered" >    opacity = 0.9;</span>
+<span class="cstat-no" title="statement not covered" >  } else {</span>
+    // 未选中态（彻底摒弃 Hover 视觉差，贯彻盲操原则）
+<span class="cstat-no" title="statement not covered" >    if (!isCompatiblePort) {</span>
+<span class="cstat-no" title="statement not covered" >      color = '#444444'; // 不兼容：暗灰色</span>
+<span class="cstat-no" title="statement not covered" >      opacity = 0.2;</span>
+<span class="cstat-no" title="statement not covered" >    } else {</span>
+<span class="cstat-no" title="statement not covered" >      color = genderColor; // 默认极性色</span>
+<span class="cstat-no" title="statement not covered" >      opacity = 0.9;</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const pos = port.position as Vec3;</span>
+<span class="cstat-no" title="statement not covered" >  const renderPos = useMemo((): Vec3 =&gt; [</span>
+<span class="cstat-no" title="statement not covered" >    pos[0] - sitePos[0],</span>
+<span class="cstat-no" title="statement not covered" >    pos[1] - sitePos[1],</span>
+<span class="cstat-no" title="statement not covered" >    pos[2] - sitePos[2],</span>
+<span class="cstat-no" title="statement not covered" >  ], [pos, sitePos]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const quaternion = useMemo(() =&gt; computePortQuaternion(port.rotation), [port.rotation]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const buildPortInfo = useCallback((): SelectedPortInfo =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    const worldPos = new THREE.Vector3(...pos);</span>
+<span class="cstat-no" title="statement not covered" >    const worldQuat = new THREE.Quaternion().copy(quaternion);</span>
+<span class="cstat-no" title="statement not covered" >    if (groupRef.current) {</span>
+<span class="cstat-no" title="statement not covered" >      groupRef.current.localToWorld(worldPos);</span>
+<span class="cstat-no" title="statement not covered" >      const gq = new THREE.Quaternion();</span>
+<span class="cstat-no" title="statement not covered" >      groupRef.current.getWorldQuaternion(gq);</span>
+<span class="cstat-no" title="statement not covered" >      worldQuat.premultiply(gq);</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    return {</span>
+<span class="cstat-no" title="statement not covered" >      partId, ldrawId,</span>
+<span class="cstat-no" title="statement not covered" >      portType: port.type,</span>
+<span class="cstat-no" title="statement not covered" >      position: pos,</span>
+<span class="cstat-no" title="statement not covered" >      rotation: port.rotation as Mat3,</span>
+<span class="cstat-no" title="statement not covered" >      globalPos: [worldPos.x, worldPos.y, worldPos.z],</span>
+<span class="cstat-no" title="statement not covered" >      globalQuat: [worldQuat.x, worldQuat.y, worldQuat.z, worldQuat.w],</span>
+<span class="cstat-no" title="statement not covered" >      plug_id: port.plug_id,  // B.1：透传给 store hoveredPort 让兄弟 port 联动</span>
+<span class="cstat-no" title="statement not covered" >    };</span>
+<span class="cstat-no" title="statement not covered" >  }, [pos, quaternion, groupRef, partId, ldrawId, port]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const direction = useMemo(() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    return new THREE.Vector3(</span>
+<span class="cstat-no" title="statement not covered" >      port.rotation[0][2], port.rotation[1][2], port.rotation[2][2]</span>
+<span class="cstat-no" title="statement not covered" >    ).normalize();</span>
+<span class="cstat-no" title="statement not covered" >  }, [port.rotation]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  useEffect(() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    return () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (hovered) {</span>
+<span class="cstat-no" title="statement not covered" >        document.body.style.cursor = 'auto';</span>
+<span class="cstat-no" title="statement not covered" >        onPortHover?.(null);</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
+<span class="cstat-no" title="statement not covered" >    };</span>
+<span class="cstat-no" title="statement not covered" >  }, [hovered, onPortHover]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const handlePointerOver = useCallback((e: any) =&gt; {</span>
+    // 绝对不能调用 e.stopPropagation()！
+<span class="cstat-no" title="statement not covered" >    if (!isCompatiblePort) return;</span>
+    // 移除 if (showVisuals) 检查：
+    // 当鼠标第一时间划入时，可能父组件还未来得及响应并下发 showVisuals=true。
+    // 如果这里被阻挡，会导致局部 hover 状态丢失，出现"高亮一下就消失"或根本不高亮的 Bug。
+<span class="cstat-no" title="statement not covered" >    setHovered(true);</span>
+<span class="cstat-no" title="statement not covered" >    document.body.style.cursor = 'pointer';</span>
+<span class="cstat-no" title="statement not covered" >    onPortHover?.(buildPortInfo());</span>
+<span class="cstat-no" title="statement not covered" >  }, [isCompatiblePort, onPortHover, buildPortInfo]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const handlePointerOut = useCallback((e: any) =&gt; {</span>
+    // 不在这里防抖：每个 PortArrow 各自延时会让"用户从端口 A 移到端口 B"出问题——
+    // A 的 out 定时器到期后会盖掉 B 已经写入的 hoveredPort，造成 ghost 在 A→B 切换时
+    // 闪没。统一在 store.setHoveredPort 里做单源防抖，全局只有一个待决 null。
+<span class="cstat-no" title="statement not covered" >    setHovered(false);</span>
+<span class="cstat-no" title="statement not covered" >    document.body.style.cursor = 'auto';</span>
+<span class="cstat-no" title="statement not covered" >    onPortHover?.(null);</span>
+<span class="cstat-no" title="statement not covered" >  }, [onPortHover]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+<span class="cstat-no" title="statement not covered" >    &lt;group </span>
+<span class="cstat-no" title="statement not covered" >      position={renderPos}</span>
+<span class="cstat-no" title="statement not covered" >      onPointerOver={handlePointerOver}</span>
+<span class="cstat-no" title="statement not covered" >      onPointerOut={handlePointerOut}</span>
+<span class="cstat-no" title="statement not covered" >      onPointerDown={(e) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        if (!isCompatiblePort) return;</span>
+<span class="cstat-no" title="statement not covered" >        e.stopPropagation();</span>
+<span class="cstat-no" title="statement not covered" >      }}</span>
+<span class="cstat-no" title="statement not covered" >      onClick={(e) =&gt; {</span>
+        // [防误触终极防护] 如果从按下到抬起，鼠标位移超过 5 个像素，判定为用户在“拖拽视角”而非“点击端口”。
+        // 直接忽略并拦截该事件，不向上也不向内传播。
+<span class="cstat-no" title="statement not covered" >        if (e.delta &gt; 5) {</span>
+<span class="cstat-no" title="statement not covered" >            e.stopPropagation();</span>
+<span class="cstat-no" title="statement not covered" >            return;</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
+<span class="cstat-no" title="statement not covered" >        if (!isCompatiblePort) return;</span>
+<span class="cstat-no" title="statement not covered" >        e.stopPropagation();</span>
+        // B.2：Shift+Click → 上层决定走 plug-anchor 路径
+<span class="cstat-no" title="statement not covered" >        onPortClick?.(buildPortInfo(), { shiftKey: !!(e as unknown as { shiftKey?: boolean }).shiftKey });</span>
+<span class="cstat-no" title="statement not covered" >      }}</span>
+<span class="cstat-no" title="statement not covered" >      onDoubleClick={(e) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        if (!showVisuals) return;</span>
+<span class="cstat-no" title="statement not covered" >        e.stopPropagation();</span>
+<span class="cstat-no" title="statement not covered" >      }}</span>
+    &gt;
+      {/* 视觉箭头：仅当 prominent（直接悬停 / 选中 / Debug 全显）才画完整箭头。
+          方案 1：part-hover 仅展开热区时不画 18 个箭头，只留下面淡化的小球点。 */}
+<span class="cstat-no" title="statement not covered" >      {shouldShowVisuals &amp;&amp; prominent &amp;&amp; (</span>
+<span class="cstat-no" title="statement not covered" >        &lt;arrowHelper</span>
+<span class="cstat-no" title="statement not covered" >          args={[</span>
+<span class="cstat-no" title="statement not covered" >            direction,</span>
+<span class="cstat-no" title="statement not covered" >            new THREE.Vector3(0, 0, 0),</span>
+<span class="cstat-no" title="statement not covered" >            ARROW_LENGTH, color, ARROW_HEAD_LEN, ARROW_HEAD_WIDTH</span>
+<span class="cstat-no" title="statement not covered" >          ]}</span>
+<span class="cstat-no" title="statement not covered" >          onUpdate={(self) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >            self.traverse((child) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >              child.raycast = () =&gt; {};</span>
+<span class="cstat-no" title="statement not covered" >            });</span>
+<span class="cstat-no" title="statement not covered" >          }}</span>
+<span class="cstat-no" title="statement not covered" >        /&gt;</span>
+      )}
+
+      {/* 根部拦截球体（核心兜底）：始终存在。
+          它是纯几何 Hover 拦截的核心，同时也是触发局部悬停的精确热区。
+          当未被悬停时，透明且不写深度，但参与射线检测，防止鼠标落入孔洞。 */}
+<span class="cstat-no" title="statement not covered" >      &lt;mesh quaternion={quaternion}&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;sphereGeometry args={[GIZMO_SPHERE_R_ENLARGED, 16, 16]} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;meshBasicMaterial</span>
+<span class="cstat-no" title="statement not covered" >          color={color}</span>
+<span class="cstat-no" title="statement not covered" >          toneMapped={false}</span>
+<span class="cstat-no" title="statement not covered" >          opacity={shouldShowVisuals ? (prominent ? opacity : DIMMED_PORT_OPACITY) : 0}</span>
+<span class="cstat-no" title="statement not covered" >          transparent</span>
+<span class="cstat-no" title="statement not covered" >          depthWrite={shouldShowVisuals &amp;&amp; prominent}</span>
+<span class="cstat-no" title="statement not covered" >          colorWrite={shouldShowVisuals}</span>
+<span class="cstat-no" title="statement not covered" >        /&gt;</span>
+<span class="cstat-no" title="statement not covered" >      &lt;/mesh&gt;</span>
+&nbsp;
+      {/* 独立封装的完美方向性碰撞热区 (Directional Hitbox)：仅激活时渲染并接受点击 */}
+<span class="cstat-no" title="statement not covered" >      {isCompatiblePort &amp;&amp; showVisuals &amp;&amp; (</span>
+<span class="cstat-no" title="statement not covered" >        &lt;mesh</span>
+<span class="cstat-no" title="statement not covered" >          position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}</span>
+<span class="cstat-no" title="statement not covered" >          quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}</span>
+<span class="cstat-no" title="statement not covered" >          renderOrder={999}</span>
+        &gt;
+<span class="cstat-no" title="statement not covered" >          &lt;cylinderGeometry args={[10 * LDU, 10 * LDU, ARROW_LENGTH, 12]} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >          &lt;meshBasicMaterial transparent opacity={0} depthWrite={false} /&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;/mesh&gt;</span>
+      )}
+&nbsp;
+      {/* B.1（v2）：plug-sibling 反馈已上移到 part 层的 PlugSiblingOutline
+          （整组线框轮廓），PortArrow 不再画 per-port halo 球。 */}
+<span class="cstat-no" title="statement not covered" >    &lt;/group&gt;</span>
+  );
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;
+// ─── PlugSiblingOutline：plug hover 整组线框轮廓（part 层渲染） ───────────────
+&nbsp;
+export interface PlugSiblingOutlineProps {
+  partId: string;
+  plugs: LDrawPlug[];
+  sites: LDrawSite[];
+}
+&nbsp;
+/**
+ * 渲染"被 hover 的 plug"的 part-local 包围盒线框。挂在 InteractivePart 的
+ * groupRef（携带世界位姿）下，跟 SiteGizmo 同帧。订阅 store.hoveredPort，
+ * 几何由 computePlugOutlineBox 纯函数算（单测覆盖）。线框用 EdgesGeometry
+ * （只 12 条棱、无对角线），depthTest 关 → 穿过 beam 实体可见。
+ */
+export <span class="fstat-no" title="function not covered" >function PlugSiblingOutline({ partId, plugs, sites }: PlugSiblingOutlineProps) {</span>
+<span class="cstat-no" title="statement not covered" >  const hoveredPort = useStore(s =&gt; s.hoveredPort);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const box = useMemo(</span>
+<span class="cstat-no" title="statement not covered" >    () =&gt; computePlugOutlineBox({ hoveredPort, partId, plugs, sites }),</span>
+<span class="cstat-no" title="statement not covered" >    [hoveredPort, partId, plugs, sites],</span>
+<span class="cstat-no" title="statement not covered" >  );</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const edges = useMemo(() =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    if (!box) return null;</span>
+<span class="cstat-no" title="statement not covered" >    const boxGeo = new THREE.BoxGeometry(box.size[0], box.size[1], box.size[2]);</span>
+<span class="cstat-no" title="statement not covered" >    const e = new THREE.EdgesGeometry(boxGeo);</span>
+<span class="cstat-no" title="statement not covered" >    boxGeo.dispose();</span>
+<span class="cstat-no" title="statement not covered" >    return e;</span>
+<span class="cstat-no" title="statement not covered" >  }, [box]);</span>
+&nbsp;
+  // EdgesGeometry 经 geometry prop 传入 → R3F 不自动 dispose，手动在变更/卸载时释放
+<span class="cstat-no" title="statement not covered" >  useEffect(() =&gt; () =&gt; { edges?.dispose(); }, [edges]);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!box || !edges) return null;</span>
+<span class="cstat-no" title="statement not covered" >  return (</span>
+<span class="cstat-no" title="statement not covered" >    &lt;lineSegments</span>
+<span class="cstat-no" title="statement not covered" >      geometry={edges}</span>
+<span class="cstat-no" title="statement not covered" >      position={box.center}</span>
+<span class="cstat-no" title="statement not covered" >      raycast={() =&gt; {}}</span>
+<span class="cstat-no" title="statement not covered" >      renderOrder={1000}</span>
+    &gt;
+<span class="cstat-no" title="statement not covered" >      &lt;lineBasicMaterial</span>
+<span class="cstat-no" title="statement not covered" >        color={PLUG_OUTLINE_COLOR}</span>
+<span class="cstat-no" title="statement not covered" >        transparent</span>
+<span class="cstat-no" title="statement not covered" >        opacity={PLUG_OUTLINE_OPACITY}</span>
+<span class="cstat-no" title="statement not covered" >        depthTest={false}</span>
+<span class="cstat-no" title="statement not covered" >        depthWrite={false}</span>
+<span class="cstat-no" title="statement not covered" >        toneMapped={false}</span>
+<span class="cstat-no" title="statement not covered" >      /&gt;</span>
+<span class="cstat-no" title="statement not covered" >    &lt;/lineSegments&gt;</span>
+  );
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;
+// ─── 主组件：SiteGizmo ─────────────────────────────────────────────────────
+&nbsp;
+export interface SiteGizmoProps {
+  site: LDrawSite;
+  groupRef: React.RefObject&lt;THREE.Group&gt;;
+  partId: string;
+  ldrawId: string;
+  phase: InteractionPhase;
+  sourcePortType?: string | null;
+  selectedPort?: SelectedPortInfo | null;
+  /** B.2：当前 plug 选择模式。PLUG 时，所有跟 selectedPort 同 plug
+   *  的 member port 都视为 isSelected（橙色高亮，不只是 selectedPort 单颗）。 */
+  portSelectionLevel?: SelectionLevel;
+  showVisuals: boolean;
+  /** 该零件上已被占用（已被对端塞住）的端口 key 集合；命中即整体跳过渲染。 */
+  occupiedKeys?: Set&lt;string&gt;;
+  onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) =&gt; void;
+  onPortHover?: (info: SelectedPortInfo | null) =&gt; void;
+}
+&nbsp;
+export <span class="fstat-no" title="function not covered" >function SiteGizmo({</span>
+<span class="cstat-no" title="statement not covered" >  site, groupRef, partId, ldrawId, phase, sourcePortType = null,</span>
+<span class="cstat-no" title="statement not covered" >  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, onPortClick, onPortHover</span>
+<span class="cstat-no" title="statement not covered" >}: SiteGizmoProps) {</span>
+<span class="cstat-no" title="statement not covered" >  const sitePos = site.position as Vec3;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return (</span>
+<span class="cstat-no" title="statement not covered" >    &lt;group position={sitePos}&gt;</span>
+<span class="cstat-no" title="statement not covered" >      {site.ports.map((port, idx) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        const compatible = isCompatible(</span>
+<span class="cstat-no" title="statement not covered" >          sourcePortType,</span>
+<span class="cstat-no" title="statement not covered" >          port</span>
+<span class="cstat-no" title="statement not covered" >        );</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        const portPos = port.position as Vec3;</span>
+<span class="cstat-no" title="statement not covered" >        const portIsExactSelected = !!selectedPort</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; selectedPort.partId === partId</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; Math.abs(selectedPort.position[0] - portPos[0]) &lt; 1e-4</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; Math.abs(selectedPort.position[1] - portPos[1]) &lt; 1e-4</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; Math.abs(selectedPort.position[2] - portPos[2]) &lt; 1e-4;</span>
+        // B.2：PLUG 选择模式下，所有同 plug member 都视为 selected（橙色）
+<span class="cstat-no" title="statement not covered" >        const portIsPlugMember = portSelectionLevel === SelectionLevel.PLUG</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; !!selectedPort</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; selectedPort.partId === partId</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; !!selectedPort.plug_id</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; !!port.plug_id</span>
+<span class="cstat-no" title="statement not covered" >          &amp;&amp; selectedPort.plug_id === port.plug_id;</span>
+<span class="cstat-no" title="statement not covered" >        const portIsSelected = portIsExactSelected || portIsPlugMember;</span>
+&nbsp;
+        // 占用过滤：portKey 已经把端口的 Z 轴方向也算进 key，所以同位置不同方向的端口
+        // （比如 2780 销 site 里 p0/p1 共享 (0,0,0) 但方向相反）只会有"被 snap 实际用掉的
+        // 那一端"被命中、被隐藏；销的另一端仍然可见、可作为新的 source 反向吸附别的孔。
+        // 灰板的孔属于单方向 FEMALE，被插上后这里直接挡掉，避免"误点已占用孔→源极性变成
+        // 同性→所有目标不兼容→没幽灵"的连锁假象。
+<span class="cstat-no" title="statement not covered" >        if (occupiedKeys &amp;&amp; occupiedKeys.has(portKey(portPos, port.rotation)) &amp;&amp; !portIsSelected) {</span>
+<span class="cstat-no" title="statement not covered" >          return null;</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        return (</span>
+<span class="cstat-no" title="statement not covered" >          &lt;PortArrow</span>
+<span class="cstat-no" title="statement not covered" >            key={`${site.id}_port_${idx}`}</span>
+<span class="cstat-no" title="statement not covered" >            port={port}</span>
+<span class="cstat-no" title="statement not covered" >            sitePos={sitePos}</span>
+<span class="cstat-no" title="statement not covered" >            isSelected={portIsSelected}</span>
+<span class="cstat-no" title="statement not covered" >            isCompatiblePort={compatible}</span>
+<span class="cstat-no" title="statement not covered" >            groupRef={groupRef}</span>
+<span class="cstat-no" title="statement not covered" >            partId={partId}</span>
+<span class="cstat-no" title="statement not covered" >            ldrawId={ldrawId}</span>
+<span class="cstat-no" title="statement not covered" >            showVisuals={showVisuals}</span>
+<span class="cstat-no" title="statement not covered" >            onPortClick={onPortClick}</span>
+<span class="cstat-no" title="statement not covered" >            onPortHover={onPortHover}</span>
+<span class="cstat-no" title="statement not covered" >          /&gt;</span>
+        );
+<span class="cstat-no" title="statement not covered" >      })}</span>
+<span class="cstat-no" title="statement not covered" >    &lt;/group&gt;</span>
+  );
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-05-22T07:52:55.087Z
+            </div>
+        <script src="../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../sorter.js"></script>
+        <script src="../../../block-navigation.js"></script>
+    </body>
+</html>
