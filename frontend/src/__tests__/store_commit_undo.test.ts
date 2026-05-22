@@ -447,3 +447,50 @@ describe('store.rotateSelectedGroup / translateSelectedGroup — 整组变换 + 
     expect(useStore.getState().parts.solo.position[2]).toBeCloseTo(0.008, 6);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// addLog 连续相同消息折叠（×N）— 防过约束锁死等高频重复日志刷屏
+// ─────────────────────────────────────────────────────────────────────────
+describe('store.addLog — 连续相同消息折叠', () => {
+  beforeEach(() => { useStore.setState({ logs: [] } as any); });
+
+  it('case 19: 连续 3 条相同 message+type → 折叠成 1 条 count=3', () => {
+    const add = useStore.getState().addLog;
+    add('过约束锁死', 'ERROR');
+    add('过约束锁死', 'ERROR');
+    add('过约束锁死', 'ERROR');
+    const logs = useStore.getState().logs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].count).toBe(3);
+    expect(logs[0].message).toBe('过约束锁死');
+  });
+
+  it('case 20: 不同 message 不折叠', () => {
+    const add = useStore.getState().addLog;
+    add('A', 'INFO');
+    add('B', 'INFO');
+    add('A', 'INFO');
+    const logs = useStore.getState().logs;
+    expect(logs).toHaveLength(3);
+    expect(logs.every(l => l.count === undefined)).toBe(true);
+  });
+
+  it('case 21: 同 message 但不同 type 不折叠', () => {
+    const add = useStore.getState().addLog;
+    add('X', 'INFO');
+    add('X', 'ERROR');
+    expect(useStore.getState().logs).toHaveLength(2);
+  });
+
+  it('case 22: 折叠只看「末条」—— 被别的消息打断后再来同消息算新条目', () => {
+    const add = useStore.getState().addLog;
+    add('rot', 'ERROR');   // 1
+    add('rot', 'ERROR');   // 折叠 → count 2
+    add('moved', 'ACTION'); // 打断
+    add('rot', 'ERROR');   // 新条目（末条是 moved，不折叠）
+    const logs = useStore.getState().logs;
+    expect(logs).toHaveLength(3);
+    expect(logs[0].count).toBe(2);
+    expect(logs[2].count).toBeUndefined();
+  });
+});

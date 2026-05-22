@@ -14,7 +14,7 @@ export const LogPanel: React.FC = () => {
     }, [logs, showLogPanel, debugMode]);
 
     const copyToClipboard = () => {
-        const text = logs.map(l => `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.type}: ${l.message}`).join('\n');
+        const text = logs.map(l => `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.type}: ${l.message}${l.count && l.count >= 2 ? ` (×${l.count})` : ''}`).join('\n');
         navigator.clipboard.writeText(text);
         alert('Logs copied to clipboard!');
     };
@@ -90,6 +90,11 @@ export const LogPanel: React.FC = () => {
                                     ${log.type === 'PHYSICS' ? 'text-purple-200' : ''}
                                 `}>
                                     {log.message}
+                                    {log.count && log.count >= 2 && (
+                                        <span className="ml-1 px-1 rounded bg-slate-600 text-slate-200 text-[10px] font-mono">
+                                            ×{log.count}
+                                        </span>
+                                    )}
                                 </span>
                             </div>
                         </div>
