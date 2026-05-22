@@ -216,3 +216,32 @@ export function calculatePortRotationPose(
         quaternion: [_prp_qOut.x, _prp_qOut.y, _prp_qOut.z, _prp_qOut.w] as [number, number, number, number],
     };
 }
+
+// quatTimesAxisAngle 专用
+const _qaa_axis = new THREE.Vector3();
+const _qaa_dq = new THREE.Quaternion();
+const _qaa_q = new THREE.Quaternion();
+
+/**
+ * 世界轴预乘旋转：返回 `axisAngle(axis, angle) ⊗ q`。
+ *
+ * 用于"选中已放置零件本体后绕世界轴整体旋转"（rotateSelectedGroup）。预乘
+ * （把增量旋转放左边）= 在 **世界坐标系** 的 axis 上转，而非零件局部轴 —— 这
+ * 样不论零件当前朝向如何，按 [/] 永远是绕竖直 Y 轴水平自旋，符合"在桌面上转
+ * 这个装配"的直觉。
+ *
+ * @param q     原四元数 [x,y,z,w]
+ * @param axis  世界轴（内部归一化）
+ * @param angle 弧度
+ */
+export function quatTimesAxisAngle(
+    q: [number, number, number, number],
+    axis: [number, number, number],
+    angle: number,
+): [number, number, number, number] {
+    _qaa_axis.set(axis[0], axis[1], axis[2]).normalize();
+    _qaa_dq.setFromAxisAngle(_qaa_axis, angle);
+    _qaa_q.set(q[0], q[1], q[2], q[3]);
+    _qaa_dq.multiply(_qaa_q); // dq ⊗ q（世界轴预乘）
+    return [_qaa_dq.x, _qaa_dq.y, _qaa_dq.z, _qaa_dq.w];
+}

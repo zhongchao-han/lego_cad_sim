@@ -19,7 +19,7 @@ import {
 import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
-import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset } from './utils/snapMath';
+import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -230,6 +230,14 @@ interface StoreState {
   updateSelection: (level: SelectionLevel) => void;
   updateSlideOffset: (offset: number, shiftKey?: boolean) => void;
   rotateSelectedPart: (angleRads: number) => void;
+  /** 已放置零件自由编辑（IDLE + selection）：绕世界 Y 轴整体旋转当前选中
+   *  零件所在的连通组（pivot = primary 原点）。可撤销。 */
+  rotateSelectedGroup: (angleRads: number) => void;
+  /** 已放置零件自由编辑：把当前选中零件所在连通组整体平移 delta（世界系，米）。可撤销。 */
+  translateSelectedGroup: (delta: Vec3) => void;
+  /** 内部 helper（rotate/translateSelectedGroup 共用）：给定 primary 新位姿，
+   *  整组刚体应用 + 推可撤销命令 + ACTION 日志。 */
+  _transformSelectedGroup: (newPrimaryPose: { position: Vec3; quaternion: Quat }, logMsg: string) => void;
   setBlocked: (report: InterferenceReport) => void;
   setPhase: (phase: InteractionPhase) => void;
   previewPart: (id: string | null) => void;
@@ -1673,7 +1681,68 @@ export const useStore = create<StoreState>()(
       };
     });
     batchUpdatePartStates(updates);
-    get().addLog(`Rotated part ${partId} (group of ${srcGroup.length}, anchor=${excludeId || 'none'}) by ${angleRads.toFixed(2)} rads`);
+    get().addLog(`Rotated part ${partId} (group of ${srcGroup.length}, anchor=${excludeId || 'none'}) by ${angleRads.toFixed(2)} rads`, 'ACTION');
+  },
+
+  // ── 已放置零件自由编辑（IDLE + selection）──────────────────────────────────
+  // 选中零件本体后用 [/] 旋转、方向键平移。不依赖端口锁定。整组刚体一起动
+  // （getConnectedGroup + applyGroupDelta），可撤销（createTopologyCommand）。
+  // 内部 helper：算整组新位姿 + 推可撤销命令 + ACTION 日志。
+  _transformSelectedGroup: (newPrimaryPose: { position: Vec3; quaternion: Quat }, logMsg: string) => {
+    const { selection, parts, connections, batchUpdatePartStates } = get();
+    const primaryId = selection.primaryId;
+    const primary = primaryId ? parts[primaryId] : null;
+    if (!primaryId || !primary) return;
+
+    const group = getConnectedGroup(connections, primaryId, "");
+    const oldPose = { position: primary.position as Vec3, quaternion: primary.quaternion as Quat };
+    const groupNewPoses = applyGroupDelta(group, parts, primaryId, oldPose, newPrimaryPose);
+
+    // capture prev / next 供 undo / redo 双向回放
+    const prevUpdates: Record<string, Partial<PartState>> = {};
+    const nextUpdates: Record<string, Partial<PartState>> = {};
+    group.forEach(pid => {
+      const p = parts[pid];
+      const np = groupNewPoses[pid];
+      if (!p || !np) return;
+      prevUpdates[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
+      nextUpdates[pid] = { position: np.position as Vec3, quaternion: np.quaternion as Quat };
+    });
+
+    const applyFn = () => get().batchUpdatePartStates(nextUpdates);
+    const revertFn = () => get().batchUpdatePartStates(prevUpdates);
+    const emptySnap: TopologySnapshot = {
+      addedParts: {}, removedParts: {}, addedConnections: [], removedConnections: [],
+    };
+    const cmd = createTopologyCommand('TRANSFORM', emptySnap, applyFn, revertFn);
+
+    batchUpdatePartStates(nextUpdates);
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    get().addLog(`${logMsg}（连通组 ${group.length} 个零件）`, 'ACTION');
+  },
+
+  rotateSelectedGroup: (angleRads: number) => {
+    const { selection, parts } = get();
+    const primary = selection.primaryId ? parts[selection.primaryId] : null;
+    if (!primary) return;
+    // 绕世界 Y 轴；pivot = primary 原点（位置不变，仅旋转）。
+    const newQuat = quatTimesAxisAngle(primary.quaternion as Quat, [0, 1, 0], angleRads);
+    get()._transformSelectedGroup(
+      { position: primary.position as Vec3, quaternion: newQuat },
+      `绕 Y 轴旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°`,
+    );
+  },
+
+  translateSelectedGroup: (delta: Vec3) => {
+    const { selection, parts } = get();
+    const primary = selection.primaryId ? parts[selection.primaryId] : null;
+    if (!primary) return;
+    const p = primary.position as Vec3;
+    get()._transformSelectedGroup(
+      { position: [p[0] + delta[0], p[1] + delta[1], p[2] + delta[2]], quaternion: primary.quaternion as Quat },
+      `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm`,
+    );
   },
 
   commitAxialSliding: () => {

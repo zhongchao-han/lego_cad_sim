@@ -28,6 +28,8 @@ import { InteractionPhase } from '../types';
 import { fitForSlide, getSlideStepFactor } from '../utils/fitMath';
 import type { SelectedPortInfo } from '../types';
 
+const LDU = 0.0004; // 1 LDraw unit in meters（跟 store / SiteGizmo 同源）
+
 // ───── 依赖注入接口 ──────────────────────────────────────────────────────────
 
 /** Dispatcher 运行所需的所有 state getter + actions。
@@ -42,6 +44,9 @@ export interface DispatcherDeps {
   selectedPort: () => SelectedPortInfo | null;
   slidingTarget: () => SelectedPortInfo | null;
   slideOffset: () => number;
+  /** 当前是否有选中的零件（selection.primaryId 非空）。用于 IDLE 下
+   *  "选中零件本体后 [/] 旋转、方向键平移"的门控。 */
+  hasSelection: () => boolean;
 
   // ── Actions (引用稳定)
   setSearchOpen: (open: boolean) => void;
@@ -58,6 +63,8 @@ export interface DispatcherDeps {
   showAll: () => void;
   focusCameraOnSelected: () => void;
   rotateSelectedPart: (rad: number) => void;
+  rotateSelectedGroup: (rad: number) => void;
+  translateSelectedGroup: (delta: [number, number, number]) => void;
   commitFreePlacing: (target: undefined) => void;
   commitAxialSliding: () => void;
   updateSlideOffset: (offset: number, shift: boolean) => void;
@@ -113,6 +120,15 @@ const canRotateSelectedPort = (deps: DispatcherDeps): boolean => {
   const phase = deps.interactionPhase();
   return phase === InteractionPhase.SOURCE_LOCKED || phase === InteractionPhase.AXIAL_SLIDING;
 };
+
+/** 已放置零件自由编辑许可：IDLE 阶段 + 有选中零件。
+ *  跟端口旋转（SOURCE_LOCKED/AXIAL_SLIDING）按 phase 互斥，[/]·方向键不会冲突。 */
+const canEditSelectedGroup = (deps: DispatcherDeps): boolean =>
+  deps.interactionPhase() === InteractionPhase.IDLE && deps.hasSelection();
+
+// 平移步长（米）：默认 1 stud/hole 间距（20 LDU = 8mm，落网格），Shift 细调 4 LDU。
+const NUDGE_STEP_M = 20 * LDU;
+const NUDGE_FINE_M = 4 * LDU;
 
 // ───── KEYMAP — 按优先级降序声明 ─────────────────────────────────────────────
 
@@ -313,6 +329,55 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       d.rotateSelectedPart(Math.PI / 2);
+    },
+  },
+
+  // ── 已放置零件自由编辑（IDLE + 有选中零件）：[/] 绕 Y 转整组、方向键平移整组。
+  //    跟上面端口旋转按 phase 互斥（那些要 SOURCE_LOCKED/AXIAL_SLIDING）。
+  {
+    id: 'idle.rotate-group.ccw',
+    match: (e, d) => e.key === '[' && canEditSelectedGroup(d),
+    run: (e, d) => { e.preventDefault(); d.rotateSelectedGroup(-Math.PI / 2); },
+  },
+  {
+    id: 'idle.rotate-group.cw',
+    match: (e, d) => e.key === ']' && canEditSelectedGroup(d),
+    run: (e, d) => { e.preventDefault(); d.rotateSelectedGroup(Math.PI / 2); },
+  },
+  {
+    id: 'idle.translate.left',
+    match: (e, d) => e.key === 'ArrowLeft' && canEditSelectedGroup(d),
+    run: (e, d) => {
+      e.preventDefault();
+      const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
+      d.translateSelectedGroup([-s, 0, 0]);
+    },
+  },
+  {
+    id: 'idle.translate.right',
+    match: (e, d) => e.key === 'ArrowRight' && canEditSelectedGroup(d),
+    run: (e, d) => {
+      e.preventDefault();
+      const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
+      d.translateSelectedGroup([s, 0, 0]);
+    },
+  },
+  {
+    id: 'idle.translate.away',
+    match: (e, d) => e.key === 'ArrowUp' && canEditSelectedGroup(d),
+    run: (e, d) => {
+      e.preventDefault();
+      const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
+      d.translateSelectedGroup([0, 0, -s]);
+    },
+  },
+  {
+    id: 'idle.translate.toward',
+    match: (e, d) => e.key === 'ArrowDown' && canEditSelectedGroup(d),
+    run: (e, d) => {
+      e.preventDefault();
+      const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
+      d.translateSelectedGroup([0, 0, s]);
     },
   },
 ];

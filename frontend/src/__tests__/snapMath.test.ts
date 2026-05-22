@@ -17,6 +17,7 @@ import {
   calculateSnapPose,
   applyGroupDelta,
   calculatePortRotationPose,
+  quatTimesAxisAngle,
   type RigidPose,
 } from '../utils/snapMath';
 
@@ -324,5 +325,43 @@ describe('calculatePortRotationPose: 端口 Z 轴旋转', () => {
     const last = calculatePortRotationPose(...args);
     expectVecClose(first.position, last.position, 10);
     expectVecClose(first.quaternion, last.quaternion, 10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// quatTimesAxisAngle: 世界轴预乘旋转（placed-part 自由旋转用）
+// ---------------------------------------------------------------------------
+describe('quatTimesAxisAngle: 世界轴预乘旋转', () => {
+  it('identity ⊗ Y 90° → 绕 Y 的 90° 四元数 (0, ±0.707, 0, 0.707)', () => {
+    const q = quatTimesAxisAngle([0, 0, 0, 1], [0, 1, 0], Math.PI / 2);
+    expectVecClose(q, [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
+  });
+
+  it('Y 90° 转两次 = Y 180° → (0, 1, 0, 0)（绕 Y 半圈）', () => {
+    let q: [number, number, number, number] = [0, 0, 0, 1];
+    q = quatTimesAxisAngle(q, [0, 1, 0], Math.PI / 2);
+    q = quatTimesAxisAngle(q, [0, 1, 0], Math.PI / 2);
+    // 绕 Y 180°：w≈0，y≈±1
+    expect(Math.abs(q[3])).toBeLessThan(1e-6);
+    expect(Math.abs(q[1])).toBeCloseTo(1, 6);
+  });
+
+  it('转 0 弧度 → 原四元数不变', () => {
+    const q = quatTimesAxisAngle([0, Math.SQRT1_2, 0, Math.SQRT1_2], [0, 1, 0], 0);
+    expectVecClose(q, [0, Math.SQRT1_2, 0, Math.SQRT1_2]);
+  });
+
+  it('世界轴预乘：从已转 90° 姿态再绕世界 Y 转 90° = 世界 Y 180°（不受当前朝向影响）', () => {
+    // 已绕 Y 转过 90° 的零件，再按世界 Y 转 90°，结果仍是绕世界 Y 累计 180°
+    const start: [number, number, number, number] = [0, Math.SQRT1_2, 0, Math.SQRT1_2];
+    const q = quatTimesAxisAngle(start, [0, 1, 0], Math.PI / 2);
+    expect(Math.abs(q[3])).toBeLessThan(1e-6);
+    expect(Math.abs(q[1])).toBeCloseTo(1, 6);
+  });
+
+  it('轴未归一化 → 内部归一化，结果同单位轴', () => {
+    const a = quatTimesAxisAngle([0, 0, 0, 1], [0, 5, 0], Math.PI / 2);
+    const b = quatTimesAxisAngle([0, 0, 0, 1], [0, 1, 0], Math.PI / 2);
+    expectVecClose(a, b);
   });
 });

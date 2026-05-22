@@ -52,6 +52,7 @@ function makeMockDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
     selectedPort: () => null,
     slidingTarget: () => null,
     slideOffset: () => 0,
+    hasSelection: () => false,
 
     setSearchOpen: vi.fn(),
     undo: vi.fn(),
@@ -67,6 +68,8 @@ function makeMockDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
     showAll: vi.fn(),
     focusCameraOnSelected: vi.fn(),
     rotateSelectedPart: vi.fn(),
+    rotateSelectedGroup: vi.fn(),
+    translateSelectedGroup: vi.fn(),
     commitFreePlacing: vi.fn(),
     commitAxialSliding: vi.fn(),
     updateSlideOffset: vi.fn(),
@@ -327,5 +330,74 @@ describe('未命中', () => {
   it('case 26: 随便按个 Q → 不命中任何 entry（返 null）', () => {
     const deps = makeMockDeps();
     expect(dispatchKey(kev({ key: 'q' }), deps)).toBeNull();
+  });
+});
+
+// ─── 9. 已放置零件自由编辑（IDLE + selection）──────────────────────────────────
+
+describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () => {
+  const LDU = 0.0004;
+  const STEP = 20 * LDU;   // 默认一格
+  const FINE = 4 * LDU;    // Shift 细调
+  const idleSel = (over = {}) => makeMockDeps({
+    interactionPhase: () => InteractionPhase.IDLE,
+    hasSelection: () => true,
+    ...over,
+  });
+
+  it('case 27: IDLE+selection + [ → "idle.rotate-group.ccw" 转 -90°', () => {
+    const deps = idleSel();
+    expect(dispatchKey(kev({ key: '[' }), deps)).toBe('idle.rotate-group.ccw');
+    expect(deps.rotateSelectedGroup).toHaveBeenCalledWith(-Math.PI / 2);
+  });
+
+  it('case 28: IDLE+selection + ] → "idle.rotate-group.cw" 转 +90°', () => {
+    const deps = idleSel();
+    expect(dispatchKey(kev({ key: ']' }), deps)).toBe('idle.rotate-group.cw');
+    expect(deps.rotateSelectedGroup).toHaveBeenCalledWith(Math.PI / 2);
+  });
+
+  it('case 29: IDLE+selection + 方向键 → 平移整组（world X/Z，默认 20 LDU）', () => {
+    let deps = idleSel();
+    expect(dispatchKey(kev({ key: 'ArrowLeft' }), deps)).toBe('idle.translate.left');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([-STEP, 0, 0]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'ArrowRight' }), deps)).toBe('idle.translate.right');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([STEP, 0, 0]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'ArrowUp' }), deps)).toBe('idle.translate.away');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, 0, -STEP]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'ArrowDown' }), deps)).toBe('idle.translate.toward');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, 0, STEP]);
+  });
+
+  it('case 30: Shift+方向键 → 细调步长 4 LDU', () => {
+    const deps = idleSel();
+    expect(dispatchKey(kev({ key: 'ArrowLeft', shiftKey: true }), deps)).toBe('idle.translate.left');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([-FINE, 0, 0]);
+  });
+
+  it('case 31: IDLE 但无选中 → [/] 与方向键都不命中（返 null）', () => {
+    const deps = makeMockDeps({ interactionPhase: () => InteractionPhase.IDLE, hasSelection: () => false });
+    expect(dispatchKey(kev({ key: '[' }), deps)).toBeNull();
+    expect(dispatchKey(kev({ key: 'ArrowLeft' }), deps)).toBeNull();
+    expect(deps.rotateSelectedGroup).not.toHaveBeenCalled();
+    expect(deps.translateSelectedGroup).not.toHaveBeenCalled();
+  });
+
+  it('case 32: SOURCE_LOCKED 端口旋转优先 — [ 走 "rotate.ccw" 而非 idle 组旋转', () => {
+    // phase 互斥：SOURCE_LOCKED + 端口在时走端口旋转，不会落到 idle 组编辑
+    const deps = makeMockDeps({
+      interactionPhase: () => InteractionPhase.SOURCE_LOCKED,
+      selectedPort: () => makePort('A', 'peg.dat'),
+      hasSelection: () => true,
+    });
+    expect(dispatchKey(kev({ key: '[' }), deps)).toBe('rotate.ccw');
+    expect(deps.rotateSelectedPart).toHaveBeenCalled();
+    expect(deps.rotateSelectedGroup).not.toHaveBeenCalled();
   });
 });
