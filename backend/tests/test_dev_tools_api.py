@@ -65,9 +65,12 @@ class TestDevToolsAPI(unittest.TestCase):
     @patch("backend.dev_tools_api.os.remove")
     @patch("backend.dev_tools_api.os.path.exists")
     def test_upload_thumbnail_success_no_backup(self, mock_exists, mock_remove, mock_move, mock_copy):
-        # target_file doesn't exist (first call to exists)
-        # backup doesn't exist (second call to exists)
-        mock_exists.return_value = False
+        original_exists = os.path.exists
+        def fake_exists(path):
+            if isinstance(path, str) and "3001.png" in path:
+                return False
+            return original_exists(path)
+        mock_exists.side_effect = fake_exists
 
         # Create a dummy file content
         file_content = b"fake image data"
@@ -89,8 +92,12 @@ class TestDevToolsAPI(unittest.TestCase):
     @patch("backend.dev_tools_api.os.remove")
     @patch("backend.dev_tools_api.os.path.exists")
     def test_upload_thumbnail_success_with_backup(self, mock_exists, mock_remove, mock_move, mock_copy):
-        # Target file exists, so it will be moved. Backup file will then exist, so it gets removed.
-        mock_exists.return_value = True
+        original_exists = os.path.exists
+        def fake_exists(path):
+            if isinstance(path, str) and "3001.png" in path:
+                return True
+            return original_exists(path)
+        mock_exists.side_effect = fake_exists
 
         file_content = b"fake image data"
 
@@ -110,8 +117,14 @@ class TestDevToolsAPI(unittest.TestCase):
     @patch("backend.dev_tools_api.shutil.move")
     @patch("backend.dev_tools_api.os.path.exists")
     def test_upload_thumbnail_error(self, mock_exists, mock_move, mock_copy):
+        original_exists = os.path.exists
+        def fake_exists(path):
+            if isinstance(path, str) and "3001.png" in path:
+                return True
+            return original_exists(path)
+        mock_exists.side_effect = fake_exists
+
         # Backup the file, then copy fails
-        mock_exists.side_effect = [True, True]
         mock_copy.side_effect = Exception("Disk full")
 
         file_content = b"fake image data"
