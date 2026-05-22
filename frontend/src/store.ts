@@ -65,6 +65,9 @@ interface StoreLog {
     timestamp: number;
     type: 'INFO' | 'ACTION' | 'ERROR' | 'PHYSICS';
     message: string;
+    /** 连续相同（message+type）日志折叠计数。≥2 时 UI 显示 "(×N)"，
+     *  避免过约束锁死这类高频重复日志刷屏淹没其它条目。 */
+    count?: number;
 }
 
 interface StoreState {
@@ -1173,9 +1176,16 @@ export const useStore = create<StoreState>()(
     });
   },
 
-  addLog: (message, type = 'INFO') => set(s => ({
-      logs: [...s.logs, { timestamp: Date.now(), type, message }].slice(-200) // 保持最近200条
-  })),
+  addLog: (message, type = 'INFO') => set(s => {
+      // 连续相同（message+type）折叠：不再 push 新条目，把末条 count +1 并刷新
+      // 时间戳。防过约束锁死等高频重复日志刷屏（用户反馈：8+ 条同样的错误墙）。
+      const last = s.logs[s.logs.length - 1];
+      if (last && last.message === message && last.type === type) {
+          const collapsed = { ...last, count: (last.count ?? 1) + 1, timestamp: Date.now() };
+          return { logs: [...s.logs.slice(0, -1), collapsed] };
+      }
+      return { logs: [...s.logs, { timestamp: Date.now(), type, message }].slice(-200) };
+  }),
 
   clearLogs: () => set({ logs: [] }),
   toggleLogPanel: (show) => set(s => ({ showLogPanel: show !== undefined ? show : !s.showLogPanel })),
@@ -1664,7 +1674,7 @@ export const useStore = create<StoreState>()(
       const overflow = srcGroup.filter(p => !oneHopAllowed.has(p));
       if (overflow.length > 0) {
         get().addLog(
-          `[Rot] 过约束锁死：source ${partId} 经其邻居二阶连到 [${overflow.join(', ')}]，旋转会拽动这些非锚定零件。请删除多余连接（除 anchor=${excludeId} 外），或换个端口作 anchor。（参见 Case 4.1）`,
+          `[Rot] 过约束锁死：source ${partId} 经其邻居二阶连到 [${overflow.join(', ')}]，端口轴旋转会拽动这些非锚定零件。💡 想整体转：点零件「本体」选中（非端口）后按 [/]，整连通组刚体旋转、不受此约束。否则删多余连接（除 anchor=${excludeId} 外）或换端口作 anchor。（参见 Case 4.1）`,
           'ERROR'
         );
         return;
