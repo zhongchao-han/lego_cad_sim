@@ -69,6 +69,7 @@ function makeMockDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
     focusCameraOnSelected: vi.fn(),
     rotateSelectedPart: vi.fn(),
     rotateSelectedGroup: vi.fn(),
+    rotateSelectedSingle: vi.fn(),
     translateSelectedGroup: vi.fn(),
     commitFreePlacing: vi.fn(),
     commitAxialSliding: vi.fn(),
@@ -345,16 +346,16 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     ...over,
   });
 
-  it('case 27: IDLE+selection + [ → "idle.rotate-group.ccw" 转 -90°', () => {
+  it('case 27: IDLE+selection + [ → "idle.rotate-single.ccw" 只转选中件 -90°', () => {
     const deps = idleSel();
-    expect(dispatchKey(kev({ key: '[' }), deps)).toBe('idle.rotate-group.ccw');
-    expect(deps.rotateSelectedGroup).toHaveBeenCalledWith(-Math.PI / 2);
+    expect(dispatchKey(kev({ key: '[' }), deps)).toBe('idle.rotate-single.ccw');
+    expect(deps.rotateSelectedSingle).toHaveBeenCalledWith(-Math.PI / 2);
   });
 
-  it('case 28: IDLE+selection + ] → "idle.rotate-group.cw" 转 +90°', () => {
+  it('case 28: IDLE+selection + ] → "idle.rotate-single.cw" 只转选中件 +90°', () => {
     const deps = idleSel();
-    expect(dispatchKey(kev({ key: ']' }), deps)).toBe('idle.rotate-group.cw');
-    expect(deps.rotateSelectedGroup).toHaveBeenCalledWith(Math.PI / 2);
+    expect(dispatchKey(kev({ key: ']' }), deps)).toBe('idle.rotate-single.cw');
+    expect(deps.rotateSelectedSingle).toHaveBeenCalledWith(Math.PI / 2);
   });
 
   it('case 29: IDLE+selection + 方向键 → 平移整组（world X/Z，默认 20 LDU）', () => {
@@ -385,7 +386,7 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     const deps = makeMockDeps({ interactionPhase: () => InteractionPhase.IDLE, hasSelection: () => false });
     expect(dispatchKey(kev({ key: '[' }), deps)).toBeNull();
     expect(dispatchKey(kev({ key: 'ArrowLeft' }), deps)).toBeNull();
-    expect(deps.rotateSelectedGroup).not.toHaveBeenCalled();
+    expect(deps.rotateSelectedSingle).not.toHaveBeenCalled();
     expect(deps.translateSelectedGroup).not.toHaveBeenCalled();
   });
 
@@ -398,6 +399,6 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     });
     expect(dispatchKey(kev({ key: '[' }), deps)).toBe('rotate.ccw');
     expect(deps.rotateSelectedPart).toHaveBeenCalled();
-    expect(deps.rotateSelectedGroup).not.toHaveBeenCalled();
+    expect(deps.rotateSelectedSingle).not.toHaveBeenCalled();
   });
 });

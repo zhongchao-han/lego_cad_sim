@@ -47,6 +47,7 @@ export function useKeyboardDispatcher() {
       focusCameraOnSelected: useStore.getState().focusCameraOnSelected,
       rotateSelectedPart: useStore.getState().rotateSelectedPart,
       rotateSelectedGroup: useStore.getState().rotateSelectedGroup,
+      rotateSelectedSingle: useStore.getState().rotateSelectedSingle,
       translateSelectedGroup: useStore.getState().translateSelectedGroup,
       commitFreePlacing: useStore.getState().commitFreePlacing,
       commitAxialSliding: useStore.getState().commitAxialSliding,

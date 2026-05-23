@@ -64,6 +64,7 @@ export interface DispatcherDeps {
   focusCameraOnSelected: () => void;
   rotateSelectedPart: (rad: number) => void;
   rotateSelectedGroup: (rad: number) => void;
+  rotateSelectedSingle: (rad: number) => void;
   translateSelectedGroup: (delta: [number, number, number]) => void;
   commitFreePlacing: (target: undefined) => void;
   commitAxialSliding: () => void;
@@ -332,17 +333,18 @@ export const KEYMAP: KeymapEntry[] = [
     },
   },
 
-  // ── 已放置零件自由编辑（IDLE + 有选中零件）：[/] 绕 Y 转整组、方向键平移整组。
+  // ── 已放置零件自由编辑（IDLE + 有选中零件）：[/] 只转选中的那一个零件
+  //    （相对其余装配，转完自动微移重连 / 失败脱开），方向键平移整组。
   //    跟上面端口旋转按 phase 互斥（那些要 SOURCE_LOCKED/AXIAL_SLIDING）。
   {
-    id: 'idle.rotate-group.ccw',
+    id: 'idle.rotate-single.ccw',
     match: (e, d) => e.key === '[' && canEditSelectedGroup(d),
-    run: (e, d) => { e.preventDefault(); d.rotateSelectedGroup(-Math.PI / 2); },
+    run: (e, d) => { e.preventDefault(); d.rotateSelectedSingle(-Math.PI / 2); },
   },
   {
-    id: 'idle.rotate-group.cw',
+    id: 'idle.rotate-single.cw',
     match: (e, d) => e.key === ']' && canEditSelectedGroup(d),
-    run: (e, d) => { e.preventDefault(); d.rotateSelectedGroup(Math.PI / 2); },
+    run: (e, d) => { e.preventDefault(); d.rotateSelectedSingle(Math.PI / 2); },
   },
   {
     id: 'idle.translate.left',
