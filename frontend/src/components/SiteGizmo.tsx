@@ -194,6 +194,25 @@ export function portDotVisuals(args: {
   return { sphereOpacity: DIMMED_PORT_OPACITY, colorWrite: true, showArrow: false };
 }
 
+/**
+ * 端口点击意图（纯函数，便于单测）。
+ *
+ * UX 反馈：端口点和零件本体的点击老是混淆——想选零件却点中端口、误进
+ * SOURCE_LOCKED。改为「修饰键区分」：
+ *   - 裸点（无修饰键）→ 不进端口（engage=false），事件放行给零件本体 → 选中本体；
+ *   - 按住 Alt/Option 点端口 → 进端口（engage=true），锁源端口 / 选目标端口发起连接；
+ *   - Alt + Shift → 整片 plug 锚点（plugLevel=true）。
+ *
+ * 仅在 engage 时才 stopPropagation + 调 onPortClick；否则一律下落到本体。 */
+export function portClickIntent(mods: { altKey?: boolean; shiftKey?: boolean }): {
+  engage: boolean;
+  plugLevel: boolean;
+} {
+  const engage = !!mods.altKey;
+  const plugLevel = engage && !!mods.shiftKey;
+  return { engage, plugLevel };
+}
+
 function PortArrow({
   port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
 }: PortArrowProps) {
@@ -303,7 +322,9 @@ function PortArrow({
       onPointerOut={handlePointerOut}
       onPointerDown={(e) => {
         if (!isCompatiblePort) return;
-        e.stopPropagation();
+        // 修饰键区分（UX 反馈）：只有按住 Alt「进端口」时才吃掉事件，否则放行给
+        // 零件本体 onPointerDown → 选中本体。裸点端口不再误进 SOURCE_LOCKED。
+        if ((e as unknown as { altKey?: boolean }).altKey) e.stopPropagation();
       }}
       onClick={(e) => {
         // [防误触终极防护] 如果从按下到抬起，鼠标位移超过 5 个像素，判定为用户在“拖拽视角”而非“点击端口”。
@@ -313,9 +334,13 @@ function PortArrow({
             return;
         }
         if (!isCompatiblePort) return;
+        const mods = e as unknown as { altKey?: boolean; shiftKey?: boolean };
+        const intent = portClickIntent({ altKey: mods.altKey, shiftKey: mods.shiftKey });
+        // 裸点：不进端口，放行（本体已在 pointerdown 选中）。Alt 才发起连接。
+        if (!intent.engage) return;
         e.stopPropagation();
-        // B.2：Shift+Click → 上层决定走 plug-anchor 路径
-        onPortClick?.(buildPortInfo(), { shiftKey: !!(e as unknown as { shiftKey?: boolean }).shiftKey });
+        // Alt+Shift → 上层走 plug-anchor 路径（plugLevel）；Alt → INDIVIDUAL 端口。
+        onPortClick?.(buildPortInfo(), { shiftKey: intent.plugLevel });
       }}
       onDoubleClick={(e) => {
         if (!showVisuals) return;
