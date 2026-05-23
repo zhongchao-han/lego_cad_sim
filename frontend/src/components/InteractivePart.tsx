@@ -72,7 +72,6 @@ export const InteractivePart = memo(({
   const currentPhase = useStore(s => s.interactionPhase);
   const slidingTarget = useStore(s => s.slidingTarget);
   const selectPart = useStore(s => s.selectPart);
-  const duplicateSelected = useStore(s => s.duplicateSelected);
   const updateSlideOffset = useStore(s => s.updateSlideOffset);
   const commitAxialSliding = useStore(s => s.commitAxialSliding);
   const { mouse, raycaster, camera } = useThree();
@@ -104,11 +103,10 @@ export const InteractivePart = memo(({
     }
 
     const isMultiSelect = !!(e.shiftKey || e.metaKey || e.ctrlKey);
-    // 左键单击永远只进行精准的单体选择
+    // 左键单击永远只进行精准的单体选择。
+    // 注：Alt 现已改作「进端口」修饰键（见 SiteGizmo.portClickIntent）；本体不再
+    // Alt+点克隆（复制仍走 Cmd/Ctrl+D 键盘快捷键），避免 Alt 一键两义。
     selectPart(partId, SelectionLevel.INDIVIDUAL, isMultiSelect);
-    if (e.altKey && !isMultiSelect && currentPhase === InteractionPhase.IDLE) {
-      duplicateSelected();
-    }
   };
 
   const handleDoubleClick = (e: any) => {

@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computePlugOutlineBox, portDotVisuals } from '../components/SiteGizmo';
+import { computePlugOutlineBox, portDotVisuals, portClickIntent } from '../components/SiteGizmo';
 import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import type { SelectedPortInfo } from '../types';
 
@@ -173,5 +173,27 @@ describe('portDotVisuals: 可见性分档', () => {
   it('密集件 + 非 prominent → 完全隐藏（opacity 0 + colorWrite false），只留 hit-zone', () => {
     const v = portDotVisuals({ shouldShowVisuals: true, prominent: false, isDensePart: true, baseOpacity: BASE });
     expect(v).toEqual({ sphereOpacity: 0, colorWrite: false, showArrow: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// portClickIntent: 修饰键区分端口点击 vs 本体选中
+// ---------------------------------------------------------------------------
+describe('portClickIntent: 端口点击意图', () => {
+  it('裸点（无修饰键）→ 不进端口（engage=false），放行给本体', () => {
+    expect(portClickIntent({})).toEqual({ engage: false, plugLevel: false });
+    expect(portClickIntent({ altKey: false, shiftKey: false })).toEqual({ engage: false, plugLevel: false });
+  });
+
+  it('仅 Shift（无 Alt）→ 仍不进端口（避免误进 plug）', () => {
+    expect(portClickIntent({ shiftKey: true })).toEqual({ engage: false, plugLevel: false });
+  });
+
+  it('Alt → 进端口（INDIVIDUAL，plugLevel=false）', () => {
+    expect(portClickIntent({ altKey: true })).toEqual({ engage: true, plugLevel: false });
+  });
+
+  it('Alt+Shift → 进端口且整片 plug 锚点（plugLevel=true）', () => {
+    expect(portClickIntent({ altKey: true, shiftKey: true })).toEqual({ engage: true, plugLevel: true });
   });
 });
