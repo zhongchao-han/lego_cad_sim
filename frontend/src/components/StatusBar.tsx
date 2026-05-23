@@ -12,6 +12,8 @@ import {
 export function StatusBar() {
   const interactionPhase = useStore((state) => state.interactionPhase);
   const selectedPort = useStore((state) => state.selectedPort);
+  // 是否有选中零件（IDLE 下决定是否提示"[/] 转 / 方向键平移"已放置零件编辑）。
+  const hasSelection = useStore((state) => state.selection.primaryId !== null);
   const slidingTarget = useStore((state) => state.slidingTarget);
   const slideOffset = useStore((state) => state.slideOffset);
   const parts = useStore((state) => state.parts);
@@ -46,9 +48,9 @@ export function StatusBar() {
       if (r.stress.safetyRatio > max) max = r.stress.safetyRatio;
       if (r.stress.yields) yielded = true;
     }
-    if (yielded) return { text: '⚠ Yielded', isYield: true, isWarning: false };
+    if (yielded) return { text: '⚠ 已屈服', isYield: true, isWarning: false };
     if (max >= 0.7) return {
-      text: `⚠ ${(max * 100).toFixed(0)}% yield`,
+      text: `⚠ ${(max * 100).toFixed(0)}% 接近屈服`,
       isYield: false,
       isWarning: true,
     };
@@ -74,8 +76,8 @@ export function StatusBar() {
     if (items.length < 2) return null; // 单零件总是稳定，不显示
     const r = analyzeStability(items);
     return r.isStable
-      ? { text: '🟢 Stable', isUnstable: false }
-      : { text: '⚠ Unstable', isUnstable: true };
+      ? { text: '🟢 稳定', isUnstable: false }
+      : { text: '⚠ 不稳定', isUnstable: true };
   }, [parts, partCatalog, mode]);
 
   // 走法 A 期 A1：装配体可用 port 数（estimate cheap：portCount - 已占用）。
@@ -107,33 +109,37 @@ export function StatusBar() {
     return fitDisplayLabel(fit);
   }, [interactionPhase, selectedPort, slidingTarget]);
 
+  // 中文操作提示，按当前阶段告诉用户"现在能做什么"。IDLE 下若已选中零件，
+  // 追加"已放置零件编辑"提示（[/] 转 / 方向键平移）。
   const centerHints = useMemo(() => {
     switch (interactionPhase) {
       case InteractionPhase.IDLE:
-        return '[Left Click: Select/Connect] [Drag: Rotate View] [Del: Delete] [Esc: Deselect All]';
+        return hasSelection
+          ? '左键: 选择/连接 ┊ [ / ]: 旋转选中件 90° ┊ 方向键: 平移(Shift 细调) ┊ Del: 删除 ┊ Esc: 取消选择'
+          : '左键: 选择零件 / 点端口连接 ┊ 拖拽: 旋转视角 ┊ Esc: 取消选择';
       case InteractionPhase.SOURCE_LOCKED:
-        return '[Left Click: Select Target Port] [Esc: Cancel Selection]';
+        return '左键点目标端口: 吸附 ┊ [ / ]: 绕轴旋转 90° ┊ Esc: 取消';
       case InteractionPhase.AXIAL_SLIDING:
-        return '[↑/↓: Adjust Depth] [Shift+↑/↓: x10] [[/]: Rotate 90°] [Enter: Commit] [Esc: Abort]';
+        return '↑/↓: 调插入深度 ┊ Shift+↑/↓: ×10 ┊ [ / ]: 转 90° ┊ Enter 或 再点一下: 确认吸附 ┊ Esc: 取消';
       case InteractionPhase.FREE_PLACING:
-        return '[Left Click: Place] [Esc: Abort]';
+        return '左键: 放置到地面 ┊ Esc: 取消';
       case InteractionPhase.PREVIEWING:
-        return '[Left Click: Place in Scene] [Esc: Cancel]';
+        return '左键: 放入场景 ┊ Esc: 取消';
       case InteractionPhase.ANIMATING_SNAP:
-        return 'Calculating kinematics...';
+        return '正在计算运动学…';
       default:
         return '';
     }
-  }, [interactionPhase]);
+  }, [interactionPhase, hasSelection]);
 
   const phaseLabel = useMemo(() => {
     switch (interactionPhase) {
-      case InteractionPhase.IDLE: return '🟢 READY';
-      case InteractionPhase.SOURCE_LOCKED: return '🟡 SOURCE LOCKED';
-      case InteractionPhase.AXIAL_SLIDING: return '🔵 AXIAL SLIDING';
-      case InteractionPhase.FREE_PLACING: return '🟣 FREE PLACING';
-      case InteractionPhase.PREVIEWING: return '⚪ PREVIEWING';
-      case InteractionPhase.ANIMATING_SNAP: return '🟠 ANIMATING';
+      case InteractionPhase.IDLE: return '🟢 就绪';
+      case InteractionPhase.SOURCE_LOCKED: return '🟡 已锁定源端口';
+      case InteractionPhase.AXIAL_SLIDING: return '🔵 调整插入深度';
+      case InteractionPhase.FREE_PLACING: return '🟣 自由放置';
+      case InteractionPhase.PREVIEWING: return '⚪ 预览中';
+      case InteractionPhase.ANIMATING_SNAP: return '🟠 吸附动画中';
       default: return interactionPhase;
     }
   }, [interactionPhase]);
@@ -146,8 +152,8 @@ export function StatusBar() {
           <>
             <div className="w-px h-3 bg-slate-700" />
             <span className="truncate">
-              Part: <span className="text-blue-400">{selectedPort.ldrawId}</span> | 
-              Port: <span className="text-emerald-400">{selectedPort.portType}</span>
+              零件: <span className="text-blue-400">{selectedPort.ldrawId}</span> |
+              端口: <span className="text-emerald-400">{selectedPort.portType}</span>
             </span>
           </>
         )}
@@ -160,12 +166,12 @@ export function StatusBar() {
       <div className="flex items-center justify-end gap-4 text-slate-300 w-1/3">
         {interactionPhase === InteractionPhase.AXIAL_SLIDING && (
           <span className="text-amber-400">
-            Offset: {slideOffset.toFixed(1)} LDU
+            深度偏移: {slideOffset.toFixed(1)} LDU
           </span>
         )}
         {slideFitLabel && (
-          <span className="text-slate-200 tracking-wide" title="L46 fit feedback">
-            Fit: {slideFitLabel}
+          <span className="text-slate-200 tracking-wide" title="L46 配合反馈">
+            配合: {slideFitLabel}
           </span>
         )}
         {stabilityLabel && (
@@ -189,7 +195,7 @@ export function StatusBar() {
           }`}
           title="L51b 反力可视化：每条连接 edge 上画一支力箭头；色彩按 von Mises safety_ratio（PR-C）"
         >
-          ⇡ Forces
+          ⇡ 受力
         </button>
         {/* L51b PR-C：屈服 / 接近屈服告警 */}
         {maxStress && (
@@ -203,13 +209,13 @@ export function StatusBar() {
           </span>
         )}
         <div className="w-px h-3 bg-slate-700" />
-        <span>Parts: <span className="text-white font-bold">{activePartsCount}</span></span>
+        <span>零件: <span className="text-white font-bold">{activePartsCount}</span></span>
         {activePartsCount > 0 && (
           <span
             data-testid="free-ports-count"
             title="装配体可用接口数（估算）= 各零件 portCount - 已占用 portKey 数。双面 connhole 在 portCount 计 2 但占用通常只占一面，估值稍偏大。"
           >
-            Free: <span className="text-cyan-400 font-bold">{totalFreePorts}</span>
+            空闲: <span className="text-cyan-400 font-bold">{totalFreePorts}</span>
           </span>
         )}
         {/* 走法 A 期 A2 — 1b：plug 概览（plug = 用户视角的整片接口聚合）。
@@ -220,7 +226,7 @@ export function StatusBar() {
             data-testid="free-plugs-count"
             title="装配体 plug 概览：total = ACTIVE_ARENA 各零件 plugCount 求和（plug 是用户视角的整片接口聚合，比如 2x4 plate 顶/底各 1 plug，2780 销头/尾各 1 plug）。free = 估算下界（plugCount - floor(occupied × plugCount / portCount)），实际 free plug 数 ≥ 此值。"
           >
-            Plugs: <span className="text-violet-400 font-bold">{totalPlugs}</span>
+            插口: <span className="text-violet-400 font-bold">{totalPlugs}</span>
             {' / '}
             <span className="text-emerald-400 font-bold">{totalFreePlugs}</span>
           </span>
@@ -234,7 +240,7 @@ export function StatusBar() {
             title="预计 snap 后将闭合的 port pair 数上界 = min(source.plug.port_count, target.plug.port_count)，仅在源 / 目标兼容时显示。上界，不是精确值 — 几何错位时实际 Auto-Latch 可能少于此值，commit 后看 ✓ N pairs 真值。"
             className="text-amber-300 font-bold"
           >
-            ≤ {predictedSnapPairCount} pairs
+            ≤ {predictedSnapPairCount} 对
           </span>
         )}
         {/* B.3-3：plug-snap 反馈 — 上一次 snap 命中的 port pair 总数。
@@ -246,11 +252,11 @@ export function StatusBar() {
             title="上一次 snap 命中的 port pair 总数 = 1 个主连接 + 后端 Auto-Latch 自动闭合的额外连接。常态单点 snap = 1 不显示；plug 整片 snap 时多对一起落地。abort/deselect/下一次 snap 会刷新此值。"
             className="text-orange-400 font-bold"
           >
-            ✓ {lastSnapPairCount} pairs
+            ✓ {lastSnapPairCount} 对
           </span>
         )}
         <div className="w-px h-3 bg-slate-700" />
-        <span>Grid: 1 LDU</span>
+        <span>栅格: 1 LDU</span>
       </div>
     </div>
   );
