@@ -618,6 +618,50 @@ class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
         )
 
 
+class TestLlmRewriteProxy(unittest.TestCase):
+    """POST /api/llm_rewrite — AI 语义改写后端代理（key 留后端，前端不接触）。"""
+
+    def test_no_key_configured_returns_error(self):
+        """[LLM-1] 未配置 DEEPSEEK_API_KEY → 返回 error，提示去 backend/.env 配。"""
+        # 强制清空 key（本地可能从 backend/.env 注入，CI 则本就没有），保证确定性。
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": ""}, clear=False):
+            client = _get_client()
+            resp = client.post("/api/llm_rewrite", json={"query": "红色大板"})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertIn("DEEPSEEK_API_KEY", body["msg"])
+
+    def test_empty_query_returns_error(self):
+        """[LLM-2] 空 query → error（即便配了 key）。"""
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}, clear=False):
+            client = _get_client()
+            resp = client.post("/api/llm_rewrite", json={"query": "   "})
+        self.assertEqual(resp.json()["status"], "error")
+
+    def test_success_returns_keywords_without_real_network(self):
+        """[LLM-3] 配了 key + monkeypatch _call_deepseek → 返回 keywords，不打真网络。"""
+        import backend.server as srv
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}, clear=False), \
+             patch.object(srv, "_call_deepseek", return_value="Baseplate 19 11") as mock_call:
+            client = _get_client()
+            resp = client.post("/api/llm_rewrite", json={"query": "很多孔的大平板"})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["keywords"], "Baseplate 19 11")
+        mock_call.assert_called_once()  # 走了代理而非真网络
+
+    def test_empty_llm_result_returns_error(self):
+        """[LLM-4] 大模型返回空串 → error（_call_deepseek 已 strip，空白即空）。"""
+        import backend.server as srv
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}, clear=False), \
+             patch.object(srv, "_call_deepseek", return_value=""):
+            client = _get_client()
+            resp = client.post("/api/llm_rewrite", json={"query": "随便"})
+        self.assertEqual(resp.json()["status"], "error")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 

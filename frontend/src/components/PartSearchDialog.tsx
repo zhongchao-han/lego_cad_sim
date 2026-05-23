@@ -91,40 +91,10 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
             </div>
             
             {llmConfig.enabled && (
-              <div className="grid gap-3 text-xs">
-                <div>
-                  <label className="block text-gray-400 mb-1">Provider API Base URL</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-gray-200 outline-none focus:border-blue-500/50"
-                    placeholder="https://api.deepseek.com/v1"
-                    value={llmConfig.providerUrl}
-                    onChange={(e) => updateLlmConfig({ providerUrl: e.target.value })}
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="block text-gray-400 mb-1">API Key</label>
-                    <input 
-                      type="password" 
-                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-gray-200 outline-none focus:border-blue-500/50"
-                      placeholder="sk-..."
-                      value={llmConfig.apiKey}
-                      onChange={(e) => updateLlmConfig({ apiKey: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-gray-400 mb-1">Model Name</label>
-                    <input 
-                      type="text" 
-                      className="w-full bg-black/40 border border-white/10 rounded px-2 py-1.5 text-gray-200 outline-none focus:border-blue-500/50"
-                      placeholder="deepseek-chat"
-                      value={llmConfig.model}
-                      onChange={(e) => updateLlmConfig({ model: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                由后端代理调用大模型（key 配置在后端 <code className="text-gray-300">backend/.env</code>），
+                前端不再保存任何密钥。中文/口语描述会自动改写成 LDraw 关键词再检索。
+              </p>
             )}
           </div>
         )}

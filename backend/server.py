@@ -40,6 +40,30 @@ logger = logging.getLogger(__name__)
 # 解耦 cwd —— 在 git worktree 或任意子目录启动时仍能正确命中主仓库的缓存目录。
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
+def _load_local_env() -> None:
+    """轻量 .env 加载（无第三方依赖）：读取 backend/.env，把未在进程环境里的键写进
+    os.environ。用于本地放置 DEEPSEEK_API_KEY 等密钥（.env 已被 .gitignore 忽略，
+    永不入库）。已存在的环境变量优先（CI / 部署可直接注入，不被 .env 覆盖）。"""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key, val = key.strip(), val.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = val
+    except OSError as exc:
+        logger.warning("[env] failed to read %s: %s", env_path, exc)
+
+
+_load_local_env()
+
 # LDRAW_PARTS_ROOT 配置
 LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(_REPO_ROOT, "ldraw_lib"))
 MESH_CACHE_ROOT = os.environ.get("MESH_CACHE_ROOT", os.path.join(_REPO_ROOT, "data", "custom_assets"))
@@ -293,6 +317,82 @@ async def get_search_key():
     except Exception as e:
         logger.error(f"Cannot retrieve MeiliSearch key: {e}", exc_info=True)
         return {"status": "error", "msg": "MeiliSearch server is unreachable or misconfigured."}
+
+
+# ── AI 语义搜索：中文描述 → LDraw 英文关键词（DeepSeek 代理）────────────────────
+# 安全：API key 只存后端环境（backend/.env: DEEPSEEK_API_KEY），前端经此代理调用，
+# key 永不进前端 bundle。原先 key 硬编码在 frontend usePartSearch.ts（已暴露）→ 移除。
+
+def _build_rewrite_prompt(query: str) -> str:
+    """中文零件描述 → 精准 LDraw 英文关键词的 few-shot prompt（原在前端，迁到后端）。"""
+    return "\n".join([
+        "You are a LEGO LDraw part naming expert.",
+        "Convert the user's Chinese description into precise English keywords matching LDraw part names.",
+        "Include dimension numbers (e.g. \"19 x 11\", \"2 x 8\") whenever possible for better search ranking.",
+        "",
+        "CRITICAL LDraw naming rules:",
+        "- Large flat plate with dense grid of holes = \"Baseplate\" (e.g. \"Baseplate 19 11\")",
+        "- Thin plate with single row of holes = \"Technic Plate\" (e.g. \"Technic Plate 2 x 8\")",
+        "- 大底板/大平板/很多孔的板 = \"Baseplate\" (LDraw name: Technic Beam N x M Baseplate)",
+        "- 平板/薄板 = \"Plate\"; 厚砖块 = \"Brick\"; 横臂/杆 = \"Liftarm\" or \"Beam\"",
+        "- 齿轮 = \"Gear\"; 轴 = \"Axle\"; 销 = \"Pin\"; 弯曲 = \"Curved\" or \"Bent\"",
+        "- 十字孔 = \"Axle Hole\"; 圆孔 = \"Pin Hole\"",
+        "",
+        "Examples:",
+        "- \"很多孔的大平板\" -> \"Baseplate 19 11\"",
+        "- \"大底板\" -> \"Baseplate 19 11\"",
+        "- \"长的横臂\" -> \"Technic Liftarm 1 x 15\"",
+        "- \"弯曲的小齿轮\" -> \"Gear small\"",
+        "",
+        "ONLY output keywords, no explanation, no quotes.",
+        f'User query: "{query}"',
+    ])
+
+
+def _call_deepseek(base_url: str, api_key: str, model: str, prompt: str) -> str:
+    """调 DeepSeek（OpenAI 兼容）chat/completions，返回精简关键词。stdlib urllib，无新依赖。
+    抽成模块级函数便于单测 monkeypatch（不打真网络）。"""
+    import urllib.request
+    body = json.dumps({
+        "model": model,
+        "messages": [{"role": "system", "content": prompt}],
+        "temperature": 0.1,
+        "max_tokens": 30,
+    }).encode("utf-8")
+    request = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+
+
+class LlmRewriteRequest(BaseModel):
+    query: str
+
+
+@app.post("/api/llm_rewrite")
+async def llm_rewrite(req: LlmRewriteRequest):
+    """前端语义搜索代理：中文 query → LDraw 英文关键词。key 留后端，前端不接触。"""
+    api_key = os.getenv("DEEPSEEK_API_KEY", "")
+    if not api_key:
+        return {"status": "error", "msg": "后端未配置 DEEPSEEK_API_KEY（见 backend/.env），语义搜索不可用。"}
+    if not req.query or not req.query.strip():
+        return {"status": "error", "msg": "空查询。"}
+    base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    prompt = _build_rewrite_prompt(req.query)
+    try:
+        keywords = await asyncio.to_thread(_call_deepseek, base_url, api_key, model, prompt)
+    except Exception as e:
+        logger.error(f"[llm_rewrite] DeepSeek call failed: {e}", exc_info=True)
+        return {"status": "error", "msg": f"语义改写失败: {e}"}
+    if not keywords:
+        return {"status": "error", "msg": "大模型返回空结果。"}
+    return {"status": "success", "keywords": keywords}
 
 @app.post("/api/verify_part")
 @app.post("/api/verify/save")

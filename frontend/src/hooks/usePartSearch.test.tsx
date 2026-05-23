@@ -34,45 +34,36 @@ describe('usePartSearch', () => {
     vi.clearAllMocks();
   });
 
-  it('1. Initializes LLM config from localStorage correctly', () => {
-    localStorage.setItem('lego_llm_config', JSON.stringify({
-      enabled: true,
-      apiKey: 'sk-mock-key',
-      providerUrl: 'mock-url',
-      model: 'mock-model'
-    }));
+  it('1. Initializes LLM config (enabled) from localStorage correctly', () => {
+    localStorage.setItem('lego_llm_config', JSON.stringify({ enabled: false }));
 
     const { result } = renderHook(() => usePartSearch());
-    expect(result.current.llmConfig.enabled).toBe(true);
-    expect(result.current.llmConfig.apiKey).toBe('sk-mock-key');
+    expect(result.current.llmConfig.enabled).toBe(false);
+    // 前端 config 不再含任何密钥字段（key 已移到后端 env）
+    expect((result.current.llmConfig as any).apiKey).toBeUndefined();
   });
 
-  it('2. Requires API Key if LLM is enabled and natural language is detected', async () => {
-    // Setup fetch mock for MeiliSearch token
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: 'success', search_key: 'test' })
-    });
+  it('2. 中文 query 经后端代理 /api/llm_rewrite（不直连 deepseek，前端无 key）', async () => {
+    const fetchMock = vi.fn()
+      // fetch1: search key
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'success', search_key: 'test', host: 'http://x' }) })
+      // fetch2: 后端语义改写代理
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'success', keywords: 'Baseplate 19 11' }) });
+    global.fetch = fetchMock as any;
 
-    const { result, rerender } = renderHook(() => usePartSearch());
-    
-    // Wait for the mock fetch (initializeClient) to resolve
-    // 强制使用一个小延时保证 clientRef.current 初始化完成（因为成功的话它不触发 re-render，不好被 waitFor 跟踪）
+    const { result } = renderHook(() => usePartSearch());
     await new Promise(r => setTimeout(r, 150));
 
-    // Enable LLM without API Key
-    act(() => {
-      result.current.updateLlmConfig({ enabled: true, apiKey: '' });
-    });
-
-    // Fire search with Chinese text
+    act(() => { result.current.updateLlmConfig({ enabled: true }); });
     act(() => {
       result.current.handleQueryChange({ target: { value: '红色大板' } } as React.ChangeEvent<HTMLInputElement>);
     });
 
     await waitFor(() => {
-      console.log('Current error final:', result.current.error);
-      expect(result.current.error).toContain('未配置大模型 API Key');
+      const llmCall = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/llm_rewrite'));
+      expect(llmCall).toBeDefined();
+      // 绝不直连 deepseek / chat completions（key 不在前端）
+      expect(fetchMock.mock.calls.some(c => String(c[0]).includes('deepseek') || String(c[0]).includes('chat/completions'))).toBe(false);
     }, { timeout: 2000, interval: 100 });
   });
 
@@ -89,7 +80,7 @@ describe('usePartSearch', () => {
     await new Promise(r => setTimeout(r, 150));
     
     act(() => {
-      result.current.updateLlmConfig({ enabled: true, apiKey: 'sk-test' });
+      result.current.updateLlmConfig({ enabled: true });
     });
 
     act(() => {
@@ -105,18 +96,18 @@ describe('usePartSearch', () => {
   // 现有 case 1-3 覆盖 localStorage init / 缺 API Key / 短英文 bypass；
   // 加这 3 个补 LLM 重写正常路径 + LLM 失败 + 中英文/长度边界。
 
-  it('5. F2 — 中文 query 触发 LLM 重写，重写结果传给 Meilisearch.search', async () => {
-    // 真实路径：init key (fetch1) → LLM /chat/completions (fetch2) → Meilisearch
+  it('5. F2 — 中文 query 触发后端语义改写，重写结果传给 Meilisearch.search', async () => {
+    // 真实路径：init key (fetch1) → 后端 /api/llm_rewrite (fetch2) → Meilisearch
     const fetchMock = vi.fn()
       // fetch1: search key
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ status: 'success', search_key: 'test', host: 'http://x' }),
       })
-      // fetch2: LLM 重写
+      // fetch2: 后端语义改写代理
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ choices: [{ message: { content: 'Baseplate 19 11' } }] }),
+        json: async () => ({ status: 'success', keywords: 'Baseplate 19 11' }),
       });
     global.fetch = fetchMock as any;
 
@@ -124,7 +115,7 @@ describe('usePartSearch', () => {
     await new Promise(r => setTimeout(r, 150));
 
     act(() => {
-      result.current.updateLlmConfig({ enabled: true, apiKey: 'sk-test' });
+      result.current.updateLlmConfig({ enabled: true });
     });
     act(() => {
       result.current.handleQueryChange({
@@ -133,9 +124,9 @@ describe('usePartSearch', () => {
     });
 
     await waitFor(() => {
-      // fetch 至少两次（init key + LLM completions）
+      // fetch 至少两次（init key + 后端语义改写代理）
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      const llmCall = fetchMock.mock.calls.find(c => String(c[0]).includes('chat/completions'));
+      const llmCall = fetchMock.mock.calls.find(c => String(c[0]).includes('/api/llm_rewrite'));
       expect(llmCall).toBeDefined();
       // rewrittenQuery 在 LLM 返回后被 set
       expect(result.current.rewrittenQuery).toBe('Baseplate 19 11');
@@ -153,7 +144,7 @@ describe('usePartSearch', () => {
     await new Promise(r => setTimeout(r, 150));
 
     act(() => {
-      result.current.updateLlmConfig({ enabled: true, apiKey: 'sk-test' });
+      result.current.updateLlmConfig({ enabled: true });
     });
     act(() => {
       // "plate hole" = 2 词全英文 → bypass LLM
@@ -164,8 +155,8 @@ describe('usePartSearch', () => {
 
     await new Promise(r => setTimeout(r, 200));
 
-    // 不应有 chat/completions 调用
-    const llmCalls = fetchMock.mock.calls.filter(c => String(c[0]).includes('chat/completions'));
+    // 不应有后端语义改写调用
+    const llmCalls = fetchMock.mock.calls.filter(c => String(c[0]).includes('/api/llm_rewrite'));
     expect(llmCalls.length).toBe(0);
     // 也不应该有 rewrittenQuery
     expect(result.current.rewrittenQuery).toBeNull();
@@ -189,7 +180,7 @@ describe('usePartSearch', () => {
     await new Promise(r => setTimeout(r, 150));
 
     act(() => {
-      result.current.updateLlmConfig({ enabled: true, apiKey: 'sk-test' });
+      result.current.updateLlmConfig({ enabled: true });
     });
     act(() => {
       result.current.handleQueryChange({
