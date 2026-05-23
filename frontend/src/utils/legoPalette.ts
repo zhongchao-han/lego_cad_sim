@@ -1,8 +1,8 @@
 /**
  * legoPalette.ts
  * ==============
- * 共享的常用 LDraw 颜色板。原先内联在 PartPreviewOverlay；抽出来给「已放置零件
- * 改色」(RecolorPalette) 复用，单一真相源避免两处色卡漂移。
+ * 共享的常用 LDraw 颜色板。原先内联在 PartPreviewOverlay；抽出来给顶部工具栏
+ * (Toolbar) 的「改色」弹出色板复用，单一真相源避免两处色卡漂移。
  */
 
 export interface LegoColor {
