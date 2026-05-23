@@ -79,6 +79,38 @@ describe('Interaction v1.2 交互测试矩阵', () => {
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
   });
 
+  // --- 3b. 选中零件本体应中止进行中的端口交互 (UX 反馈：过约束时整组旋转的前提) ---
+
+  it('SOURCE_LOCKED 时 selectPart(本体) 应中止端口交互回 IDLE 并清 selectedPort', () => {
+    // 模拟卡在 SOURCE_LOCKED：锁了一个源端口
+    useStore.setState({
+      interactionPhase: InteractionPhase.SOURCE_LOCKED,
+      selectedPort: {
+        partId: 'partX', ldrawId: '71709.dat', portType: 'connhole.dat',
+        position: [0, 0, 0], rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        globalPos: [0, 0, 0], globalQuat: [0, 0, 0, 1],
+      },
+    });
+
+    // 主动点零件本体选中（过约束错误提示让用户做的事）
+    useStore.getState().selectPart('partX', SelectionLevel.INDIVIDUAL);
+
+    // 端口交互被中止 → IDLE，selectedPort 清空 → [/] 此后才会走整组刚体旋转路由
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
+    expect(useStore.getState().selectedPort).toBeNull();
+    // 选中态正确建立
+    expect(useStore.getState().selection.primaryId).toBe('partX');
+    expect(useStore.getState().selection.level).toBe(SelectionLevel.INDIVIDUAL);
+  });
+
+  it('IDLE 时 selectPart 不应误触发 abort（仅设选中态）', () => {
+    useStore.getState().addParts(['partY']);
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
+    useStore.getState().selectPart('partY', SelectionLevel.INDIVIDUAL);
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
+    expect(useStore.getState().selection.primaryId).toBe('partY');
+  });
+
   // --- 4. 物理反馈测试 (Interference Pulse) ---
 
   it('发生碰撞时应该正确触发 Blocked 状态与反馈请求', () => {

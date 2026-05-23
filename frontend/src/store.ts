@@ -1547,7 +1547,20 @@ export const useStore = create<StoreState>()(
   }),
   selectPart: (id, level = SelectionLevel.GROUP, append = false) => {
       get().addLog(`Selecting part: ${id} (Level: ${level}, append: ${append})`, 'ACTION');
-      
+
+      // 主动选中零件「本体」是一个 IDLE 态编辑意图。若此刻仍卡在 SOURCE_LOCKED /
+      // AXIAL_SLIDING（端口交互进行中），先中止端口交互回 IDLE，否则 [/] 仍会被
+      // 端口旋转路由吃掉（canRotateSelectedPort），整组刚体旋转永远轮不到。
+      // 这正是过约束错误提示「点零件本体选中后按 [/]」赖以生效的前提。
+      // 注意：吸附目标是点目标「端口」(port dot 独立 click handler)，不走 selectPart，
+      // 故此处中止不会破坏 SOURCE_LOCKED → 选目标端口 → snap 的主流程。
+      if (id) {
+        const phase = get().interactionPhase;
+        if (phase === InteractionPhase.SOURCE_LOCKED || phase === InteractionPhase.AXIAL_SLIDING) {
+          get().abortCurrentInteraction();
+        }
+      }
+
       const prevSelection = get().selection;
       let targetLevel = level;
 
