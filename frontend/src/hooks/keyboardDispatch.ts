@@ -65,6 +65,7 @@ export interface DispatcherDeps {
   rotateSelectedPart: (rad: number) => void;
   rotateSelectedGroup: (rad: number) => void;
   rotateSelectedSingle: (rad: number) => void;
+  flipSelected: () => void;
   translateSelectedGroup: (delta: [number, number, number]) => void;
   commitFreePlacing: (target: undefined) => void;
   commitAxialSliding: () => void;
@@ -274,6 +275,13 @@ export const KEYMAP: KeymapEntry[] = [
       e.preventDefault();
       d.setHiddenSelected(true);
     },
+  },
+  // Shift+F：翻面（必须先于 f.focus-camera —— 那条匹配 'f' 时忽略 shift）。
+  // 仅 IDLE + 有选中件时生效；否则 Shift+F 落到 focus（无害）。
+  {
+    id: 'idle.flip-selected',
+    match: (e, d) => e.shiftKey && e.key.toLowerCase() === 'f' && canEditSelectedGroup(d),
+    run: (e, d) => { e.preventDefault(); d.flipSelected(); },
   },
   {
     id: 'f.focus-camera',

@@ -70,6 +70,7 @@ function makeMockDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
     rotateSelectedPart: vi.fn(),
     rotateSelectedGroup: vi.fn(),
     rotateSelectedSingle: vi.fn(),
+    flipSelected: vi.fn(),
     translateSelectedGroup: vi.fn(),
     commitFreePlacing: vi.fn(),
     commitAxialSliding: vi.fn(),
@@ -388,6 +389,22 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     expect(dispatchKey(kev({ key: 'ArrowLeft' }), deps)).toBeNull();
     expect(deps.rotateSelectedSingle).not.toHaveBeenCalled();
     expect(deps.translateSelectedGroup).not.toHaveBeenCalled();
+  });
+
+  it('case 33: IDLE+selection + Shift+F → "idle.flip-selected" 翻面', () => {
+    const deps = idleSel();
+    expect(dispatchKey(kev({ key: 'F', shiftKey: true }), deps)).toBe('idle.flip-selected');
+    expect(deps.flipSelected).toHaveBeenCalled();
+  });
+
+  it('case 34: 裸 f → focus（非翻面）；Shift+F 无选中 → 落到 focus', () => {
+    const sel = idleSel();
+    expect(dispatchKey(kev({ key: 'f' }), sel)).toBe('f.focus-camera');
+    expect(sel.flipSelected).not.toHaveBeenCalled();
+
+    const noSel = makeMockDeps({ interactionPhase: () => InteractionPhase.IDLE, hasSelection: () => false });
+    expect(dispatchKey(kev({ key: 'F', shiftKey: true }), noSel)).toBe('f.focus-camera');
+    expect(noSel.flipSelected).not.toHaveBeenCalled();
   });
 
   it('case 32: SOURCE_LOCKED 端口旋转优先 — [ 走 "rotate.ccw" 而非 idle 组旋转', () => {
