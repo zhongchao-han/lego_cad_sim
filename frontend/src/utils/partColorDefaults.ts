@@ -64,3 +64,12 @@ export function getDefaultColorCode(partId: string, fallbackColorCode: number): 
   }
   return fallbackColorCode;
 }
+
+/**
+ * 该零件是否有「功能预设色」（销/轴等，颜色锁定为现实功能默认值）。
+ * 用于改色交互：预设色件不允许被用户改色（保真 + 防误改），见 recolorSelected。
+ */
+export function hasPresetColor(partId: string): boolean {
+  const normalized = partId.toLowerCase().replace(/\.dat$/, '');
+  return DEFAULT_PART_COLORS[normalized] !== undefined;
+}

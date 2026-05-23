@@ -26,7 +26,7 @@ import {
   rotateGearAroundOwnAxis,
   type GearPart,
 } from './utils/gearMath';
-import { getDefaultColorCode } from './utils/partColorDefaults';
+import { getDefaultColorCode, hasPresetColor } from './utils/partColorDefaults';
 
 type ConnectionGraph = Record<string, Set<string>>;
 
@@ -200,7 +200,10 @@ interface StoreState {
 
   /** 全局颜色选择：更新 activeColorCode，后续所有零件实例使用此颜色 */
   setActiveColorCode: (code: number) => void;
-  
+  /** 给当前选中的零件改色（colorCode）。作用范围 = selection.allConnectedIds；
+   *  功能预设色件（销/轴等 hasPresetColor）跳过不改。可撤销。返回实际改色件数。 */
+  recolorSelected: (code: number) => void;
+
   undo: () => void;
   redo: () => void;
 
@@ -694,6 +697,46 @@ export const useStore = create<StoreState>()(
   setActiveColorCode: (code) => {
       get().addLog(`Active color code changed to: ${code}`, 'ACTION');
       set({ activeColorCode: code });
+  },
+
+  // 已放置零件改色（UX）：选中件 → 点调色板上色。作用 selection.allConnectedIds；
+  // 功能预设色件（销/轴）跳过；可撤销。
+  recolorSelected: (code) => {
+    const { selection, parts, batchUpdatePartStates } = get();
+    const ids = selection.allConnectedIds.length > 0
+      ? selection.allConnectedIds
+      : (selection.primaryId ? [selection.primaryId] : []);
+    if (ids.length === 0) return;
+
+    const prevColors: Record<string, Partial<PartState>> = {};
+    const nextColors: Record<string, Partial<PartState>> = {};
+    let lockedCount = 0;
+    ids.forEach(id => {
+      const p = parts[id];
+      if (!p) return;
+      if (hasPresetColor(p.ldrawId)) { lockedCount++; return; } // 预设色件锁定
+      if (p.colorCode === code) return; // 已是该色，免命令
+      prevColors[id] = { colorCode: p.colorCode };
+      nextColors[id] = { colorCode: code };
+    });
+
+    const changed = Object.keys(nextColors).length;
+    if (changed === 0) {
+      if (lockedCount > 0) get().addLog(`选中件为功能预设色（销/轴等），颜色锁定不可改`, 'INFO');
+      return;
+    }
+
+    const applyFn = () => batchUpdatePartStates(nextColors);
+    const revertFn = () => batchUpdatePartStates(prevColors);
+    const emptySnap: TopologySnapshot = {
+      addedParts: {}, removedParts: {}, addedConnections: [], removedConnections: [],
+    };
+    const cmd = createTopologyCommand('TRANSFORM', emptySnap, applyFn, revertFn);
+    applyFn();
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    const lockNote = lockedCount > 0 ? `（${lockedCount} 件功能预设色已跳过）` : '';
+    get().addLog(`改色 LDraw #${code}：${changed} 件${lockNote}`, 'ACTION');
   },
 
   undo: () => {
