@@ -142,6 +142,47 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
+  it('平移：选中件(子装配)移动，大底板(地基)不动', () => {
+    const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    setup(square); // P 小件（选中）、Q 大底板（地基）
+    const qPos0 = [...useStore.getState().parts.Q.position];
+
+    useStore.getState().translateSelectedGroup([-0.008, 0, 0]);
+
+    const st = useStore.getState();
+    // 选中件移动了
+    expect(st.parts.P.position[0]).toBeCloseTo(-0.008, 6);
+    // 大底板纹丝不动
+    expect(st.parts.Q.position).toEqual(qPos0);
+    // 移开栅格 → 脱开（平移不吸回）
+    expect(st.connections.P?.has('Q') ?? false).toBe(false);
+  });
+
+  it('平移：插销随板一起移动（子装配跟动），底板不动', () => {
+    resetStore();
+    const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    useStore.setState({
+      parts: { plate: part('plate.dat'), base: part('base.dat'), pin: part('pin.dat') },
+      partCatalog: {
+        'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+        'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+        'pin.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
+      },
+      selection: { primaryId: 'plate', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['plate'], excludedIds: [] },
+    } as any);
+    connect('plate', 'base', square);
+    connect('plate', 'pin', [[0, A, 0]]);
+    const basePos0 = [...useStore.getState().parts.base.position];
+
+    useStore.getState().translateSelectedGroup([0, 0, 0.008]);
+
+    const st = useStore.getState();
+    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6);  // 板移动
+    expect(st.parts.pin.position[2]).toBeCloseTo(0.008, 6);    // 插销跟动
+    expect(st.parts.base.position).toEqual(basePos0);          // 底板不动
+    expect(st.connections.plate.has('pin')).toBe(true);        // 内部连接保持
+  });
+
   it('无选中件 → no-op', () => {
     resetStore();
     useStore.setState({ parts: { P: part('P.dat') }, partCatalog: { 'P.dat': { bboxCenter: [0, 0, 0] } } } as any);
