@@ -3,73 +3,38 @@ import { Meilisearch } from 'meilisearch';
 import debounce from 'lodash.debounce';
 
 export interface LLMConfig {
+  /** 是否启用 AI 语义搜索。API key / provider / model 全部由后端 env 管理
+   *  （见 backend/.env + /api/llm_rewrite），前端不再持有任何密钥。 */
   enabled: boolean;
-  providerUrl: string;
-  apiKey: string;
-  model: string;
 }
 
 const DEFAULT_LLM_CONFIG: LLMConfig = {
   enabled: true,
-  providerUrl: 'https://api.deepseek.com/v1',
-  apiKey: 'sk-975967e508be4e0ca93b811513a27146',
-  model: 'deepseek-chat',
 };
+
+const BACKEND_URL = 'http://localhost:8000';
 
 // Helper: 判定是否需要用大模型（如包含中文）
 const isNaturalLanguage = (text: string) => /[\u4e00-\u9fa5]/.test(text) || text.split(" ").length > 3;
 
-async function queryLLM(query: string, config: LLMConfig): Promise<string> {
-    if (!config.apiKey) throw new Error("您开启了语义搜索，但未配置大模型 API Key。");
-
-    // 注入 LDraw 命名体系领域知识 + few-shot 示例，让 LLM 精准命中索引
-    const prompt = [
-      'You are a LEGO LDraw part naming expert.',
-      'Convert the user\'s Chinese description into precise English keywords matching LDraw part names.',
-      'Include dimension numbers (e.g. "19 x 11", "2 x 8") whenever possible for better search ranking.',
-      '',
-      'CRITICAL LDraw naming rules:',
-      '- Large flat plate with dense grid of holes = "Baseplate" (e.g. "Baseplate 19 11")',
-      '- Thin plate with single row of holes = "Technic Plate" (e.g. "Technic Plate 2 x 8")',
-      '- 大底板/大平板/很多孔的板 = "Baseplate" (LDraw name: Technic Beam N x M Baseplate)',
-      '- 平板/薄板 = "Plate"; 厚砖块 = "Brick"; 横臂/杆 = "Liftarm" or "Beam"',
-      '- 齿轮 = "Gear"; 轴 = "Axle"; 销 = "Pin"; 弯曲 = "Curved" or "Bent"',
-      '- 十字孔 = "Axle Hole"; 圆孔 = "Pin Hole"',
-      '',
-      'Examples:',
-      '- "很多孔的大平板" -> "Baseplate 19 11"',
-      '- "大底板" -> "Baseplate 19 11"',
-      '- "一排孔的薄板" -> "Technic Plate Holes"',
-      '- "长的横臂" -> "Technic Liftarm 1 x 15"',
-      '- "带十字孔的横臂" -> "Technic Liftarm Axle Hole"',
-      '- "弯曲的小齿轮" -> "Gear small"',
-      '- "有圆孔的厚砖" -> "Technic Brick Pin Hole"',
-      '- "L形的杆" -> "Technic Liftarm Bent"',
-      '',
-      'ONLY output keywords, no explanation, no quotes.',
-      'User query: "' + query + '"',
-    ].join('\n');
-
-    const res = await fetch(`${config.providerUrl}/chat/completions`, {
+/**
+ * 经后端代理做语义改写：中文描述 → LDraw 英文关键词。
+ * 安全：DeepSeek API key 只存后端 env，前端永不接触（原先硬编码在此处已移除）。
+ */
+async function queryLLM(query: string): Promise<string> {
+    const res = await fetch(`${BACKEND_URL}/api/llm_rewrite`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${config.apiKey}`
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: "system", content: prompt }],
-            temperature: 0.1,
-            max_tokens: 30
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
     });
     if (!res.ok) {
-        throw new Error(`LLM Error: ${res.statusText}`);
+        throw new Error(`LLM 代理 HTTP ${res.status}`);
     }
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("Empty response from LLM.");
-    return content;
+    if (data.status !== 'success' || !data.keywords) {
+        throw new Error(data.msg || "大模型返回空结果。");
+    }
+    return data.keywords as string;
 }
 
 export interface PartSearchHit {
@@ -195,7 +160,7 @@ export function usePartSearch() {
       if (currentLlmConfig.enabled && isNaturalLanguage(searchQuery)) {
         setIsLlmThinking(true);
         try {
-          finalQuery = await queryLLM(searchQuery, currentLlmConfig);
+          finalQuery = await queryLLM(searchQuery);
         } catch (llmErr: any) {
           throw new Error(`语义检索失败: ${llmErr.message}`);
         }
