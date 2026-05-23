@@ -183,29 +183,33 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('pin')).toBe(true);        // 内部连接保持
   });
 
-  it('翻面：选中件绕世界 X 翻 180°，子装配跟翻，地基不动', () => {
+  it('翻面：选中件绕世界 X 翻 180°，连接件(销)留在原位不翻到顶，地基不动', () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
       parts: { plate: part('plate.dat'), base: part('base.dat'), pin: part('pin.dat') },
       partCatalog: {
-        'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
-        'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
-        'pin.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
+        // pin 标为 Pin 类 → 翻面时留在原位充当连接，不随板翻
+        'plate.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+        'base.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+        'pin.dat': { category: 'Pin', bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
       },
       selection: { primaryId: 'plate', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['plate'], excludedIds: [] },
     } as any);
     connect('plate', 'base', square);
     connect('plate', 'pin', [[0, A, 0]]);
     const baseQ0 = [...useStore.getState().parts.base.quaternion];
+    const pinQ0 = [...useStore.getState().parts.pin.quaternion];
+    const pinP0 = [...useStore.getState().parts.pin.position];
 
     useStore.getState().flipSelected();
 
     const st = useStore.getState();
-    // 绕世界 X 翻 180° → 四元数 x 分量 ≈ ±1（180° about X）
+    // 板绕世界 X 翻 180° → 四元数 x 分量 ≈ ±1
     expect(Math.abs(st.parts.plate.quaternion[0])).toBeCloseTo(1, 4);
-    // 插销跟翻
-    expect(Math.abs(st.parts.pin.quaternion[0])).toBeCloseTo(1, 4);
+    // 销是连接件 → 不随板翻：姿态 + 位置都不变（留在原位充当连接）
+    expect(st.parts.pin.quaternion).toEqual(pinQ0);
+    expect(st.parts.pin.position).toEqual(pinP0);
     // 地基不动
     expect(st.parts.base.quaternion).toEqual(baseQ0);
     expect(st.canUndo).toBe(true);
