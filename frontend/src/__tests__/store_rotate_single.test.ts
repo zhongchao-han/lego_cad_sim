@@ -54,7 +54,11 @@ function setup(localPorts: V3[]) {
   resetStore();
   useStore.setState({
     parts: { P: part('P.dat'), Q: part('Q.dat') },
-    partCatalog: { 'P.dat': { bboxCenter: [0, 0, 0] }, 'Q.dat': { bboxCenter: [0, 0, 0] } },
+    // Q 是大底板（bbox 体积大）→ pickBasePart 选 Q 为地基；P 是被转的小件。
+    partCatalog: {
+      'P.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+      'Q.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+    },
     selection: { primaryId: 'P', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['P'], excludedIds: [] },
   } as any);
   connect('P', 'Q', localPorts);
@@ -107,6 +111,35 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.Q.has('P')).toBe(true);
     expect(st.occupiedPorts.P).toEqual(occP0);
     expect(st.parts.P.quaternion).toEqual(q0);
+  });
+
+  it('插销跟上：转板时挂在板上的插销随板一起转（相对大底板）', () => {
+    resetStore();
+    const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    useStore.setState({
+      parts: { plate: part('plate.dat'), base: part('base.dat'), pin: part('pin.dat') },
+      partCatalog: {
+        'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+        'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] }, // 最大 → 地基
+        'pin.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
+      },
+      selection: { primaryId: 'plate', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['plate'], excludedIds: [] },
+    } as any);
+    connect('plate', 'base', square);      // 板↔底板：对称方阵（转 90° 保持）
+    connect('plate', 'pin', [[0, A, 0]]);  // 插销插在板顶（moving 组内部连接）
+
+    const pinQ0 = [...useStore.getState().parts.pin.quaternion];
+
+    useStore.getState().rotateSelectedSingle(Math.PI / 2);
+
+    const st = useStore.getState();
+    // 插销随板转了（姿态改变）
+    expect(st.parts.pin.quaternion).not.toEqual(pinQ0);
+    // 板↔插销内部连接保持
+    expect(st.connections.plate.has('pin')).toBe(true);
+    expect(st.connections.pin.has('plate')).toBe(true);
+    // 板↔底板对称方阵 → 保持
+    expect(st.connections.plate.has('base')).toBe(true);
   });
 
   it('无选中件 → no-op', () => {

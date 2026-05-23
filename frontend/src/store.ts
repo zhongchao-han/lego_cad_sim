@@ -20,7 +20,7 @@ import { isValidTransition } from './interactionFSM';
 import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
-import { evaluateRotateReconnect, worldPivot, type RigidPose } from './utils/rotateReconnect';
+import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -1784,11 +1784,12 @@ export const useStore = create<StoreState>()(
     );
   },
 
-  // Feature A（UX 反馈）：只转选中的那一个零件（相对其余装配），转完自动微移重连 /
-  // 失败脱开。几何决策在纯函数 evaluateRotateReconnect；这里负责装配/拆解 store
-  // 状态（pose + connections + occupiedPorts）+ 可撤销命令 + 日志。
+  // Feature A（UX 反馈 + 「旋转时插销要跟上」迭代）：转「选中件 + 挂在它上面的子装配」
+  // 整体（moving 组），相对「地基」（连通组里最大零件，如大底板）。插销/小件随板一起
+  // 刚体转，内部连接恒保持；只重连评估 moving↔base 界面边。几何决策在纯函数
+  // evaluateRotateReconnect；这里组装 moving 组刚体位姿 + 装配/拆解 store 状态 + undo。
   rotateSelectedSingle: (angleRads: number) => {
-    const { selection, parts, partCatalog, occupiedPorts, batchUpdatePartStates } = get();
+    const { selection, parts, partCatalog, occupiedPorts, connections, batchUpdatePartStates } = get();
     const primaryId = selection.primaryId;
     const part = primaryId ? parts[primaryId] : null;
     if (!primaryId || !part) return;
@@ -1798,91 +1799,98 @@ export const useStore = create<StoreState>()(
     const oldPose: RigidPose = { position: part.position as Vec3, quaternion: part.quaternion as Quat };
     const pivot = worldPivot(oldPose, bboxCenter);
 
-    const occupiedByPart = occupiedPorts[primaryId] ?? {};
-    const peerIds = [...new Set(Object.values(occupiedByPart))];
-    const peerPoses: Record<string, RigidPose> = {};
-    const peerOccupied: Record<string, Record<string, string>> = {};
-    peerIds.forEach(pid => {
-      const pp = parts[pid];
-      if (pp) peerPoses[pid] = { position: pp.position as Vec3, quaternion: pp.quaternion as Quat };
-      if (occupiedPorts[pid]) peerOccupied[pid] = occupiedPorts[pid];
-    });
-
-    const result = evaluateRotateReconnect({
-      oldPose, pivot, axis: [0, 1, 0], angle: angleRads,
-      partId: primaryId, occupiedByPart, peerPoses, peerOccupied,
-    });
-
-    const detachedSet = new Set(result.detachedPeers);
-
-    // ── 捕获待恢复的脱开数据（供 undo）──────────────────────────────────────
-    // 本件侧：occupiedByPart 里 value ∈ detached 的条目。
-    const removedFromPrimary: Record<string, string> = {};
-    Object.entries(occupiedByPart).forEach(([k, v]) => {
-      if (detachedSet.has(v)) removedFromPrimary[k] = v;
-    });
-    // 对端侧：每个 detached peer 的 occupied 里 value === primaryId 的条目。
-    const removedFromPeers: Record<string, Record<string, string>> = {};
-    detachedSet.forEach(peer => {
-      const occ = occupiedPorts[peer];
-      if (!occ) return;
-      const matched: Record<string, string> = {};
-      Object.entries(occ).forEach(([k, v]) => { if (v === primaryId) matched[k] = v; });
-      if (Object.keys(matched).length > 0) removedFromPeers[peer] = matched;
-    });
-
-    const prevPose: RigidPose = {
-      position: [...part.position] as Vec3, quaternion: [...part.quaternion] as Quat,
+    // 连通组里挑「地基」= 包围盒最大者（大底板 ≫ 小件/插销）。
+    const comp = getConnectedGroup(connections, primaryId, "");
+    const bboxSizeOf = (pid: string): Vec3 | null => {
+      const m = partCatalog[parts[pid]?.ldrawId ?? ''];
+      return (m?.bboxSize ?? null) as Vec3 | null;
     };
-    const nextPose: RigidPose = { position: result.newPose.position, quaternion: result.newPose.quaternion };
+    const base = pickBasePart(comp, bboxSizeOf);
+    // moving 组：从选中件出发、不穿越 base 的连通子集。base===选中件（选中件本身就是
+    // 最大/地基）或无 base → moving = 整组（整体刚体转，无界面可重连）。
+    const moving = (base && base !== primaryId)
+      ? getConnectedGroup(connections, primaryId, base)
+      : comp;
+    const movingSet = new Set(moving);
+    const baseIds = comp.filter(id => !movingSet.has(id));
+
+    // moving 组旋转后位姿：选中件绕 pivot 转，其余成员随刚体 delta 平移/转。
+    const newPrimary = rotatePartAboutPivot(oldPose, pivot, [0, 1, 0], angleRads);
+    const movingNewPoses = applyGroupDelta(moving, parts, primaryId, oldPose, newPrimary) as Record<string, RigidPose>;
+
+    const movingOccupied: Record<string, Record<string, string>> = {};
+    moving.forEach(id => { if (occupiedPorts[id]) movingOccupied[id] = occupiedPorts[id]; });
+    const basePoses: Record<string, RigidPose> = {};
+    const baseOccupied: Record<string, Record<string, string>> = {};
+    baseIds.forEach(id => {
+      const bp = parts[id];
+      if (bp) basePoses[id] = { position: bp.position as Vec3, quaternion: bp.quaternion as Quat };
+      if (occupiedPorts[id]) baseOccupied[id] = occupiedPorts[id];
+    });
+
+    const result = evaluateRotateReconnect({ movingNewPoses, movingOccupied, basePoses, baseOccupied });
+    const t = result.autoMove;
+
+    // moving 组最终位姿 = 旋转后位姿 + 整组微移 t。
+    const finalUpdates: Record<string, Partial<PartState>> = {};
+    const prevUpdates: Record<string, Partial<PartState>> = {};
+    moving.forEach(id => {
+      const np = movingNewPoses[id];
+      const cur = parts[id];
+      if (!np || !cur) return;
+      prevUpdates[id] = { position: [...cur.position] as Vec3, quaternion: [...cur.quaternion] as Quat };
+      finalUpdates[id] = {
+        position: [np.position[0] + t[0], np.position[1] + t[1], np.position[2] + t[2]] as Vec3,
+        quaternion: np.quaternion as Quat,
+      };
+    });
+
+    // ── 捕获脱开界面边的待清除占用条目（供 undo 恢复）。每条边 [m, b]：
+    //    m 侧 occupied 里 value===b 的项 + b 侧 occupied 里 value===m 的项。
+    const removedOcc: Record<string, Record<string, string>> = {}; // partId → {key: peer}
+    const detachedEdges = result.detachedEdges;
+    const collectOcc = (owner: string, peer: string) => {
+      const occ = occupiedPorts[owner];
+      if (!occ) return;
+      Object.entries(occ).forEach(([k, v]) => {
+        if (v === peer) { (removedOcc[owner] ??= {})[k] = v; }
+      });
+    };
+    detachedEdges.forEach(([m, b]) => { collectOcc(m, b); collectOcc(b, m); });
 
     const applyFn = () => {
-      batchUpdatePartStates({ [primaryId]: { position: nextPose.position, quaternion: nextPose.quaternion } });
-      if (detachedSet.size === 0) return;
+      batchUpdatePartStates(finalUpdates);
+      if (detachedEdges.length === 0) return;
       set(s => {
-        // 断边（双向）
         const nc = { ...s.connections };
-        const primSet = nc[primaryId] ? new Set(nc[primaryId]) : new Set<string>();
-        detachedSet.forEach(peer => {
-          primSet.delete(peer);
-          if (nc[peer]) {
-            const ps = new Set(nc[peer]); ps.delete(primaryId);
-            if (ps.size === 0) delete nc[peer]; else nc[peer] = ps;
-          }
+        detachedEdges.forEach(([m, b]) => {
+          if (nc[m]) { const ms = new Set(nc[m]); ms.delete(b); if (ms.size === 0) delete nc[m]; else nc[m] = ms; }
+          if (nc[b]) { const bs = new Set(nc[b]); bs.delete(m); if (bs.size === 0) delete nc[b]; else nc[b] = bs; }
         });
-        if (primSet.size === 0) delete nc[primaryId]; else nc[primaryId] = primSet;
-        // 清互指占用条目
         const ro: OccupiedPortMap = { ...s.occupiedPorts };
-        if (ro[primaryId]) {
-          const cleaned = { ...ro[primaryId] };
-          Object.keys(removedFromPrimary).forEach(k => delete cleaned[k]);
-          if (Object.keys(cleaned).length === 0) delete ro[primaryId]; else ro[primaryId] = cleaned;
-        }
-        Object.entries(removedFromPeers).forEach(([peer, kvs]) => {
-          if (!ro[peer]) return;
-          const cleaned = { ...ro[peer] };
+        Object.entries(removedOcc).forEach(([pid, kvs]) => {
+          if (!ro[pid]) return;
+          const cleaned = { ...ro[pid] };
           Object.keys(kvs).forEach(k => delete cleaned[k]);
-          if (Object.keys(cleaned).length === 0) delete ro[peer]; else ro[peer] = cleaned;
+          if (Object.keys(cleaned).length === 0) delete ro[pid]; else ro[pid] = cleaned;
         });
         return { connections: nc, occupiedPorts: ro };
       });
     };
 
     const revertFn = () => {
-      batchUpdatePartStates({ [primaryId]: { position: prevPose.position, quaternion: prevPose.quaternion } });
-      if (detachedSet.size === 0) return;
+      batchUpdatePartStates(prevUpdates);
+      if (detachedEdges.length === 0) return;
       set(s => {
         const nc = { ...s.connections };
-        detachedSet.forEach(peer => {
-          nc[primaryId] = nc[primaryId] ? new Set(nc[primaryId]) : new Set();
-          nc[peer] = nc[peer] ? new Set(nc[peer]) : new Set();
-          nc[primaryId].add(peer);
-          nc[peer].add(primaryId);
+        detachedEdges.forEach(([m, b]) => {
+          nc[m] = nc[m] ? new Set(nc[m]) : new Set();
+          nc[b] = nc[b] ? new Set(nc[b]) : new Set();
+          nc[m].add(b); nc[b].add(m);
         });
         const ro: OccupiedPortMap = { ...s.occupiedPorts };
-        ro[primaryId] = { ...(ro[primaryId] || {}), ...removedFromPrimary };
-        Object.entries(removedFromPeers).forEach(([peer, kvs]) => {
-          ro[peer] = { ...(ro[peer] || {}), ...kvs };
+        Object.entries(removedOcc).forEach(([pid, kvs]) => {
+          ro[pid] = { ...(ro[pid] || {}), ...kvs };
         });
         return { connections: nc, occupiedPorts: ro };
       });
@@ -1898,12 +1906,13 @@ export const useStore = create<StoreState>()(
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
 
     const deg = (angleRads * 180 / Math.PI).toFixed(0);
-    const moveMm = Math.hypot(result.autoMove[0], result.autoMove[1], result.autoMove[2]) * 1000;
+    const moveMm = Math.hypot(t[0], t[1], t[2]) * 1000;
+    const withN = moving.length > 1 ? `（含子装配 ${moving.length} 件）` : '';
     const movePart = moveMm > 0.05 ? `，自动微移 ${moveMm.toFixed(1)}mm 重连` : '';
-    const detachPart = result.detachedPeers.length > 0
-      ? `，脱开 ${result.detachedPeers.length} 个连接`
-      : (result.keptPeers.length > 0 ? `，保持 ${result.keptPeers.length} 个连接` : '');
-    get().addLog(`绕 Y 轴旋转 ${deg}°（仅选中件 ${primaryId}）${movePart}${detachPart}`, 'ACTION');
+    const detachPart = detachedEdges.length > 0
+      ? `，脱开 ${detachedEdges.length} 个连接`
+      : (result.keptEdges.length > 0 ? `，保持 ${result.keptEdges.length} 个连接` : '');
+    get().addLog(`绕 Y 轴旋转 ${deg}°（选中件 ${primaryId}${withN}）${movePart}${detachPart}`, 'ACTION');
   },
 
   commitAxialSliding: () => {

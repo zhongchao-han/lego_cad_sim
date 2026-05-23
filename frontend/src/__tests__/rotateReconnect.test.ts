@@ -11,6 +11,7 @@ import {
   rotatePartAboutPivot,
   worldPivot,
   evaluateRotateReconnect,
+  pickBasePart,
   type RigidPose,
   type Vec3,
 } from '../utils/rotateReconnect';
@@ -73,107 +74,139 @@ describe('worldPivot', () => {
   });
 });
 
-describe('evaluateRotateReconnect', () => {
+describe('evaluateRotateReconnect — moving↔base 界面重连/脱开', () => {
   const A = 0.008; // 8mm
+  const ROT90 = rotatePartAboutPivot(ID, [0, 0, 0], [0, 1, 0], HALF_PI); // 选中件绕原点转 90°
 
-  it('对称方阵端口绕中心转 90° → 端口映射回自身，连接保持，无需微移', () => {
+  it('对称方阵端口：转 90° 端口映射回自身 → 界面边保持，无需微移', () => {
     const square: Vec3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
-    const occA: Record<string, string> = {};
-    square.forEach(p => { occA[key(p)] = 'peer'; });
-    const occPeer: Record<string, string> = {};
-    square.forEach(p => { occPeer[key(p)] = 'partP'; });
+    const occP: Record<string, string> = {}; square.forEach(p => { occP[key(p)] = 'B'; });
+    const occB: Record<string, string> = {}; square.forEach(p => { occB[key(p)] = 'P'; });
 
     const r = evaluateRotateReconnect({
-      oldPose: ID, pivot: [0, 0, 0], axis: [0, 1, 0], angle: HALF_PI,
-      partId: 'partP',
-      occupiedByPart: occA,
-      peerPoses: { peer: ID },
-      peerOccupied: { peer: occPeer },
+      movingNewPoses: { P: ROT90 },
+      movingOccupied: { P: occP },
+      basePoses: { B: ID },
+      baseOccupied: { B: occB },
     });
 
-    expect(r.keptPeers).toEqual(['peer']);
-    expect(r.detachedPeers).toEqual([]);
+    expect(r.keptEdges).toEqual([['P', 'B']]);
+    expect(r.detachedEdges).toEqual([]);
     expect(r.autoMove[0]).toBeCloseTo(0, 6);
-    expect(r.autoMove[1]).toBeCloseTo(0, 6);
     expect(r.autoMove[2]).toBeCloseTo(0, 6);
   });
 
-  it('沿 X 的两点连接绕中心转 90° → 变沿 Z，平移无法复原 → 脱开', () => {
+  it('沿 X 双点：转 90° 变沿 Z，微移无法复原 → 界面边脱开', () => {
     const line: Vec3[] = [[A, 0, 0], [-A, 0, 0]];
-    const occA: Record<string, string> = {};
-    line.forEach(p => { occA[key(p)] = 'peer'; });
-    const occPeer: Record<string, string> = {};
-    line.forEach(p => { occPeer[key(p)] = 'partP'; });
+    const occP: Record<string, string> = {}; line.forEach(p => { occP[key(p)] = 'B'; });
+    const occB: Record<string, string> = {}; line.forEach(p => { occB[key(p)] = 'P'; });
 
     const r = evaluateRotateReconnect({
-      oldPose: ID, pivot: [0, 0, 0], axis: [0, 1, 0], angle: HALF_PI,
-      partId: 'partP',
-      occupiedByPart: occA,
-      peerPoses: { peer: ID },
-      peerOccupied: { peer: occPeer },
+      movingNewPoses: { P: ROT90 },
+      movingOccupied: { P: occP },
+      basePoses: { B: ID },
+      baseOccupied: { B: occB },
     });
 
-    expect(r.keptPeers).toEqual([]);
-    expect(r.detachedPeers).toEqual(['peer']);
+    expect(r.keptEdges).toEqual([]);
+    expect(r.detachedEdges).toEqual([['P', 'B']]);
   });
 
-  it('绕偏移 pivot 转后整体错位，自动微移可复原 → 保持 + 非零 autoMove', () => {
+  it('整组平移错位 D → 自动微移复原 → 保持 + 非零 autoMove', () => {
     const D = 0.02;
     const square: Vec3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
-    // P 在 (D,0,0)，端口世界坐标 = (D±A, 0, ±A)
-    const partPose: RigidPose = { position: [D, 0, 0], quaternion: [0, 0, 0, 1] };
-    const occA: Record<string, string> = {};
-    square.forEach(p => { occA[key(p)] = 'peer'; });
-    // peer 端口世界坐标须 = P 旋转前的世界端口（连接初始重合）
-    const occPeer: Record<string, string> = {};
-    square.forEach(p => { occPeer[key([p[0] + D, p[1], p[2]])] = 'partP'; });
+    // moving 件 P 平移到 (D,0,D)（无旋转），端口世界 = square + (D,0,D)
+    const movedPose: RigidPose = { position: [D, 0, D], quaternion: [0, 0, 0, 1] };
+    const occP: Record<string, string> = {}; square.forEach(p => { occP[key(p)] = 'B'; });
+    // base B 端口在原 square 位置
+    const occB: Record<string, string> = {}; square.forEach(p => { occB[key(p)] = 'P'; });
 
     const r = evaluateRotateReconnect({
-      oldPose: partPose, pivot: [0, 0, 0], axis: [0, 1, 0], angle: HALF_PI,
-      partId: 'partP',
-      occupiedByPart: occA,
-      peerPoses: { peer: ID },
-      peerOccupied: { peer: occPeer },
+      movingNewPoses: { P: movedPose },
+      movingOccupied: { P: occP },
+      basePoses: { B: ID },
+      baseOccupied: { B: occB },
     });
 
-    expect(r.keptPeers).toEqual(['peer']);
-    expect(r.autoMove[0]).toBeCloseTo(D, 6);
-    expect(r.autoMove[2]).toBeCloseTo(D, 6);
+    expect(r.keptEdges).toEqual([['P', 'B']]);
+    expect(r.autoMove[0]).toBeCloseTo(-D, 6);
+    expect(r.autoMove[2]).toBeCloseTo(-D, 6);
   });
 
-  it('多 peer：对称方阵 peer 保持，沿 X 双点 peer 脱开', () => {
+  it('多界面边：对称方阵边保持，沿 X 双点边脱开', () => {
     const square: Vec3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     const line: Vec3[] = [[A, 0, 0], [-A, 0, 0]];
-    const occA: Record<string, string> = {};
-    square.forEach(p => { occA[key(p)] = 'peerSquare'; });
-    line.forEach(p => { occA[key(p)] = 'peerLine'; });
-    const occSquare: Record<string, string> = {};
-    square.forEach(p => { occSquare[key(p)] = 'partP'; });
-    const occLine: Record<string, string> = {};
-    line.forEach(p => { occLine[key(p)] = 'partP'; });
+    const occP: Record<string, string> = {};
+    square.forEach(p => { occP[key(p)] = 'Bsq'; });
+    line.forEach(p => { occP[key(p)] = 'Bln'; });
+    const occBsq: Record<string, string> = {}; square.forEach(p => { occBsq[key(p)] = 'P'; });
+    const occBln: Record<string, string> = {}; line.forEach(p => { occBln[key(p)] = 'P'; });
 
     const r = evaluateRotateReconnect({
-      oldPose: ID, pivot: [0, 0, 0], axis: [0, 1, 0], angle: HALF_PI,
-      partId: 'partP',
-      occupiedByPart: occA,
-      peerPoses: { peerSquare: ID, peerLine: ID },
-      peerOccupied: { peerSquare: occSquare, peerLine: occLine },
+      movingNewPoses: { P: ROT90 },
+      movingOccupied: { P: occP },
+      basePoses: { Bsq: ID, Bln: ID },
+      baseOccupied: { Bsq: occBsq, Bln: occBln },
     });
 
-    expect(r.keptPeers).toEqual(['peerSquare']);
-    expect(r.detachedPeers).toEqual(['peerLine']);
+    expect(r.keptEdges).toEqual([['P', 'Bsq']]);
+    expect(r.detachedEdges).toEqual([['P', 'Bln']]);
   });
 
-  it('无任何连接（孤立件）→ 仅旋转，无 peer', () => {
+  it('内部 moving↔moving 连接（插销↔板）不参与界面评估', () => {
+    const square: Vec3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    // P 同时连 base B（方阵，保持）和 moving 组内的 pin（内部，应忽略）
+    const occP: Record<string, string> = {};
+    square.forEach(p => { occP[key(p)] = 'B'; });
+    occP[key([0, A, 0])] = 'pin';  // 指向 moving 组内零件
+    const occPin: Record<string, string> = { [key([0, A, 0])]: 'P' };
+    const occB: Record<string, string> = {}; square.forEach(p => { occB[key(p)] = 'P'; });
+
     const r = evaluateRotateReconnect({
-      oldPose: ID, pivot: [0, 0, 0], axis: [0, 1, 0], angle: HALF_PI,
-      partId: 'partP',
-      occupiedByPart: {},
-      peerPoses: {},
-      peerOccupied: {},
+      movingNewPoses: { P: ROT90, pin: ROT90 },
+      movingOccupied: { P: occP, pin: occPin },
+      basePoses: { B: ID },
+      baseOccupied: { B: occB },
     });
-    expect(r.keptPeers).toEqual([]);
-    expect(r.detachedPeers).toEqual([]);
+
+    // 只有 P↔B 被评估；P↔pin（内部）永不出现在结果里
+    const allEdges = [...r.keptEdges, ...r.detachedEdges];
+    expect(allEdges).toEqual([['P', 'B']]);
+    expect(allEdges.some(([, peer]) => peer === 'pin')).toBe(false);
+  });
+
+  it('无界面边（孤立 / 全内部）→ autoMove 0，无 kept/detached', () => {
+    const r = evaluateRotateReconnect({
+      movingNewPoses: { P: ROT90 },
+      movingOccupied: {},
+      basePoses: {},
+      baseOccupied: {},
+    });
+    expect(r.keptEdges).toEqual([]);
+    expect(r.detachedEdges).toEqual([]);
     expect(r.autoMove).toEqual([0, 0, 0]);
+  });
+});
+
+describe('pickBasePart — 连通组里挑最大件作地基', () => {
+  const sizeMap = (m: Record<string, Vec3 | null>) => (id: string) => m[id] ?? null;
+
+  it('包围盒体积最大者胜出（大底板 ≫ 小件）', () => {
+    const size = sizeMap({ base: [0.3, 0.01, 0.2], plate: [0.03, 0.01, 0.01], pin: [0.002, 0.02, 0.002] });
+    expect(pickBasePart(['plate', 'base', 'pin'], size)).toBe('base');
+  });
+
+  it('size 缺失记 0；有 size 者优先', () => {
+    const size = sizeMap({ a: null, b: [0.01, 0.01, 0.01] });
+    expect(pickBasePart(['a', 'b'], size)).toBe('b');
+  });
+
+  it('体积相同 → 稳定取 id 较小者', () => {
+    const size = sizeMap({ z: [0.01, 0.01, 0.01], a: [0.01, 0.01, 0.01] });
+    expect(pickBasePart(['z', 'a'], size)).toBe('a');
+  });
+
+  it('空组 → null', () => {
+    expect(pickBasePart([], () => null)).toBeNull();
   });
 });
