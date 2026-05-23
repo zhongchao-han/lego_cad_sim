@@ -242,12 +242,19 @@ interface StoreState {
   /** 已放置零件自由编辑（IDLE + selection）：绕世界 Y 轴整体旋转当前选中
    *  零件所在的连通组（pivot = primary 原点）。可撤销。 */
   rotateSelectedGroup: (angleRads: number) => void;
-  /** 已放置零件自由编辑（IDLE + selection）：**只转选中的那一个零件**（绕自身竖直轴 /
-   *  世界 Y，pivot = 包围盒中心），相对其余装配。转完尝试自动微移重连：端口仍对齐
-   *  的 peer 连接保持，对不齐的尝试整体微移复原，仍连不上则脱开。可撤销。 */
+  /** 已放置零件自由编辑（IDLE + selection）：转「选中件 + 挂在其上的子装配」整体，
+   *  相对「地基」（连通组里最大零件）。子装配随动、内部连接保持；只重连评估
+   *  子装配↔地基界面（对齐保持 / 微移复原 / 否则脱开）。可撤销。 */
   rotateSelectedSingle: (angleRads: number) => void;
-  /** 已放置零件自由编辑：把当前选中零件所在连通组整体平移 delta（世界系，米）。可撤销。 */
+  /** 已放置零件自由编辑：把「选中件 + 子装配」整体平移 delta（世界系，米），地基不动。
+   *  平移不做微移吸回（位移即意图）；移开后界面不再重合则脱开。可撤销。 */
   translateSelectedGroup: (delta: Vec3) => void;
+  /** rotate/translateSelectedGroup 共用：算 moving 组（选中件+子装配，排除地基）、
+   *  施加 makeNewPrimaryPose 给出的位姿、按 autoMove 重连/脱开界面、可撤销 + 日志。 */
+  _transformSelectedSubassembly: (
+    makeNewPrimaryPose: (oldPose: RigidPose, pivot: Vec3) => RigidPose,
+    opts: { autoMove: boolean; label: string },
+  ) => void;
   /** 内部 helper（rotate/translateSelectedGroup 共用）：给定 primary 新位姿，
    *  整组刚体应用 + 推可撤销命令 + ACTION 日志。 */
   _transformSelectedGroup: (newPrimaryPose: { position: Vec3; quaternion: Quat }, logMsg: string) => void;
@@ -1773,22 +1780,11 @@ export const useStore = create<StoreState>()(
     );
   },
 
-  translateSelectedGroup: (delta: Vec3) => {
-    const { selection, parts } = get();
-    const primary = selection.primaryId ? parts[selection.primaryId] : null;
-    if (!primary) return;
-    const p = primary.position as Vec3;
-    get()._transformSelectedGroup(
-      { position: [p[0] + delta[0], p[1] + delta[1], p[2] + delta[2]], quaternion: primary.quaternion as Quat },
-      `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm`,
-    );
-  },
-
-  // Feature A（UX 反馈 + 「旋转时插销要跟上」迭代）：转「选中件 + 挂在它上面的子装配」
-  // 整体（moving 组），相对「地基」（连通组里最大零件，如大底板）。插销/小件随板一起
-  // 刚体转，内部连接恒保持；只重连评估 moving↔base 界面边。几何决策在纯函数
-  // evaluateRotateReconnect；这里组装 moving 组刚体位姿 + 装配/拆解 store 状态 + undo。
-  rotateSelectedSingle: (angleRads: number) => {
+  // Feature A（UX 反馈迭代）：转/移「选中件 + 挂在它上面的子装配」整体（moving 组），
+  // 相对「地基」（连通组里最大零件，如大底板，永不跟动）。子装配随动、内部连接恒保持；
+  // 只重连评估 moving↔base 界面。几何决策在纯函数 evaluateRotateReconnect；这里组装
+  // moving 组刚体位姿 + 装配/拆解 store 状态 + undo + 日志。rotate / translate 共用。
+  _transformSelectedSubassembly: (makeNewPrimaryPose, opts) => {
     const { selection, parts, partCatalog, occupiedPorts, connections, batchUpdatePartStates } = get();
     const primaryId = selection.primaryId;
     const part = primaryId ? parts[primaryId] : null;
@@ -1807,15 +1803,15 @@ export const useStore = create<StoreState>()(
     };
     const base = pickBasePart(comp, bboxSizeOf);
     // moving 组：从选中件出发、不穿越 base 的连通子集。base===选中件（选中件本身就是
-    // 最大/地基）或无 base → moving = 整组（整体刚体转，无界面可重连）。
+    // 最大/地基）或无 base → moving = 整组（整体刚体动，无界面可重连）。
     const moving = (base && base !== primaryId)
       ? getConnectedGroup(connections, primaryId, base)
       : comp;
     const movingSet = new Set(moving);
     const baseIds = comp.filter(id => !movingSet.has(id));
 
-    // moving 组旋转后位姿：选中件绕 pivot 转，其余成员随刚体 delta 平移/转。
-    const newPrimary = rotatePartAboutPivot(oldPose, pivot, [0, 1, 0], angleRads);
+    // moving 组目标位姿：选中件按 makeNewPrimaryPose（转/移），其余成员随刚体 delta。
+    const newPrimary = makeNewPrimaryPose(oldPose, pivot);
     const movingNewPoses = applyGroupDelta(moving, parts, primaryId, oldPose, newPrimary) as Record<string, RigidPose>;
 
     const movingOccupied: Record<string, Record<string, string>> = {};
@@ -1828,10 +1824,12 @@ export const useStore = create<StoreState>()(
       if (occupiedPorts[id]) baseOccupied[id] = occupiedPorts[id];
     });
 
-    const result = evaluateRotateReconnect({ movingNewPoses, movingOccupied, basePoses, baseOccupied });
+    const result = evaluateRotateReconnect({
+      movingNewPoses, movingOccupied, basePoses, baseOccupied, autoMove: opts.autoMove,
+    });
     const t = result.autoMove;
 
-    // moving 组最终位姿 = 旋转后位姿 + 整组微移 t。
+    // moving 组最终位姿 = 目标位姿 + 整组微移 t（平移时 autoMove=false → t=0）。
     const finalUpdates: Record<string, Partial<PartState>> = {};
     const prevUpdates: Record<string, Partial<PartState>> = {};
     moving.forEach(id => {
@@ -1905,14 +1903,30 @@ export const useStore = create<StoreState>()(
     _history.push(cmd);
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
 
-    const deg = (angleRads * 180 / Math.PI).toFixed(0);
     const moveMm = Math.hypot(t[0], t[1], t[2]) * 1000;
     const withN = moving.length > 1 ? `（含子装配 ${moving.length} 件）` : '';
-    const movePart = moveMm > 0.05 ? `，自动微移 ${moveMm.toFixed(1)}mm 重连` : '';
+    const movePart = (opts.autoMove && moveMm > 0.05) ? `，自动微移 ${moveMm.toFixed(1)}mm 重连` : '';
     const detachPart = detachedEdges.length > 0
       ? `，脱开 ${detachedEdges.length} 个连接`
       : (result.keptEdges.length > 0 ? `，保持 ${result.keptEdges.length} 个连接` : '');
-    get().addLog(`绕 Y 轴旋转 ${deg}°（选中件 ${primaryId}${withN}）${movePart}${detachPart}`, 'ACTION');
+    get().addLog(`${opts.label}（选中件 ${primaryId}${withN}）${movePart}${detachPart}`, 'ACTION');
+  },
+
+  rotateSelectedSingle: (angleRads: number) => {
+    get()._transformSelectedSubassembly(
+      (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [0, 1, 0], angleRads),
+      { autoMove: true, label: `绕 Y 轴旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°` },
+    );
+  },
+
+  translateSelectedGroup: (delta: Vec3) => {
+    get()._transformSelectedSubassembly(
+      (oldPose) => ({
+        position: [oldPose.position[0] + delta[0], oldPose.position[1] + delta[1], oldPose.position[2] + delta[2]],
+        quaternion: oldPose.quaternion,
+      }),
+      { autoMove: false, label: `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm` },
+    );
   },
 
   commitAxialSliding: () => {

@@ -381,10 +381,16 @@ describe('store.rotateSelectedGroup / translateSelectedGroup — 整组变换 + 
 
   function setupConnectedPair() {
     // plate（primary）+ pin，已连接。selection 选中 plate。
+    // plate 设为更大件 → pickBasePart 选中 plate 作「地基」(base===primary) →
+    // moving 组 = 整个连通组，整组一起动（验证「选中地基件→整组动」语义 + undo）。
     useStore.setState({
       parts: {
         plate: { ldrawId: 'plate.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
         pin:   { ldrawId: 'pin.dat',   position: [0.02, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      partCatalog: {
+        'plate.dat': { bboxSize: [0.3, 0.01, 0.2] },   // 最大 → 地基
+        'pin.dat':   { bboxSize: [0.002, 0.02, 0.002] },
       },
       connections: { plate: new Set(['pin']), pin: new Set(['plate']) },
       selection: { primaryId: 'plate', level: SelectionLevel.GROUP, allConnectedIds: ['plate', 'pin'], excludedIds: [] },
@@ -392,11 +398,11 @@ describe('store.rotateSelectedGroup / translateSelectedGroup — 整组变换 + 
     } as any);
   }
 
-  it('case 15: translateSelectedGroup 整组平移 + 可 undo', () => {
+  it('case 15: translateSelectedGroup 整组平移（选中地基件）+ 可 undo', () => {
     setupConnectedPair();
     useStore.getState().translateSelectedGroup([0.008, 0, 0]);
     let s = useStore.getState();
-    // primary + 连通的 pin 都平移 +8mm
+    // plate 是地基(===primary) → moving=整组 → primary + pin 都平移 +8mm
     expect(s.parts.plate.position[0]).toBeCloseTo(0.008, 6);
     expect(s.parts.pin.position[0]).toBeCloseTo(0.028, 6);
     expect(s.canUndo).toBe(true);

@@ -175,6 +175,26 @@ describe('evaluateRotateReconnect — moving↔base 界面重连/脱开', () => 
     expect(allEdges.some(([, peer]) => peer === 'pin')).toBe(false);
   });
 
+  it('autoMove=false（平移语义）：错位 D 不吸回 → autoMove 0 且界面脱开', () => {
+    const square: Vec3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    const movedPose: RigidPose = { position: [0.02, 0, 0.02], quaternion: [0, 0, 0, 1] };
+    const occP: Record<string, string> = {}; square.forEach(p => { occP[key(p)] = 'B'; });
+    const occB: Record<string, string> = {}; square.forEach(p => { occB[key(p)] = 'P'; });
+
+    const r = evaluateRotateReconnect({
+      movingNewPoses: { P: movedPose },
+      movingOccupied: { P: occP },
+      basePoses: { B: ID },
+      baseOccupied: { B: occB },
+      autoMove: false,
+    });
+
+    // 平移不吸回：autoMove 必须为 0，且因错位而脱开（不强行拉回保持连接）
+    expect(r.autoMove).toEqual([0, 0, 0]);
+    expect(r.detachedEdges).toEqual([['P', 'B']]);
+    expect(r.keptEdges).toEqual([]);
+  });
+
   it('无界面边（孤立 / 全内部）→ autoMove 0，无 kept/detached', () => {
     const r = evaluateRotateReconnect({
       movingNewPoses: { P: ROT90 },
