@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computePlugOutlineBox } from '../components/SiteGizmo';
+import { computePlugOutlineBox, portDotVisuals } from '../components/SiteGizmo';
 import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import type { SelectedPortInfo } from '../types';
 
@@ -142,5 +142,36 @@ describe('computePlugOutlineBox — 贯通孔双面', () => {
     // y 跨 -0.004..0.004 = 0.008 + 2*margin
     expect(box!.size[1]).toBeCloseTo(0.008 + 2 * margin, 6);
     expect(box!.center[1]).toBeCloseTo(0, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// portDotVisuals: 端口指示球可见性分档（含密集件抑制）
+// ---------------------------------------------------------------------------
+describe('portDotVisuals: 可见性分档', () => {
+  const BASE = 0.9;
+
+  it('未展开（showVisuals=false）→ 全透明，仅 hit-zone', () => {
+    const v = portDotVisuals({ shouldShowVisuals: false, prominent: false, isDensePart: false, baseOpacity: BASE });
+    expect(v).toEqual({ sphereOpacity: 0, colorWrite: false, showArrow: false });
+  });
+
+  it('prominent（直接 hover/选中）→ 全亮 baseOpacity + 画箭头（不论密集与否）', () => {
+    const sparse = portDotVisuals({ shouldShowVisuals: true, prominent: true, isDensePart: false, baseOpacity: BASE });
+    const dense = portDotVisuals({ shouldShowVisuals: true, prominent: true, isDensePart: true, baseOpacity: BASE });
+    expect(sparse).toEqual({ sphereOpacity: BASE, colorWrite: true, showArrow: true });
+    expect(dense).toEqual({ sphereOpacity: BASE, colorWrite: true, showArrow: true });
+  });
+
+  it('稀疏件 + 非 prominent → 淡化小点（0.2，不画箭头）', () => {
+    const v = portDotVisuals({ shouldShowVisuals: true, prominent: false, isDensePart: false, baseOpacity: BASE });
+    expect(v.sphereOpacity).toBeCloseTo(0.2, 6);
+    expect(v.colorWrite).toBe(true);
+    expect(v.showArrow).toBe(false);
+  });
+
+  it('密集件 + 非 prominent → 完全隐藏（opacity 0 + colorWrite false），只留 hit-zone', () => {
+    const v = portDotVisuals({ shouldShowVisuals: true, prominent: false, isDensePart: true, baseOpacity: BASE });
+    expect(v).toEqual({ sphereOpacity: 0, colorWrite: false, showArrow: false });
   });
 });

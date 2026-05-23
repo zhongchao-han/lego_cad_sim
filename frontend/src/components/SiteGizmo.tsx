@@ -145,6 +145,8 @@ interface PortArrowProps {
   partId: string;
   ldrawId: string;
   showVisuals: boolean;
+  /** 该零件端口总数是否超过密集阈值（用于抑制大板上铺满的淡化点）。 */
+  isDensePart?: boolean;
   /** B.2：click handler 接收 shiftKey 让 callsite 决定是否走 plug 模式。
    *  Optional 第二参数保持向后兼容（旧 callsite 忽略即可）。 */
   onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
@@ -166,8 +168,34 @@ const PLUG_OUTLINE_OPACITY = 0.95;
 // Debug「Show All Ports」仍强制全亮箭头，是已有逃生口。
 const DIMMED_PORT_OPACITY = 0.2;
 
+// 密集件门控（UX 反馈）：端口总数超过此阈值的零件（如 39369 大板 390 孔），
+// hover/选中时若把每个孔都画淡化小球，会铺满整块板成一片"深色印记"+ 上百个
+// sphere mesh 拖性能。超阈值件 → 非 prominent 端口不画可见点（hit-zone 不可见
+// 球壳保留，hover 检测不变），只留直接 hover 那颗 + plug 轮廓。
+export const DENSE_PORT_THRESHOLD = 40;
+
+/**
+ * 端口指示球的可见性决策（纯函数，便于单测）。
+ *   - 未展开（showVisuals=false）→ 全透明（仅 hit-zone）
+ *   - prominent（直接 hover / 选中 / Debug 全显）→ 全亮 baseOpacity + 画箭头
+ *   - 仅 part-hover 展开的"其余"端口：稀疏件淡化成 DIMMED_PORT_OPACITY 小点；
+ *     密集件直接隐藏（opacity 0 + colorWrite false），避免铺满。
+ */
+export function portDotVisuals(args: {
+  shouldShowVisuals: boolean;
+  prominent: boolean;
+  isDensePart: boolean;
+  baseOpacity: number;
+}): { sphereOpacity: number; colorWrite: boolean; showArrow: boolean } {
+  const { shouldShowVisuals, prominent, isDensePart, baseOpacity } = args;
+  if (!shouldShowVisuals) return { sphereOpacity: 0, colorWrite: false, showArrow: false };
+  if (prominent) return { sphereOpacity: baseOpacity, colorWrite: true, showArrow: true };
+  if (isDensePart) return { sphereOpacity: 0, colorWrite: false, showArrow: false };
+  return { sphereOpacity: DIMMED_PORT_OPACITY, colorWrite: true, showArrow: false };
+}
+
 function PortArrow({
-  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, onPortClick, onPortHover
+  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
 
@@ -175,9 +203,8 @@ function PortArrow({
   const debugShowPorts = useStore(s => s.debugShowPorts);
 
   // showVisuals = 父组件认为该 part 处于激活态（hover / 选中 / static）→ port 热区
-  // 始终渲染（拦射线）。但 *视觉强度* 分两档（方案 1）：
-  //   - prominent（鼠标直接悬停该 port / 选中 / Debug 全显）→ 完整箭头 + 全亮球
-  //   - 否则（仅因 part-hover 被展开）→ 淡化成低透明度小点
+  // 始终渲染（拦射线）。可见强度交给 portDotVisuals 纯函数（单测覆盖）按
+  // prominent / 密集件分档。
   const shouldShowVisuals = showVisuals;
   const prominent = isLocallyActive || debugShowPorts;
 
@@ -201,6 +228,9 @@ function PortArrow({
       opacity = 0.9;
     }
   }
+
+  // 可见性分档（含密集件抑制淡化点）。baseOpacity = 上面算出的 prominent 全亮值。
+  const dot = portDotVisuals({ shouldShowVisuals, prominent, isDensePart, baseOpacity: opacity });
 
   const pos = port.position as Vec3;
   const renderPos = useMemo((): Vec3 => [
@@ -294,7 +324,7 @@ function PortArrow({
     >
       {/* 视觉箭头：仅当 prominent（直接悬停 / 选中 / Debug 全显）才画完整箭头。
           方案 1：part-hover 仅展开热区时不画 18 个箭头，只留下面淡化的小球点。 */}
-      {shouldShowVisuals && prominent && (
+      {dot.showArrow && (
         <arrowHelper
           args={[
             direction,
@@ -317,10 +347,10 @@ function PortArrow({
         <meshBasicMaterial
           color={color}
           toneMapped={false}
-          opacity={shouldShowVisuals ? (prominent ? opacity : DIMMED_PORT_OPACITY) : 0}
+          opacity={dot.sphereOpacity}
           transparent
           depthWrite={shouldShowVisuals && prominent}
-          colorWrite={shouldShowVisuals}
+          colorWrite={dot.colorWrite}
         />
       </mesh>
 
@@ -411,13 +441,15 @@ export interface SiteGizmoProps {
   showVisuals: boolean;
   /** 该零件上已被占用（已被对端塞住）的端口 key 集合；命中即整体跳过渲染。 */
   occupiedKeys?: Set<string>;
+  /** 该零件端口总数是否超过密集阈值（抑制大板铺满的淡化点）。 */
+  isDensePart?: boolean;
   onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
   onPortHover?: (info: SelectedPortInfo | null) => void;
 }
 
 export function SiteGizmo({
   site, groupRef, partId, ldrawId, phase, sourcePortType = null,
-  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, onPortClick, onPortHover
+  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, isDensePart = false, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
 
@@ -464,6 +496,7 @@ export function SiteGizmo({
             partId={partId}
             ldrawId={ldrawId}
             showVisuals={showVisuals}
+            isDensePart={isDensePart}
             onPortClick={onPortClick}
             onPortHover={onPortHover}
           />

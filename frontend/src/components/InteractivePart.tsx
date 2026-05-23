@@ -5,7 +5,7 @@ import { useStore, useIsTargetSeekingPhase } from '../store';
 import { SelectionLevel, InteractionPhase, SelectedPortInfo } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
-import { SiteGizmo, PlugSiblingOutline } from './SiteGizmo';
+import { SiteGizmo, PlugSiblingOutline, DENSE_PORT_THRESHOLD } from './SiteGizmo';
 import { RenderErrorBoundary } from './RenderErrorBoundary';
 import { AutoFitCamera } from './AutoFitCamera';
 import { calculateClampedOffset } from '../utils/snapMath';
@@ -220,6 +220,15 @@ export const InteractivePart = memo(({
     return null;
   }, [interactionPhase, selectedPort, continuousPlacementSource]);
 
+  // 密集件判定：端口总数超阈值（如 39369 大板 390 孔）时，SiteGizmo 抑制非
+  // prominent 端口的淡化点，避免铺满整块板（见 SiteGizmo.portDotVisuals）。
+  // ⚠ 必须放在下面 `if (ldrawPart.loading) return null` 早返之前 —— 否则
+  // loading→loaded 两次渲染 hook 数不一致，触发 "Rendered more hooks"。
+  const isDensePart = useMemo(() => {
+    const total = (ldrawPart.sites ?? []).reduce((n, s) => n + (s.ports?.length ?? 0), 0);
+    return total > DENSE_PORT_THRESHOLD;
+  }, [ldrawPart.sites]);
+
   if (ldrawPart.loading) return null;
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
@@ -309,6 +318,7 @@ export const InteractivePart = memo(({
           portSelectionLevel={portSelectionLevel}
           showVisuals={finalShowPorts}
           occupiedKeys={occupiedKeys}
+          isDensePart={isDensePart}
           onPortClick={handlePortClickLocal}
           onPortHover={handlePortHoverLocal}
         />
