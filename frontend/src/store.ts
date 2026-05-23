@@ -21,6 +21,7 @@ import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
+import { isConnectorCategory } from './utils/partCategory';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -259,7 +260,7 @@ interface StoreState {
    *  施加 makeNewPrimaryPose 给出的位姿、按 autoMove 重连/脱开界面、可撤销 + 日志。 */
   _transformSelectedSubassembly: (
     makeNewPrimaryPose: (oldPose: RigidPose, pivot: Vec3) => RigidPose,
-    opts: { autoMove: boolean; label: string },
+    opts: { autoMove: boolean; label: string; keepConnectorsFixed?: boolean },
   ) => void;
   /** 内部 helper（rotate/translateSelectedGroup 共用）：给定 primary 新位姿，
    *  整组刚体应用 + 推可撤销命令 + ACTION 日志。 */
@@ -1850,10 +1851,17 @@ export const useStore = create<StoreState>()(
     const base = pickBasePart(comp, bboxSizeOf);
     // moving 组：从选中件出发、不穿越 base 的连通子集。base===选中件（选中件本身就是
     // 最大/地基）或无 base → moving = 整组（整体刚体动，无界面可重连）。
-    const moving = (base && base !== primaryId)
+    const movingFull = (base && base !== primaryId)
       ? getConnectedGroup(connections, primaryId, base)
       : comp;
+    // 翻面（keepConnectorsFixed）时：连接件（销/轴/连接器）留在原位充当「连接两部分」，
+    // 不随板刚体翻到顶上。选中件自身即便是连接件也参与变换（用户明确要转它）。
+    const moving = opts.keepConnectorsFixed
+      ? movingFull.filter(id => id === primaryId
+          || !isConnectorCategory(partCatalog[parts[id]?.ldrawId ?? '']?.category))
+      : movingFull;
     const movingSet = new Set(moving);
+    // baseIds = 地基 + （翻面时）被留下的连接件 → 都进重连界面的「不动侧」。
     const baseIds = comp.filter(id => !movingSet.has(id));
 
     // moving 组目标位姿：选中件按 makeNewPrimaryPose（转/移），其余成员随刚体 delta。
@@ -1968,7 +1976,8 @@ export const useStore = create<StoreState>()(
   flipSelected: () => {
     get()._transformSelectedSubassembly(
       (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [1, 0, 0], Math.PI),
-      { autoMove: true, label: `翻面 180°` },
+      // 翻面时连接件（销/轴）留在原位充当连接，不随板翻到顶上（用户反馈）。
+      { autoMove: true, label: `翻面 180°`, keepConnectorsFixed: true },
     );
   },
 
