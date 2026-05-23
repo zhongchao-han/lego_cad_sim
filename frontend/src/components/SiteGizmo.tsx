@@ -218,14 +218,17 @@ function PortArrow({
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
 
-  const isLocallyActive = hovered || isSelected;
   const debugShowPorts = useStore(s => s.debugShowPorts);
+  // Feature B 修饰键模型：端口只有在"连接模式"（按住 Alt）下 hover 才点亮 + 指针
+  // 手型。裸 hover（无 Alt）不点亮 —— 因为裸点是选本体、不连接，点亮会误导用户
+  // 以为端口可点。已锁定的源端口（isSelected）和 Debug 全显仍恒亮。
+  const portEngageMode = useStore(s => s.isPortModifierHeld);
 
   // showVisuals = 父组件认为该 part 处于激活态（hover / 选中 / static）→ port 热区
   // 始终渲染（拦射线）。可见强度交给 portDotVisuals 纯函数（单测覆盖）按
   // prominent / 密集件分档。
   const shouldShowVisuals = showVisuals;
-  const prominent = isLocallyActive || debugShowPorts;
+  const prominent = (hovered && portEngageMode) || isSelected || debugShowPorts;
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
   const ACTIVE_COLOR = '#ff9800'; // Source Locked 激活高亮色
@@ -286,14 +289,22 @@ function PortArrow({
     ).normalize();
   }, [port.rotation]);
 
+  // 指针手型：仅在 hover 且"连接模式"（Alt 按住）+ 兼容端口时显示，表达"现在点
+  // 可连接"。由 effect 驱动（而非 pointerOver 内一次性写），这样 hover 中途按下/
+  // 松开 Alt 也能实时切换手型。unmount/hover 结束时复位。
   useEffect(() => {
+    if (hovered && portEngageMode && isCompatiblePort) {
+      document.body.style.cursor = 'pointer';
+    } else if (hovered) {
+      document.body.style.cursor = 'auto';
+    }
     return () => {
       if (hovered) {
         document.body.style.cursor = 'auto';
         onPortHover?.(null);
       }
     };
-  }, [hovered, onPortHover]);
+  }, [hovered, portEngageMode, isCompatiblePort, onPortHover]);
 
   const handlePointerOver = useCallback((e: any) => {
     // 绝对不能调用 e.stopPropagation()！
@@ -302,7 +313,6 @@ function PortArrow({
     // 当鼠标第一时间划入时，可能父组件还未来得及响应并下发 showVisuals=true。
     // 如果这里被阻挡，会导致局部 hover 状态丢失，出现"高亮一下就消失"或根本不高亮的 Bug。
     setHovered(true);
-    document.body.style.cursor = 'pointer';
     onPortHover?.(buildPortInfo());
   }, [isCompatiblePort, onPortHover, buildPortInfo]);
 

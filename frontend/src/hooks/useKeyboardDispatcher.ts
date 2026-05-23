@@ -59,9 +59,21 @@ export function useKeyboardDispatcher() {
       dispatchKey(e, deps);
     };
 
+    // 端口连接修饰键（Alt/Option）跟踪 → store.isPortModifierHeld。端口点只有在
+    // 按住 Alt 的"连接模式"才高亮 + 指针手型（见 SiteGizmo），避免裸点选本体时
+    // 端口高亮误导。任何 keydown/keyup 都同步当前 e.altKey；窗口失焦清零防卡住。
+    const syncAlt = (e: KeyboardEvent) => useStore.getState().setPortModifierHeld(e.altKey);
+    const clearAlt = () => useStore.getState().setPortModifierHeld(false);
+
     window.addEventListener('keydown', handler);
+    window.addEventListener('keydown', syncAlt);
+    window.addEventListener('keyup', syncAlt);
+    window.addEventListener('blur', clearAlt);
     return () => {
       window.removeEventListener('keydown', handler);
+      window.removeEventListener('keydown', syncAlt);
+      window.removeEventListener('keyup', syncAlt);
+      window.removeEventListener('blur', clearAlt);
     };
   }, []);
 }

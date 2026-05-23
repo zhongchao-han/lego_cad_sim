@@ -98,6 +98,10 @@ interface StoreState {
   enableContactShadows: boolean;
   debugMode: boolean;
   debugShowPorts: boolean;
+  /** 端口连接修饰键（Alt/Option）当前是否按住。瞬态 UI 态，不持久化。
+   *  端口点只有在"连接模式"（Alt 按住）下才高亮 + 指针手型，避免裸点选本体时
+   *  端口高亮误导用户以为可点（见 SiteGizmo / Feature B 修饰键交互模型）。 */
+  isPortModifierHeld: boolean;
   previewPartId: string | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -191,6 +195,7 @@ interface StoreState {
   setEnableContactShadows: (value: boolean) => void;
   setDebugMode: (value: boolean) => void;
   setDebugShowPorts: (value: boolean) => void;
+  setPortModifierHeld: (value: boolean) => void;
   setPartZone: (partId: string, zone: ZoneType) => void;
 
   /** 全局颜色选择：更新 activeColorCode，后续所有零件实例使用此颜色 */
@@ -381,6 +386,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'enableContactShadows',
   'debugMode',
   'debugShowPorts',
+  'isPortModifierHeld',
   'previewPartId',
   'canUndo',
   'canRedo',
@@ -476,6 +482,7 @@ export const useStore = create<StoreState>()(
   enableContactShadows: true,
   debugMode: false,
   debugShowPorts: false,
+  isPortModifierHeld: false,
   previewPartId: null,
   canUndo: false,
   canRedo: false,
@@ -671,6 +678,10 @@ export const useStore = create<StoreState>()(
       set({ debugMode: value });
   },
   setDebugShowPorts: (value) => set({ debugShowPorts: value }),
+  // 仅在值变化时 set，避免 keydown/keyup 高频重复触发订阅者重渲染。
+  setPortModifierHeld: (value) => {
+    if (get().isPortModifierHeld !== value) set({ isPortModifierHeld: value });
+  },
   setPartZone: (partId, zone) => get().updatePartState(partId, { zone }),
 
   setActiveColorCode: (code) => {
