@@ -249,6 +249,9 @@ interface StoreState {
    *  相对「地基」（连通组里最大零件）。子装配随动、内部连接保持；只重连评估
    *  子装配↔地基界面（对齐保持 / 微移复原 / 否则脱开）。可撤销。 */
   rotateSelectedSingle: (angleRads: number) => void;
+  /** 翻面：把「选中件 + 子装配」绕世界 X 轴翻转 180°（pivot = 包围盒中心），相对地基。
+   *  翻面后若端口仍能对齐（自动微移）则保持连接，否则脱开。可撤销。 */
+  flipSelected: () => void;
   /** 已放置零件自由编辑：把「选中件 + 子装配」整体平移 delta（世界系，米），地基不动。
    *  平移不做微移吸回（位移即意图）；移开后界面不再重合则脱开。可撤销。 */
   translateSelectedGroup: (delta: Vec3) => void;
@@ -1959,6 +1962,13 @@ export const useStore = create<StoreState>()(
     get()._transformSelectedSubassembly(
       (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [0, 1, 0], angleRads),
       { autoMove: true, label: `绕 Y 轴旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°` },
+    );
+  },
+
+  flipSelected: () => {
+    get()._transformSelectedSubassembly(
+      (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [1, 0, 0], Math.PI),
+      { autoMove: true, label: `翻面 180°` },
     );
   },
 
