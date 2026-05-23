@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getDefaultColorCode } from '../utils/partColorDefaults';
+import { getDefaultColorCode, hasPresetColor } from '../utils/partColorDefaults';
 
 describe('getDefaultColorCode', () => {
   it('case 1: 字典命中 — 6558 (蓝销) → 1', () => {
@@ -43,5 +43,22 @@ describe('getDefaultColorCode', () => {
 
   it('case 7: fallback=0 时仍返回 0（不强制非零）', () => {
     expect(getDefaultColorCode('does_not_exist', 0)).toBe(0);
+  });
+});
+
+describe('hasPresetColor — 功能预设色件（改色锁定）判定', () => {
+  it('销/轴等字典件 → true（含 .dat / 大小写）', () => {
+    expect(hasPresetColor('3673')).toBe(true);
+    expect(hasPresetColor('3673.dat')).toBe(true);
+    expect(hasPresetColor('4519.DAT')).toBe(true);
+    expect(hasPresetColor('6558')).toBe(true);
+  });
+  it('普通件（板等）→ false', () => {
+    expect(hasPresetColor('71709')).toBe(false);
+    expect(hasPresetColor('39369.dat')).toBe(false);
+    expect(hasPresetColor('does_not_exist')).toBe(false);
+  });
+  it('实例 ID（带 suffix）→ false（不误命中）', () => {
+    expect(hasPresetColor('3673_abc12345')).toBe(false);
   });
 });

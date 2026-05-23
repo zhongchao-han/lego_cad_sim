@@ -16,6 +16,7 @@ import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
 import { useKeyboardDispatcher } from './hooks/useKeyboardDispatcher';
 import { DebugOverlay } from './components/DebugOverlay';
 import { StatusBar } from './components/StatusBar';
+import { RecolorPalette } from './components/RecolorPalette';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -84,6 +85,9 @@ function AssemblyUI() {
 
       {/* 零件预览弹窗：挂载在根级确保 absolute inset-0 覆盖全视口 */}
       <PartPreviewOverlay />
+
+      {/* 已放置零件改色色板：选中件时浮出（IDLE） */}
+      <RecolorPalette />
 
       {/* 全局底部状态栏 */}
       <StatusBar />

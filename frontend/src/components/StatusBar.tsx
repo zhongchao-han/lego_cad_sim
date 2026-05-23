@@ -115,7 +115,7 @@ export function StatusBar() {
     switch (interactionPhase) {
       case InteractionPhase.IDLE:
         return hasSelection
-          ? '左键: 选择零件 ┊ Alt+点端口: 连接 ┊ [ / ]: 旋转选中件 90° ┊ 方向键: 平移(Shift 细调) ┊ Del: 删除 ┊ Esc: 取消'
+          ? '左键: 选择零件 ┊ Alt+点端口: 连接 ┊ [ / ]: 旋转选中件 90° ┊ 方向键: 平移(Shift 细调) ┊ 底部色板: 改色 ┊ Del: 删除 ┊ Esc: 取消'
           : '左键: 选择零件 ┊ Alt+点端口: 发起连接 ┊ 拖拽: 旋转视角 ┊ Esc: 取消选择';
       case InteractionPhase.SOURCE_LOCKED:
         return 'Alt+点目标端口: 吸附 ┊ [ / ]: 绕轴旋转 90° ┊ Esc: 取消';
