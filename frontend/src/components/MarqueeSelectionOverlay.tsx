@@ -17,6 +17,9 @@ import { ZoneType } from '../types';
  */
 export function MarqueeSelectionOverlay() {
   const { camera, gl } = useThree();
+  // makeDefault 的 CameraControls 实例（见 CameraController）。框选拖拽时临时禁用，
+  // 否则同一次 shift+拖拽会被相机控制器当成旋转手势 → 边框选边转视角。
+  const controls = useThree(s => s.controls as unknown as { enabled?: boolean } | null);
   const setMarqueeSelection = useStore(state => state.setMarqueeSelection);
   const setMarqueeBox = useStore(state => state.setMarqueeBox);
 
@@ -24,6 +27,8 @@ export function MarqueeSelectionOverlay() {
     const canvas = gl.domElement;
     let isDrawing = false;
     let startPoint = { x: 0, y: 0 };
+
+    const setControlsEnabled = (on: boolean) => { if (controls) controls.enabled = on; };
 
     const writeBox = (curX: number, curY: number) => {
       setMarqueeBox({
@@ -35,10 +40,11 @@ export function MarqueeSelectionOverlay() {
     };
 
     const onPointerDown = (e: PointerEvent) => {
-      // 仅 Shift + 左键拖拽才进框选（否则交给 OrbitControls / 普通点击）。
+      // 仅 Shift + 左键拖拽才进框选（否则交给相机控制器 / 普通点击）。
       if (!e.shiftKey || e.button !== 0) return;
       isDrawing = true;
       startPoint = { x: e.clientX, y: e.clientY };
+      setControlsEnabled(false); // 禁用相机旋转，避免框选时画面跟着转
       writeBox(e.clientX, e.clientY);
     };
 
@@ -51,6 +57,7 @@ export function MarqueeSelectionOverlay() {
       if (!isDrawing) return;
       isDrawing = false;
       setMarqueeBox(null);
+      setControlsEnabled(true); // 恢复相机控制（务必在任何 early-return 之前）
 
       const width = document.body.clientWidth;
       const height = document.body.clientHeight;
@@ -99,8 +106,9 @@ export function MarqueeSelectionOverlay() {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       setMarqueeBox(null);
+      setControlsEnabled(true); // 卸载时恢复相机控制，防卡在禁用态
     };
-  }, [camera, gl.domElement, setMarqueeSelection, setMarqueeBox]);
+  }, [camera, gl.domElement, controls, setMarqueeSelection, setMarqueeBox]);
 
   // 不在 R3F 树里渲染任何 DOM —— 矩形交给 Canvas 外的 <MarqueeBox/>。
   return null;
