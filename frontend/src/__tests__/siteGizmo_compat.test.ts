@@ -104,17 +104,17 @@ describe('isFemale — gender 显式优先 / type hint fallback', () => {
 // ─────────────────────────────────────────────────────────────────────────
 // portProminent — 端口显著高亮判定（连接件埋体内端口的 Alt 全亮）
 // ─────────────────────────────────────────────────────────────────────────
-describe('portProminent — 高亮判定（含连接件 Alt 全亮）', () => {
+describe('portProminent — 高亮判定（Option+hover 显示非密集件全部端口）', () => {
   const base = {
     hovered: false, portEngageMode: false, isSelected: false, debugShowPorts: false,
-    isConnectorPart: false, shouldShowVisuals: false, isCompatiblePort: true,
+    isDensePart: false, shouldShowVisuals: false, isCompatiblePort: true,
   };
 
-  it('精确 hover 到端口 + Alt → 高亮', () => {
+  it('精确 hover 到端口 + Option → 高亮', () => {
     expect(portProminent({ ...base, hovered: true, portEngageMode: true })).toBe(true);
   });
 
-  it('hover 到端口但没按 Alt → 不高亮（裸点是选本体）', () => {
+  it('hover 到端口但没按 Option → 不高亮（裸 hover 不显示，裸点选本体）', () => {
     expect(portProminent({ ...base, hovered: true, portEngageMode: false })).toBe(false);
   });
 
@@ -123,21 +123,23 @@ describe('portProminent — 高亮判定（含连接件 Alt 全亮）', () => {
     expect(portProminent({ ...base, debugShowPorts: true })).toBe(true);
   });
 
-  it('连接件 hover 即全亮（无需 Alt）—— 销端口埋体内，hover 到件就显示', () => {
-    // 关键修复：不依赖 isPortModifierHeld（Mac Option→RDP 链路不稳），hover 即亮。
-    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: false })).toBe(true);
-    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: true })).toBe(true);
+  it('非密集件（销/小板）+ Option + 本件激活 + 兼容 → 整件端口全亮（无需精确 hover）', () => {
+    expect(portProminent({ ...base, isDensePart: false, shouldShowVisuals: true, portEngageMode: true })).toBe(true);
   });
 
-  it('连接件但本件未激活（未 hover/选中）→ 不全亮', () => {
-    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: false })).toBe(false);
+  it('非密集件但没按 Option → 不全亮（必须 Option+hover）', () => {
+    expect(portProminent({ ...base, isDensePart: false, shouldShowVisuals: true, portEngageMode: false })).toBe(false);
   });
 
-  it('连接件 hover 但端口不兼容 → 不全亮（避免误导可连）', () => {
-    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, isCompatiblePort: false })).toBe(false);
+  it('非密集件 + Option 但端口不兼容 → 不全亮（避免误导可连）', () => {
+    expect(portProminent({ ...base, isDensePart: false, shouldShowVisuals: true, portEngageMode: true, isCompatiblePort: false })).toBe(false);
   });
 
-  it('非连接件（大板）+ Alt + 激活但未精确 hover → 不全亮（防铺满）', () => {
-    expect(portProminent({ ...base, isConnectorPart: false, shouldShowVisuals: true, portEngageMode: true })).toBe(false);
+  it('密集件（大板 390 孔）+ Option + 激活但未精确 hover → 不全亮（防铺满）', () => {
+    expect(portProminent({ ...base, isDensePart: true, shouldShowVisuals: true, portEngageMode: true })).toBe(false);
+  });
+
+  it('密集件 + Option + 精确 hover 到某端口 → 亮该端口', () => {
+    expect(portProminent({ ...base, isDensePart: true, hovered: true, portEngageMode: true })).toBe(true);
   });
 });
