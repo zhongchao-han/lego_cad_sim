@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isFemale, isCompatible } from '../components/SiteGizmo';
+import { isFemale, isCompatible, portProminent } from '../components/SiteGizmo';
 import type { LDrawPort } from '../useLDrawPart';
 
 const EYE3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -98,5 +98,44 @@ describe('isFemale — gender 显式优先 / type hint fallback', () => {
 
   it('case 13: 无 gender + type=peg.dat → 无 hint → MALE', () => {
     expect(isFemale(makePort('peg.dat'))).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// portProminent — 端口显著高亮判定（连接件埋体内端口的 Alt 全亮）
+// ─────────────────────────────────────────────────────────────────────────
+describe('portProminent — 高亮判定（含连接件 Alt 全亮）', () => {
+  const base = {
+    hovered: false, portEngageMode: false, isSelected: false, debugShowPorts: false,
+    isConnectorPart: false, shouldShowVisuals: false, isCompatiblePort: true,
+  };
+
+  it('精确 hover 到端口 + Alt → 高亮', () => {
+    expect(portProminent({ ...base, hovered: true, portEngageMode: true })).toBe(true);
+  });
+
+  it('hover 到端口但没按 Alt → 不高亮（裸点是选本体）', () => {
+    expect(portProminent({ ...base, hovered: true, portEngageMode: false })).toBe(false);
+  });
+
+  it('已选源端口 / Debug 全显 → 恒高亮', () => {
+    expect(portProminent({ ...base, isSelected: true })).toBe(true);
+    expect(portProminent({ ...base, debugShowPorts: true })).toBe(true);
+  });
+
+  it('连接件 + 本件激活 + Alt + 兼容 → 整件端口全亮（无需精确 hover）', () => {
+    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: true })).toBe(true);
+  });
+
+  it('连接件但没按 Alt → 不全亮', () => {
+    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: false })).toBe(false);
+  });
+
+  it('连接件 + Alt 但端口不兼容 → 不全亮（避免误导可连）', () => {
+    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: true, isCompatiblePort: false })).toBe(false);
+  });
+
+  it('非连接件（大板）+ Alt + 激活但未精确 hover → 不全亮（防铺满）', () => {
+    expect(portProminent({ ...base, isConnectorPart: false, shouldShowVisuals: true, portEngageMode: true })).toBe(false);
   });
 });

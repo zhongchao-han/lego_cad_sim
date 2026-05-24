@@ -380,4 +380,41 @@ describe('useKeyboardDispatcher — 搜索面板 + Esc 路由（issue #64 #1）'
     expect(useStore.getState().selection.primaryId).toBe('A');
     unmount();
   });
+
+  // ──────────────────────── Alt/Option 端口修饰键跟踪 ────────────────────────
+  it('case 25: pointermove 带 altKey 同步 isPortModifierHeld（Mac Option→RDP 链路稳健）', () => {
+    const { unmount } = renderHook(() => useKeyboardDispatcher());
+    useStore.getState().setPortModifierHeld(false);
+
+    // 按住 Alt/Option 移动鼠标 → pointermove(altKey=true) → held=true
+    act(() => { window.dispatchEvent(new PointerEvent('pointermove', { altKey: true, bubbles: true })); });
+    expect(useStore.getState().isPortModifierHeld).toBe(true);
+
+    // 松开后移动 → pointermove(altKey=false) → held=false
+    act(() => { window.dispatchEvent(new PointerEvent('pointermove', { altKey: false, bubbles: true })); });
+    expect(useStore.getState().isPortModifierHeld).toBe(false);
+
+    // pointerdown 也同步
+    act(() => { window.dispatchEvent(new PointerEvent('pointerdown', { altKey: true, bubbles: true })); });
+    expect(useStore.getState().isPortModifierHeld).toBe(true);
+
+    // 卸载后不再响应（监听已移除）
+    unmount();
+    useStore.getState().setPortModifierHeld(false);
+    act(() => { window.dispatchEvent(new PointerEvent('pointermove', { altKey: true, bubbles: true })); });
+    expect(useStore.getState().isPortModifierHeld).toBe(false);
+  });
+
+  it('case 26: keydown/keyup 仍同步 isPortModifierHeld（静止按 Alt 也生效）', () => {
+    const { unmount } = renderHook(() => useKeyboardDispatcher());
+    useStore.getState().setPortModifierHeld(false);
+
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt', altKey: true, bubbles: true })); });
+    expect(useStore.getState().isPortModifierHeld).toBe(true);
+
+    act(() => { window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', altKey: false, bubbles: true })); });
+    expect(useStore.getState().isPortModifierHeld).toBe(false);
+
+    unmount();
+  });
 });

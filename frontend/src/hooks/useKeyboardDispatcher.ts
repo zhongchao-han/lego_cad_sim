@@ -62,18 +62,29 @@ export function useKeyboardDispatcher() {
 
     // 端口连接修饰键（Alt/Option）跟踪 → store.isPortModifierHeld。端口点只有在
     // 按住 Alt 的"连接模式"才高亮 + 指针手型（见 SiteGizmo），避免裸点选本体时
-    // 端口高亮误导。任何 keydown/keyup 都同步当前 e.altKey；窗口失焦清零防卡住。
+    // 端口高亮误导。
+    //
+    // ⚠ 不能只靠 keydown/keyup：在「Mac(Option)→RDP→Windows + 浏览器 Alt 激活菜单/
+    // 失焦」这条链路上，Alt 的 keydown/keyup 极易丢失 → isPortModifierHeld 时有时无、
+    // 端口"经常不显示"。修法：**也从指针事件同步 altKey**。hover 本身持续产生
+    // pointermove，每个事件自带当前 altKey → 不论键盘事件是否到位，移动鼠标即正确。
+    // setPortModifierHeld 内有 !== 守卫，值不变不触发渲染，pointermove 高频也安全。
     const syncAlt = (e: KeyboardEvent) => useStore.getState().setPortModifierHeld(e.altKey);
+    const syncAltPointer = (e: PointerEvent | MouseEvent) => useStore.getState().setPortModifierHeld(e.altKey);
     const clearAlt = () => useStore.getState().setPortModifierHeld(false);
 
     window.addEventListener('keydown', handler);
     window.addEventListener('keydown', syncAlt);
     window.addEventListener('keyup', syncAlt);
+    window.addEventListener('pointermove', syncAltPointer);
+    window.addEventListener('pointerdown', syncAltPointer);
     window.addEventListener('blur', clearAlt);
     return () => {
       window.removeEventListener('keydown', handler);
       window.removeEventListener('keydown', syncAlt);
       window.removeEventListener('keyup', syncAlt);
+      window.removeEventListener('pointermove', syncAltPointer);
+      window.removeEventListener('pointerdown', syncAltPointer);
       window.removeEventListener('blur', clearAlt);
     };
   }, []);
