@@ -214,7 +214,7 @@ const FreePlacerGhost = () => {
     const initialPointer = useStore(s => s.freePlacingPointer);
     const commitFreePlacing = useStore(s => s.commitFreePlacing);
     const groupRef = useRef(null);
-    const { raycaster, mouse, camera, scene, gl } = useThree();
+    const { raycaster, camera, scene, gl } = useThree();
 
     // 朝向说明（UX 反馈修复）：Drop to Ground / 自由放置一律落在零件的**原始
     // 朝向**（payload state.quaternion，新建零件 = identity 平躺）。
@@ -226,10 +226,11 @@ const FreePlacerGhost = () => {
     const isPlacing = phase === InteractionPhase.FREE_PLACING && payload && payload.length > 0;
     const isGroundPlane = projectionMode === FreePlacingProjectionMode.GROUND_PLANE;
 
-    // GROUND_PLANE 路径专用：用 window 级别的 pointermove 自维护 NDC 坐标，
-    // 绕开 R3F mouse 在 modal 关闭瞬间可能仍然停留在旧值的问题。
-    // SCENE_RAYCAST 路径不使用此 ref，沿用 R3F 的 mouse。
-    const groundPointerRef = useRef(new THREE.Vector2(0, 0));
+    // 用 window 级别的 pointermove 自维护 NDC 坐标，绕开 R3F mouse 可能停在旧值的问题。
+    // 历史 bug：此 ref 曾仅 GROUND_PLANE 使用，SCENE_RAYCAST（粘贴走的路径）沿用 R3F
+    // `mouse` —— 但 Ctrl+V 由键盘触发、没有指针事件喂给 R3F，`mouse` 停在旧值 → 粘贴
+    // 的幽灵不跟手。现两条路径统一用此 ref，跟手稳定。
+    const pointerNdcRef = useRef(new THREE.Vector2(0, 0));
     // 防止"触发 Drop to Ground 的那次 mousedown"被全局监听器解读为放置确认。
     const canConfirmGroundRef = useRef(false);
 
@@ -246,7 +247,7 @@ const FreePlacerGhost = () => {
 
         if (isGroundPlane) {
             // 仅与 y=0 平面求交，忽略环境软箱、阴影面与现有零件
-            raycaster.setFromCamera(groundPointerRef.current, camera);
+            raycaster.setFromCamera(pointerNdcRef.current, camera);
             if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
                 groupRef.current.position.copy(_intersectScratch);
             } else {
@@ -255,7 +256,8 @@ const FreePlacerGhost = () => {
             return;
         }
 
-        raycaster.setFromCamera(mouse, camera);
+        // SCENE_RAYCAST：用自维护的 NDC（而非 R3F mouse），保证键盘触发的粘贴也跟手。
+        raycaster.setFromCamera(pointerNdcRef.current, camera);
 
         // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
         const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
@@ -280,20 +282,21 @@ const FreePlacerGhost = () => {
         }
     });
 
-    // GROUND_PLANE 专用：在 window 级别监听 pointermove，自维护 NDC 坐标。
+    // 在 window 级别监听 pointermove，自维护 NDC 坐标（两条投影路径共用）。
     useEffect(() => {
-        if (!isPlacing || !isGroundPlane) return;
+        if (!isPlacing) return;
 
         const updateFromClient = (clientX, clientY) => {
             const rect = gl.domElement.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) return;
-            groundPointerRef.current.set(
+            pointerNdcRef.current.set(
                 ((clientX - rect.left) / rect.width) * 2 - 1,
                 -(((clientY - rect.top) / rect.height) * 2 - 1)
             );
         };
 
-        // 用按钮点击坐标做首帧初值，避免幽灵第一帧落在原点
+        // 用初始指针坐标做首帧初值（Drop to Ground 的按钮点击坐标），避免幽灵第一帧落原点。
+        // 粘贴无 initialPointer → 起于屏幕中心，首次移动鼠标即跟手。
         if (initialPointer) {
             updateFromClient(initialPointer.clientX, initialPointer.clientY);
         }
@@ -303,7 +306,7 @@ const FreePlacerGhost = () => {
         return () => {
             window.removeEventListener('pointermove', onMove);
         };
-    }, [isPlacing, isGroundPlane, initialPointer, gl]);
+    }, [isPlacing, initialPointer, gl]);
 
     // GROUND_PLANE 专用：~120ms 防抖，避免触发 Drop to Ground 的那次 mousedown
     // 在 modal 关闭后被全局监听器误判为"确认放置"。

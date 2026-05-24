@@ -199,4 +199,57 @@ test.describe('Keyboard + Marquee — C7/C8/C10', () => {
       expect(sel).toContain('mock_A');
     }
   });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // C11 — 粘贴幽灵跟手（回归 Ctrl+V 不跟鼠标的 bug）
+  //
+  // 历史 bug：FreePlacerGhost 的 SCENE_RAYCAST 路径（粘贴走这条）用 R3F `mouse`
+  // 定位幽灵，但 Ctrl+V 是键盘触发、没有指针事件喂给 R3F → `mouse` 停在旧值 →
+  // 幽灵不跟鼠标。修法：两条投影路径统一用 window pointermove 自维护的 NDC。
+  //
+  // 黑盒断言：复制一个件 → Ctrl+V → 鼠标移到屏幕位置①点击落地，再 Ctrl+V →
+  // 移到位置②点击落地；两次落点不同即证明幽灵跟随了鼠标。
+  // ──────────────────────────────────────────────────────────────────────
+  test('C11-PasteGhostFollowsMouse: pasted ghost tracks pointer', async ({ page }) => {
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+
+    // 复制 mock_A
+    await page.evaluate(() => window.__STORE__.getState().selectPart('mock_A'));
+    await page.keyboard.press(`${modifier}+c`);
+    await page.waitForFunction(() => (window.__STORE__.getState().clipboard ?? []).length > 0);
+
+    // 落地一次：Ctrl+V → 移鼠标到 (sx,sy) → 左键确认 → 返回新件落点，并清理新件
+    const pasteAt = async (sx: number, sy: number) => {
+      await page.keyboard.press(`${modifier}+v`);
+      await page.waitForFunction(
+        () => window.__STORE__.getState().interactionPhase === 'FREE_PLACING'
+      );
+      // 真实鼠标移动 → 触发 window pointermove → 幽灵跟手（需要 R3F 渲染循环跑几帧）
+      await page.mouse.move(sx, sy, { steps: 8 });
+      await page.waitForTimeout(150);
+      await page.mouse.down({ button: 'left' });
+      await page.mouse.up({ button: 'left' });
+      await page.waitForFunction(
+        () => window.__STORE__.getState().interactionPhase === 'IDLE'
+      );
+      return await page.evaluate(() => {
+        const s = window.__STORE__.getState();
+        const newId = Object.keys(s.parts).find((id) => id !== 'mock_A' && id !== 'mock_B');
+        const pos = newId ? s.parts[newId].position : null;
+        if (newId) {
+          s.selectPart(newId);
+          s.deleteSelected();
+        }
+        return pos;
+      });
+    };
+
+    const posLeft = await pasteAt(380, 240);
+    const posRight = await pasteAt(1040, 560);
+
+    // 两次落点都成功（非 null）且不同 → 幽灵确实跟随了鼠标位置
+    expect(posLeft).not.toBeNull();
+    expect(posRight).not.toBeNull();
+    expect(JSON.stringify(posLeft)).not.toEqual(JSON.stringify(posRight));
+  });
 });
