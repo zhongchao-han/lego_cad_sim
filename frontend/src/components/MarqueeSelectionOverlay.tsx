@@ -64,10 +64,22 @@ export function MarqueeSelectionOverlay() {
 
       const ids: string[] = [];
       const tempVec = new THREE.Vector3();
+      const tempQuat = new THREE.Quaternion();
       const st = useStore.getState();
       Object.entries(st.parts).forEach(([id, state]) => {
         if (state.zone !== ZoneType.ACTIVE_ARENA || st.hiddenParts.has(id)) return;
-        tempVec.set(state.position[0], state.position[1], state.position[2]);
+        // 用「世界包围盒中心」而非零件原点做命中：原点常偏离可见网格（大底板原点在角、
+        // 板/销原点偏置），用原点会框中"看不见的"件、漏掉真正框住的件 → 选中数与视觉不符。
+        // 世界中心 = position + quat·bboxCenterLocal（无 bboxCenter 时退化为原点）。
+        const bc = st.partCatalog[state.ldrawId]?.bboxCenter;
+        if (bc) {
+          tempVec.set(bc[0], bc[1], bc[2]).applyQuaternion(
+            tempQuat.set(state.quaternion[0], state.quaternion[1], state.quaternion[2], state.quaternion[3]),
+          );
+          tempVec.set(tempVec.x + state.position[0], tempVec.y + state.position[1], tempVec.z + state.position[2]);
+        } else {
+          tempVec.set(state.position[0], state.position[1], state.position[2]);
+        }
         tempVec.project(camera); // 3D → NDC [-1,1]
         const screenX = (tempVec.x * 0.5 + 0.5) * width;
         const screenY = (-(tempVec.y * 0.5) + 0.5) * height;
