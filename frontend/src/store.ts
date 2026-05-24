@@ -275,7 +275,7 @@ interface StoreState {
    *  施加 makeNewPrimaryPose 给出的位姿、按 autoMove 重连/脱开界面、可撤销 + 日志。 */
   _transformSelectedSubassembly: (
     makeNewPrimaryPose: (oldPose: RigidPose, pivot: Vec3) => RigidPose,
-    opts: { autoMove: boolean; label: string; keepConnectorsFixed?: boolean; keepConnections?: boolean },
+    opts: { autoMove: boolean; label: string; keepConnectorsFixed?: boolean },
   ) => void;
   /** 内部 helper（rotate/translateSelectedGroup 共用）：给定 primary 新位姿，
    *  整组刚体应用 + 推可撤销命令 + ACTION 日志。 */
@@ -2079,13 +2079,8 @@ export const useStore = create<StoreState>()(
     // ── 捕获脱开界面边的待清除占用条目（供 undo 恢复）。每条边 [m, b]：
     //    m 侧 occupied 里 value===b 的项 + b 侧 occupied 里 value===m 的项。
     const removedOcc: Record<string, Record<string, string>> = {}; // partId → {key: peer}
-    // keepConnections（平移用）：相对平移的目的是「沿底板调整位置但保持插入」，绝不
-    // 自动脱开 —— 方向键步长 20 LDU = 一个孔间距，件滑到相邻孔仍是插着的。强制
-    // detachedEdges=[] 即保留所有界面连接（occupied 局部 key 不随平移变，无需重映射）。
-    const detachedEdges = opts.keepConnections ? [] : result.detachedEdges;
-    const keptCount = opts.keepConnections
-      ? result.keptEdges.length + result.detachedEdges.length
-      : result.keptEdges.length;
+    const detachedEdges = result.detachedEdges;
+    const keptCount = result.keptEdges.length;
     const collectOcc = (owner: string, peer: string) => {
       const occ = occupiedPorts[owner];
       if (!occ) return;
@@ -2167,14 +2162,37 @@ export const useStore = create<StoreState>()(
   },
 
   translateSelectedGroup: (delta: Vec3) => {
-    get()._transformSelectedSubassembly(
-      (oldPose) => ({
-        position: [oldPose.position[0] + delta[0], oldPose.position[1] + delta[1], oldPose.position[2] + delta[2]],
-        quaternion: oldPose.quaternion,
-      }),
-      // keepConnections：相对平移只调位置，始终保持插入，绝不自动脱开（用户确认）。
-      { autoMove: false, label: `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm`, keepConnections: true },
-    );
+    // 平移「精确移动选中的件」：只动 selection.allConnectedIds，刚体平移、保持所有连接、
+    // 不展开子装配、不挑地基。用户反馈：选一个白板却把整块大板也带动了 —— 根因是旧实现
+    // 用「连通组 − 单个最大件」当 moving 组，多块大板互连时会把另一块板扫进来。改为「选谁
+    // 动谁」（所见即所动）：要带销/带板一起动就框选它们。连接不变（局部 occupied key 不随
+    // 平移改变，无需重映射）；要分离用工具栏「脱开」。
+    const { selection, parts, batchUpdatePartStates } = get();
+    const ids = selection.allConnectedIds;
+    if (ids.length === 0) return;
+
+    const prevUpdates: Record<string, Partial<PartState>> = {};
+    const nextUpdates: Record<string, Partial<PartState>> = {};
+    ids.forEach(id => {
+      const p = parts[id];
+      if (!p) return;
+      prevUpdates[id] = { position: [...p.position] as Vec3 };
+      nextUpdates[id] = { position: [p.position[0] + delta[0], p.position[1] + delta[1], p.position[2] + delta[2]] as Vec3 };
+    });
+    if (Object.keys(nextUpdates).length === 0) return;
+
+    const applyFn = () => get().batchUpdatePartStates(nextUpdates);
+    const revertFn = () => get().batchUpdatePartStates(prevUpdates);
+    const emptySnap: TopologySnapshot = {
+      addedParts: {}, removedParts: {}, addedConnections: [], removedConnections: [],
+    };
+    const cmd = createTopologyCommand('TRANSFORM', emptySnap, applyFn, revertFn);
+
+    batchUpdatePartStates(nextUpdates);
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    const mm = delta.map(d => (d * 1000).toFixed(1)).join(', ');
+    get().addLog(`平移 [${mm}] mm（选中 ${Object.keys(nextUpdates).length} 件）`, 'ACTION');
   },
 
   commitAxialSliding: () => {
