@@ -14,6 +14,9 @@ export function StatusBar() {
   const selectedPort = useStore((state) => state.selectedPort);
   // 是否有选中零件（IDLE 下决定是否提示"[/] 转 / 方向键平移"已放置零件编辑）。
   const hasSelection = useStore((state) => state.selection.primaryId !== null);
+  // 已选零件数（多选/框选时 > 1）。在状态栏显示"已选 N 件"，让用户确认多选生效 +
+  // 暗示可批量删除/改色（Del / 色板作用于全部已选）。
+  const selectedCount = useStore((state) => state.selection.allConnectedIds.length);
   const slidingTarget = useStore((state) => state.slidingTarget);
   const slideOffset = useStore((state) => state.slideOffset);
   const parts = useStore((state) => state.parts);
@@ -115,8 +118,8 @@ export function StatusBar() {
     switch (interactionPhase) {
       case InteractionPhase.IDLE:
         return hasSelection
-          ? '左键: 选择零件 ┊ Alt+点端口: 连接 ┊ [ / ]: 旋转 90° ┊ Shift+F: 翻面 ┊ 方向键: 平移(Shift 细调) ┊ 工具栏🎨: 改色 ┊ Del: 删除 ┊ Esc: 取消'
-          : '左键: 选择零件 ┊ Alt+点端口: 发起连接 ┊ 拖拽: 旋转视角 ┊ Esc: 取消选择';
+          ? '左键: 选择零件(Shift 多选) ┊ [ / ]: 旋转 90° ┊ Shift+F: 翻面 ┊ 方向键: 平移 ┊ 工具栏🎨: 改色 ┊ Del: 删除(批量) ┊ Esc: 取消'
+          : '左键: 选择零件(Shift 多选) ┊ Shift+拖拽: 框选 ┊ Alt+点端口: 连接 ┊ 拖拽: 旋转视角 ┊ Esc: 取消';
       case InteractionPhase.SOURCE_LOCKED:
         return 'Alt+点目标端口: 吸附 ┊ [ / ]: 绕轴旋转 90° ┊ Esc: 取消';
       case InteractionPhase.AXIAL_SLIDING:
@@ -148,6 +151,12 @@ export function StatusBar() {
     <div className="absolute bottom-0 left-0 w-full h-7 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-4 pointer-events-auto z-[60] text-[11px] font-mono select-none">
       <div className="flex items-center gap-4 text-slate-300 w-1/3">
         <span className="font-bold tracking-wider">{phaseLabel}</span>
+        {selectedCount > 1 && (
+          <>
+            <div className="w-px h-3 bg-slate-700" />
+            <span data-testid="selected-count" className="text-sky-300 font-bold">已选 {selectedCount} 件</span>
+          </>
+        )}
         {selectedPort && (
           <>
             <div className="w-px h-3 bg-slate-700" />
