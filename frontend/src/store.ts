@@ -2162,14 +2162,14 @@ export const useStore = create<StoreState>()(
   },
 
   translateSelectedGroup: (delta: Vec3) => {
-    // 平移「精确移动选中的件」：只动 selection.allConnectedIds，刚体平移、保持所有连接、
-    // 不展开子装配、不挑地基。用户反馈：选一个白板却把整块大板也带动了 —— 根因是旧实现
-    // 用「连通组 − 单个最大件」当 moving 组，多块大板互连时会把另一块板扫进来。改为「选谁
-    // 动谁」（所见即所动）：要带销/带板一起动就框选它们。连接不变（局部 occupied key 不随
-    // 平移改变，无需重映射）；要分离用工具栏「脱开」。
-    const { selection, parts, batchUpdatePartStates } = get();
+    // 平移「精确移动选中的件」：只动 selection.allConnectedIds（所见即所动）。
+    // 「拉开就断开」（用户确认）：平移把选中件从未选中的对端拉开 → 自动脱开「选区↔外部」
+    // 的连接（含其端口占用）；选区**内部**连接随刚体一起动、仍对齐 → 保留。要整体移动就
+    // 框选整组；要保持插在底板上就别移动它（或之后用端口重新吸附）。
+    const { selection, parts, connections, occupiedPorts, batchUpdatePartStates } = get();
     const ids = selection.allConnectedIds;
     if (ids.length === 0) return;
+    const selSet = new Set(ids);
 
     const prevUpdates: Record<string, Partial<PartState>> = {};
     const nextUpdates: Record<string, Partial<PartState>> = {};
@@ -2181,18 +2181,75 @@ export const useStore = create<StoreState>()(
     });
     if (Object.keys(nextUpdates).length === 0) return;
 
-    const applyFn = () => get().batchUpdatePartStates(nextUpdates);
-    const revertFn = () => get().batchUpdatePartStates(prevUpdates);
-    const emptySnap: TopologySnapshot = {
-      addedParts: {}, removedParts: {}, addedConnections: [], removedConnections: [],
+    // 跨选区边界的边（选中 a ↔ 未选中 b）：平移拉开 → 脱开。去重。
+    const cutEdges: Array<[string, string]> = [];
+    const seenEdge = new Set<string>();
+    ids.forEach(a => {
+      const peers = connections[a];
+      if (!peers) return;
+      peers.forEach(b => {
+        if (selSet.has(b)) return;
+        const k = [a, b].sort().join('|');
+        if (seenEdge.has(k)) return;
+        seenEdge.add(k);
+        cutEdges.push([a, b]);
+      });
+    });
+    // 待清占用（每条边两侧 value 指向对端的项）。
+    const removedOcc: Record<string, Record<string, string>> = {};
+    const collectOcc = (owner: string, peer: string) => {
+      const occ = occupiedPorts[owner];
+      if (!occ) return;
+      Object.entries(occ).forEach(([k, v]) => { if (v === peer) (removedOcc[owner] ??= {})[k] = v; });
     };
-    const cmd = createTopologyCommand('TRANSFORM', emptySnap, applyFn, revertFn);
+    cutEdges.forEach(([a, b]) => { collectOcc(a, b); collectOcc(b, a); });
 
-    batchUpdatePartStates(nextUpdates);
+    const applyFn = () => {
+      get().batchUpdatePartStates(nextUpdates);
+      if (cutEdges.length === 0) return;
+      set(s => {
+        const nc = { ...s.connections };
+        cutEdges.forEach(([a, b]) => {
+          if (nc[a]) { const x = new Set(nc[a]); x.delete(b); if (x.size === 0) delete nc[a]; else nc[a] = x; }
+          if (nc[b]) { const y = new Set(nc[b]); y.delete(a); if (y.size === 0) delete nc[b]; else nc[b] = y; }
+        });
+        const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        Object.entries(removedOcc).forEach(([pid, kvs]) => {
+          if (!ro[pid]) return;
+          const cleaned = { ...ro[pid] };
+          Object.keys(kvs).forEach(k => delete cleaned[k]);
+          if (Object.keys(cleaned).length === 0) delete ro[pid]; else ro[pid] = cleaned;
+        });
+        return { connections: nc, occupiedPorts: ro };
+      });
+    };
+    const revertFn = () => {
+      get().batchUpdatePartStates(prevUpdates);
+      if (cutEdges.length === 0) return;
+      set(s => {
+        const nc = { ...s.connections };
+        cutEdges.forEach(([a, b]) => {
+          nc[a] = nc[a] ? new Set(nc[a]) : new Set();
+          nc[b] = nc[b] ? new Set(nc[b]) : new Set();
+          nc[a].add(b); nc[b].add(a);
+        });
+        const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        Object.entries(removedOcc).forEach(([pid, kvs]) => { ro[pid] = { ...(ro[pid] || {}), ...kvs }; });
+        return { connections: nc, occupiedPorts: ro };
+      });
+    };
+    const snap: TopologySnapshot = {
+      addedParts: {}, removedParts: {}, addedConnections: [],
+      removedConnections: cutEdges.map(([a, b]) => ({ from: a, to: b })),
+    };
+    const cmd = createTopologyCommand('TRANSFORM', snap, applyFn, revertFn);
+
+    applyFn();
     _history.push(cmd);
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
     const mm = delta.map(d => (d * 1000).toFixed(1)).join(', ');
-    get().addLog(`平移 [${mm}] mm（选中 ${Object.keys(nextUpdates).length} 件）`, 'ACTION');
+    const note = cutEdges.length > 0 ? `，脱开 ${cutEdges.length} 个连接` : '';
+    get().addLog(`平移 [${mm}] mm（选中 ${Object.keys(nextUpdates).length} 件）${note}`, 'ACTION');
   },
 
   commitAxialSliding: () => {

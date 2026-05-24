@@ -142,24 +142,31 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
-  it('平移：只动选中的件，其余件（大底板等）不动，连接保持', () => {
+  it('平移「拉开就断开」：选 P 平移 → P 动、Q 不动，P↔Q 跨界连接脱开', () => {
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
-    setup(square); // P 小件（选中，allConnectedIds=['P']）、Q 大底板
+    setup(square); // P 小件（选中，allConnectedIds=['P']）、Q 大底板（未选）
     const qPos0 = [...useStore.getState().parts.Q.position];
 
     useStore.getState().translateSelectedGroup([-0.008, 0, 0]);
 
     const st = useStore.getState();
-    // 选中件移动了
-    expect(st.parts.P.position[0]).toBeCloseTo(-0.008, 6);
-    // 未选中的件纹丝不动
-    expect(st.parts.Q.position).toEqual(qPos0);
-    // 平移不动连接图（局部 occupied key 不随平移变）→ 连接保持。
-    expect(st.connections.P?.has('Q') ?? false).toBe(true);
-    expect(st.connections.Q?.has('P') ?? false).toBe(true);
+    expect(st.parts.P.position[0]).toBeCloseTo(-0.008, 6); // 选中件移动
+    expect(st.parts.Q.position).toEqual(qPos0);            // 未选中件不动
+    // P 被拉离 Q（Q 未选、没跟着动）→ P↔Q 脱开 + 占用清除。
+    expect(st.connections.P?.has('Q') ?? false).toBe(false);
+    expect(st.connections.Q?.has('P') ?? false).toBe(false);
+    expect(st.occupiedPorts.P).toBeUndefined();
+    expect(st.occupiedPorts.Q).toBeUndefined();
+
+    // undo 恢复位置 + 连接 + 占用。
+    useStore.getState().undo();
+    const r = useStore.getState();
+    expect(r.parts.P.position[0]).toBeCloseTo(0, 6);
+    expect(r.connections.P.has('Q')).toBe(true);
+    expect(r.occupiedPorts.P).toBeDefined();
   });
 
-  it('平移「只动选中」：选 plate → pin/底板都不跟动（要一起动须框选）', () => {
+  it('平移「拉开就断开」：选 plate → 与 pin、base 的跨界连接都脱开，pin/base 不跟动', () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
@@ -179,15 +186,15 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     useStore.getState().translateSelectedGroup([0, 0, 0.008]);
 
     const st = useStore.getState();
-    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6);  // 选中的 plate 移动
-    expect(st.parts.pin.position).toEqual(pinPos0);            // 未选中的 pin 不跟动
-    expect(st.parts.base.position).toEqual(basePos0);          // 底板不动
-    // 连接图不变（仅位置变）：plate↔pin、plate↔base 都保持。
-    expect(st.connections.plate.has('pin')).toBe(true);
-    expect(st.connections.plate.has('base')).toBe(true);
+    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6); // 选中的 plate 移动
+    expect(st.parts.pin.position).toEqual(pinPos0);           // 未选中的 pin 不跟动
+    expect(st.parts.base.position).toEqual(basePos0);         // 底板不动
+    // plate 拉离两个未选对端 → 两条跨界连接都脱开。
+    expect(st.connections.plate?.has('pin') ?? false).toBe(false);
+    expect(st.connections.plate?.has('base') ?? false).toBe(false);
   });
 
-  it('平移「只动选中」：框选 plate+pin → 两者一起动，底板不动', () => {
+  it('平移「拉开就断开」：框选 plate+pin → 内部连接保留、对 base 的跨界连接脱开', () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
@@ -206,9 +213,13 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     useStore.getState().translateSelectedGroup([0, 0, 0.008]);
 
     const st = useStore.getState();
-    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6);  // 选中的两者都动
+    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6); // 选中的两者都动
     expect(st.parts.pin.position[2]).toBeCloseTo(0.008, 6);
-    expect(st.parts.base.position).toEqual(basePos0);          // 未选中的底板不动
+    expect(st.parts.base.position).toEqual(basePos0);         // 未选中的底板不动
+    // 内部连接 plate↔pin（两端都选中、一起动）保留；plate↔base（跨界）脱开。
+    expect(st.connections.plate.has('pin')).toBe(true);
+    expect(st.connections.pin.has('plate')).toBe(true);
+    expect(st.connections.plate?.has('base') ?? false).toBe(false);
   });
 
   it('翻面：选中件绕世界 X 翻 180°，连接件(销)留在原位不翻到顶，地基不动', () => {
