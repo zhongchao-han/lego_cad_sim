@@ -62,10 +62,11 @@ export const InteractivePart = memo(({
   const addLog = useStore((s) => s.addLog);
   const debugShowPorts = useStore(s => s.debugShowPorts);
 
-  const isSelected = selection.primaryId === partId || (
-    selection.level === SelectionLevel.GROUP && selection.allConnectedIds.includes(partId)
-  );
-  const isGroupMember = selection.level === SelectionLevel.GROUP && selection.allConnectedIds.includes(partId);
+  // 选中判定：primary 或在 allConnectedIds 里即算选中 —— 不再要求 level===GROUP。
+  // 原门控导致 Shift+点击/框选多选（level=INDIVIDUAL，多个件进 allConnectedIds）时
+  // 只有 primaryId 高亮、其余件不显示选中（bug：状态栏「已选 N 件」但只亮 1 个）。
+  const isSelected = selection.primaryId === partId || selection.allConnectedIds.includes(partId);
+  const isGroupMember = selection.allConnectedIds.includes(partId);
   const isBlocked = (selection.primaryId === partId) && interference.isBlocked;
 
   const [pulse, setPulse] = useState(0);
