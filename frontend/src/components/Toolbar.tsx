@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, type ComponentType } from 'react';
 import {
   RotateCcw, RotateCw, FlipVertical2, Palette, Copy, Trash2,
-  Undo2, Redo2, Search, Zap, Unlink,
+  Undo2, Redo2, Search, Zap, Unlink, Link2,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { InteractionPhase } from '../types';
@@ -32,6 +32,7 @@ export function Toolbar() {
   const duplicateSelected = useStore((s) => s.duplicateSelected);
   const deleteSelected = useStore((s) => s.deleteSelected);
   const detachSelected = useStore((s) => s.detachSelected);
+  const relatchScene = useStore((s) => s.relatchScene);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const setSearchOpen = useStore((s) => s.setSearchOpen);
@@ -129,6 +130,9 @@ export function Toolbar() {
 
       <Divider />
 
+      <ToolBtn icon={Link2} label="检测并连接（把已插入但未连接的端口连起来）" kbd=""
+        disabled={Object.keys(parts).length < 2}
+        onClick={() => { void relatchScene(); }} testid="tb-relatch" />
       <ToolBtn icon={Search} label="搜索零件" kbd="Ctrl+K"
         onClick={() => setSearchOpen(true)} testid="tb-search" />
       <ToolBtn icon={Zap} label="受力可视化" kbd="" active={showReactionForces}

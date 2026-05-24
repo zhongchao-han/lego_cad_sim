@@ -22,6 +22,7 @@ import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyComman
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
 import { isConnectorCategory } from './utils/partCategory';
+import { findRelatchEdges } from './utils/relatchScan';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -240,6 +241,9 @@ interface StoreState {
   /** 脱开：把「选中件/组」从其余装配切离 —— 只断跨选区边界的连接边（选中↔未选中），
    *  保留选区内部连接，同步清对应 occupiedPorts，位置不变。可撤销。 */
   detachSelected: () => void;
+  /** 检测并连接：扫全场，把「端口几何重合 + 极性互补（孔↔插）」但尚未连接的端口对补建
+   *  连接（修"看着插进去了却没连上"）。异步（取端口几何），可撤销。 */
+  relatchScene: () => Promise<void>;
   copySelected: () => void;
   pasteClipboard: () => void;
   duplicateSelected: () => void;
@@ -1466,6 +1470,73 @@ export const useStore = create<StoreState>()(
     _history.push(cmd);
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
     get().addLog(`脱开 ${cutEdges.length} 个连接。`, 'ACTION');
+  },
+
+  relatchScene: async () => {
+    const { parts, connections } = get();
+    const sceneIds = Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA);
+    if (sceneIds.length < 2) { get().addLog('场景零件不足，无需检测连接。', 'INFO'); return; }
+
+    // 取每种 LDraw 类型的端口几何（复用 /api/ldraw_part；按类型缓存，多实例共享）。
+    const ldrawIds = [...new Set(sceneIds.map(id => parts[id].ldrawId))];
+    const portsByLdrawId: Record<string, Array<{ position: Vec3; rotation: number[][]; type?: string; gender?: string | null }>> = {};
+    await Promise.all(ldrawIds.map(async (ld) => {
+      try {
+        const res = await fetch(`${API_URL}/api/ldraw_part/${encodeURIComponent(ld)}?color=16`);
+        const data = await res.json();
+        portsByLdrawId[ld] = (data?.ports ?? []).map((p: { position: Vec3; rotation: number[][]; type?: string; gender?: string | null }) => ({
+          position: p.position, rotation: p.rotation, type: p.type, gender: p.gender,
+        }));
+      } catch { portsByLdrawId[ld] = []; }
+    }));
+
+    const partInputs = sceneIds.map(id => ({
+      id, ldrawId: parts[id].ldrawId, position: parts[id].position as Vec3, quaternion: parts[id].quaternion as Quat,
+    }));
+    const existingPairs = new Set<string>();
+    Object.keys(connections).forEach(a => connections[a].forEach(b => existingPairs.add([a, b].sort().join('|'))));
+
+    const edges = findRelatchEdges(partInputs, portsByLdrawId, existingPairs, (pos, rot) => portKey(pos, rot as number[][]));
+    if (edges.length === 0) { get().addLog('检测并连接：未发现可连接的重合端口。', 'ACTION'); return; }
+
+    // 去重出件对（连接边）；端口对逐条写 occupiedPorts。
+    const addedConns: Array<{ from: string; to: string }> = [];
+    const seenPair = new Set<string>();
+    edges.forEach(e => { const k = [e.a, e.b].sort().join('|'); if (!seenPair.has(k)) { seenPair.add(k); addedConns.push({ from: e.a, to: e.b }); } });
+
+    const doAdd = () => set(s => {
+      const nc = { ...s.connections };
+      edges.forEach(({ a, b }) => {
+        nc[a] = nc[a] ? new Set(nc[a]) : new Set(); nc[b] = nc[b] ? new Set(nc[b]) : new Set();
+        nc[a].add(b); nc[b].add(a);
+      });
+      const ro: OccupiedPortMap = { ...s.occupiedPorts };
+      edges.forEach(({ a, b, aPortKey, bPortKey }) => {
+        ro[a] = { ...(ro[a] || {}), [aPortKey]: b };
+        ro[b] = { ...(ro[b] || {}), [bPortKey]: a };
+      });
+      return { connections: nc, occupiedPorts: ro };
+    });
+    const doRemove = () => set(s => {
+      const nc = { ...s.connections };
+      addedConns.forEach(({ from, to }) => {
+        if (nc[from]) { const x = new Set(nc[from]); x.delete(to); if (x.size === 0) delete nc[from]; else nc[from] = x; }
+        if (nc[to]) { const y = new Set(nc[to]); y.delete(from); if (y.size === 0) delete nc[to]; else nc[to] = y; }
+      });
+      const ro: OccupiedPortMap = { ...s.occupiedPorts };
+      edges.forEach(({ a, b, aPortKey, bPortKey }) => {
+        if (ro[a]) { const c = { ...ro[a] }; delete c[aPortKey]; if (Object.keys(c).length === 0) delete ro[a]; else ro[a] = c; }
+        if (ro[b]) { const d = { ...ro[b] }; delete d[bPortKey]; if (Object.keys(d).length === 0) delete ro[b]; else ro[b] = d; }
+      });
+      return { connections: nc, occupiedPorts: ro };
+    });
+
+    const snap: TopologySnapshot = { addedParts: {}, removedParts: {}, addedConnections: addedConns, removedConnections: [] };
+    const cmd = createTopologyCommand('RELATCH', snap, doAdd, doRemove);
+    doAdd();
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    get().addLog(`检测并连接：新建 ${addedConns.length} 处连接（${edges.length} 个端口对）。`, 'ACTION');
   },
 
   copySelected: () => {
