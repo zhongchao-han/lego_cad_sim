@@ -395,8 +395,15 @@ function PortArrow({
             ARROW_LENGTH, color, ARROW_HEAD_LEN, ARROW_HEAD_WIDTH
           ]}
           onUpdate={(self) => {
+            // 箭头只在 prominent 时画。让它穿过零件本体可见（depthTest 关 + 高 renderOrder）：
+            // 否则正对/最靠近相机的销，端口箭头沿轴向被自己本体挡住 → 看不见（用户反馈
+            // "最前那个插销 option+hover 不显示端口"）。
+            self.renderOrder = 1000;
             self.traverse((child) => {
               child.raycast = () => {};
+              const mat = (child as unknown as { material?: THREE.Material & { depthTest?: boolean; depthWrite?: boolean } }).material;
+              if (mat) { mat.depthTest = false; mat.depthWrite = false; }
+              (child as unknown as { renderOrder?: number }).renderOrder = 1000;
             });
           }}
         />
@@ -405,13 +412,15 @@ function PortArrow({
       {/* 根部拦截球体（核心兜底）：始终存在。
           它是纯几何 Hover 拦截的核心，同时也是触发局部悬停的精确热区。
           当未被悬停时，透明且不写深度，但参与射线检测，防止鼠标落入孔洞。 */}
-      <mesh quaternion={quaternion}>
+      <mesh quaternion={quaternion} renderOrder={prominent ? 1000 : 0}>
         <sphereGeometry args={[GIZMO_SPHERE_R_ENLARGED, 16, 16]} />
         <meshBasicMaterial
           color={color}
           toneMapped={false}
           opacity={dot.sphereOpacity}
           transparent
+          // prominent 时穿过本体可见（depthTest 关）：埋在销体内的端口球也能看到。
+          depthTest={!prominent}
           depthWrite={shouldShowVisuals && prominent}
           colorWrite={dot.colorWrite}
         />
