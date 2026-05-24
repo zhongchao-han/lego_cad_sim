@@ -272,7 +272,7 @@ interface StoreState {
    *  施加 makeNewPrimaryPose 给出的位姿、按 autoMove 重连/脱开界面、可撤销 + 日志。 */
   _transformSelectedSubassembly: (
     makeNewPrimaryPose: (oldPose: RigidPose, pivot: Vec3) => RigidPose,
-    opts: { autoMove: boolean; label: string; keepConnectorsFixed?: boolean },
+    opts: { autoMove: boolean; label: string; keepConnectorsFixed?: boolean; keepConnections?: boolean },
   ) => void;
   /** 内部 helper（rotate/translateSelectedGroup 共用）：给定 primary 新位姿，
    *  整组刚体应用 + 推可撤销命令 + ACTION 日志。 */
@@ -2009,7 +2009,13 @@ export const useStore = create<StoreState>()(
     // ── 捕获脱开界面边的待清除占用条目（供 undo 恢复）。每条边 [m, b]：
     //    m 侧 occupied 里 value===b 的项 + b 侧 occupied 里 value===m 的项。
     const removedOcc: Record<string, Record<string, string>> = {}; // partId → {key: peer}
-    const detachedEdges = result.detachedEdges;
+    // keepConnections（平移用）：相对平移的目的是「沿底板调整位置但保持插入」，绝不
+    // 自动脱开 —— 方向键步长 20 LDU = 一个孔间距，件滑到相邻孔仍是插着的。强制
+    // detachedEdges=[] 即保留所有界面连接（occupied 局部 key 不随平移变，无需重映射）。
+    const detachedEdges = opts.keepConnections ? [] : result.detachedEdges;
+    const keptCount = opts.keepConnections
+      ? result.keptEdges.length + result.detachedEdges.length
+      : result.keptEdges.length;
     const collectOcc = (owner: string, peer: string) => {
       const occ = occupiedPorts[owner];
       if (!occ) return;
@@ -2071,7 +2077,7 @@ export const useStore = create<StoreState>()(
     const movePart = (opts.autoMove && moveMm > 0.05) ? `，自动微移 ${moveMm.toFixed(1)}mm 重连` : '';
     const detachPart = detachedEdges.length > 0
       ? `，脱开 ${detachedEdges.length} 个连接`
-      : (result.keptEdges.length > 0 ? `，保持 ${result.keptEdges.length} 个连接` : '');
+      : (keptCount > 0 ? `，保持 ${keptCount} 个连接` : '');
     get().addLog(`${opts.label}（选中件 ${primaryId}${withN}）${movePart}${detachPart}`, 'ACTION');
   },
 
@@ -2096,7 +2102,8 @@ export const useStore = create<StoreState>()(
         position: [oldPose.position[0] + delta[0], oldPose.position[1] + delta[1], oldPose.position[2] + delta[2]],
         quaternion: oldPose.quaternion,
       }),
-      { autoMove: false, label: `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm` },
+      // keepConnections：相对平移只调位置，始终保持插入，绝不自动脱开（用户确认）。
+      { autoMove: false, label: `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm`, keepConnections: true },
     );
   },
 

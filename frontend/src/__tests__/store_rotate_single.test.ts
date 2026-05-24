@@ -142,7 +142,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
-  it('平移：选中件(子装配)移动，大底板(地基)不动', () => {
+  it('平移：选中件(子装配)移动，大底板(地基)不动，连接保持插入（不脱开）', () => {
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     setup(square); // P 小件（选中）、Q 大底板（地基）
     const qPos0 = [...useStore.getState().parts.Q.position];
@@ -154,8 +154,9 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.parts.P.position[0]).toBeCloseTo(-0.008, 6);
     // 大底板纹丝不动
     expect(st.parts.Q.position).toEqual(qPos0);
-    // 移开栅格 → 脱开（平移不吸回）
-    expect(st.connections.P?.has('Q') ?? false).toBe(false);
+    // 相对平移=「沿底板调位但保持插入」→ 连接保持，绝不自动脱开（用户确认的语义）。
+    expect(st.connections.P?.has('Q') ?? false).toBe(true);
+    expect(st.connections.Q?.has('P') ?? false).toBe(true);
   });
 
   it('平移：插销随板一起移动（子装配跟动），底板不动', () => {
