@@ -248,6 +248,34 @@ describe('store.pasteClipboard — 多零件中心归零', () => {
     expect(st2.parts[nA]).toBeUndefined();
     expect(st2.connections[nA]).toBeUndefined();
   });
+
+  it('case 11: 复制有连接的多件 → 日志提示「含 N 个组内连接」', () => {
+    useStore.setState({
+      parts: {
+        a: { ldrawId: 'a.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        b: { ldrawId: 'b.dat', position: [0.02, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: { a: new Set(['b']), b: new Set(['a']) },
+      selection: { primaryId: 'a', level: SelectionLevel.GROUP, allConnectedIds: ['a', 'b'], excludedIds: [] },
+    } as any);
+    useStore.getState().copySelected();
+    const log = useStore.getState().logs.find(l => l.message.startsWith('Copied 2 parts'));
+    expect(log?.message).toContain('含 1 个组内连接');
+  });
+
+  it('case 12: 复制互不相连的多件 → 日志提示是散件（根因可见）', () => {
+    useStore.setState({
+      parts: {
+        a: { ldrawId: 'a.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        b: { ldrawId: 'b.dat', position: [50, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: {},
+      selection: { primaryId: 'a', level: SelectionLevel.GROUP, allConnectedIds: ['a', 'b'], excludedIds: [] },
+    } as any);
+    useStore.getState().copySelected();
+    const log = useStore.getState().logs.find(l => l.message.startsWith('Copied 2 parts'));
+    expect(log?.message).toContain('无端口连接');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
