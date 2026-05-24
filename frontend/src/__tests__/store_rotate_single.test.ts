@@ -142,24 +142,28 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
-  it('平移：只动选中的件，其余件（大底板等）不动，连接保持', () => {
+  it('平移「整体一起动」：选 P → 与之相连的 Q 也一起移动，连接保持', () => {
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
-    setup(square); // P 小件（选中，allConnectedIds=['P']）、Q 大底板
-    const qPos0 = [...useStore.getState().parts.Q.position];
+    setup(square); // P 小件（选中，allConnectedIds=['P']）、Q 与 P 相连
 
     useStore.getState().translateSelectedGroup([-0.008, 0, 0]);
 
     const st = useStore.getState();
-    // 选中件移动了
+    // 整个连通装配一起平移：P 和相连的 Q 都移动 -8mm
     expect(st.parts.P.position[0]).toBeCloseTo(-0.008, 6);
-    // 未选中的件纹丝不动
-    expect(st.parts.Q.position).toEqual(qPos0);
-    // 平移不动连接图（局部 occupied key 不随平移变）→ 连接保持。
-    expect(st.connections.P?.has('Q') ?? false).toBe(true);
-    expect(st.connections.Q?.has('P') ?? false).toBe(true);
+    expect(st.parts.Q.position[0]).toBeCloseTo(-0.008, 6);
+    // 连接保持（刚体一起动，不脱开）
+    expect(st.connections.P.has('Q')).toBe(true);
+    expect(st.connections.Q.has('P')).toBe(true);
+
+    // undo 恢复位置
+    useStore.getState().undo();
+    const r = useStore.getState();
+    expect(r.parts.P.position[0]).toBeCloseTo(0, 6);
+    expect(r.parts.Q.position[0]).toBeCloseTo(0, 6);
   });
 
-  it('平移「只动选中」：选 plate → pin/底板都不跟动（要一起动须框选）', () => {
+  it('平移「整体一起动」：选 plate → 相连的 pin 和 base 全部一起动，连接全保留', () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
@@ -173,42 +177,43 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     } as any);
     connect('plate', 'base', square);
     connect('plate', 'pin', [[0, A, 0]]);
-    const basePos0 = [...useStore.getState().parts.base.position];
-    const pinPos0 = [...useStore.getState().parts.pin.position];
 
     useStore.getState().translateSelectedGroup([0, 0, 0.008]);
 
     const st = useStore.getState();
-    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6);  // 选中的 plate 移动
-    expect(st.parts.pin.position).toEqual(pinPos0);            // 未选中的 pin 不跟动
-    expect(st.parts.base.position).toEqual(basePos0);          // 底板不动
-    // 连接图不变（仅位置变）：plate↔pin、plate↔base 都保持。
+    // plate / pin / base 同属一个连通装配 → 全部一起平移
+    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6);
+    expect(st.parts.pin.position[2]).toBeCloseTo(0.008, 6);
+    expect(st.parts.base.position[2]).toBeCloseTo(0.008, 6);
+    // 连接全保留
     expect(st.connections.plate.has('pin')).toBe(true);
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
-  it('平移「只动选中」：框选 plate+pin → 两者一起动，底板不动', () => {
+  it('平移「整体一起动」：未相连的独立件不受影响', () => {
     resetStore();
-    const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
-      parts: { plate: part('plate.dat'), base: part('base.dat'), pin: part('pin.dat') },
+      parts: {
+        plate: part('plate.dat'),
+        base: part('base.dat'),
+        lone: part('lone.dat'), // 独立件，不与 plate 相连
+      },
       partCatalog: {
         'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
         'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
-        'pin.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
+        'lone.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.02, 0.01, 0.02] },
       },
-      selection: { primaryId: 'plate', level: SelectionLevel.GROUP, allConnectedIds: ['plate', 'pin'], excludedIds: [] },
+      selection: { primaryId: 'plate', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['plate'], excludedIds: [] },
     } as any);
-    connect('plate', 'base', square);
-    connect('plate', 'pin', [[0, A, 0]]);
-    const basePos0 = [...useStore.getState().parts.base.position];
+    connect('plate', 'base', [[A, 0, A]]);
+    const lonePos0 = [...useStore.getState().parts.lone.position];
 
-    useStore.getState().translateSelectedGroup([0, 0, 0.008]);
+    useStore.getState().translateSelectedGroup([0.008, 0, 0]);
 
     const st = useStore.getState();
-    expect(st.parts.plate.position[2]).toBeCloseTo(0.008, 6);  // 选中的两者都动
-    expect(st.parts.pin.position[2]).toBeCloseTo(0.008, 6);
-    expect(st.parts.base.position).toEqual(basePos0);          // 未选中的底板不动
+    expect(st.parts.plate.position[0]).toBeCloseTo(0.008, 6); // plate 动
+    expect(st.parts.base.position[0]).toBeCloseTo(0.008, 6);  // 相连的 base 一起动
+    expect(st.parts.lone.position).toEqual(lonePos0);         // 不相连的独立件不动
   });
 
   it('翻面：选中件绕世界 X 翻 180°，连接件(销)留在原位不翻到顶，地基不动', () => {

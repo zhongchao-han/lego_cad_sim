@@ -2162,18 +2162,20 @@ export const useStore = create<StoreState>()(
   },
 
   translateSelectedGroup: (delta: Vec3) => {
-    // 平移「精确移动选中的件」：只动 selection.allConnectedIds，刚体平移、保持所有连接、
-    // 不展开子装配、不挑地基。用户反馈：选一个白板却把整块大板也带动了 —— 根因是旧实现
-    // 用「连通组 − 单个最大件」当 moving 组，多块大板互连时会把另一块板扫进来。改为「选谁
-    // 动谁」（所见即所动）：要带销/带板一起动就框选它们。连接不变（局部 occupied key 不随
-    // 平移改变，无需重映射）；要分离用工具栏「脱开」。
-    const { selection, parts, batchUpdatePartStates } = get();
+    // 「连着的整体一起动」（用户确认的总规则）：平移移动**整个连通装配**——取所有选中件的
+    // 连通分量并集（含传递相连的销/板/件），整体刚体平移、**保留所有连接**（不脱开）。
+    // 这样移动板→板上的销一起动、点销连右板→左边整个装配跟过去；要把件从装配里分出来
+    // 用工具栏「脱开」。
+    const { selection, parts, connections, batchUpdatePartStates } = get();
     const ids = selection.allConnectedIds;
     if (ids.length === 0) return;
 
+    const moveSet = new Set<string>();
+    ids.forEach(id => { getConnectedGroup(connections, id, "").forEach(p => moveSet.add(p)); });
+
     const prevUpdates: Record<string, Partial<PartState>> = {};
     const nextUpdates: Record<string, Partial<PartState>> = {};
-    ids.forEach(id => {
+    moveSet.forEach(id => {
       const p = parts[id];
       if (!p) return;
       prevUpdates[id] = { position: [...p.position] as Vec3 };
@@ -2192,7 +2194,7 @@ export const useStore = create<StoreState>()(
     _history.push(cmd);
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
     const mm = delta.map(d => (d * 1000).toFixed(1)).join(', ');
-    get().addLog(`平移 [${mm}] mm（选中 ${Object.keys(nextUpdates).length} 件）`, 'ACTION');
+    get().addLog(`平移 [${mm}] mm（连通装配 ${Object.keys(nextUpdates).length} 件）`, 'ACTION');
   },
 
   commitAxialSliding: () => {
