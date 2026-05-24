@@ -22,6 +22,7 @@ import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import type { Vec3, Mat3, SelectedPortInfo } from '../types';
 import { InteractionPhase, SelectionLevel } from '../types';
 import { useStore, portKey } from '../store';
+import { isConnectorCategory } from '../utils/partCategory';
 
 const LDU = 0.0004;
 
@@ -113,6 +114,29 @@ export function computePlugOutlineBox(args: {
   return { center, size };
 }
 
+/**
+ * 端口是否"显著高亮"（画完整箭头 + 全亮球）的纯判定（便于单测）。
+ * 规则：
+ *   - 精确 hover 到端口 + 连接模式(Alt) → 高亮（原有逻辑）；
+ *   - 已选源端口 / Debug 全显 → 恒高亮；
+ *   - 连接件(销/轴/连接器)：端口埋在体内难精确 hover，故「本件激活(hover/选中) +
+ *     连接模式(Alt) + 该端口兼容」时整件端口全亮（朝外箭头露出体外 → 可见可点）。
+ *     大板等密集件不走此路（避免铺满），仍按精确 hover。
+ */
+export function portProminent(args: {
+  hovered: boolean;
+  portEngageMode: boolean;
+  isSelected: boolean;
+  debugShowPorts: boolean;
+  isConnectorPart: boolean;
+  shouldShowVisuals: boolean;
+  isCompatiblePort: boolean;
+}): boolean {
+  const { hovered, portEngageMode, isSelected, debugShowPorts, isConnectorPart, shouldShowVisuals, isCompatiblePort } = args;
+  const connectorProminent = isConnectorPart && shouldShowVisuals && portEngageMode && isCompatiblePort;
+  return (hovered && portEngageMode) || isSelected || debugShowPorts || connectorProminent;
+}
+
 export function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
   if (!sourcePortType) return true; // SOURCE_LOCKED 未设置时，全部显示
   
@@ -147,6 +171,8 @@ interface PortArrowProps {
   showVisuals: boolean;
   /** 该零件端口总数是否超过密集阈值（用于抑制大板上铺满的淡化点）。 */
   isDensePart?: boolean;
+  /** 该零件是否为连接件（销/轴/连接器）。端口埋在体内难精确 hover，Alt+激活时全亮。 */
+  isConnectorPart?: boolean;
   /** B.2：click handler 接收 shiftKey 让 callsite 决定是否走 plug 模式。
    *  Optional 第二参数保持向后兼容（旧 callsite 忽略即可）。 */
   onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
@@ -214,7 +240,7 @@ export function portClickIntent(mods: { altKey?: boolean; shiftKey?: boolean }):
 }
 
 function PortArrow({
-  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
+  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, isConnectorPart = false, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
 
@@ -228,7 +254,9 @@ function PortArrow({
   // 始终渲染（拦射线）。可见强度交给 portDotVisuals 纯函数（单测覆盖）按
   // prominent / 密集件分档。
   const shouldShowVisuals = showVisuals;
-  const prominent = (hovered && portEngageMode) || isSelected || debugShowPorts;
+  const prominent = portProminent({
+    hovered, portEngageMode, isSelected, debugShowPorts, isConnectorPart, shouldShowVisuals, isCompatiblePort,
+  });
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
   const ACTIVE_COLOR = '#ff9800'; // Source Locked 激活高亮色
@@ -487,6 +515,8 @@ export function SiteGizmo({
   selectedPort, portSelectionLevel, showVisuals, occupiedKeys, isDensePart = false, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
+  // 连接件（销/轴/连接器）：端口数少且埋在体内，Alt+激活时整件端口全亮（见 PortArrow）。
+  const isConnectorPart = useStore(s => isConnectorCategory(s.partCatalog[ldrawId]?.category));
 
   return (
     <group position={sitePos}>
@@ -532,6 +562,7 @@ export function SiteGizmo({
             ldrawId={ldrawId}
             showVisuals={showVisuals}
             isDensePart={isDensePart}
+            isConnectorPart={isConnectorPart}
             onPortClick={onPortClick}
             onPortHover={onPortHover}
           />

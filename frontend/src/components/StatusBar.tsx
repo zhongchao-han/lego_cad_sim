@@ -120,8 +120,15 @@ export function StatusBar() {
         return hasSelection
           ? '左键: 选择零件(Shift 多选) ┊ [ / ]: 旋转 90° ┊ Shift+F: 翻面 ┊ 方向键: 平移 ┊ 工具栏🎨: 改色 ┊ Del: 删除(批量) ┊ Esc: 取消'
           : '左键: 选择零件(Shift 多选) ┊ Shift+拖拽: 框选 ┊ Alt+点端口: 连接 ┊ 拖拽: 旋转视角 ┊ Esc: 取消';
-      case InteractionPhase.SOURCE_LOCKED:
-        return 'Alt+点目标端口: 吸附 ┊ [ / ]: 绕轴旋转 90° ┊ Esc: 取消';
+      case InteractionPhase.SOURCE_LOCKED: {
+        // 极性提示：孔↔插头才能连。锁定源是孔→需点插头；源是插头→需点孔。
+        // 直击用户困惑：两块板全是孔，孔↔孔连不上、目标端口还会变暗，需用插销桥接。
+        const srcIsHole = (selectedPort?.portType ?? '').toLowerCase().includes('hol');
+        const need = srcIsHole
+          ? '已锁定「孔」→ Alt+点一个「插头」端口连接（孔↔孔不能直连：两块板请用插销桥接）'
+          : '已锁定「插头」→ Alt+点一个「孔」端口连接';
+        return `${need} ┊ [ / ]: 绕轴旋转 90° ┊ Esc: 取消`;
+      }
       case InteractionPhase.AXIAL_SLIDING:
         return '↑/↓: 调插入深度 ┊ Shift+↑/↓: ×10 ┊ [ / ]: 转 90° ┊ Enter 或 再点一下: 确认吸附 ┊ Esc: 取消';
       case InteractionPhase.FREE_PLACING:
@@ -133,7 +140,7 @@ export function StatusBar() {
       default:
         return '';
     }
-  }, [interactionPhase, hasSelection]);
+  }, [interactionPhase, hasSelection, selectedPort]);
 
   const phaseLabel = useMemo(() => {
     switch (interactionPhase) {
