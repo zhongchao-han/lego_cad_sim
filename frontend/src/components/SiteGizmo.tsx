@@ -117,11 +117,14 @@ export function computePlugOutlineBox(args: {
 /**
  * 端口是否"显著高亮"（画完整箭头 + 全亮球）的纯判定（便于单测）。
  * 规则：
- *   - 精确 hover 到端口 + 连接模式(Alt) → 高亮（原有逻辑）；
+ *   - 精确 hover 到端口 + 连接模式(Alt) → 高亮（非连接件/大板：精确 hover 才亮）；
  *   - 已选源端口 / Debug 全显 → 恒高亮；
- *   - 连接件(销/轴/连接器)：端口埋在体内难精确 hover，故「本件激活(hover/选中) +
- *     连接模式(Alt) + 该端口兼容」时整件端口全亮（朝外箭头露出体外 → 可见可点）。
- *     大板等密集件不走此路（避免铺满），仍按精确 hover。
+ *   - 连接件(销/轴/连接器)：端口埋在体内难精确 hover，故「本件激活(hover/选中) + 端口
+ *     兼容」即整件端口全亮（朝外箭头露出体外 → 可见可点），**不要求按 Alt**。
+ *     原因：端口"显示"过去依赖 store.isPortModifierHeld（keydown/pointermove 同步），
+ *     而在 Mac(Option)→RDP→Windows 链路上该状态不稳 → 销端口"经常不显示"。点击连接
+ *     仍读事件级 altKey（稳），故只放开"显示"不放开"点击"。大板等密集件不走此路
+ *     （390 孔全亮会铺满），仍按精确 hover + Alt。
  */
 export function portProminent(args: {
   hovered: boolean;
@@ -133,7 +136,7 @@ export function portProminent(args: {
   isCompatiblePort: boolean;
 }): boolean {
   const { hovered, portEngageMode, isSelected, debugShowPorts, isConnectorPart, shouldShowVisuals, isCompatiblePort } = args;
-  const connectorProminent = isConnectorPart && shouldShowVisuals && portEngageMode && isCompatiblePort;
+  const connectorProminent = isConnectorPart && shouldShowVisuals && isCompatiblePort;
   return (hovered && portEngageMode) || isSelected || debugShowPorts || connectorProminent;
 }
 

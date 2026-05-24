@@ -123,16 +123,18 @@ describe('portProminent — 高亮判定（含连接件 Alt 全亮）', () => {
     expect(portProminent({ ...base, debugShowPorts: true })).toBe(true);
   });
 
-  it('连接件 + 本件激活 + Alt + 兼容 → 整件端口全亮（无需精确 hover）', () => {
+  it('连接件 hover 即全亮（无需 Alt）—— 销端口埋体内，hover 到件就显示', () => {
+    // 关键修复：不依赖 isPortModifierHeld（Mac Option→RDP 链路不稳），hover 即亮。
+    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: false })).toBe(true);
     expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: true })).toBe(true);
   });
 
-  it('连接件但没按 Alt → 不全亮', () => {
-    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: false })).toBe(false);
+  it('连接件但本件未激活（未 hover/选中）→ 不全亮', () => {
+    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: false })).toBe(false);
   });
 
-  it('连接件 + Alt 但端口不兼容 → 不全亮（避免误导可连）', () => {
-    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, portEngageMode: true, isCompatiblePort: false })).toBe(false);
+  it('连接件 hover 但端口不兼容 → 不全亮（避免误导可连）', () => {
+    expect(portProminent({ ...base, isConnectorPart: true, shouldShowVisuals: true, isCompatiblePort: false })).toBe(false);
   });
 
   it('非连接件（大板）+ Alt + 激活但未精确 hover → 不全亮（防铺满）', () => {
