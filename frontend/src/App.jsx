@@ -17,6 +17,7 @@ import { useKeyboardDispatcher } from './hooks/useKeyboardDispatcher';
 import { DebugOverlay } from './components/DebugOverlay';
 import { StatusBar } from './components/StatusBar';
 import { Toolbar } from './components/Toolbar';
+import { MarqueeBox } from './components/MarqueeBox';
 
 // ---------------------------------------------------------------------------
 // 组装模式专用 UI 蒙层
@@ -88,6 +89,9 @@ function AssemblyUI() {
 
       {/* 零件预览弹窗：挂载在根级确保 absolute inset-0 覆盖全视口 */}
       <PartPreviewOverlay />
+
+      {/* 框选矩形：Canvas 外 HTML overlay（控制器在 Scene 内的 MarqueeSelectionOverlay） */}
+      <MarqueeBox />
 
       {/* 全局底部状态栏 */}
       <StatusBar />

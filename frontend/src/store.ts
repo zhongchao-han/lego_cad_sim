@@ -103,6 +103,10 @@ interface StoreState {
    *  端口点只有在"连接模式"（Alt 按住）下才高亮 + 指针手型，避免裸点选本体时
    *  端口高亮误导用户以为可点（见 SiteGizmo / Feature B 修饰键交互模型）。 */
   isPortModifierHeld: boolean;
+  /** 框选矩形（屏幕像素，fixed 定位）。瞬态：Canvas 内控制器拖拽时写入，
+   *  Canvas 外的 MarqueeBox 据此渲染 HTML 矩形（不能在 R3F 树里渲染 div）。
+   *  null = 当前没有框选拖拽。 */
+  marqueeBox: { left: number; top: number; width: number; height: number } | null;
   previewPartId: string | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -235,6 +239,8 @@ interface StoreState {
   selectAll: () => void;
   deselectAll: () => void;
   setMarqueeSelection: (ids: string[]) => void;
+  /** 写框选矩形（屏幕像素）；null 清除。供 Canvas 外 MarqueeBox 渲染。 */
+  setMarqueeBox: (box: { left: number; top: number; width: number; height: number } | null) => void;
 
   addParts: (ids: string[]) => void;
   removeParts: (ids: string[]) => void;
@@ -401,6 +407,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'debugMode',
   'debugShowPorts',
   'isPortModifierHeld',
+  'marqueeBox',
   'previewPartId',
   'canUndo',
   'canRedo',
@@ -497,6 +504,7 @@ export const useStore = create<StoreState>()(
   debugMode: false,
   debugShowPorts: false,
   isPortModifierHeld: false,
+  marqueeBox: null,
   previewPartId: null,
   canUndo: false,
   canRedo: false,
@@ -1566,6 +1574,8 @@ export const useStore = create<StoreState>()(
       get().addLog(`Marquee selected ${ids.length} parts.`, 'ACTION');
     }
   },
+
+  setMarqueeBox: (box) => set({ marqueeBox: box }),
 
   focusCameraOnSelected: () => {
     const { parts, selection } = get();
