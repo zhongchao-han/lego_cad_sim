@@ -83,7 +83,9 @@ export const InteractivePart = memo(({
   // Windows 链路上不稳 → 端口"经常不显示"。R3F 的 onPointerMove 自带 nativeEvent.altKey，
   // 移动到零件上即正确捕获「是否按住 Option」。
   const syncAltFromEvent = (e: { nativeEvent?: { altKey?: boolean }; altKey?: boolean }) => {
-    if (disableEvents) return;
+    // 仅真实可交互件参与：ghost（isStatic）/ 预览（disableEvents）跳过——它们位于光标
+    // 处，若参与 pointer 射线会干扰自由放置落地（见 Scene.jsx ghost 注释）。
+    if (disableEvents || isStatic) return;
     setPortModifierHeld(!!(e.nativeEvent?.altKey ?? e.altKey));
   };
 
@@ -268,7 +270,7 @@ export const InteractivePart = memo(({
     <group
       ref={groupRef}
       onPointerOver={(e) => { syncAltFromEvent(e); handlePointerOver?.(e); }}
-      onPointerMove={syncAltFromEvent}
+      onPointerMove={(isStatic || disableEvents) ? undefined : syncAltFromEvent}
       onPointerOut={handlePointerOut}
     >
       <AutoFitCamera targetRef={groupRef} enabled={autoCenter && !!ldrawPart.meshUrl && !forceFallback} />
