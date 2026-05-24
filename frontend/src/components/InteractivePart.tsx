@@ -75,7 +75,17 @@ export const InteractivePart = memo(({
   const selectPart = useStore(s => s.selectPart);
   const updateSlideOffset = useStore(s => s.updateSlideOffset);
   const commitAxialSliding = useStore(s => s.commitAxialSliding);
+  const setPortModifierHeld = useStore(s => s.setPortModifierHeld);
   const { mouse, raycaster, camera } = useThree();
+
+  // Option/Alt 检测：从零件 hover 事件**直接读 altKey**（与点击同源、可靠）同步到
+  // isPortModifierHeld。store 原靠全局 keydown/pointermove 同步，在 Mac(Option)→RDP→
+  // Windows 链路上不稳 → 端口"经常不显示"。R3F 的 onPointerMove 自带 nativeEvent.altKey，
+  // 移动到零件上即正确捕获「是否按住 Option」。
+  const syncAltFromEvent = (e: { nativeEvent?: { altKey?: boolean }; altKey?: boolean }) => {
+    if (disableEvents) return;
+    setPortModifierHeld(!!(e.nativeEvent?.altKey ?? e.altKey));
+  };
 
   const [forceFallback, setForceFallback] = useState(false);
   const ldrawPart = useLDrawPart(ldrawId || partId, colorCode);
@@ -257,7 +267,8 @@ export const InteractivePart = memo(({
   return (
     <group
       ref={groupRef}
-      onPointerOver={handlePointerOver}
+      onPointerOver={(e) => { syncAltFromEvent(e); handlePointerOver?.(e); }}
+      onPointerMove={syncAltFromEvent}
       onPointerOut={handlePointerOut}
     >
       <AutoFitCamera targetRef={groupRef} enabled={autoCenter && !!ldrawPart.meshUrl && !forceFallback} />
