@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, type ComponentType } from 'react';
 import {
   RotateCcw, RotateCw, FlipVertical2, Palette, Copy, Trash2,
-  Undo2, Redo2, Search, Zap,
+  Undo2, Redo2, Search, Zap, Unlink,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { InteractionPhase } from '../types';
@@ -22,6 +22,7 @@ export function Toolbar() {
   const primaryId = useStore((s) => s.selection.primaryId);
   const allConnectedIds = useStore((s) => s.selection.allConnectedIds);
   const parts = useStore((s) => s.parts);
+  const connections = useStore((s) => s.connections);
   const canUndo = useStore((s) => s.canUndo);
   const canRedo = useStore((s) => s.canRedo);
   const showReactionForces = useStore((s) => s.showReactionForces);
@@ -30,6 +31,7 @@ export function Toolbar() {
   const flipSelected = useStore((s) => s.flipSelected);
   const duplicateSelected = useStore((s) => s.duplicateSelected);
   const deleteSelected = useStore((s) => s.deleteSelected);
+  const detachSelected = useStore((s) => s.detachSelected);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const setSearchOpen = useStore((s) => s.setSearchOpen);
@@ -49,6 +51,18 @@ export function Toolbar() {
     [selectedIds, parts],
   );
   const currentColor = recolorable.length === 1 ? parts[recolorable[0]]?.colorCode ?? null : null;
+
+  // 脱开仅在「选区与外部存在连接」时可用（否则没有可切断的边）。整组全选 → 无跨界边 → 灰显。
+  const canDetach = useMemo(() => {
+    if (!hasSel) return false;
+    const sel = new Set(selectedIds);
+    return selectedIds.some((id) => {
+      const peers = connections[id];
+      if (!peers) return false;
+      for (const p of peers) if (!sel.has(p)) return true;
+      return false;
+    });
+  }, [hasSel, selectedIds, connections]);
 
   // 失去选中 / 离开 IDLE → 收起改色弹窗。
   useEffect(() => { if (!hasSel) setRecolorOpen(false); }, [hasSel]);
@@ -101,6 +115,8 @@ export function Toolbar() {
 
       <ToolBtn icon={Copy} label="复制" kbd="Ctrl+D" disabled={!hasSel}
         onClick={() => duplicateSelected()} testid="tb-duplicate" />
+      <ToolBtn icon={Unlink} label="脱开（从装配中分离选中件）" kbd="" disabled={!canDetach}
+        onClick={() => detachSelected()} testid="tb-detach" />
       <ToolBtn icon={Trash2} label="删除" kbd="Del" disabled={!hasSel} danger
         onClick={() => deleteSelected()} testid="tb-delete" />
 

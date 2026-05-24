@@ -237,6 +237,9 @@ interface StoreState {
 
   // v1.2 Actions
   deleteSelected: () => void;
+  /** 脱开：把「选中件/组」从其余装配切离 —— 只断跨选区边界的连接边（选中↔未选中），
+   *  保留选区内部连接，同步清对应 occupiedPorts，位置不变。可撤销。 */
+  detachSelected: () => void;
   copySelected: () => void;
   pasteClipboard: () => void;
   duplicateSelected: () => void;
@@ -1396,6 +1399,73 @@ export const useStore = create<StoreState>()(
     _history.push(cmd);
     set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
     get().addLog(`Deleted ${idsToDelete.length} parts.`, 'ACTION');
+  },
+
+  detachSelected: () => {
+    const { selection, connections, occupiedPorts } = get();
+    const ids = selection.allConnectedIds;
+    if (ids.length === 0) return;
+    const selSet = new Set(ids);
+
+    // 只切「跨选区边界」的边：选中件 a ↔ 未选中件 b。选区内部边保留（去重，每边记一次）。
+    const cutEdges: Array<[string, string]> = [];
+    ids.forEach(a => {
+      const peers = connections[a];
+      if (!peers) return;
+      peers.forEach(b => { if (!selSet.has(b)) cutEdges.push([a, b]); });
+    });
+    if (cutEdges.length === 0) {
+      get().addLog('选中件与外部无连接，无需脱开。', 'INFO');
+      return;
+    }
+
+    // 捕获待清除的占用条目（每条边两侧：a 侧 value===b、b 侧 value===a）供 undo 恢复。
+    const removedOcc: Record<string, Record<string, string>> = {};
+    const collectOcc = (owner: string, peer: string) => {
+      const occ = occupiedPorts[owner];
+      if (!occ) return;
+      Object.entries(occ).forEach(([k, v]) => { if (v === peer) (removedOcc[owner] ??= {})[k] = v; });
+    };
+    cutEdges.forEach(([a, b]) => { collectOcc(a, b); collectOcc(b, a); });
+
+    const doRemove = () => set(s => {
+      const nc = { ...s.connections };
+      cutEdges.forEach(([a, b]) => {
+        if (nc[a]) { const x = new Set(nc[a]); x.delete(b); if (x.size === 0) delete nc[a]; else nc[a] = x; }
+        if (nc[b]) { const y = new Set(nc[b]); y.delete(a); if (y.size === 0) delete nc[b]; else nc[b] = y; }
+      });
+      const ro: OccupiedPortMap = { ...s.occupiedPorts };
+      Object.entries(removedOcc).forEach(([pid, kvs]) => {
+        if (!ro[pid]) return;
+        const cleaned = { ...ro[pid] };
+        Object.keys(kvs).forEach(k => delete cleaned[k]);
+        if (Object.keys(cleaned).length === 0) delete ro[pid]; else ro[pid] = cleaned;
+      });
+      return { connections: nc, occupiedPorts: ro };
+    });
+
+    const doAdd = () => set(s => {
+      const nc = { ...s.connections };
+      cutEdges.forEach(([a, b]) => {
+        nc[a] = nc[a] ? new Set(nc[a]) : new Set();
+        nc[b] = nc[b] ? new Set(nc[b]) : new Set();
+        nc[a].add(b); nc[b].add(a);
+      });
+      const ro: OccupiedPortMap = { ...s.occupiedPorts };
+      Object.entries(removedOcc).forEach(([pid, kvs]) => { ro[pid] = { ...(ro[pid] || {}), ...kvs }; });
+      return { connections: nc, occupiedPorts: ro };
+    });
+
+    const snap: TopologySnapshot = {
+      addedParts: {}, removedParts: {},
+      addedConnections: [], removedConnections: cutEdges.map(([a, b]) => ({ from: a, to: b })),
+    };
+    const cmd = createTopologyCommand('DETACH', snap, doRemove, doAdd);
+
+    doRemove();
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    get().addLog(`脱开 ${cutEdges.length} 个连接。`, 'ACTION');
   },
 
   copySelected: () => {
