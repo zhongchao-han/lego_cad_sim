@@ -204,6 +204,50 @@ describe('store.pasteClipboard — 多零件中心归零', () => {
     expect(payload[0].id).toMatch(/^origin_[a-f0-9]{8}$/);
     expect(payload[0].id).not.toBe('origin_xxxxxxxx');
   });
+
+  it('case 10: 复制连通组 → 粘贴保留组内连接 + 占用（remap 到新 id），commit 后副本互连', () => {
+    // a—b 互连 + 互相占用端口；选中两者复制
+    useStore.setState({
+      parts: {
+        a: { ldrawId: 'a.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        b: { ldrawId: 'b.dat', position: [0.02, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: { a: new Set(['b']), b: new Set(['a']) },
+      occupiedPorts: { a: { 'kA': 'b' }, b: { 'kB': 'a' } },
+      selection: { primaryId: 'a', level: SelectionLevel.GROUP, allConnectedIds: ['a', 'b'], excludedIds: [] },
+    } as any);
+
+    useStore.getState().copySelected();
+    useStore.getState().pasteClipboard();
+
+    const meta = (useStore.getState() as any).freePlacingMeta;
+    const payload = useStore.getState().freePlacingPayload;
+    const [nA, nB] = payload.map(p => p.id);
+    // meta 里有 1 条组内连接（remap 到新 id）+ 双侧占用 remap 到新 peer
+    expect(meta.connections.length).toBe(1);
+    const edge = meta.connections[0];
+    expect([edge.from, edge.to].sort()).toEqual([nA, nB].sort());
+    expect(meta.occupied[nA]?.['kA']).toBe(nB);
+    expect(meta.occupied[nB]?.['kB']).toBe(nA);
+
+    // commit（落点放原点）→ 新副本应互连 + 占用就位
+    const finalStates: Record<string, any> = {};
+    payload.forEach(p => { finalStates[p.id] = { ...p.state }; });
+    useStore.getState().commitFreePlacing(finalStates);
+
+    const st = useStore.getState();
+    expect(st.connections[nA]?.has(nB)).toBe(true);
+    expect(st.connections[nB]?.has(nA)).toBe(true);
+    expect(st.occupiedPorts[nA]?.['kA']).toBe(nB);
+    // 原件连接不受影响
+    expect(st.connections['a']?.has('b')).toBe(true);
+
+    // undo 应同时撤销副本的零件 + 连接
+    useStore.getState().undo();
+    const st2 = useStore.getState();
+    expect(st2.parts[nA]).toBeUndefined();
+    expect(st2.connections[nA]).toBeUndefined();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
