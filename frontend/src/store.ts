@@ -168,6 +168,12 @@ interface StoreState {
   freePlacingPayload: { id: string; state: PartState }[];
   freePlacingPointer: { clientX: number; clientY: number } | null;
   freePlacingProjectionMode: FreePlacingProjectionMode;
+  /** 粘贴时随 payload 一起带的"组内连接 + 占用"（id 已 remap 到新实例）。commit 时
+   *  一并建连/写占用，让粘出来的副本保持连接（销仍插在板上），而非散件。null = 非粘贴。 */
+  freePlacingMeta: {
+    connections: Array<{ from: string; to: string }>;
+    occupied: Record<string, Record<string, string>>;
+  } | null;
   hiddenParts: Set<string>;
   interferenceReport: InterferenceReport;
   slideOffset: number;
@@ -426,6 +432,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'freePlacingPayload',
   'freePlacingPointer',
   'freePlacingProjectionMode',
+  'freePlacingMeta',
   'interferenceReport',
   'slideOffset',
   'partCatalog',
@@ -527,6 +534,7 @@ export const useStore = create<StoreState>()(
   clipboard: [],
   freePlacingPayload: [],
   freePlacingPointer: null,
+  freePlacingMeta: null,
   freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
   hiddenParts: new Set(),
   interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
@@ -611,6 +619,7 @@ export const useStore = create<StoreState>()(
         clipboard: [],
         freePlacingPayload: [],
         freePlacingPointer: null,
+        freePlacingMeta: null,
         freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
         hiddenParts: new Set(),
         interferenceReport: { isBlocked: false, blockingPartId: null, contactPoints: [], reason: null },
@@ -1400,7 +1409,7 @@ export const useStore = create<StoreState>()(
   },
 
   pasteClipboard: () => {
-    const { clipboard } = get();
+    const { clipboard, connections, occupiedPorts } = get();
     if (!clipboard || clipboard.length === 0) return;
 
     // 计算剪贴板包围盒中心，使得复制出的“幽灵”始终位于鼠标正中央
@@ -1414,17 +1423,54 @@ export const useStore = create<StoreState>()(
     cy /= clipboard.length;
     cz /= clipboard.length;
 
+    // 旧 id → 新实例 id 映射（保连接用）。clipboard 只存零件位姿，组内连接 / 占用
+    // 在此从当前 store 重算（避免改持久化的 clipboard 结构），并 remap 到新 id。
+    const idMap: Record<string, string> = {};
+    clipboard.forEach(clip => {
+      idMap[clip.id] = clip.id.split('_')[0] + '_' + window.crypto.randomUUID().substring(0, 8);
+    });
+    const clipSet = new Set(clipboard.map(c => c.id));
+
     const payload = clipboard.map(clip => {
-      const newId = clip.id.split('_')[0] + '_' + window.crypto.randomUUID().substring(0,8);
       const st = JSON.parse(JSON.stringify(clip.state));
       st.position = [st.position[0] - cx, st.position[1] - cy, st.position[2] - cz];
       st.zone = ZoneType.ACTIVE_ARENA;
-      return { id: newId, state: st as PartState };
+      return { id: idMap[clip.id], state: st as PartState };
     });
 
-    set({ 
+    // 组内连接（两端都在选区内）→ remap 到新 id，去重。
+    const pastedConns: Array<{ from: string; to: string }> = [];
+    const seen = new Set<string>();
+    clipboard.forEach(clip => {
+      const peers = connections[clip.id];
+      if (!peers) return;
+      peers.forEach(peer => {
+        if (!clipSet.has(peer)) return; // 只保留组内边（与组外原件的连接不复制）
+        const a = idMap[clip.id], b = idMap[peer];
+        const k = [a, b].sort().join('|');
+        if (seen.has(k)) return;
+        seen.add(k);
+        pastedConns.push({ from: a, to: b });
+      });
+    });
+
+    // 组内端口占用 → remap（端口 local key 不变，只换 owner / peer 的实例 id）。
+    const pastedOcc: Record<string, Record<string, string>> = {};
+    clipboard.forEach(clip => {
+      const occ = occupiedPorts[clip.id];
+      if (!occ) return;
+      const remapped: Record<string, string> = {};
+      Object.entries(occ).forEach(([key, peer]) => {
+        if (!clipSet.has(peer)) return;
+        remapped[key] = idMap[peer];
+      });
+      if (Object.keys(remapped).length > 0) pastedOcc[idMap[clip.id]] = remapped;
+    });
+
+    set({
       freePlacingPayload: payload,
-      interactionPhase: InteractionPhase.FREE_PLACING 
+      freePlacingMeta: { connections: pastedConns, occupied: pastedOcc },
+      interactionPhase: InteractionPhase.FREE_PLACING,
     });
     get().addLog(`Started placing ${payload.length} parts from clipboard.`, 'ACTION');
   },
@@ -1447,6 +1493,7 @@ export const useStore = create<StoreState>()(
     }];
     set({
       freePlacingPayload: payload,
+      freePlacingMeta: null, // 新建单件无组内连接（避免继承上次粘贴的 meta）
       freePlacingPointer: pointer,
       freePlacingProjectionMode: projectionMode,
       interactionPhase: InteractionPhase.FREE_PLACING,
@@ -1456,13 +1503,14 @@ export const useStore = create<StoreState>()(
   },
 
   commitFreePlacing: (finalStates?: Record<string, PartState>) => {
-    const { freePlacingPayload } = get();
+    const { freePlacingPayload, freePlacingMeta } = get();
     if (!freePlacingPayload || freePlacingPayload.length === 0) return;
 
     if (!finalStates) {
       // Aborted or cancelled
       set({
         freePlacingPayload: [],
+        freePlacingMeta: null,
         freePlacingPointer: null,
         freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
         interactionPhase: InteractionPhase.IDLE
@@ -1477,36 +1525,63 @@ export const useStore = create<StoreState>()(
       newIds.push(id);
     });
 
-    const snap: TopologySnapshot = { addedParts, removedParts: {}, addedConnections: [], removedConnections: [] };
-    
+    // 粘贴随带的组内连接 + 占用（id 已 remap）。一并建连，让副本保持连接而非散件。
+    const pastedConns = freePlacingMeta?.connections ?? [];
+    const pastedOcc = freePlacingMeta?.occupied ?? {};
+
+    const snap: TopologySnapshot = { addedParts, removedParts: {}, addedConnections: pastedConns, removedConnections: [] };
+
     const doAdd = (pa: Record<string, PartState>) => {
-      set(s => ({ parts: { ...s.parts, ...pa } }));
+      set(s => {
+        const np = { ...s.parts, ...pa };
+        const nc = { ...s.connections };
+        pastedConns.forEach(({ from, to }) => {
+          nc[from] = nc[from] ? new Set(nc[from]) : new Set();
+          nc[to] = nc[to] ? new Set(nc[to]) : new Set();
+          nc[from].add(to);
+          nc[to].add(from);
+        });
+        const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        Object.entries(pastedOcc).forEach(([pid, kvs]) => {
+          ro[pid] = { ...(ro[pid] || {}), ...kvs };
+        });
+        return { parts: np, connections: nc, occupiedPorts: ro };
+      });
     };
     const doRemove = (ids: string[]) => {
       set(s => {
         const np = { ...s.parts };
         ids.forEach(id => delete np[id]);
-        return { parts: np };
+        const nc = { ...s.connections };
+        pastedConns.forEach(({ from, to }) => {
+          if (nc[from]) { const x = new Set(nc[from]); x.delete(to); if (x.size === 0) delete nc[from]; else nc[from] = x; }
+          if (nc[to]) { const y = new Set(nc[to]); y.delete(from); if (y.size === 0) delete nc[to]; else nc[to] = y; }
+        });
+        const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        ids.forEach(id => delete ro[id]);
+        return { parts: np, connections: nc, occupiedPorts: ro };
       });
     };
 
-    const cmd = createTopologyCommand('PASTE', snap, 
+    const cmd = createTopologyCommand('PASTE', snap,
       () => doAdd(addedParts),
       () => doRemove(newIds)
     );
 
     doAdd(addedParts);
     _history.push(cmd);
-    set({ 
-      canUndo: _history.canUndo, 
+    set({
+      canUndo: _history.canUndo,
       canRedo: _history.canRedo,
       selection: { primaryId: newIds[0], level: SelectionLevel.GROUP, allConnectedIds: newIds, excludedIds: [] },
       freePlacingPayload: [],
+      freePlacingMeta: null,
       freePlacingPointer: null,
       freePlacingProjectionMode: FreePlacingProjectionMode.SCENE_RAYCAST,
       interactionPhase: InteractionPhase.IDLE
     });
-    get().addLog(`Committed ${newIds.length} parts.`, 'ACTION');
+    const connNote = pastedConns.length > 0 ? `（含 ${pastedConns.length} 个组内连接）` : '';
+    get().addLog(`Committed ${newIds.length} parts${connNote}.`, 'ACTION');
   },
 
   duplicateSelected: () => {
