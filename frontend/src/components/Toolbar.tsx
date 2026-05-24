@@ -136,6 +136,7 @@ interface ToolBtnProps {
   testid?: string;
 }
 
+// 纯图标按钮：快捷键只在 hover tooltip 里显示（不在图标下重复写）；图标放大更清晰（UX 反馈）。
 function ToolBtn({ icon: Icon, label, kbd, onClick, disabled, active, danger, testid }: ToolBtnProps) {
   return (
     <button
@@ -144,7 +145,7 @@ function ToolBtn({ icon: Icon, label, kbd, onClick, disabled, active, danger, te
       disabled={disabled}
       title={kbd ? `${label} (${kbd})` : label}
       onClick={onClick}
-      className={`flex flex-col items-center justify-center w-12 h-11 rounded-lg transition-colors select-none
+      className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors select-none
         ${disabled
           ? 'text-slate-300 cursor-not-allowed'
           : active
@@ -153,8 +154,7 @@ function ToolBtn({ icon: Icon, label, kbd, onClick, disabled, active, danger, te
               ? 'text-slate-600 hover:bg-rose-50 hover:text-rose-600'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
     >
-      <Icon size={16} />
-      <span className="text-[8px] font-mono leading-tight mt-0.5 h-2.5">{kbd}</span>
+      <Icon size={22} />
     </button>
   );
 }
