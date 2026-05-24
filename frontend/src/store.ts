@@ -1488,6 +1488,12 @@ export const useStore = create<StoreState>()(
     set({
       freePlacingPayload: payload,
       freePlacingMeta: { connections: pastedConns, occupied: pastedOcc },
+      // 用 GROUND_PLANE（只与 y=0 求交，无视 ContactShadows / Environment 平面 / 已有
+      // 零件等场景网格），与 Drop to Ground 一致：幽灵能在整块地面（含中央网格区）自由
+      // 滑动。曾用 SCENE_RAYCAST 想让粘贴堆叠到已有件上，但射线会被场景里的面接住，
+      // 幽灵进不去中央区域、还会跳高，弊大于利。
+      freePlacingProjectionMode: FreePlacingProjectionMode.GROUND_PLANE,
+      freePlacingPointer: null,
       interactionPhase: InteractionPhase.FREE_PLACING,
     });
     get().addLog(`Started placing ${payload.length} parts from clipboard.`, 'ACTION');
