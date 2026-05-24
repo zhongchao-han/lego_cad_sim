@@ -66,3 +66,9 @@ data/meili_data/
 # Playwright artifacts (snapshots in e2e/__snapshots__/ ARE committed; reports/results aren't)
 frontend/playwright-report/
 frontend/test-results/
+
+# 测试覆盖率产物（勿提交，见 #125 教训）
+.coverage
+coverage/
+frontend/coverage/
+htmlcov/
