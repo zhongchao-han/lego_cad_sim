@@ -120,6 +120,61 @@ describe('Store Edit Actions (Undo/Redo & Clipboard)', () => {
     expect(restoredConnections['P_1'].has('P_2')).toBe(true);
   });
 
+  it('detachSelected cuts only cross-boundary edges, keeps internal, undoable', () => {
+    // 链：base ↔ plate ↔ pin（plate 在中间）。选中 plate+pin（一个子组），
+    // 脱开应只切 plate↔base（跨界），保留 plate↔pin（内部）。
+    useStore.setState({
+      parts: {
+        base: { ldrawId: 'base.dat', position: [0,0,0], quaternion: [0,0,0,1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
+        plate: { ldrawId: 'plate.dat', position: [0,0.01,0], quaternion: [0,0,0,1], colorCode: 4, zone: ZoneType.ACTIVE_ARENA },
+        pin: { ldrawId: 'pin.dat', position: [0,0.005,0], quaternion: [0,0,0,1], colorCode: 0, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: {
+        base: new Set(['plate']),
+        plate: new Set(['base', 'pin']),
+        pin: new Set(['plate']),
+      },
+      occupiedPorts: {
+        base: { 'kb': 'plate' },
+        plate: { 'kp_base': 'base', 'kp_pin': 'pin' },
+        pin: { 'kn': 'plate' },
+      },
+      selection: { primaryId: 'plate', level: SelectionLevel.GROUP, allConnectedIds: ['plate', 'pin'], excludedIds: [] },
+    });
+
+    useStore.getState().detachSelected();
+
+    const st = useStore.getState();
+    // 跨界边 plate↔base 切断
+    expect(st.connections.plate?.has('base') ?? false).toBe(false);
+    expect(st.connections.base?.has('plate') ?? false).toBe(false);
+    // 内部边 plate↔pin 保留
+    expect(st.connections.plate.has('pin')).toBe(true);
+    expect(st.connections.pin.has('plate')).toBe(true);
+    // 占用：base 侧切断项清除；plate↔pin 占用保留
+    expect(st.occupiedPorts.base).toBeUndefined();
+    expect(st.occupiedPorts.plate['kp_base']).toBeUndefined();
+    expect(st.occupiedPorts.plate['kp_pin']).toBe('pin');
+
+    // undo 完整恢复
+    useStore.getState().undo();
+    const r = useStore.getState();
+    expect(r.connections.plate.has('base')).toBe(true);
+    expect(r.connections.base.has('plate')).toBe(true);
+    expect(r.occupiedPorts.base['kb']).toBe('plate');
+    expect(r.occupiedPorts.plate['kp_base']).toBe('base');
+  });
+
+  it('detachSelected is no-op when selection has no external connection', () => {
+    setupMockParts(); // P_1↔P_2, 全选两者
+    useStore.setState({ selection: { primaryId: 'P_1', level: SelectionLevel.GROUP, allConnectedIds: ['P_1', 'P_2'], excludedIds: [] } });
+    const before = useStore.getState().connections['P_1'].has('P_2');
+    useStore.getState().detachSelected();
+    // 无跨界边 → 连接不变、不入历史
+    expect(useStore.getState().connections['P_1'].has('P_2')).toBe(before);
+    expect(useStore.getState().canUndo).toBe(false);
+  });
+
   it('hide and show visibility toggles correctly', () => {
     setupMockParts();
     
