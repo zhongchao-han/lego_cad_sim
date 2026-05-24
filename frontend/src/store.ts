@@ -1399,13 +1399,31 @@ export const useStore = create<StoreState>()(
   },
 
   copySelected: () => {
-    const { parts, selection } = get();
+    const { parts, selection, connections } = get();
     const idsToCopy = selection.allConnectedIds;
     if (idsToCopy.length === 0) return;
-    
+
     const clipData = idsToCopy.map(id => ({ id, state: JSON.parse(JSON.stringify(parts[id])) }));
     set({ clipboard: clipData });
-    get().addLog(`Copied ${idsToCopy.length} parts.`, 'ACTION');
+
+    // 组内连接数（两端都在选区内的边）。在「复制」这一刻就反馈，让用户立刻知道
+    // 这次复制出来的副本是「连接好的装配」还是「散件」—— 散件的根因往往是源零件
+    // 之间从未真正端口吸附（只是视觉上贴在一起），过去无任何日志线索难以排查。
+    const copySet = new Set(idsToCopy);
+    let intraEdges = 0;
+    idsToCopy.forEach(id => {
+      const peers = connections[id];
+      if (!peers) return;
+      peers.forEach(peer => { if (copySet.has(peer)) intraEdges += 1; });
+    });
+    intraEdges = intraEdges / 2; // 每条边被两端各数一次
+    let note = '';
+    if (idsToCopy.length > 1) {
+      note = intraEdges > 0
+        ? `（含 ${intraEdges} 个组内连接，副本将保持连接）`
+        : '（这些零件之间无端口连接，副本会是散件）';
+    }
+    get().addLog(`Copied ${idsToCopy.length} parts${note}.`, 'ACTION');
   },
 
   pasteClipboard: () => {
