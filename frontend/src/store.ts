@@ -23,7 +23,7 @@ import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculat
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
 import { isConnectorCategory } from './utils/partCategory';
 import { findRelatchEdges, type RelatchPartInput, type RelatchPortInput } from './utils/relatchScan';
-import { pickRootPart, computeMovingGroup } from './utils/assemblyTree';
+import { computeMovingGroup, buildComponentGraph, pickGroundAnchors } from './utils/assemblyTree';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -428,10 +428,17 @@ function treeSplitMoving(
     const halfH = m?.bboxSize ? Math.abs((m.bboxSize as Vec3)[1]) / 2 : 0;
     return centerY - halfH;
   };
-  // 地基 = 最低的「构件」（胶水不当地基）。
+  // 地基锚点 = 在**构件图**上「没有任何严格更低的相连邻居」的构件（胶水不当地基）。
+  // 把这些锚点都当虚拟地基根（连到每一个）：
+  //   - 并排同高的件互为同高邻居（谁都不比谁低）→ 都是锚点 → 抓一个不牵连另一个
+  //     （根治「移动左板右板跟着动」）；
+  //   - 叠在底板上的平板，其邻居（底板）比它低 → 它不是锚点 → 抓底板时它跟随。
+  // 只看「有没有更低的邻居」、跟高度差大小无关，避免绝对高度容差判定的脆弱。
   const components = comp.filter(id => !isConnector(id));
-  const root = pickRootPart(components.length ? components : comp, heightOf);
-  return computeMovingGroup(connections, comp, selectedIds, root, isConnector);
+  const candidates = components.length ? components : comp;
+  const componentGraph = buildComponentGraph(connections, comp, isConnector);
+  const anchors = pickGroundAnchors(componentGraph, candidates, heightOf);
+  return computeMovingGroup(connections, comp, selectedIds, anchors, isConnector);
 }
 
 const _history = new HistoryStack(50);
@@ -2363,9 +2370,20 @@ export const useStore = create<StoreState>()(
   },
 
   rotateSelectedSingle: (angleRads: number) => {
+    // 绕选中件竖直轴(世界 Y)转「选中件子树」：用树模型切分（地基=最低件，永不跟动），
+    // 跟单件平移/翻面同一套规则。修复旧 bug：转大平板时若平板本身是连通组里体积最大件，
+    // 旧的 pickBasePart 会把它自己当地基 → 整组(含底板/地板)被一起转走。
+    const { selection } = get();
+    const selectedIds = selection.allConnectedIds.length
+      ? selection.allConnectedIds
+      : (selection.primaryId ? [selection.primaryId] : []);
     get()._transformSelectedSubassembly(
       (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [0, 1, 0], angleRads),
-      { autoMove: true, label: `绕 Y 轴旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°` },
+      {
+        autoMove: true, label: `绕 Y 轴旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°`,
+        computeSplit: ({ comp, connections: conn, parts: ps, partCatalog: cat }) =>
+          treeSplitMoving(comp, selectedIds, conn, ps, cat),
+      },
     );
   },
 
