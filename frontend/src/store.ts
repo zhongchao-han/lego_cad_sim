@@ -22,7 +22,8 @@ import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyComman
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
 import { isConnectorCategory } from './utils/partCategory';
-import { findRelatchEdges } from './utils/relatchScan';
+import { findRelatchEdges, type RelatchPartInput, type RelatchPortInput } from './utils/relatchScan';
+import { pickRootPart, computeMovingGroup } from './utils/assemblyTree';
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
@@ -272,14 +273,35 @@ interface StoreState {
   /** 翻面：把「选中件 + 子装配」绕世界 X 轴翻转 180°（pivot = 包围盒中心），相对地基。
    *  翻面后若端口仍能对齐（自动微移）则保持连接，否则脱开。可撤销。 */
   flipSelected: () => void;
-  /** 已放置零件自由编辑：把「选中件 + 子装配」整体平移 delta（世界系，米），地基不动。
-   *  平移不做微移吸回（位移即意图）；移开后界面不再重合则脱开。可撤销。 */
+  /** 已放置零件自由编辑：把整个连通装配（含传递相连的件）整体刚体平移 delta
+   *  （世界系，米）。双击/多选「搬整坨」走它。可撤销。 */
   translateSelectedGroup: (delta: Vec3) => void;
-  /** rotate/translateSelectedGroup 共用：算 moving 组（选中件+子装配，排除地基）、
-   *  施加 makeNewPrimaryPose 给出的位姿、按 autoMove 重连/脱开界面、可撤销 + 日志。 */
+  /** 单件平移（树模型）：把装配看成以地基为根的树，只动「选中件的子树」（挂在它
+   *  下游、离根更远的件），祖先（含地基）不动；落定后自动断开错位连接、在新位置
+   *  吸附补建连接。可撤销。 */
+  translateSelectedSingle: (delta: Vec3) => Promise<void>;
+  /** rotate/translate 共用：算 moving 组（默认：选中件+子装配，排除最大件地基；
+   *  也可由 opts.computeSplit 自定义切分）、施加 makeNewPrimaryPose 位姿、按 autoMove
+   *  重连/脱开界面、（可选）relatchPortGeom 在新位置吸附补建连接、可撤销 + 日志。 */
   _transformSelectedSubassembly: (
     makeNewPrimaryPose: (oldPose: RigidPose, pivot: Vec3) => RigidPose,
-    opts: { autoMove: boolean; label: string; keepConnectorsFixed?: boolean },
+    opts: {
+      autoMove: boolean;
+      label: string;
+      keepConnectorsFixed?: boolean;
+      /** 自定义「动件组」切分：给定连通组 comp 等上下文，返回动件 id 列表
+       *  （须含 primaryId）。不传则用默认 pickBasePart「最大件当地基」逻辑。 */
+      computeSplit?: (ctx: {
+        comp: string[];
+        primaryId: string;
+        connections: ConnectionGraph;
+        parts: Record<string, PartState>;
+        partCatalog: Record<string, PartCatalogEntry>;
+      }) => string[];
+      /** 传入则启用「落定吸附」：移动后用这份端口几何（按 ldrawId）扫 动件×静止件
+       *  的新重合互补端口，补建连接。供单件平移落定重连用。 */
+      relatchPortGeom?: Record<string, RelatchPortInput[]>;
+    },
   ) => void;
   /** 内部 helper（rotate/translateSelectedGroup 共用）：给定 primary 新位姿，
    *  整组刚体应用 + 推可撤销命令 + ACTION 日志。 */
@@ -355,6 +377,61 @@ export function getConnectedGroup(connections: ConnectionGraph, startId: string,
     }
   }
   return Array.from(visited);
+}
+
+/**
+ * 端口几何缓存（按 ldrawId）：供「检测并连接」与「单件平移落定吸附」复用。
+ * 模块级 Map（非 store state，不进 persist）；几何只跟 ldrawId 走、不随实例位姿变。
+ * 首次按需异步取一次，之后命中缓存 → 方向键连续平移不每次都打后端、跟手不卡。
+ */
+const _portGeomCache = new Map<string, RelatchPortInput[]>();
+
+async function ensurePortGeom(ldrawIds: string[]): Promise<Record<string, RelatchPortInput[]>> {
+  const missing = ldrawIds.filter(ld => ld && !_portGeomCache.has(ld));
+  await Promise.all(missing.map(async (ld) => {
+    try {
+      const res = await fetch(`${API_URL}/api/ldraw_part/${encodeURIComponent(ld)}?color=16`);
+      const data = await res.json();
+      _portGeomCache.set(ld, (data?.ports ?? []).map((p: { position: Vec3; rotation: number[][]; type?: string; gender?: string | null }) => ({
+        position: p.position, rotation: p.rotation, type: p.type, gender: p.gender,
+      })));
+    } catch { _portGeomCache.set(ld, []); }
+  }));
+  const out: Record<string, RelatchPortInput[]> = {};
+  ldrawIds.forEach(ld => { if (ld) out[ld] = _portGeomCache.get(ld) ?? []; });
+  return out;
+}
+
+/**
+ * 树模型 + 胶水模型动件切分（translate / flip 共用）：
+ * - 连接件（销/轴/连接器）= 胶水，依附构件、跟着 moving 构件走。
+ * - 在「构件」里挑最低者当地基(root)；构件图上算选中构件的子树；胶水按依附关系归队。
+ * 详见 assemblyTree.computeMovingGroup。
+ */
+function treeSplitMoving(
+  comp: string[],
+  selectedIds: string[],
+  connections: ConnectionGraph,
+  parts: Record<string, PartState>,
+  partCatalog: Record<string, PartCatalogEntry>,
+): string[] {
+  const isConnector = (id: string): boolean =>
+    isConnectorCategory(partCatalog[parts[id]?.ldrawId ?? '']?.category);
+  const heightOf = (id: string): number => {
+    const p = parts[id];
+    if (!p) return Infinity;
+    const m = partCatalog[p.ldrawId];
+    const centerY = worldPivot(
+      { position: p.position as Vec3, quaternion: p.quaternion as Quat },
+      (m?.bboxCenter ?? null) as Vec3 | null,
+    )[1];
+    const halfH = m?.bboxSize ? Math.abs((m.bboxSize as Vec3)[1]) / 2 : 0;
+    return centerY - halfH;
+  };
+  // 地基 = 最低的「构件」（胶水不当地基）。
+  const components = comp.filter(id => !isConnector(id));
+  const root = pickRootPart(components.length ? components : comp, heightOf);
+  return computeMovingGroup(connections, comp, selectedIds, root, isConnector);
 }
 
 const _history = new HistoryStack(50);
@@ -1064,6 +1141,12 @@ export const useStore = create<StoreState>()(
     // 先更新本地状态，保证 UI 立即响应（乐观更新）
     set({ parts: updated, connections: newConnections, occupiedPorts: newOccupied });
 
+    // [SNAP-DBG] 埋点：本次 snap 把谁连到谁、源落在哪、目标端口世界坐标。
+    {
+      const mm = (a?: number[]) => (a || []).map(v => (v * 1000).toFixed(1)).join(',');
+      get().addLog(`[SNAP-DBG] snapParts src=${source.partId} tgt=${target.partId} | land=[${mm(position as number[])}] tgtGlobal=[${mm(target.globalPos as number[])}] srcKey=${srcKey} tgtKey=${tgtKey} | edge+ ${source.partId}<->${target.partId} | tgtNeighborsNow=[${[...(newConnections[target.partId]||[])].join(',')}]`, 'ACTION');
+    }
+
     // ── v3.1：异步通知后端登记拓扑并触发 Auto-Latch ──────────────────────────
     // 降级策略：后端调用失败不影响前端已完成的本地连接（与 server.py 中 AutoLatch
     // 异常处理策略保持对称）。
@@ -1105,6 +1188,9 @@ export const useStore = create<StoreState>()(
       const edges = data.auto_latched_edges ?? [];
       const autoLatched = data.auto_latched_count ?? 0;
       const totalPairs = 1 + autoLatched;  // 主连接 + Auto-Latch 附加
+
+      // [SNAP-DBG] 后端 auto-latch 回流了哪些边。
+      get().addLog(`[SNAP-DBG] backend snap_parts resp: auto_latched=${autoLatched} edges=${JSON.stringify((edges||[]).map(e => [e.src_part_id, e.dst_part_id]))}`, 'ACTION');
 
       // B.3-3 UX 提示：snap 总 pair 数写入 store，StatusBar 据此显
       // "Last snap: N pairs"。常态单点 snap 仍写 1（用户看见 = 1 表示无
@@ -1214,6 +1300,7 @@ export const useStore = create<StoreState>()(
 
   abortCurrentInteraction: () => {
     const pre = get().snapPreState;
+    get().addLog(`[SNAP-DBG] abortCurrentInteraction pre=${pre ? 'REMOVING addedConns='+JSON.stringify(pre.addedConnections) : 'null (no-op)'}`, 'ACTION');
     if (pre) {
         set(prev => {
             const rp = { ...prev.parts };
@@ -1479,16 +1566,7 @@ export const useStore = create<StoreState>()(
 
     // 取每种 LDraw 类型的端口几何（复用 /api/ldraw_part；按类型缓存，多实例共享）。
     const ldrawIds = [...new Set(sceneIds.map(id => parts[id].ldrawId))];
-    const portsByLdrawId: Record<string, Array<{ position: Vec3; rotation: number[][]; type?: string; gender?: string | null }>> = {};
-    await Promise.all(ldrawIds.map(async (ld) => {
-      try {
-        const res = await fetch(`${API_URL}/api/ldraw_part/${encodeURIComponent(ld)}?color=16`);
-        const data = await res.json();
-        portsByLdrawId[ld] = (data?.ports ?? []).map((p: { position: Vec3; rotation: number[][]; type?: string; gender?: string | null }) => ({
-          position: p.position, rotation: p.rotation, type: p.type, gender: p.gender,
-        }));
-      } catch { portsByLdrawId[ld] = []; }
-    }));
+    const portsByLdrawId = await ensurePortGeom(ldrawIds);
 
     const partInputs = sceneIds.map(id => ({
       id, ldrawId: parts[id].ldrawId, position: parts[id].position as Vec3, quaternion: parts[id].quaternion as Quat,
@@ -2092,18 +2170,24 @@ export const useStore = create<StoreState>()(
     const oldPose: RigidPose = { position: part.position as Vec3, quaternion: part.quaternion as Quat };
     const pivot = worldPivot(oldPose, bboxCenter);
 
-    // 连通组里挑「地基」= 包围盒最大者（大底板 ≫ 小件/插销）。
     const comp = getConnectedGroup(connections, primaryId, "");
-    const bboxSizeOf = (pid: string): Vec3 | null => {
-      const m = partCatalog[parts[pid]?.ldrawId ?? ''];
-      return (m?.bboxSize ?? null) as Vec3 | null;
-    };
-    const base = pickBasePart(comp, bboxSizeOf);
-    // moving 组：从选中件出发、不穿越 base 的连通子集。base===选中件（选中件本身就是
-    // 最大/地基）或无 base → moving = 整组（整体刚体动，无界面可重连）。
-    const movingFull = (base && base !== primaryId)
-      ? getConnectedGroup(connections, primaryId, base)
-      : comp;
+    let movingFull: string[];
+    if (opts.computeSplit) {
+      // 自定义切分（如单件平移走树模型「子树」）。
+      movingFull = opts.computeSplit({ comp, primaryId, connections, parts, partCatalog });
+    } else {
+      // 默认：连通组里挑「地基」= 包围盒最大者（大底板 ≫ 小件/插销）。
+      // moving 组：从选中件出发、不穿越 base 的连通子集。base===选中件（选中件本身就是
+      // 最大/地基）或无 base → moving = 整组（整体刚体动，无界面可重连）。
+      const bboxSizeOf = (pid: string): Vec3 | null => {
+        const m = partCatalog[parts[pid]?.ldrawId ?? ''];
+        return (m?.bboxSize ?? null) as Vec3 | null;
+      };
+      const base = pickBasePart(comp, bboxSizeOf);
+      movingFull = (base && base !== primaryId)
+        ? getConnectedGroup(connections, primaryId, base)
+        : comp;
+    }
     // 翻面（keepConnectorsFixed）时：连接件（销/轴/连接器）留在原位充当「连接两部分」，
     // 不随板刚体翻到顶上。选中件自身即便是连接件也参与变换（用户明确要转它）。
     const moving = opts.keepConnectorsFixed
@@ -2161,14 +2245,60 @@ export const useStore = create<StoreState>()(
     };
     detachedEdges.forEach(([m, b]) => { collectOcc(m, b); collectOcc(b, m); });
 
+    // ── 落定吸附（opts.relatchPortGeom）：移动后扫「动件 × 全场静止件」的新重合互补
+    //    端口，补建连接。静止侧 = 全场 ACTIVE_ARENA 里非动件的件（不止当前连通体），
+    //    这样把已脱离的件滑回某件上方、孔对齐即自动吸回，不必手动「检测并连接」。
+    //    已连接件对里**先去掉本次脱开的**，让同一对件能在新端口处重新吸附。
+    const addedConnPairs: Array<[string, string]> = [];
+    const addedOcc: Record<string, Record<string, string>> = {};
+    if (opts.relatchPortGeom) {
+      const relatchParts: RelatchPartInput[] = [];
+      moving.forEach(id => {
+        const cur = parts[id]; if (!cur) return;
+        const np = finalUpdates[id];
+        relatchParts.push({
+          id, ldrawId: cur.ldrawId,
+          position: (np?.position ?? cur.position) as Vec3,
+          quaternion: (np?.quaternion ?? cur.quaternion) as Quat,
+        });
+      });
+      // 静止侧：全场活动区里不属于动件的件（不再局限于同连通体的 baseIds）。
+      Object.keys(parts).forEach(id => {
+        if (movingSet.has(id)) return;
+        const cur = parts[id];
+        if (!cur || cur.zone !== ZoneType.ACTIVE_ARENA) return;
+        relatchParts.push({ id, ldrawId: cur.ldrawId, position: cur.position as Vec3, quaternion: cur.quaternion as Quat });
+      });
+      const existingPairs = new Set<string>();
+      Object.keys(connections).forEach(a => connections[a].forEach(b => existingPairs.add([a, b].sort().join('|'))));
+      detachedEdges.forEach(([m, b]) => existingPairs.delete([m, b].sort().join('|')));
+
+      const relEdges = findRelatchEdges(relatchParts, opts.relatchPortGeom, existingPairs, (pos, rot) => portKey(pos, rot as number[][]));
+      const seenPair = new Set<string>();
+      relEdges.forEach(({ a, b, aPortKey, bPortKey }) => {
+        if (movingSet.has(a) === movingSet.has(b)) return; // 只补跨「动件/地基」界面的新连接
+        (addedOcc[a] ??= {})[aPortKey] = b;
+        (addedOcc[b] ??= {})[bPortKey] = a;
+        const pk = [a, b].sort().join('|');
+        if (!seenPair.has(pk)) { seenPair.add(pk); addedConnPairs.push([a, b]); }
+      });
+    }
+
+    const hasTopoChange = detachedEdges.length > 0 || addedConnPairs.length > 0;
+
     const applyFn = () => {
       batchUpdatePartStates(finalUpdates);
-      if (detachedEdges.length === 0) return;
+      if (!hasTopoChange) return;
       set(s => {
         const nc = { ...s.connections };
         detachedEdges.forEach(([m, b]) => {
           if (nc[m]) { const ms = new Set(nc[m]); ms.delete(b); if (ms.size === 0) delete nc[m]; else nc[m] = ms; }
           if (nc[b]) { const bs = new Set(nc[b]); bs.delete(m); if (bs.size === 0) delete nc[b]; else nc[b] = bs; }
+        });
+        addedConnPairs.forEach(([a, b]) => {
+          nc[a] = nc[a] ? new Set(nc[a]) : new Set();
+          nc[b] = nc[b] ? new Set(nc[b]) : new Set();
+          nc[a].add(b); nc[b].add(a);
         });
         const ro: OccupiedPortMap = { ...s.occupiedPorts };
         Object.entries(removedOcc).forEach(([pid, kvs]) => {
@@ -2177,21 +2307,35 @@ export const useStore = create<StoreState>()(
           Object.keys(kvs).forEach(k => delete cleaned[k]);
           if (Object.keys(cleaned).length === 0) delete ro[pid]; else ro[pid] = cleaned;
         });
+        Object.entries(addedOcc).forEach(([pid, kvs]) => {
+          ro[pid] = { ...(ro[pid] || {}), ...kvs };
+        });
         return { connections: nc, occupiedPorts: ro };
       });
     };
 
     const revertFn = () => {
       batchUpdatePartStates(prevUpdates);
-      if (detachedEdges.length === 0) return;
+      if (!hasTopoChange) return;
       set(s => {
         const nc = { ...s.connections };
+        // 逆序：先撤补建、再恢复脱开（保证同一对件 detach+readd 后能正确复原为「连着」）。
+        addedConnPairs.forEach(([a, b]) => {
+          if (nc[a]) { const as_ = new Set(nc[a]); as_.delete(b); if (as_.size === 0) delete nc[a]; else nc[a] = as_; }
+          if (nc[b]) { const bs = new Set(nc[b]); bs.delete(a); if (bs.size === 0) delete nc[b]; else nc[b] = bs; }
+        });
         detachedEdges.forEach(([m, b]) => {
           nc[m] = nc[m] ? new Set(nc[m]) : new Set();
           nc[b] = nc[b] ? new Set(nc[b]) : new Set();
           nc[m].add(b); nc[b].add(m);
         });
         const ro: OccupiedPortMap = { ...s.occupiedPorts };
+        Object.entries(addedOcc).forEach(([pid, kvs]) => {
+          if (!ro[pid]) return;
+          const cleaned = { ...ro[pid] };
+          Object.keys(kvs).forEach(k => delete cleaned[k]);
+          if (Object.keys(cleaned).length === 0) delete ro[pid]; else ro[pid] = cleaned;
+        });
         Object.entries(removedOcc).forEach(([pid, kvs]) => {
           ro[pid] = { ...(ro[pid] || {}), ...kvs };
         });
@@ -2211,10 +2355,11 @@ export const useStore = create<StoreState>()(
     const moveMm = Math.hypot(t[0], t[1], t[2]) * 1000;
     const withN = moving.length > 1 ? `（含子装配 ${moving.length} 件）` : '';
     const movePart = (opts.autoMove && moveMm > 0.05) ? `，自动微移 ${moveMm.toFixed(1)}mm 重连` : '';
-    const detachPart = detachedEdges.length > 0
-      ? `，脱开 ${detachedEdges.length} 个连接`
-      : (keptCount > 0 ? `，保持 ${keptCount} 个连接` : '');
-    get().addLog(`${opts.label}（选中件 ${primaryId}${withN}）${movePart}${detachPart}`, 'ACTION');
+    const detachPart = detachedEdges.length > 0 ? `，脱开 ${detachedEdges.length} 个连接` : '';
+    const attachPart = addedConnPairs.length > 0 ? `，吸附 ${addedConnPairs.length} 个连接` : '';
+    const keepPart = (detachedEdges.length === 0 && addedConnPairs.length === 0 && keptCount > 0)
+      ? `，保持 ${keptCount} 个连接` : '';
+    get().addLog(`${opts.label}（选中件 ${primaryId}${withN}）${movePart}${detachPart}${attachPart}${keepPart}`, 'ACTION');
   },
 
   rotateSelectedSingle: (angleRads: number) => {
@@ -2225,10 +2370,20 @@ export const useStore = create<StoreState>()(
   },
 
   flipSelected: () => {
+    // 翻面 = 把「选中件的整个子树」（含挂在它上面的销/件）作为刚体一起翻 180°，
+    // 内部连接全部保留（销跟着翻到另一面）。只重连评估子树↔地基界面：翻转后界面
+    // 对不齐则脱开（如面板从底板上翻起来）。用树模型切分，跟单件平移同一套规则。
+    const { selection } = get();
+    const selectedIds = selection.allConnectedIds.length
+      ? selection.allConnectedIds
+      : (selection.primaryId ? [selection.primaryId] : []);
     get()._transformSelectedSubassembly(
       (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [1, 0, 0], Math.PI),
-      // 翻面时连接件（销/轴）留在原位充当连接，不随板翻到顶上（用户反馈）。
-      { autoMove: true, label: `翻面 180°`, keepConnectorsFixed: true },
+      {
+        autoMove: true, label: `翻面 180°`,
+        computeSplit: ({ comp, connections: conn, parts: ps, partCatalog: cat }) =>
+          treeSplitMoving(comp, selectedIds, conn, ps, cat),
+      },
     );
   },
 
@@ -2268,8 +2423,43 @@ export const useStore = create<StoreState>()(
     get().addLog(`平移 [${mm}] mm（连通装配 ${Object.keys(nextUpdates).length} 件）`, 'ACTION');
   },
 
+  translateSelectedSingle: async (delta: Vec3) => {
+    // 树模型单件平移：装配 = 以地基（最底层件）为根的树，只动「选中件的子树」
+    // （挂在它下游、离根更远的件），祖先（含地基）不动；落定后自动脱开错位连接、
+    // 在新位置吸附补建连接。地基判定只看高度、跟大小无关（见 assemblyTree）。
+    const { selection, parts } = get();
+    const primaryId = selection.primaryId;
+    if (!primaryId || !parts[primaryId]) return;
+    const selectedIds = selection.allConnectedIds.length ? selection.allConnectedIds : [primaryId];
+
+    // 预取端口几何（供落定吸附）：落定吸附会扫全场静止件，故几何要覆盖**所有活动区
+    // 零件**的类型（不止本连通组）。按 ldrawId 缓存、连续按键命中缓存不卡。
+    const involvedLdraw = [...new Set(
+      Object.values(parts)
+        .filter(p => p.zone === ZoneType.ACTIVE_ARENA)
+        .map(p => p.ldrawId)
+        .filter(Boolean),
+    )] as string[];
+    const portGeom = await ensurePortGeom(involvedLdraw);
+
+    get()._transformSelectedSubassembly(
+      (oldPose) => ({
+        position: [oldPose.position[0] + delta[0], oldPose.position[1] + delta[1], oldPose.position[2] + delta[2]] as Vec3,
+        quaternion: oldPose.quaternion,
+      }),
+      {
+        autoMove: false, // 平移本身就是意图位移，不做微移吸回
+        label: `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm`,
+        relatchPortGeom: portGeom,
+        computeSplit: ({ comp: c, connections: conn, parts: ps, partCatalog: cat }) =>
+          treeSplitMoving(c, selectedIds, conn, ps, cat),
+      },
+    );
+  },
+
   commitAxialSliding: () => {
     const { snapPreState, parts } = get();
+    get().addLog(`[SNAP-DBG] commitAxialSliding pre=${snapPreState ? 'addedConns='+JSON.stringify(snapPreState.addedConnections) : 'null'} cont=${!!get().continuousPlacementSource}`, 'ACTION');
     if (snapPreState) {
         const nextPositions: Record<string, { position: Vec3; quaternion: Quat }> = {};
         snapPreState.movedPartIds.forEach(pid => {

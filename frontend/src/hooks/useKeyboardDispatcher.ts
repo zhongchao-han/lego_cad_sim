@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
+import { SelectionLevel } from '../types';
 import { dispatchKey, type DispatcherDeps } from './keyboardDispatch';
 
 /**
@@ -30,6 +31,10 @@ export function useKeyboardDispatcher() {
       slidingTarget: () => useStore.getState().slidingTarget,
       slideOffset: () => useStore.getState().slideOffset,
       hasSelection: () => useStore.getState().selection.primaryId !== null,
+      isSingleSelection: () => {
+        const sel = useStore.getState().selection;
+        return sel.level !== SelectionLevel.GROUP && sel.allConnectedIds.length <= 1;
+      },
 
       // Actions — Zustand 保证函数引用稳定，直接取一次即可
       setSearchOpen: useStore.getState().setSearchOpen,
@@ -50,6 +55,7 @@ export function useKeyboardDispatcher() {
       rotateSelectedSingle: useStore.getState().rotateSelectedSingle,
       flipSelected: useStore.getState().flipSelected,
       translateSelectedGroup: useStore.getState().translateSelectedGroup,
+      translateSelectedSingle: useStore.getState().translateSelectedSingle,
       commitFreePlacing: useStore.getState().commitFreePlacing,
       commitAxialSliding: useStore.getState().commitAxialSliding,
       updateSlideOffset: useStore.getState().updateSlideOffset,

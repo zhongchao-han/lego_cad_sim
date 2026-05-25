@@ -47,6 +47,9 @@ export interface DispatcherDeps {
   /** 当前是否有选中的零件（selection.primaryId 非空）。用于 IDLE 下
    *  "选中零件本体后 [/] 旋转、方向键平移"的门控。 */
   hasSelection: () => boolean;
+  /** 是否「单件选中」（INDIVIDUAL 且只选了 1 件）。true → 方向键走树模型单件
+   *  相对滑动；false（双击选整组 / 多选）→ 走整组刚体搬运。 */
+  isSingleSelection: () => boolean;
 
   // ── Actions (引用稳定)
   setSearchOpen: (open: boolean) => void;
@@ -67,6 +70,8 @@ export interface DispatcherDeps {
   rotateSelectedSingle: (rad: number) => void;
   flipSelected: () => void;
   translateSelectedGroup: (delta: [number, number, number]) => void;
+  /** 树模型单件平移：只动选中件的子树，地基/祖先不动，落定自动吸附重连。 */
+  translateSelectedSingle: (delta: [number, number, number]) => void;
   commitFreePlacing: (target: undefined) => void;
   commitAxialSliding: () => void;
   updateSlideOffset: (offset: number, shift: boolean) => void;
@@ -131,6 +136,12 @@ const canEditSelectedGroup = (deps: DispatcherDeps): boolean =>
 // 平移步长（米）：默认 1 stud/hole 间距（20 LDU = 8mm，落网格），Shift 细调 4 LDU。
 const NUDGE_STEP_M = 20 * LDU;
 const NUDGE_FINE_M = 4 * LDU;
+
+/** 方向键平移路由：单件选中 → 树模型相对滑动；双击整组 / 多选 → 整组刚体搬运。 */
+const nudge = (d: DispatcherDeps, delta: [number, number, number]): void => {
+  if (d.isSingleSelection()) d.translateSelectedSingle(delta);
+  else d.translateSelectedGroup(delta);
+};
 
 // ───── KEYMAP — 按优先级降序声明 ─────────────────────────────────────────────
 
@@ -360,7 +371,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      d.translateSelectedGroup([-s, 0, 0]);
+      nudge(d, [-s, 0, 0]);
     },
   },
   {
@@ -369,7 +380,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      d.translateSelectedGroup([s, 0, 0]);
+      nudge(d, [s, 0, 0]);
     },
   },
   {
@@ -378,7 +389,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      d.translateSelectedGroup([0, 0, -s]);
+      nudge(d, [0, 0, -s]);
     },
   },
   {
@@ -387,7 +398,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      d.translateSelectedGroup([0, 0, s]);
+      nudge(d, [0, 0, s]);
     },
   },
 ];

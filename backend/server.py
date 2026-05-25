@@ -33,6 +33,14 @@ from backend.stress_analysis import enrich_reactions_with_stress
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+# [SNAP-DBG] 本地调试：把 INFO+ 日志镜像到文件，便于排查 snap/连接链路（每次启动覆盖）。
+try:
+    _dbg_fh = logging.FileHandler('dev_backend.log', mode='w', encoding='utf-8')
+    _dbg_fh.setLevel(logging.INFO)
+    _dbg_fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(_dbg_fh)
+except Exception:
+    pass
 
 # --- 服务实体与配置 ---
 
@@ -668,6 +676,12 @@ async def get_ldraw_part(part_id: str, color: int = 7, include_pending: bool = F
 @app.post("/api/snap_parts")
 async def snap_parts(req: SnapRequest):
     """只做拓扑记录。插入位姿完全由前端基于零件几何计算。"""
+    logger.info(
+        f"[SNAP-DBG] /api/snap_parts parent(target)={req.parent_id} ({req.parent_ldraw_id}) "
+        f"child(source)={req.child_id} ({req.child_ldraw_id}) | "
+        f"port_p={req.port_type_p} port_c={req.port_type_c} | "
+        f"parent_world={req.parent_world_pos} child_world={req.child_world_pos}"
+    )
 
     # L45：把前端传的 ldraw_id 落到 PartNode，让 urdf_exporter 能查 tooth_count。
     # 同一 part 已注册时不再覆盖（避免后到的 None 把已存的 ldraw_id 抹掉）。
@@ -757,6 +771,14 @@ async def snap_parts(req: SnapRequest):
                     f"[AutoLatch] Snap({req.parent_id} ↔ {req.child_id}): "
                     f"自动闭合 {auto_latched_count} 条额外连接。"
                 )
+                try:
+                    _dbg_edges = [(getattr(e, 'parent_id', '?'), getattr(e, 'child_id', '?')) for e in new_edges]
+                except Exception:
+                    _dbg_edges = ['<unserializable>']
+                logger.info(
+                    f"[SNAP-DBG] AutoLatch scan: parent_sites={len(parent_sites)} child_sites={len(child_sites)} "
+                    f"-> {auto_latched_count} edges {_dbg_edges}"
+                )
                 # 把扫描出的边连同序列化的 portKey 一并回流给前端，使其能在
                 # connections / occupiedPorts 中同步登记（修补"AutoLatch 边集
                 # 在前端缺失"导致旋转锚点查询退化的回流缺口）。仅序列化已
@@ -777,6 +799,9 @@ async def snap_parts(req: SnapRequest):
                         ),
                     })
             else:
+                logger.info(
+                    f"[SNAP-DBG] AutoLatch skipped: parent_sites={len(parent_sites)} child_sites={len(child_sites)} (need both non-empty)"
+                )
                 logger.debug(
                     f"[DEBUG] AutoLatch 跳过: parent_sites={len(parent_sites)}, "
                     f"child_sites={len(child_sites)}，其中一方为空。"

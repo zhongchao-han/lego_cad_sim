@@ -216,13 +216,16 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.parts.lone.position).toEqual(lonePos0);         // 不相连的独立件不动
   });
 
-  it('翻面：选中件绕世界 X 翻 180°，连接件(销)留在原位不翻到顶，地基不动', () => {
+  it('翻面（树模型 B）：选中件子树(含销)整体翻 180°、内部连接保留，地基不动、界面脱开', () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
-      parts: { plate: part('plate.dat'), base: part('base.dat'), pin: part('pin.dat') },
+      parts: {
+        plate: { ...part('plate.dat'), position: [0, 0.008, 0] as V3 },     // 中层板
+        base: { ...part('base.dat'), position: [0, -0.01, 0] as V3 },        // 最低 → 树根（地基）
+        pin: { ...part('pin.dat'), position: [0, 0.012, 0] as V3 },          // 挂在板上面的销
+      },
       partCatalog: {
-        // pin 标为 Pin 类 → 翻面时留在原位充当连接，不随板翻
         'plate.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
         'base.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
         'pin.dat': { category: 'Pin', bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
@@ -233,19 +236,80 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     connect('plate', 'pin', [[0, A, 0]]);
     const baseQ0 = [...useStore.getState().parts.base.quaternion];
     const pinQ0 = [...useStore.getState().parts.pin.quaternion];
-    const pinP0 = [...useStore.getState().parts.pin.position];
 
     useStore.getState().flipSelected();
 
     const st = useStore.getState();
-    // 板绕世界 X 翻 180° → 四元数 x 分量 ≈ ±1
+    // 板翻了
     expect(Math.abs(st.parts.plate.quaternion[0])).toBeCloseTo(1, 4);
-    // 销是连接件 → 不随板翻：姿态 + 位置都不变（留在原位充当连接）
-    expect(st.parts.pin.quaternion).toEqual(pinQ0);
-    expect(st.parts.pin.position).toEqual(pinP0);
-    // 地基不动
+    // 销在板的子树里 → 跟着板一起翻（姿态改变），内部连接保留
+    expect(st.parts.pin.quaternion).not.toEqual(pinQ0);
+    expect(st.connections.plate.has('pin')).toBe(true);
+    expect(st.connections.pin.has('plate')).toBe(true);
+    // 地基(root)位姿不动（不参与刚体翻转）
     expect(st.parts.base.quaternion).toEqual(baseQ0);
+    // 这里 4 孔方阵在 180° 翻转下映射回自身（对称）→ autoMove 复位后界面仍重合 → 保持。
+    // （真实面板孔在底面、翻转后跑到顶上、对不齐 → 会脱开；行为由几何决定。）
+    expect(st.connections.plate.has('base')).toBe(true);
     expect(st.canUndo).toBe(true);
+  });
+
+  it('单件平移（树模型）：选 plate → 只有 plate 动、地基 base 不动，错位连接脱开', async () => {
+    resetStore();
+    const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    useStore.setState({
+      parts: {
+        plate: { ...part('plate.dat'), position: [0, 0, 0] as V3 },
+        base: { ...part('base.dat'), position: [0, -0.01, 0] as V3 }, // 更低 → 树根（地基）
+      },
+      partCatalog: {
+        'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+        'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+      },
+      selection: { primaryId: 'plate', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['plate'], excludedIds: [] },
+    } as any);
+    connect('plate', 'base', square);
+
+    await useStore.getState().translateSelectedSingle([0.008, 0, 0]);
+
+    const st = useStore.getState();
+    expect(st.parts.plate.position[0]).toBeCloseTo(0.008, 6); // plate 动
+    expect(st.parts.base.position[0]).toBeCloseTo(0, 6);      // 地基不动
+    // 错位（jsdom 无端口几何可吸附）→ 脱开
+    expect(st.connections.plate?.has('base') ?? false).toBe(false);
+    expect(st.connections.base?.has('plate') ?? false).toBe(false);
+    // undo 恢复位置 + 连接
+    useStore.getState().undo();
+    const r = useStore.getState();
+    expect(r.parts.plate.position[0]).toBeCloseTo(0, 6);
+    expect(r.connections.plate.has('base')).toBe(true);
+  });
+
+  it('单件平移（树模型）：选地基 base（树根）→ 整个装配一起搬，连接保留', async () => {
+    resetStore();
+    const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
+    useStore.setState({
+      parts: {
+        plate: { ...part('plate.dat'), position: [0, 0, 0] as V3 },
+        base: { ...part('base.dat'), position: [0, -0.01, 0] as V3 },
+      },
+      partCatalog: {
+        'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+        'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+      },
+      selection: { primaryId: 'base', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['base'], excludedIds: [] },
+    } as any);
+    connect('plate', 'base', square);
+
+    await useStore.getState().translateSelectedSingle([0.008, 0, 0]);
+
+    const st = useStore.getState();
+    // 抓住地基（根）→ 整组都动
+    expect(st.parts.base.position[0]).toBeCloseTo(0.008, 6);
+    expect(st.parts.plate.position[0]).toBeCloseTo(0.008, 6);
+    // 整组刚体动、无界面 → 连接保留
+    expect(st.connections.plate.has('base')).toBe(true);
+    expect(st.connections.base.has('plate')).toBe(true);
   });
 
   it('无选中件 → no-op', () => {
