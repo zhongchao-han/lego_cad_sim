@@ -54,10 +54,11 @@ function setup(localPorts: V3[]) {
   resetStore();
   useStore.setState({
     parts: { P: part('P.dat'), Q: part('Q.dat') },
-    // Q 是大底板（bbox 体积大）→ pickBasePart 选 Q 为地基；P 是被转的小件。
+    // Q 是大底板（bbox 底面更低）→ 树模型选 Q 为地基(根)；P 是被转的件。位置都在
+    // 原点，端口重合；Q bbox 更高仅用于把它的底面压到 P 之下当根，不影响端口几何。
     partCatalog: {
       'P.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
-      'Q.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+      'Q.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.02, 0.2] },
     },
     selection: { primaryId: 'P', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['P'], excludedIds: [] },
   } as any);
@@ -113,28 +114,35 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.parts.P.quaternion).toEqual(q0);
   });
 
-  it('插销跟上：转板时挂在板上的插销随板一起转（相对大底板）', () => {
+  it('插销跟上 + 地基不动：转板时销随板一起转，地基(最低件)不被转走', () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
-      parts: { plate: part('plate.dat'), base: part('base.dat'), pin: part('pin.dat') },
+      parts: {
+        plate: { ...part('plate.dat'), position: [0, 0, 0] as V3 },
+        base: { ...part('base.dat'), position: [0, -0.01, 0] as V3 }, // 最低 → 树根（地基）
+        pin: { ...part('pin.dat'), position: [0, 0.012, 0] as V3 },   // 挂在板顶的销=胶水
+      },
       partCatalog: {
-        'plate.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
-        'base.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] }, // 最大 → 地基
-        'pin.dat': { bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
+        'plate.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.03, 0.01, 0.01] },
+        'base.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.3, 0.01, 0.2] },
+        'pin.dat': { category: 'Pin', bboxCenter: [0, 0, 0], bboxSize: [0.002, 0.02, 0.002] },
       },
       selection: { primaryId: 'plate', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['plate'], excludedIds: [] },
     } as any);
-    connect('plate', 'base', square);      // 板↔底板：对称方阵（转 90° 保持）
+    connect('plate', 'base', square);      // 板↔底板：对称方阵（转 90° + 微移保持）
     connect('plate', 'pin', [[0, A, 0]]);  // 插销插在板顶（moving 组内部连接）
 
     const pinQ0 = [...useStore.getState().parts.pin.quaternion];
+    const baseQ0 = [...useStore.getState().parts.base.quaternion];
 
     useStore.getState().rotateSelectedSingle(Math.PI / 2);
 
     const st = useStore.getState();
     // 插销随板转了（姿态改变）
     expect(st.parts.pin.quaternion).not.toEqual(pinQ0);
+    // 地基（最低件）不被转走 —— 本 bug 的核心修复点
+    expect(st.parts.base.quaternion).toEqual(baseQ0);
     // 板↔插销内部连接保持
     expect(st.connections.plate.has('pin')).toBe(true);
     expect(st.connections.pin.has('plate')).toBe(true);
@@ -310,6 +318,62 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     // 整组刚体动、无界面 → 连接保留
     expect(st.connections.plate.has('base')).toBe(true);
     expect(st.connections.base.has('plate')).toBe(true);
+  });
+
+  it('单件平移（树模型）：并排同高两块板靠销桥接 → 只动抓起的左板，右板不跟动', async () => {
+    resetStore();
+    // L、R 两块同高的板（都在 y=0），靠一颗销 pin 横向桥接（pin=胶水）。
+    useStore.setState({
+      parts: {
+        L: { ...part('L.dat'), position: [-0.1, 0, 0] as V3 },
+        R: { ...part('R.dat'), position: [0.1, 0, 0] as V3 },
+        pin: { ...part('pin.dat'), position: [0, 0, 0] as V3 },
+      },
+      partCatalog: {
+        'L.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.16, 0.012, 0.26] },
+        'R.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.16, 0.012, 0.26] },
+        'pin.dat': { category: 'Pin', bboxCenter: [0, 0, 0], bboxSize: [0.02, 0.006, 0.006] },
+      },
+      selection: { primaryId: 'L', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['L'], excludedIds: [] },
+    } as any);
+    connect('L', 'pin', [[0.08, 0, 0]]);
+    connect('R', 'pin', [[-0.08, 0, 0]]);
+
+    await useStore.getState().translateSelectedSingle([-0.05, 0, 0]);
+
+    const st = useStore.getState();
+    expect(st.parts.L.position[0]).toBeCloseTo(-0.15, 6); // 抓起的左板动了
+    expect(st.parts.R.position[0]).toBeCloseTo(0.1, 6);   // 右板（当参考地基）不跟动
+  });
+
+  it('单件平移（树模型）：移左底板 → 它上面的平板跟随，右底板（同高、销桥接）不动', async () => {
+    resetStore();
+    // 截图场景：左右两底板同高、靠销桥接；左底板上叠一块平板 P（更高）。
+    useStore.setState({
+      parts: {
+        LB: { ...part('lb.dat'), position: [-0.1, 0, 0] as V3 },
+        RB: { ...part('rb.dat'), position: [0.1, 0, 0] as V3 },
+        P:  { ...part('p.dat'),  position: [-0.1, 0.026, 0] as V3 }, // 叠在左底板上
+        pin: { ...part('pin.dat'), position: [0, 0, 0] as V3 },      // 桥接 LB-RB 的胶水
+      },
+      partCatalog: {
+        'lb.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.16, 0.04, 0.26] },
+        'rb.dat': { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.16, 0.04, 0.26] },
+        'p.dat':  { category: 'Plate', bboxCenter: [0, 0, 0], bboxSize: [0.06, 0.012, 0.06] },
+        'pin.dat': { category: 'Pin', bboxCenter: [0, 0, 0], bboxSize: [0.02, 0.006, 0.006] },
+      },
+      selection: { primaryId: 'LB', level: SelectionLevel.INDIVIDUAL, allConnectedIds: ['LB'], excludedIds: [] },
+    } as any);
+    connect('LB', 'pin', [[0.08, 0, 0]]);   // 销桥接左右底板
+    connect('RB', 'pin', [[-0.08, 0, 0]]);
+    connect('LB', 'P', [[0, 0.02, 0]]);      // 平板叠在左底板顶
+
+    await useStore.getState().translateSelectedSingle([-0.05, 0, 0]);
+
+    const st = useStore.getState();
+    expect(st.parts.LB.position[0]).toBeCloseTo(-0.15, 6); // 左底板动
+    expect(st.parts.P.position[0]).toBeCloseTo(-0.15, 6);  // 上面的平板跟随
+    expect(st.parts.RB.position[0]).toBeCloseTo(0.1, 6);   // 右底板（同高、当参考）不动
   });
 
   it('无选中件 → no-op', () => {

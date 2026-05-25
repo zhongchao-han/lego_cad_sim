@@ -33,30 +33,41 @@ export function pickRootPart(comp: string[], heightOf: (id: string) => number): 
 }
 
 /**
- * 动件子树：移除 selectedIds 后会与 root 断开连接的件（含 selectedIds 自身）。
+ * 动件子树：移除 selectedIds 后会与地基断开连接的件（含 selectedIds 自身）。
  *
- * - root 为空 / selectedIds 含 root → 抓住地基 → 返回整组（搬整堆）。
- * - 否则：从 root 出发、**不踏过任何 selected 节点** 做 BFS，能到达的是「祖先 +
- *   旁支」(不动)；comp 里其余的（selected + 被切断的下游）即动件子树。
+ * 地基锚点 `roots` 可传**多个**——语义等价于「挂一个看不见的虚拟地基根、它同时连到
+ * 每一个锚点」。多源 BFS 从所有**未被选中**的锚点出发、不踏过任何 selected 节点；
+ * 能到达的是「参考系」(不动)，comp 里其余的（selected + 被切断的下游）即动件子树。
+ *
+ * 这样并排同高的件（都在地基层、互为锚点）各自经虚拟根连回参考系：抓其中一块时，
+ * 它成为可动子树，其余锚点照样连着参考系不动——根治「移动左板右板跟着动」。
+ *
+ * 退化为单根时与旧行为一致：单锚点 = 单源 BFS；选中件就是唯一锚点（或 roots 为空）
+ * → 无可用源 → 整组都动（抓住地基搬整堆）。
  *
  * @param connections 连通图（无向邻接）
  * @param comp        选中件所在的连通分量（getConnectedGroup 的结果）
  * @param selectedIds 当前选中的件
- * @param rootId      pickRootPart 选出的根；null 视作整组都动
+ * @param roots       地基锚点（单个/多个/null）；null 或锚点全被选中 → 整组都动
  */
 export function computeMovingSubtree(
   connections: ConnGraph,
   comp: string[],
   selectedIds: string[],
-  rootId: string | null,
+  roots: string | string[] | null,
 ): string[] {
   const selected = new Set(selectedIds);
-  if (!rootId || selected.has(rootId)) return [...comp];
-
+  const rootList = roots == null ? [] : (Array.isArray(roots) ? roots : [roots]);
   const compSet = new Set(comp);
-  // 从根 BFS，遇到 selected 节点不踏过（它们及其下游归动件侧）。
-  const stays = new Set<string>([rootId]);
-  const queue: string[] = [rootId];
+  // 多源 BFS 起点 = 未被选中的锚点。一个都没有（roots 空 / 锚点全选中）→ 无参考系 →
+  // 整组都动（comp.filter 下 stays 为空，等价返回整组）。
+  const stays = new Set<string>();
+  const queue: string[] = [];
+  for (const r of rootList) {
+    if (!compSet.has(r) || selected.has(r) || stays.has(r)) continue;
+    stays.add(r);
+    queue.push(r);
+  }
   while (queue.length > 0) {
     const cur = queue.shift()!;
     const nbrs = connections[cur];
@@ -71,32 +82,17 @@ export function computeMovingSubtree(
 }
 
 /**
- * 胶水模型动件分组：连接件（销/轴/连接器，`isConnector=true`）视为「胶水」而非树节点——
- * 它依附在所粘的构件上，跟着正在移动的那侧走，以便落位后把构件重新粘上。
- *
- * 步骤：
- *   1. 把零件分成「构件」(component) 与「胶水」(connector)。
- *   2. 在**构件图**（把胶水折叠成边：A、B 之间隔着胶水也算相邻）上，算选中构件的子树
- *      `movingComponents`（移除选中构件后会与 root 断开的构件）。
- *   3. `moving = 选中件 ∪ movingComponents ∪ 粘在任一 moving 构件上的胶水`。
- *      桥接「moving 构件 ↔ 静止构件」的胶水 → 归 moving 侧（被带走，落位后重新粘），
- *      因此连续移动时它永远跟着构件走，不会被划到地基侧而把构件甩掉。
- *
- * @param rootId 必须是构件（地基）；由调用方在「构件」里挑最低者。
+ * 构件邻接图：把胶水（连接件）折叠成边——A、B 之间即便隔着销/轴也算直接相邻。
+ * 返回「构件 id → 相邻构件 id 集合」，不含胶水节点。
  */
-export function computeMovingGroup(
+export function buildComponentGraph(
   connections: ConnGraph,
   comp: string[],
-  selectedIds: string[],
-  rootId: string | null,
   isConnector: (id: string) => boolean,
-): string[] {
+): ConnGraph {
   const compSet = new Set(comp);
-  const selected = new Set(selectedIds);
   const components = comp.filter(id => !isConnector(id));
   const componentSet = new Set(components);
-
-  // 构件邻接（穿过胶水节点直达其它构件）。
   const componentNeighbors = (a: string): Set<string> => {
     const res = new Set<string>();
     const visited = new Set<string>([a]);
@@ -117,13 +113,65 @@ export function computeMovingGroup(
     }
     return res;
   };
-  const componentGraph: ConnGraph = {};
-  for (const c of components) componentGraph[c] = componentNeighbors(c);
+  const g: ConnGraph = {};
+  for (const c of components) g[c] = componentNeighbors(c);
+  return g;
+}
+
+/**
+ * 挑「地基锚点」：**没有任何严格更低的相连邻居**的构件。语义 = 它脚下没有别的件托着，
+ * 直接落在「地」上。这样：
+ *   - 并排同高的件互为同高邻居（谁都不比谁低）→ 都是锚点 → 抓一个不牵连另一个；
+ *   - 叠在底板上的平板，其邻居（底板）比它低 → 它不是锚点 → 抓底板时它跟随。
+ * 只看「有没有更低的邻居」、跟高度差大小无关 —— 避免绝对高度容差判定的脆弱。
+ *
+ * @param eps 高度比较容差（米）：邻居要低于自身 eps 以上才算「更低」，吸收浮点/微小摆放噪声。
+ */
+export function pickGroundAnchors(
+  componentGraph: ConnGraph,
+  components: string[],
+  heightOf: (id: string) => number,
+  eps = 0.0005,
+): string[] {
+  return components.filter(id => {
+    const h = heightOf(id);
+    const nbrs = componentGraph[id];
+    if (!nbrs) return true;
+    for (const nb of nbrs) if (heightOf(nb) < h - eps) return false;
+    return true;
+  });
+}
+
+/**
+ * 胶水模型动件分组：连接件（销/轴/连接器，`isConnector=true`）视为「胶水」而非树节点——
+ * 它依附在所粘的构件上，跟着正在移动的那侧走，以便落位后把构件重新粘上。
+ *
+ * 步骤：
+ *   1. 把零件分成「构件」(component) 与「胶水」(connector)。
+ *   2. 在**构件图**（把胶水折叠成边：A、B 之间隔着胶水也算相邻）上，算选中构件的子树
+ *      `movingComponents`（移除选中构件后会与 root 断开的构件）。
+ *   3. `moving = 选中件 ∪ movingComponents ∪ 粘在任一 moving 构件上的胶水`。
+ *      桥接「moving 构件 ↔ 静止构件」的胶水 → 归 moving 侧（被带走，落位后重新粘），
+ *      因此连续移动时它永远跟着构件走，不会被划到地基侧而把构件甩掉。
+ *
+ * @param roots 地基锚点构件（单个/多个/null）；多个时等价虚拟地基根连到每一个。
+ *              由调用方在「构件」里挑地基锚点（见 store.treeSplitMoving / pickGroundAnchors）。
+ */
+export function computeMovingGroup(
+  connections: ConnGraph,
+  comp: string[],
+  selectedIds: string[],
+  roots: string | string[] | null,
+  isConnector: (id: string) => boolean,
+): string[] {
+  const selected = new Set(selectedIds);
+  const components = comp.filter(id => !isConnector(id));
+  const componentGraph = buildComponentGraph(connections, comp, isConnector);
 
   // 选中件里属于构件的；若只选了胶水，movingComponents 为空、只动选中件本身。
   const selectedComponents = components.filter(id => selected.has(id));
   const movingComponents = selectedComponents.length > 0
-    ? computeMovingSubtree(componentGraph, components, selectedComponents, rootId)
+    ? computeMovingSubtree(componentGraph, components, selectedComponents, roots)
     : [];
   const movingCompSet = new Set(movingComponents);
 
