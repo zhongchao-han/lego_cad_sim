@@ -774,7 +774,7 @@ async def snap_parts(req: SnapRequest):
                 try:
                     _dbg_edges = [(getattr(e, 'parent_id', '?'), getattr(e, 'child_id', '?')) for e in new_edges]
                 except Exception:
-                    _dbg_edges = ['<unserializable>']
+                    _dbg_edges = [('<unserializable>', '')]
                 logger.info(
                     f"[SNAP-DBG] AutoLatch scan: parent_sites={len(parent_sites)} child_sites={len(child_sites)} "
                     f"-> {auto_latched_count} edges {_dbg_edges}"
