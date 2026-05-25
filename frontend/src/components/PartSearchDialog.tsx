@@ -40,6 +40,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
           <input
             ref={inputRef}
             type="text"
+            data-testid="part-search-input"
             className="w-full bg-transparent text-white text-lg placeholder-gray-500 outline-none pl-10 pr-4"
             placeholder="按编号、名称或口语描述搜索…（例：起重机旋转的那种大齿轮）"
             value={query}
