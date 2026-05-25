@@ -109,57 +109,29 @@ if ($isWorktree) {
 }
 Write-Host ""
 
-Write-Host "`n[1/5] Starting Meilisearch Docker container..." -ForegroundColor Yellow
-# 固定 docker-compose 项目名，避免不同 worktree（cwd basename 不同）各自尝试新建
-# 同名 container 而冲突。容器名 lego_meilisearch 在 yml 中已固定，所有 checkout 共享同一实例。
-docker-compose -p lego_cad_sim up -d meilisearch
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Fatal: docker-compose failed. Is Docker Desktop running?"
-    exit 1
-}
-
-Write-Host "`n[2/5] Waiting for Meilisearch 7700 health check..." -ForegroundColor Yellow
-$retryCount = 0
-$meiliReady = $false
-
-while ($retryCount -lt 30) {
+Write-Host "`n[1/3] Ensuring local vector search index exists..." -ForegroundColor Yellow
+# 本地向量语义搜索取代了 Meilisearch 服务：索引就是 data/part_vectors.npy（已入库）。
+# 仅当向量文件缺失（如全新 checkout）时才离线重建——重建需加载 e5 模型、耗时约 1-2 分钟。
+$vectorsFile = Join-Path $workTreeRoot "data\part_vectors.npy"
+if (-not (Test-Path $vectorsFile)) {
+    Write-Host "  -> part_vectors.npy 缺失，开始离线构建（首次会下载 e5 模型）..." -ForegroundColor Gray
     try {
-        $response = Invoke-RestMethod -Uri "http://127.0.0.1:7700/health" -Method Get -ErrorAction Stop
-        if ($response.status -eq 'available') {
-            $meiliReady = $true
-            break
+        # 用 module 形式 (-m)，否则 backend.category 之类的相对导入会 ModuleNotFoundError。
+        python -m backend.build_search_index
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Fatal: 向量索引构建脚本退出码非 0。"
+            exit 1
         }
     } catch {
-        # Ignore and retry
-    }
-    Start-Sleep -Seconds 1
-    $retryCount++
-    Write-Host "." -NoNewline -ForegroundColor Gray
-}
-Write-Host "" # Newline
-
-if (-not $meiliReady) {
-    Write-Error "Fatal: Meilisearch failed health check after 30 seconds. Boot sequence aborted."
-    exit 1
-}
-Write-Host "  -> Meilisearch (127.0.0.1:7700) is HEALTHY [GREEN]" -ForegroundColor Green
-
-Write-Host "`n[3/5] Syncing LDraw configurations to inverted index..." -ForegroundColor Yellow
-try {
-    # 用 module 形式 (-m) 而非脚本式调用，否则 backend.category 之类的
-    # 相对导入会因 sys.path 缺主仓根而 ModuleNotFoundError。
-    python -m backend.sync_meili
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Fatal: Data sync script exited with non-zero status."
+        Write-Error "Fatal: 执行 python -m backend.build_search_index 失败"
         exit 1
     }
-} catch {
-    Write-Error "Fatal: Failed to execute python -m backend.sync_meili"
-    exit 1
+    Write-Host "  -> 向量索引构建完成。" -ForegroundColor Green
+} else {
+    Write-Host "  -> 已存在向量索引，跳过构建。" -ForegroundColor Green
 }
-Write-Host "  -> Data sync sequence completed." -ForegroundColor Green
 
-Write-Host "`n[4/5] Idempotency Guard: Pre-flight sniffing for ports 8000 + Vite range 5173-5180..." -ForegroundColor Yellow
+Write-Host "`n[2/3] Idempotency Guard: Pre-flight sniffing for ports 8000 + Vite range 5173-5180..." -ForegroundColor Yellow
 # 后端只在 8000 监听
 Clear-Port -Port 8000
 # Vite 在 5173 占用时会自动回退到 5174/5175...，必须把整段回退区都清掉，
@@ -168,7 +140,7 @@ foreach ($vitePort in 5173..5180) {
     Clear-Port -Port $vitePort
 }
 
-Write-Host "`n[5/5] Spawning separated terminal instances for Backend and UI..." -ForegroundColor Yellow
+Write-Host "`n[3/3] Spawning separated terminal instances for Backend and UI..." -ForegroundColor Yellow
 
 # 显式把工作目录钉在 $workTreeRoot：在 worktree 中启动时确保子进程不会因为 PowerShell
 # 默认继承策略变化而跑到主仓目录，导致 backend 模块解析错位 / vite 服务到主仓的旧代码。

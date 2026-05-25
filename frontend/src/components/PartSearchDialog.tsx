@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { usePartSearch, PartSearchHit } from '../hooks/usePartSearch';
+import { usePartSearch } from '../hooks/usePartSearch';
 
 interface PartSearchDialogProps {
   onSelectPart?: (partNum: string) => void;
@@ -7,22 +7,9 @@ interface PartSearchDialogProps {
   onClose: () => void;
 }
 
-// Helper safely injects Meilisearch <em> highlights
-const HighlightedText = ({ original, formatted }: { original: string, formatted?: string }) => {
-  if (!formatted) return <span>{original}</span>;
-  // A simplistic sanitizer to ensure only <em> tags are allowed:
-  // Usually meilisearch returns exactly <em>...</em> without any other scary tags unless in the source DB.
-  // In a robust enterprise setup, use DOMPurify. Here we trust our own DB.
-  return <span dangerouslySetInnerHTML={{ __html: formatted }} />;
-};
-
 export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart, isOpen, onClose }) => {
-  const { 
-    query, setQuery, results, isLoading, error, handleQueryChange,
-    isLlmThinking, rewrittenQuery, llmConfig, updateLlmConfig
-  } = usePartSearch();
+  const { query, setQuery, results, isLoading, error, handleQueryChange } = usePartSearch();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [showSettings, setShowSettings] = useState(false);
 
   // Focus on mount/open
   useEffect(() => {
@@ -31,12 +18,10 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
     }
   }, [isOpen]);
 
-  // Clean the input when closed, or maybe preserve? Usually Command palettes clear on close.
+  // Clear input when closed
   useEffect(() => {
     if (!isOpen) {
       setQuery('');
-      // Need a way to clear results, but the hook doesn't expose it directly.
-      // Easiest is to fire an empty query.
     }
   }, [isOpen]);
 
@@ -44,102 +29,44 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div 
+      <div
         className="w-full max-w-2xl bg-[#2a2a2e] rounded-xl shadow-2xl border border-white/10 overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center p-4 border-b border-white/5 relative">
           <svg className="w-5 h-5 text-gray-400 absolute left-6" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
             <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
           </svg>
-          <input 
+          <input
             ref={inputRef}
-            type="text" 
-            className="w-full bg-transparent text-white text-lg placeholder-gray-500 outline-none pl-10 pr-12"
-            placeholder="Search parts by id, name, or keywords... (e.g. 这个大板孔很多)"
+            type="text"
+            className="w-full bg-transparent text-white text-lg placeholder-gray-500 outline-none pl-10 pr-4"
+            placeholder="按编号、名称或口语描述搜索…（例：起重机旋转的那种大齿轮）"
             value={query}
             onChange={handleQueryChange}
           />
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`absolute right-4 p-1.5 rounded-md transition-colors ${showSettings ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
-            title="AI Semantic Search Settings"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              {/* Settings icon */}
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
         </div>
-
-        {showSettings && (
-          <div className="bg-black/30 p-4 border-b border-white/5 space-y-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-200 flex items-center gap-2">
-                <span className="text-blue-400">✧</span> AI Semantic Search
-              </h3>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={llmConfig.enabled}
-                  onChange={(e) => updateLlmConfig({ enabled: e.target.checked })}
-                />
-                <div className="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-              </label>
-            </div>
-            
-            {llmConfig.enabled && (
-              <p className="text-[11px] text-gray-400 leading-relaxed">
-                由后端代理调用大模型（key 配置在后端 <code className="text-gray-300">backend/.env</code>），
-                前端不再保存任何密钥。中文/口语描述会自动改写成 LDraw 关键词再检索。
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="max-h-[50vh] overflow-y-auto no-scrollbar scroll-smooth relative">
           {error && (
             <div className="p-6 text-center text-red-400 text-sm bg-red-900/10 m-4 rounded-lg border border-red-900/30">
-              <p className="font-semibold mb-1">Search Engine Error</p>
+              <p className="font-semibold mb-1">搜索出错</p>
               <p className="opacity-80 font-mono text-xs">{error}</p>
             </div>
           )}
 
-          {!error && query && results.length === 0 && !isLoading && !isLlmThinking && (
+          {!error && query && results.length === 0 && !isLoading && (
             <div className="p-10 text-center text-gray-500 space-y-2">
               <svg className="w-10 h-10 mx-auto text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-              <p>No parts matched perfectly.</p>
-              <p className="text-xs text-gray-600">Tip: Enable AI Semantic Search if you are using informal descriptions.</p>
+              <p>没有匹配的零件。</p>
+              <p className="text-xs text-gray-600">换个说法试试，描述它的用途或外形也可以。</p>
             </div>
           )}
 
-          {isLlmThinking && (
-            <div className="p-10 flex flex-col items-center justify-center text-blue-400 text-sm gap-3">
-              <svg className="animate-spin h-6 w-6 opacity-80" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="animate-pulse">Abstracting LDraw features via AI...</span>
-            </div>
-          )}
-
-          {rewrittenQuery && !isLlmThinking && !isLoading && (
-            <div className="px-4 py-2 bg-blue-900/10 text-blue-300 text-xs flex items-center gap-2 border-b border-blue-500/10">
-              <span className="font-bold">✨ AI Translated:</span>
-              Searched internally for 
-              <span className="bg-black/40 px-1.5 py-0.5 rounded font-mono border border-blue-500/30 text-blue-200">
-                {rewrittenQuery}
-              </span>
-            </div>
-          )}
-
-          {!isLlmThinking && (
-            <ul className="py-2">
-              {results.map((hit) => (
-              <li 
-                key={hit.id} 
+          <ul className="py-2">
+            {results.map((hit) => (
+              <li
+                key={hit.id}
                 onClick={() => {
                   onSelectPart?.(hit.part_num);
                   onClose();
@@ -148,10 +75,9 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
               >
                 <div className="w-12 h-12 flex-shrink-0 bg-black/40 rounded flex items-center justify-center border border-white/5 overflow-hidden">
                   {hit.thumbnail_url ? (
-                    // We can attempt to load the actual thumbnail if available, or just fallback
-                    <img 
-                      src={`http://localhost:8000${hit.thumbnail_url}`} 
-                      alt={hit.name} 
+                    <img
+                      src={`http://localhost:8000${hit.thumbnail_url}`}
+                      alt={hit.name}
                       className="w-full h-full object-contain p-1"
                       onError={(e) => { (e.target as any).style.display = 'none'; }}
                     />
@@ -159,14 +85,12 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
                     <span className="text-xs text-gray-600">Img</span>
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between mb-1 gap-2">
-                    <h3 className="text-sm font-medium text-gray-200 truncate group-hover:text-blue-400 transition-colors [&>em]:text-blue-400 [&>em]:not-italic [&>em]:font-semibold [&>em]:bg-blue-900/20 [&>em]:px-1 [&>em]:rounded-sm">
-                      <HighlightedText original={hit.zh_name || hit.name} formatted={hit._formatted?.zh_name} />
-                      <span className="text-[10px] text-gray-500 ml-2 font-mono">
-                        <HighlightedText original={hit.part_num} formatted={hit._formatted?.part_num} />.dat
-                      </span>
+                    <h3 className="text-sm font-medium text-gray-200 truncate group-hover:text-blue-400 transition-colors">
+                      {hit.zh_name || hit.name}
+                      <span className="text-[10px] text-gray-500 ml-2 font-mono">{hit.part_num}.dat</span>
                     </h3>
                     <div className="flex space-x-2 shrink-0">
                       {hit.status === 'verified' && (
@@ -177,22 +101,19 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400 truncate [&>em]:text-blue-400 [&>em]:not-italic [&>em]:font-semibold [&>em]:bg-blue-900/20 [&>em]:px-1 [&>em]:rounded-sm">
-                    {hit.zh_desc || <HighlightedText original={hit.name} formatted={hit._formatted?.name} />}
-                  </p>
+                  <p className="text-xs text-gray-400 truncate">{hit.zh_desc || hit.name}</p>
                 </div>
               </li>
             ))}
-            </ul>
-          )}
+          </ul>
         </div>
-        
+
         <div className="px-4 py-2 border-t border-white/5 bg-black/20 flex justify-between text-[10px] font-mono text-gray-500">
           <span className="flex gap-2">
-            {results.length > 0 ? `${results.length} hit(s)` : 'Awaiting input...'}
-            {(isLoading && !isLlmThinking) ? <span className="text-blue-500/50 animate-pulse">fetching...</span> : null}
+            {results.length > 0 ? `${results.length} 个结果` : '等待输入…'}
+            {isLoading ? <span className="text-blue-500/50 animate-pulse">搜索中…</span> : null}
           </span>
-          <span className="flex items-center gap-1">powered by <span className="font-bold text-gray-400 tracking-wider">MEILISEARCH</span> {llmConfig.enabled ? '& AI' : ''}</span>
+          <span className="flex items-center gap-1">本地语义搜索</span>
         </div>
       </div>
     </div>

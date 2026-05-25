@@ -211,9 +211,9 @@ function App() {
               <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
               </svg>
-              <h2 className="text-xl font-bold text-red-500 mb-2 tracking-wide">核心依赖熔断</h2>
+              <h2 className="text-xl font-bold text-red-500 mb-2 tracking-wide">搜索模块异常</h2>
               <p className="text-red-200 text-sm mb-6 leading-relaxed">
-                Meilisearch 搜索引擎未能通过启动验证或连接凭证失效，为防止意外副作用，该模块已被阻断。
+                零件搜索组件渲染出错，为防止意外副作用，该模块已被阻断。
               </p>
               <button onClick={() => window.location.reload()} className="px-6 py-2 bg-red-600/80 text-red-100 rounded hover:bg-red-500 transition-colors tracking-wide font-medium">
                 强制刷新上下文

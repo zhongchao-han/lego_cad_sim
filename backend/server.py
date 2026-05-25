@@ -5,7 +5,6 @@ import os
 from typing import Optional, List
 
 import numpy as np
-import meilisearch
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +26,7 @@ from backend.urdf_exporter import floating_base_for_mode
 from backend.mesh_asset_manager import MeshAssetManager
 from backend.idempotency import IdempotencyCache, IdempotencyMiddleware
 from backend.category import categorize_part, extract_tooth_count
+from backend import semantic_search
 from backend.mass_estimator import estimate_mass_com_for_part
 from backend.statics_solver import solve_reactions
 from backend.stress_analysis import enrich_reactions_with_stress
@@ -318,105 +318,40 @@ async def search_parts_legacy(q: str):
                 })
     return results[:50]
 
-@app.get("/api/search/key")
-async def get_search_key():
-    """返回 Meilisearch 的只读 Search API Key，供前端直接连接7700端口高速查库。"""
-    host = os.getenv("MEILI_HOST", "http://localhost:7700")
-    master_key = os.getenv("MEILI_MASTER_KEY", "Lego_CAD_Sim_Meili_Master_Key_2026")
-    try:
-        client = meilisearch.Client(host, master_key)
-        
-        # 获取所有的 keys，寻找带有 search 权限的 key
-        keys = client.get_keys()
-        for k in keys.results:
-            # Default Search API Key 通常只拥有 search 权限
-            if "search" in k.actions and len(k.actions) == 1:
-                return {
-                    "status": "success", 
-                    "host": host, 
-                    "search_key": k.key
-                }
-                
-        return {"status": "error", "msg": "Default Search Key not found in Meilisearch."}
-    except Exception as e:
-        logger.error(f"Cannot retrieve MeiliSearch key: {e}", exc_info=True)
-        return {"status": "error", "msg": "MeiliSearch server is unreachable or misconfigured."}
+# ── 本地向量语义搜索 ────────────────────────────────────────────────────────
+# 取代原 Meilisearch 服务 + DeepSeek 在线改写：零件检索文本离线编码成向量
+# （backend/build_search_index.py），运行期对查询同模型编码 + 余弦相似度排序。
+# 中文口语描述（"起重机旋转的那种大齿轮"）靠语义相似度直接命中，不再依赖外部服务。
 
-
-# ── AI 语义搜索：中文描述 → LDraw 英文关键词（DeepSeek 代理）────────────────────
-# 安全：API key 只存后端环境（backend/.env: DEEPSEEK_API_KEY），前端经此代理调用，
-# key 永不进前端 bundle。原先 key 硬编码在 frontend usePartSearch.ts（已暴露）→ 移除。
-
-def _build_rewrite_prompt(query: str) -> str:
-    """中文零件描述 → 精准 LDraw 英文关键词的 few-shot prompt（原在前端，迁到后端）。"""
-    return "\n".join([
-        "You are a LEGO LDraw part naming expert.",
-        "Convert the user's Chinese description into precise English keywords matching LDraw part names.",
-        "Include dimension numbers (e.g. \"19 x 11\", \"2 x 8\") whenever possible for better search ranking.",
-        "",
-        "CRITICAL LDraw naming rules:",
-        "- Large flat plate with dense grid of holes = \"Baseplate\" (e.g. \"Baseplate 19 11\")",
-        "- Thin plate with single row of holes = \"Technic Plate\" (e.g. \"Technic Plate 2 x 8\")",
-        "- 大底板/大平板/很多孔的板 = \"Baseplate\" (LDraw name: Technic Beam N x M Baseplate)",
-        "- 平板/薄板 = \"Plate\"; 厚砖块 = \"Brick\"; 横臂/杆 = \"Liftarm\" or \"Beam\"",
-        "- 齿轮 = \"Gear\"; 轴 = \"Axle\"; 销 = \"Pin\"; 弯曲 = \"Curved\" or \"Bent\"",
-        "- 十字孔 = \"Axle Hole\"; 圆孔 = \"Pin Hole\"",
-        "",
-        "Examples:",
-        "- \"很多孔的大平板\" -> \"Baseplate 19 11\"",
-        "- \"大底板\" -> \"Baseplate 19 11\"",
-        "- \"长的横臂\" -> \"Technic Liftarm 1 x 15\"",
-        "- \"弯曲的小齿轮\" -> \"Gear small\"",
-        "",
-        "ONLY output keywords, no explanation, no quotes.",
-        f'User query: "{query}"',
-    ])
-
-
-def _call_deepseek(base_url: str, api_key: str, model: str, prompt: str) -> str:
-    """调 DeepSeek（OpenAI 兼容）chat/completions，返回精简关键词。stdlib urllib，无新依赖。
-    抽成模块级函数便于单测 monkeypatch（不打真网络）。"""
-    import urllib.request
-    body = json.dumps({
-        "model": model,
-        "messages": [{"role": "system", "content": prompt}],
-        "temperature": 0.1,
-        "max_tokens": 30,
-    }).encode("utf-8")
-    request = urllib.request.Request(
-        f"{base_url}/chat/completions",
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=15) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    return (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
-
-
-class LlmRewriteRequest(BaseModel):
+class SearchRequest(BaseModel):
     query: str
+    limit: int = 50
+    verified_only: bool = True
 
 
-@app.post("/api/llm_rewrite")
-async def llm_rewrite(req: LlmRewriteRequest):
-    """前端语义搜索代理：中文 query → LDraw 英文关键词。key 留后端，前端不接触。"""
-    api_key = os.getenv("DEEPSEEK_API_KEY", "")
-    if not api_key:
-        return {"status": "error", "msg": "后端未配置 DEEPSEEK_API_KEY（见 backend/.env），语义搜索不可用。"}
-    if not req.query or not req.query.strip():
-        return {"status": "error", "msg": "空查询。"}
-    base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-    model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-    prompt = _build_rewrite_prompt(req.query)
+@app.post("/api/search")
+async def search_parts(req: SearchRequest):
+    """本地向量语义搜索。返回命中零件列表（按相关度降序）。"""
+    q = (req.query or "").strip()
+    if not q:
+        return {"status": "success", "hits": []}
     try:
-        keywords = await asyncio.to_thread(_call_deepseek, base_url, api_key, model, prompt)
+        hits = await asyncio.to_thread(
+            semantic_search.search, q, req.limit, req.verified_only
+        )
+    except FileNotFoundError as e:
+        logger.error(f"[search] 向量索引缺失: {e}")
+        return {"status": "error", "msg": str(e), "hits": []}
     except Exception as e:
-        logger.error(f"[llm_rewrite] DeepSeek call failed: {e}", exc_info=True)
-        return {"status": "error", "msg": f"语义改写失败: {e}"}
-    if not keywords:
-        return {"status": "error", "msg": "大模型返回空结果。"}
-    return {"status": "success", "keywords": keywords}
+        logger.error(f"[search] 搜索失败: {e}", exc_info=True)
+        return {"status": "error", "msg": f"搜索失败: {e}", "hits": []}
+    return {"status": "success", "hits": hits}
+
+
+@app.on_event("startup")
+async def _warmup_search_index() -> None:
+    """后台预热向量模型 + 索引，避免首次搜索阻塞用户。"""
+    asyncio.get_event_loop().run_in_executor(None, semantic_search.warmup)
 
 @app.post("/api/verify_part")
 @app.post("/api/verify/save")
@@ -472,39 +407,14 @@ async def save_verification(req: VerifySaveRequest):
         
         if success:
             port_lib_manager.save()
-            
-            # [Add] Real-time MeiliSearch Incremental Sync
+
+            # 热更新向量索引里该零件的状态（文本/向量与状态无关，无需重新编码）。
+            # 让刚复核通过的零件立即出现在「仅已复核」的搜索结果里。
             try:
-                logger.debug(f"[DEBUG] save_verification() 执行 MeiliSearch 热同步: part_id={req.part_id}")
-                meili_host = os.getenv("MEILI_HOST", "http://localhost:7700")
-                meili_master = os.getenv("MEILI_MASTER_KEY", "Lego_CAD_Sim_Meili_Master_Key_2026")
-                from backend.sync_meili import get_part_name
-                
-                client = meilisearch.Client(meili_host, meili_master)
-                doc_id = req.part_id.lower().replace('.dat', '').replace('-', '_').replace(' ', '_').replace('/', '_')
-                part_num = req.part_id.lower().replace('.dat', '')
-                
-                # Fetch full config via site data just saved
-                latest_cfg = port_lib_manager.get_part_data(req.part_id) or {}
-                
-                doc = {
-                    'id': doc_id,
-                    'part_num': part_num,
-                    'name': get_part_name(req.part_id),
-                    'status': 'verified',
-                    'confidence': 1.0,
-                    'thumbnail_url': f"/api/thumbnails/{part_num}.png",
-                    'has_sites': "sites" in latest_cfg
-                }
-                
-                # add_documents will add or replace the document
-                client.index('parts').add_documents([doc])
-                logger.debug(f"[DEBUG] save_verification() MeiliSearch 提交成功: doc={doc}")
-                logger.info(f"成功将 {req.part_id} 热同步至 MeiliSearch。")
-            except Exception as ml_err:
-                logger.error(f"警告：数据库更新成功，但向 MeiliSearch 同步失败: {ml_err}")
-                logger.debug(f"[DEBUG] save_verification() MeiliSearch 热同步抛出异常: {ml_err}")
-                
+                semantic_search.set_status(req.part_id, "verified")
+            except Exception as idx_err:
+                logger.warning(f"复核保存成功，但热更新搜索索引状态失败: {idx_err}")
+
             logger.debug(f"[DEBUG] save_verification() 返回成功响应: {req.part_id}")
             return {"status": "success", "msg": f"Part {req.part_id} verified and saved."}
         else:
