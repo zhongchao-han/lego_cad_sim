@@ -66,6 +66,19 @@ _load_local_env()
 
 # LDRAW_PARTS_ROOT 配置
 LDRAW_PARTS_ROOT = os.environ.get("LDRAW_PARTS_ROOT", os.path.join(_REPO_ROOT, "ldraw_lib"))
+# 零件中文名 / 描述映射（backend/gen_zh_names.py 生成）。懒加载 + 模块级缓存；缺文件返回空 dict 不致命。
+ZH_NAMES_FILE = os.path.join(_REPO_ROOT, "data", "part_names_zh.json")
+_ZH_NAMES_CACHE: Optional[dict] = None
+def _get_zh_names() -> dict:
+    global _ZH_NAMES_CACHE
+    if _ZH_NAMES_CACHE is None:
+        try:
+            with open(ZH_NAMES_FILE, encoding="utf-8") as f:
+                _ZH_NAMES_CACHE = json.load(f)
+        except (OSError, ValueError) as exc:
+            logger.warning("[zh_names] 加载 %s 失败，中文名留空: %s", ZH_NAMES_FILE, exc)
+            _ZH_NAMES_CACHE = {}
+    return _ZH_NAMES_CACHE
 MESH_CACHE_ROOT = os.environ.get("MESH_CACHE_ROOT", os.path.join(_REPO_ROOT, "data", "custom_assets"))
 # 新增缩略图缓存目录依赖
 THUMBNAIL_CACHE_ROOT = os.path.join(MESH_CACHE_ROOT, "thumbnails")
@@ -219,6 +232,9 @@ async def get_verified_parts():
         name, category = categorize_part(entry["part_id"], parts_dir)
         entry["name"] = name
         entry["category"] = category
+        zh = _get_zh_names().get(entry["part_id"], {})
+        entry["zh_name"] = zh.get("zh_name", "")
+        entry["zh_desc"] = zh.get("zh_desc", "")
         entry["tooth_count"] = extract_tooth_count(name)
         # L51：lazy 跑 trimesh.volume；GLB 已烘则查表，未烘则 None（前端
         # 走 fallback 0.001 kg）。lru_cache 摊销；首次请求轻微延迟可接受。

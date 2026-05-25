@@ -161,12 +161,14 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between mb-1">
-                    <h3 className="text-sm font-medium text-gray-200 truncate group-hover:text-blue-400 transition-colors">
-                      <HighlightedText original={hit.part_num} formatted={hit._formatted?.part_num} />
-                      <span className="text-[10px] text-gray-500 ml-2">.dat</span>
+                  <div className="flex items-baseline justify-between mb-1 gap-2">
+                    <h3 className="text-sm font-medium text-gray-200 truncate group-hover:text-blue-400 transition-colors [&>em]:text-blue-400 [&>em]:not-italic [&>em]:font-semibold [&>em]:bg-blue-900/20 [&>em]:px-1 [&>em]:rounded-sm">
+                      <HighlightedText original={hit.zh_name || hit.name} formatted={hit._formatted?.zh_name} />
+                      <span className="text-[10px] text-gray-500 ml-2 font-mono">
+                        <HighlightedText original={hit.part_num} formatted={hit._formatted?.part_num} />.dat
+                      </span>
                     </h3>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 shrink-0">
                       {hit.status === 'verified' && (
                         <span className="text-[10px] bg-green-900/40 text-green-500 px-1.5 py-0.5 rounded border border-green-800/50">Verified</span>
                       )}
@@ -176,7 +178,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 truncate [&>em]:text-blue-400 [&>em]:not-italic [&>em]:font-semibold [&>em]:bg-blue-900/20 [&>em]:px-1 [&>em]:rounded-sm">
-                    <HighlightedText original={hit.name} formatted={hit._formatted?.name} />
+                    {hit.zh_desc || <HighlightedText original={hit.name} formatted={hit._formatted?.name} />}
                   </p>
                 </div>
               </li>

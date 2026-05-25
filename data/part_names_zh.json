@@ -1,0 +1,8578 @@
+{
+ "10089.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 大 马达 外壳 后"
+ },
+ "10089c01.dat": {
+  "zh_name": "动力组大马达",
+  "zh_desc": "Power Functions 大号电动马达总成，提供旋转动力输出。"
+ },
+ "10090.dat": {
+  "zh_name": "大马达外壳（前）",
+  "zh_desc": "Power Functions 大马达外壳前盖部件。"
+ },
+ "10091.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 大 马达 cable retainer"
+ },
+ "10092.dat": {
+  "zh_name": "平板",
+  "zh_desc": "电动 动力组 大 马达 外壳 前 平板"
+ },
+ "100943.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 2 towballs"
+ },
+ "100943p01.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 2 towballs 带 深 偏蓝 灰 shaft 图案"
+ },
+ "10095.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 动力组 大 马达 轴 轮毂"
+ },
+ "10130.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 外壳 后"
+ },
+ "10130c01.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 外壳"
+ },
+ "10131.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 外壳 前"
+ },
+ "10132.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 外壳 cable retainer"
+ },
+ "10134.dat": {
+  "zh_name": "平板",
+  "zh_desc": "电动 动力组 伺服马达 internal 前 平板"
+ },
+ "10152.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 动力组 伺服马达 轴 轮毂"
+ },
+ "10197.dat": {
+  "zh_name": "轴销连接器",
+  "zh_desc": "轴销连接器 轮毂 带 2 轴 于 90 度"
+ },
+ "10288.dat": {
+  "zh_name": "角度连接器 3×120",
+  "zh_desc": "角度连接器 ( 3×120 度)"
+ },
+ "103671-f1.dat": {
+  "zh_name": "气动件 11L",
+  "zh_desc": "气动件 管 11l"
+ },
+ "103671-f2.dat": {
+  "zh_name": "气动件 11L",
+  "zh_desc": "气动件 管 11l 带 端 凸起"
+ },
+ "108.dat": {
+  "zh_name": "减震器 10L·已弃用",
+  "zh_desc": "减震器 10l damped, 弹簧 (已弃用)"
+ },
+ "10928.dat": {
+  "zh_name": "齿轮 ·加强",
+  "zh_desc": "齿轮 8 齿 加强"
+ },
+ "11214.dat": {
+  "zh_name": "轴销 长 3L",
+  "zh_desc": "加长的轴销连接件，3 孔长，带摩擦，跨距更大的固定连接。"
+ },
+ "11272.dat": {
+  "zh_name": "轴连接器 2×3",
+  "zh_desc": "轴连接器 2×3 四联"
+ },
+ "11455.dat": {
+  "zh_name": "链节 2×4·弯折",
+  "zh_desc": "链节 2×4 弯折 90 带 单 偏置 横向 销孔"
+ },
+ "11478.dat": {
+  "zh_name": "举臂 5×0.5",
+  "zh_desc": "梁 5×0.5 举臂 带 轴孔 于 两 端"
+ },
+ "11946.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #21 (薄 短)"
+ },
+ "11947.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #22 (薄 短)"
+ },
+ "11949.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 2 销孔 和 2 球关节 arms"
+ },
+ "11950.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 2 销孔"
+ },
+ "11953.dat": {
+  "zh_name": "举臂 3L",
+  "zh_desc": "抓取 臂 夹爪 / 挂钩 带 3l 举臂 厚"
+ },
+ "11954.dat": {
+  "zh_name": "销 11×2×3·光滑",
+  "zh_desc": "面板 光滑 11×2×3 带 10 前 销 孔"
+ },
+ "11955.dat": {
+  "zh_name": "齿轮 ·加强",
+  "zh_desc": "齿轮 8 齿 加强 sliding"
+ },
+ "127.dat": {
+  "zh_name": "气缸 2×2×3.5",
+  "zh_desc": "气动件 气缸 2×2×3.5"
+ },
+ "12782.dat": {
+  "zh_name": "马达 6×5×3",
+  "zh_desc": "pullback 马达 6×5×3 threaded 侧"
+ },
+ "12787.dat": {
+  "zh_name": "马达 6×5×3",
+  "zh_desc": "pullback 马达 6×5×3 screw 头 侧"
+ },
+ "12799.dat": {
+  "zh_name": "马达 6×5×3",
+  "zh_desc": "马达 pull 后 6×5×3 (总成)"
+ },
+ "127c01-f1.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 带 1 端口 (retracted)"
+ },
+ "127c01-f2.dat": {
+  "zh_name": "气缸 2×2×5·长",
+  "zh_desc": "气动件 气缸 2×2×5 带 1 端口 (加长)"
+ },
+ "127c02-f1.dat": {
+  "zh_name": "气动件 2×2×5",
+  "zh_desc": "气动件 泵 2×2×5 不带 旋钮 (压缩)"
+ },
+ "127c02-f2.dat": {
+  "zh_name": "气动件 2×2×5·长",
+  "zh_desc": "气动件 泵 2×2×5 不带 旋钮 (加长)"
+ },
+ "127c03-f1.dat": {
+  "zh_name": "气动件 2×2×5",
+  "zh_desc": "气动件 泵 2×2×5 带 5.5l 活塞 (压缩)"
+ },
+ "127c03-f2.dat": {
+  "zh_name": "气动件 2×2×5·长",
+  "zh_desc": "气动件 泵 2×2×5 带 5.5l 活塞 (加长)"
+ },
+ "128.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 盖"
+ },
+ "13670.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 3 带 凸点"
+ },
+ "13710ac01.dat": {
+  "zh_name": "面板 ·光滑",
+  "zh_desc": "贴纸 mindstorms ev3 #1 用于 面板 光滑 中 (成型) (待完善)"
+ },
+ "13710bc01.dat": {
+  "zh_name": "面板 ·光滑",
+  "zh_desc": "贴纸 mindstorms ev3 #2 用于 面板 光滑 中 (成型) (待完善)"
+ },
+ "13710cc01.dat": {
+  "zh_name": "面板 ·光滑",
+  "zh_desc": "贴纸 mindstorms ev3 #3 用于 面板 光滑 中 (成型) (待完善)"
+ },
+ "13710dc01.dat": {
+  "zh_name": "面板 ·光滑",
+  "zh_desc": "贴纸 mindstorms ev3 #4 用于 面板 光滑 中 (成型) (待完善)"
+ },
+ "13710ec01.dat": {
+  "zh_name": "面板 ·光滑",
+  "zh_desc": "贴纸 mindstorms ev3 #5 用于 面板 光滑 中 (成型) (待完善)"
+ },
+ "13710fc01.dat": {
+  "zh_name": "面板 ·光滑",
+  "zh_desc": "贴纸 mindstorms ev3 #6 用于 面板 光滑 中 (成型) (待完善)"
+ },
+ "13710gc01.dat": {
+  "zh_name": "面板 ·光滑长",
+  "zh_desc": "贴纸 mindstorms ev3 #7 用于 面板 光滑 长 (成型) (待完善)"
+ },
+ "13710hc01.dat": {
+  "zh_name": "面板 ·光滑长",
+  "zh_desc": "贴纸 mindstorms ev3 #8 用于 面板 光滑 长 (成型) (待完善)"
+ },
+ "13710ic01.dat": {
+  "zh_name": "面板 ·光滑长",
+  "zh_desc": "贴纸 mindstorms ev3 #9 用于 面板 光滑 长 (成型) (待完善)"
+ },
+ "13710jc01.dat": {
+  "zh_name": "面板 ·光滑长",
+  "zh_desc": "贴纸 mindstorms ev3 #10 用于 面板 光滑 长 (成型) (待完善)"
+ },
+ "13710kc01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "贴纸 mindstorms ev3 #12 用于 梁 3 / 整流罩 右 (成型) (待完善)"
+ },
+ "13710lc01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "贴纸 mindstorms ev3 #12 用于 梁 3 / 整流罩 左 (成型) (待完善)"
+ },
+ "13710mc01.dat": {
+  "zh_name": "面板 ·光滑长",
+  "zh_desc": "贴纸 mindstorms ev3 #13 用于 面板 光滑 长 (成型) (待完善)"
+ },
+ "13710nc01.dat": {
+  "zh_name": "面板 ·光滑长",
+  "zh_desc": "贴纸 mindstorms ev3 #14 用于 面板 光滑 长 (成型) (待完善)"
+ },
+ "14149.dat": {
+  "zh_name": "链条 ·橡胶",
+  "zh_desc": "橡胶 foot 用于 链条 履带 5 宽"
+ },
+ "14653-f1.dat": {
+  "zh_name": "气动件 5L",
+  "zh_desc": "气动件 管 5l"
+ },
+ "14653-f2.dat": {
+  "zh_name": "气动件 5L",
+  "zh_desc": "气动件 管 5l 带 端 凸起"
+ },
+ "14657-f1.dat": {
+  "zh_name": "气动件 7L",
+  "zh_desc": "气动件 管 7l"
+ },
+ "14657-f2.dat": {
+  "zh_name": "气动件 7L",
+  "zh_desc": "气动件 管 7l 带 端 凸起"
+ },
+ "14661-f1.dat": {
+  "zh_name": "气动件 39L",
+  "zh_desc": "气动件 管 39l"
+ },
+ "14661-f2.dat": {
+  "zh_name": "气动件 39L",
+  "zh_desc": "气动件 管 39l 带 端 凸起"
+ },
+ "14696.dat": {
+  "zh_name": "链条 ·加强",
+  "zh_desc": "链条 链节 加强"
+ },
+ "14720.dat": {
+  "zh_name": "梁 5×3",
+  "zh_desc": "梁 5×3 h-shaped"
+ },
+ "15100.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 带 垂直 销孔 型 1"
+ },
+ "15265.dat": {
+  "zh_name": "零件 23×13",
+  "zh_desc": "excavator bucket 23×13"
+ },
+ "15361.dat": {
+  "zh_name": "销 3×5×8",
+  "zh_desc": "气缸 半 3×5×8 带 销 孔"
+ },
+ "15379.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 2.5 宽"
+ },
+ "15457.dat": {
+  "zh_name": "蜗杆 3L",
+  "zh_desc": "蜗杆 齿轮 3l 带 衬套 端"
+ },
+ "15458.dat": {
+  "zh_name": "面板 3×11",
+  "zh_desc": "面板 3×11"
+ },
+ "15458d01.dat": {
+  "zh_name": "车轮 3×11",
+  "zh_desc": "面板 3×11 带 \"bucket 车轮 excavator mk iii\" 和 技术 data 贴纸"
+ },
+ "15458d02.dat": {
+  "zh_name": "面板 3×11",
+  "zh_desc": "面板 3×11 带 白 \"mk iii\", 黑 \"42055\" over 黄 条纹 在 深 蓝 背景 贴纸"
+ },
+ "15458d03.dat": {
+  "zh_name": "面板 3×11",
+  "zh_desc": "面板 3×11 带 黄 条纹 在 深 蓝 背景 贴纸"
+ },
+ "15458d04.dat": {
+  "zh_name": "面板 3×11",
+  "zh_desc": "面板 3×11 带 2 白 letters \"n\", 3 圆形 arrows 和 air outlet grilles 贴纸"
+ },
+ "15458d05.dat": {
+  "zh_name": "面板 3×11",
+  "zh_desc": "面板 3×11 带 2 白 letters \"n\", 3 straight arrows 和 air outlet grilles 贴纸"
+ },
+ "15458d06.dat": {
+  "zh_name": "面板 3×11",
+  "zh_desc": "面板 3×11 带 浅 偏蓝 灰 和 深 偏蓝 灰 危险 条纹 贴纸"
+ },
+ "15459.dat": {
+  "zh_name": "臂 1×5",
+  "zh_desc": "suspension 臂 1×5 型 1"
+ },
+ "15460.dat": {
+  "zh_name": "转向件 1L",
+  "zh_desc": "转向件 臂 带 3 球 joints 带 1l 臂 侧 connection"
+ },
+ "15461.dat": {
+  "zh_name": "连接器 3×1×2",
+  "zh_desc": "连接器 3×1×2 带 销孔 和 二 销 (inline slits)"
+ },
+ "15462.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 5 带止位"
+ },
+ "15555.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 带 槽"
+ },
+ "15646.dat": {
+  "zh_name": "销连接器",
+  "zh_desc": "销连接器 圆形 带 4 厚 c-clips"
+ },
+ "15790.dat": {
+  "zh_name": "零件",
+  "zh_desc": "propeller 3 叶片 9 diameter 带 科技 销孔"
+ },
+ "15926.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 blind 带 eye 图案"
+ },
+ "165395d.dat": {
+  "zh_name": "贴纸 0.7×3.9",
+  "zh_desc": "贴纸 0.7×3.9 带 octan 标志 和 text"
+ },
+ "1661-f1.dat": {
+  "zh_name": "气动件 18L",
+  "zh_desc": "气动件 管 18l"
+ },
+ "1661-f2.dat": {
+  "zh_name": "气动件 18L",
+  "zh_desc": "气动件 管 18l 带 端 凸起"
+ },
+ "16615.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 7"
+ },
+ "16616.dat": {
+  "zh_name": "举臂 3×7·弯折",
+  "zh_desc": "梁 3×7 举臂 弯折 53.13"
+ },
+ "16646.dat": {
+  "zh_name": "轴 1×3",
+  "zh_desc": "齿 1×3 带 轴孔"
+ },
+ "168315a.dat": {
+  "zh_name": "贴纸 1.9×7.9",
+  "zh_desc": "贴纸 1.9×7.9 科技 supercar 4×4×4 标志"
+ },
+ "168315b.dat": {
+  "zh_name": "齿轮 1.8×0.8",
+  "zh_desc": "贴纸 1.8×0.8 科技 supercar 变速箱 1 和 2 白"
+ },
+ "168315c.dat": {
+  "zh_name": "齿轮 1.8×0.8",
+  "zh_desc": "贴纸 1.8×0.8 科技 supercar 变速箱 3 和 4 白"
+ },
+ "168315d.dat": {
+  "zh_name": "贴纸 0.8×3.8",
+  "zh_desc": "贴纸 0.8×3.8 科技 supercar v8 标志"
+ },
+ "168315e.dat": {
+  "zh_name": "贴纸 1.7×3.2",
+  "zh_desc": "贴纸 1.7×3.2 科技 supercar mirror"
+ },
+ "168315f.dat": {
+  "zh_name": "齿轮 1.8×0.8",
+  "zh_desc": "贴纸 1.8×0.8 科技 supercar 变速箱 1 和 2 黑"
+ },
+ "168315g.dat": {
+  "zh_name": "面板 1.1×3.9",
+  "zh_desc": "贴纸 1.1×3.9 科技 supercar instrument 面板 1"
+ },
+ "168315h.dat": {
+  "zh_name": "面板 1.1×3.9",
+  "zh_desc": "贴纸 1.1×3.9 科技 supercar instrument 面板 2"
+ },
+ "168365f.dat": {
+  "zh_name": "齿轮 3.1×17.2",
+  "zh_desc": "贴纸 3.1×17.2 带 黄 gears 在 蓝 背景 和 \"classic\" lego 科技 wording"
+ },
+ "168365fc01.dat": {
+  "zh_name": "齿轮 3.1×17.2",
+  "zh_desc": "贴纸 3.1×17.2 带 黄 gears 在 蓝 背景 和 lego 科技 标志 (成型)"
+ },
+ "170.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "变速箱 20:1 reduction casing"
+ },
+ "170c01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "变速箱 20:1 reduction (总成 assembly)"
+ },
+ "171.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "变速箱 20:1 reduction 后 平板"
+ },
+ "17141.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3"
+ },
+ "172.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "变速箱 20:1 reduction output shaft"
+ },
+ "173.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "变速箱 20:1 reduction input shaft"
+ },
+ "18171.dat": {
+  "zh_name": "连接器 ·光滑",
+  "zh_desc": "连接器 toggle 关节 光滑 双 带 2 销"
+ },
+ "18352.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 yoke 带 轴孔 和 hollow 凸点"
+ },
+ "18384.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 blind"
+ },
+ "18575.dat": {
+  "zh_name": "齿轮 ·锥齿加强",
+  "zh_desc": "齿轮 20 齿 双 锥齿 加强"
+ },
+ "18585.dat": {
+  "zh_name": "砖 2×4·带孔",
+  "zh_desc": "砖 2×4 带孔 和 launcher"
+ },
+ "18587.dat": {
+  "zh_name": "平滑片",
+  "zh_desc": "projectile launcher six-shooter trigger"
+ },
+ "18590.dat": {
+  "zh_name": "齿轮 ·短",
+  "zh_desc": "gearwheel 带 销 孔 和 短 shaft"
+ },
+ "18651.dat": {
+  "zh_name": "轴销 2L·长带摩擦",
+  "zh_desc": "轴销 长 带摩擦 带 2l 轴"
+ },
+ "18654.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 1"
+ },
+ "18938.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "turntable 60 齿 顶"
+ },
+ "18939.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "turntable 60 齿 底"
+ },
+ "18940.dat": {
+  "zh_name": "梁 1×14",
+  "zh_desc": "齿条 1×14 带 底 梁 housing"
+ },
+ "18942.dat": {
+  "zh_name": "梁 1×14",
+  "zh_desc": "齿条 1×14 带 底 梁"
+ },
+ "18943.dat": {
+  "zh_name": "零件 7×5×4.5",
+  "zh_desc": "excavator bucket 7×5×4.5 clamshell"
+ },
+ "18944.dat": {
+  "zh_name": "面板 3×13",
+  "zh_desc": "面板 3×13 弯曲"
+ },
+ "18945.dat": {
+  "zh_name": "面板 5×11",
+  "zh_desc": "面板 5×11 trapezium"
+ },
+ "18945d01.dat": {
+  "zh_name": "面板 5×11",
+  "zh_desc": "面板 5×11 trapezium 带 黄 \"mkiii\", 深 蓝 和 黄 条纹 sloped 右 贴纸"
+ },
+ "18945d02.dat": {
+  "zh_name": "面板 5×11",
+  "zh_desc": "面板 5×11 trapezium 带 黄 \"mkiii\", 深 蓝 和 黄 条纹 sloped 左 贴纸"
+ },
+ "18945d03.dat": {
+  "zh_name": "面板 5×11",
+  "zh_desc": "面板 5×11 trapezium 带 air outlet grilles, hatches 和 electricity 危险 signs sloped 左 贴纸"
+ },
+ "18945d04.dat": {
+  "zh_name": "面板 5×11",
+  "zh_desc": "面板 5×11 trapezium 带 air outlet grilles, hatches 和 electricity 危险 signs sloped 右 贴纸"
+ },
+ "18946.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 16 齿 带 离合 在 两 sides"
+ },
+ "18947.dat": {
+  "zh_name": "零件 3L",
+  "zh_desc": "transmission driving 环 3l"
+ },
+ "18948.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "轴 接合件 3l 带 ridges 用于 driving 环"
+ },
+ "19159.dat": {
+  "zh_name": "连接器 3×1×3",
+  "zh_desc": "连接器 3×1×3 带 2 clips 和 2 销 带 squared inside"
+ },
+ "1936.dat": {
+  "zh_name": "销 5×5",
+  "zh_desc": "swashplate 5×5 顶 带 5 销 孔"
+ },
+ "1937.dat": {
+  "zh_name": "销 5×5",
+  "zh_desc": "swashplate 5×5 底座 带 4 销 孔"
+ },
+ "1938.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "swashplate 球关节 带 4 grooves 和 方形 孔"
+ },
+ "19466.dat": {
+  "zh_name": "气缸 2×11",
+  "zh_desc": "气动件 气缸 2×11 带 2 端口 主体"
+ },
+ "19466c01.dat": {
+  "zh_name": "气缸 2×11",
+  "zh_desc": "气动件 气缸 2×11 带 2 端口 主体 和 盖"
+ },
+ "19467.dat": {
+  "zh_name": "气缸 2×11",
+  "zh_desc": "气动件 气缸 2×11 活塞 头"
+ },
+ "19467c01.dat": {
+  "zh_name": "气缸 2×11",
+  "zh_desc": "气动件 气缸 2×11 活塞 头 和 杆"
+ },
+ "19474-f1.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 (neutral position)"
+ },
+ "19474-f2.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 (down position)"
+ },
+ "19474-f3.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 (up position)"
+ },
+ "19475-f1.dat": {
+  "zh_name": "气缸 1×1×5",
+  "zh_desc": "气动件 气缸 1×1×5 带 2 端口 带 stepped outlets (retracted)"
+ },
+ "19475-f2.dat": {
+  "zh_name": "气缸 1×1×5·长",
+  "zh_desc": "气动件 气缸 1×1×5 带 2 端口 带 stepped outlets (加长)"
+ },
+ "19476-f1.dat": {
+  "zh_name": "气缸 1×11",
+  "zh_desc": "气动件 气缸 1×11 带 2 端口 带 stepped outlets (retracted)"
+ },
+ "19476-f2.dat": {
+  "zh_name": "气缸 1×11·长",
+  "zh_desc": "气动件 气缸 1×11 带 2 端口 带 stepped outlets (加长)"
+ },
+ "19478-f1.dat": {
+  "zh_name": "气缸 2×11",
+  "zh_desc": "气动件 气缸 2×11 带 2 端口 带 stepped outlets (retracted)"
+ },
+ "19478-f2.dat": {
+  "zh_name": "气缸 2×11·长",
+  "zh_desc": "气动件 气缸 2×11 带 2 端口 带 stepped outlets (加长)"
+ },
+ "19482-f1.dat": {
+  "zh_name": "气动件 1×1×6",
+  "zh_desc": "气动件 泵 1×1×6 带 stepped outlet (retracted)"
+ },
+ "19482-f2.dat": {
+  "zh_name": "气动件 1×1×6·长",
+  "zh_desc": "气动件 泵 1×1×6 带 stepped outlet (加长)"
+ },
+ "195075a.dat": {
+  "zh_name": "贴纸 1.9×2.8",
+  "zh_desc": "贴纸 1.9×2.8 带 黄 box 和 箭头 右"
+ },
+ "195075b.dat": {
+  "zh_name": "贴纸 1.9×2.8",
+  "zh_desc": "贴纸 1.9×2.8 带 黄 box 和 箭头 左"
+ },
+ "1994.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "气缸 带 销孔 和 半 click 旋转 关节 球"
+ },
+ "21755.dat": {
+  "zh_name": "轴 2L",
+  "zh_desc": "轴 接合件 2l hilt"
+ },
+ "21761-f1.dat": {
+  "zh_name": "气动件 3L",
+  "zh_desc": "气动件 管 3l"
+ },
+ "21761-f2.dat": {
+  "zh_name": "气动件 3L",
+  "zh_desc": "气动件 管 3l 带 端 凸起"
+ },
+ "21766-f1.dat": {
+  "zh_name": "气动件 6L",
+  "zh_desc": "气动件 管 6l"
+ },
+ "21766-f2.dat": {
+  "zh_name": "气动件 6L",
+  "zh_desc": "气动件 管 6l 带 端 凸起"
+ },
+ "21767-f1.dat": {
+  "zh_name": "气动件 10L",
+  "zh_desc": "气动件 管 10l"
+ },
+ "21767-f2.dat": {
+  "zh_name": "气动件 10L",
+  "zh_desc": "气动件 管 10l 带 端 凸起"
+ },
+ "21825-f1.dat": {
+  "zh_name": "气动件 28L",
+  "zh_desc": "气动件 管 28l"
+ },
+ "21825-f2.dat": {
+  "zh_name": "气动件 28L",
+  "zh_desc": "气动件 管 28l 带 端 凸起"
+ },
+ "21826-f1.dat": {
+  "zh_name": "气动件 9L",
+  "zh_desc": "气动件 管 9l"
+ },
+ "21826-f2.dat": {
+  "zh_name": "气动件 9L",
+  "zh_desc": "气动件 管 9l 带 端 凸起"
+ },
+ "21828.dat": {
+  "zh_name": "气缸 1×11",
+  "zh_desc": "气动件 气缸 1×11 活塞 头"
+ },
+ "21828c01.dat": {
+  "zh_name": "气缸 1×11",
+  "zh_desc": "气动件 气缸 1×11 活塞 头 和 杆"
+ },
+ "21830-f1.dat": {
+  "zh_name": "气动件 27L",
+  "zh_desc": "气动件 管 27l"
+ },
+ "21830-f2.dat": {
+  "zh_name": "气动件 27L",
+  "zh_desc": "气动件 管 27l 带 端 凸起"
+ },
+ "21833-f1.dat": {
+  "zh_name": "气动件 30L",
+  "zh_desc": "气动件 管 30l"
+ },
+ "21833-f2.dat": {
+  "zh_name": "气动件 30L",
+  "zh_desc": "气动件 管 30l 带 端 凸起"
+ },
+ "21835-f1.dat": {
+  "zh_name": "气动件 37L",
+  "zh_desc": "气动件 管 37l"
+ },
+ "21835-f2.dat": {
+  "zh_name": "气动件 37L",
+  "zh_desc": "气动件 管 37l 带 端 凸起"
+ },
+ "21837-f1.dat": {
+  "zh_name": "气动件 8L",
+  "zh_desc": "气动件 管 8l"
+ },
+ "21837-f2.dat": {
+  "zh_name": "气动件 8L",
+  "zh_desc": "气动件 管 8l 带 端 凸起"
+ },
+ "21839-f1.dat": {
+  "zh_name": "气动件 19L",
+  "zh_desc": "气动件 管 19l"
+ },
+ "21839-f2.dat": {
+  "zh_name": "气动件 19L",
+  "zh_desc": "气动件 管 19l 带 端 凸起"
+ },
+ "22011.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 capacitor 带 clear 顶"
+ },
+ "22020-f1.dat": {
+  "zh_name": "减震器 10L·长",
+  "zh_desc": "减震器 10l damped 弹簧 (加长)"
+ },
+ "22020-f2.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped 弹簧 (压缩)"
+ },
+ "22296.dat": {
+  "zh_name": "软管 53L·柔性",
+  "zh_desc": "柔性-系统 软管 53l (1060ldu)"
+ },
+ "22385p001.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - hawk holler"
+ },
+ "22385p002.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - backlash lightning"
+ },
+ "22385p003.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - stronghold 的 resolution"
+ },
+ "22385p004.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - mech master"
+ },
+ "22385p005.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - sword tornado"
+ },
+ "22385p006.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - sea dragon"
+ },
+ "22385p007.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - backfire"
+ },
+ "22385p008.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - egg 的 doom"
+ },
+ "22385p009.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - croc tears"
+ },
+ "22385p010.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ice burst"
+ },
+ "22385p011.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - dragon 的 justice"
+ },
+ "22385p012.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - formation 的 fortitude"
+ },
+ "22385p013.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - roaring righteousness"
+ },
+ "22385p014.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - order 的 the knights code"
+ },
+ "22385p015.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - banana bombs"
+ },
+ "22385p016.dat": {
+  "zh_name": "梁 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 梁 jump"
+ },
+ "22385p017.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - rocketship"
+ },
+ "22385p018.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - veil 的 concealment"
+ },
+ "22385p019.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - zap zap"
+ },
+ "22385p020.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ultra armor activate"
+ },
+ "22385p021.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - broom 的 doom"
+ },
+ "22385p022.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - minify suprise"
+ },
+ "22385p023.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - brain freeze"
+ },
+ "22385p024.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - whirlwind"
+ },
+ "22385p025.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - giant growth"
+ },
+ "22385p026.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - raptor bite"
+ },
+ "22385p027.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - cool creation"
+ },
+ "22385p028.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 盾牌 的 schooling 和 protection"
+ },
+ "22385p029.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - hail to the jester"
+ },
+ "22385p030.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - fireflies"
+ },
+ "22385p031.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ship wrecker"
+ },
+ "22385p032.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - shadow snail"
+ },
+ "22385p033.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - bear claws"
+ },
+ "22385p034.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - water wall"
+ },
+ "22385p035.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - air portal"
+ },
+ "22385p036.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - armadillo shelter"
+ },
+ "22385p038.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - bone shaker"
+ },
+ "22385p039.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - chrome bell"
+ },
+ "22385p040.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - cool moves"
+ },
+ "22385p041.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - drop the beat"
+ },
+ "22385p044.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - guard dog"
+ },
+ "22385p045.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - haunted armor"
+ },
+ "22385p046.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - hornblower"
+ },
+ "22385p047.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ice cream"
+ },
+ "22385p048.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - inverted charge"
+ },
+ "22385p049.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - iron dragon"
+ },
+ "22385p050.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - jumperman"
+ },
+ "22385p052.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - powder keg"
+ },
+ "22385p053.dat": {
+  "zh_name": "平滑片 3×2·带角度橡胶",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 橡胶 band 的 mischief"
+ },
+ "22385p054.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - sir tauntalot"
+ },
+ "22385p055.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - squeeze wrench"
+ },
+ "22385p056.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - yeti sneeze"
+ },
+ "22385p057.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ticking baboon"
+ },
+ "22385p058.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - titanium sword"
+ },
+ "22385p060.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - collapsing crumble"
+ },
+ "22385p061.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - corrupting crush"
+ },
+ "22385p062.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - vicious voltage"
+ },
+ "22385p063.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - crystal balls"
+ },
+ "22385p064.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - fallen hero"
+ },
+ "22385p065.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - thundering thrash"
+ },
+ "22385p066.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - wedgie 的 doom"
+ },
+ "22385p067.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - cosmic invasion"
+ },
+ "22385p068.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 电动 bubble"
+ },
+ "22385p069.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - magician's hat"
+ },
+ "22385p101.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - super human speed"
+ },
+ "22385p102.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - rolling fireball"
+ },
+ "22385p103.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 箭头 strike"
+ },
+ "22385p104.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - poison burst"
+ },
+ "22385p105.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - jungle dragon"
+ },
+ "22385p106.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - dynamighty"
+ },
+ "22385p107.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - venom bite"
+ },
+ "22385p109.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - time breach"
+ },
+ "22385p110.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - swift sting"
+ },
+ "22385p111.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - bonkers beans"
+ },
+ "22385p112.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - lion 的 bravery"
+ },
+ "22385p113.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - flight 的 the phoenix"
+ },
+ "22385p114.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - supersonic 盾牌"
+ },
+ "22385p115.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - moth swarm"
+ },
+ "22385p116.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - dazzling lure"
+ },
+ "22385p117.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - bullfrog superbound"
+ },
+ "22385p118.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - sour strike"
+ },
+ "22385p119.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - broccoli tornado"
+ },
+ "22385p120.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - mouse trap"
+ },
+ "22385p121.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - adrenaline rush"
+ },
+ "22385p122.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ice rain"
+ },
+ "22385p123.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - stone stun"
+ },
+ "22385p124.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - gaze 的 the gorgon"
+ },
+ "22385p125.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - serpent 的 anti virus"
+ },
+ "22385p126.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - magic anti evil ultra armor upgrade"
+ },
+ "22385p127.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - snake den"
+ },
+ "22385p128.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - funky fungus"
+ },
+ "22385p129.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - transformation"
+ },
+ "22385p130.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - sidekick"
+ },
+ "22385p131.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - snapper stand"
+ },
+ "22385p132.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - depth charge"
+ },
+ "22385p133.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - alpha drill"
+ },
+ "22385p134.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - bear the brunt"
+ },
+ "22385p135.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - blast mask"
+ },
+ "22385p136.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - boom stick"
+ },
+ "22385p137.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - bowmaster"
+ },
+ "22385p138.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - candy floss"
+ },
+ "22385p139.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - cleansing rain"
+ },
+ "22385p141.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - gamma rays"
+ },
+ "22385p142.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - gorilla roar"
+ },
+ "22385p143.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - honey bees"
+ },
+ "22385p144.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - lock smith"
+ },
+ "22385p145.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - mechanical griffin"
+ },
+ "22385p146.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - needle storm"
+ },
+ "22385p147.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - orbital strike"
+ },
+ "22385p148.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - out 的 soap"
+ },
+ "22385p149.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - paprika bolt"
+ },
+ "22385p151.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - seagull bomb"
+ },
+ "22385p152.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - slime slugs"
+ },
+ "22385p154.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - tone 的 电力"
+ },
+ "22385p156.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - aging antilife"
+ },
+ "22385p158.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - ravaging rot"
+ },
+ "22385p159.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - roto sentry"
+ },
+ "22385p160.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - devastating decay"
+ },
+ "22385p161.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - tech tree"
+ },
+ "22385p162.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - devious demolition"
+ },
+ "22385p163.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - striking backlash"
+ },
+ "22385p164.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - living glue"
+ },
+ "22385p165.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - unicorn might"
+ },
+ "22385p166.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 电力 的 squirrel"
+ },
+ "22385p201.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - rushing strike"
+ },
+ "22385p202.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - clapperclaw"
+ },
+ "22385p203.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - mace rain"
+ },
+ "22385p204.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - globlin attack"
+ },
+ "22385p205.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - incinerate"
+ },
+ "22385p206.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - lava dragon"
+ },
+ "22385p207.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - charging attack"
+ },
+ "22385p208.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - 叶片 的 bravery"
+ },
+ "22385p209.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - soaring eagle"
+ },
+ "22385p210.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - toxic sting"
+ },
+ "22385p211.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - prism 的 clarity"
+ },
+ "22385p212.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - magma burst"
+ },
+ "22385p213.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - alliance 的 the fortrex"
+ },
+ "22385p214.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - glory 的 knighton"
+ },
+ "22385p403.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 带 Nexo 电力 盾牌 图案 - target blaster"
+ },
+ "22461.dat": {
+  "zh_name": "软管 34L·柔性",
+  "zh_desc": "柔性-系统 软管 34l (680ldu)"
+ },
+ "22463.dat": {
+  "zh_name": "软管 19L·柔性",
+  "zh_desc": "柔性-系统 软管 19l (380ldu)"
+ },
+ "22578.dat": {
+  "zh_name": "面板",
+  "zh_desc": "电动 科技 solar 面板"
+ },
+ "22579.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 capacitor circuit board"
+ },
+ "22631.dat": {
+  "zh_name": "零件",
+  "zh_desc": "roborider container lid"
+ },
+ "22678.dat": {
+  "zh_name": "软管 31L",
+  "zh_desc": "带肋 软管 31l"
+ },
+ "22749.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #1"
+ },
+ "22750.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #2"
+ },
+ "22900.dat": {
+  "zh_name": "软管 17L",
+  "zh_desc": "带肋 软管 17l"
+ },
+ "22961.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 带 垂直 销孔"
+ },
+ "22969.dat": {
+  "zh_name": "车轮 56×46·已弃用",
+  "zh_desc": "车轮 56×46 科技 racing (已弃用)"
+ },
+ "22969a.dat": {
+  "zh_name": "车轮 56×46",
+  "zh_desc": "车轮 56×46 科技 racing"
+ },
+ "22969ac01.dat": {
+  "zh_name": "轮胎 56×46",
+  "zh_desc": "车轮 56×46 科技 racing 带 轮胎 61/ 41×54 off road"
+ },
+ "22969ac02.dat": {
+  "zh_name": "轮胎 56×46",
+  "zh_desc": "车轮 56×46 科技 racing 带 轮胎 61/ 41×54 电力 puller"
+ },
+ "22969c01.dat": {
+  "zh_name": "轮胎 56×46·已弃用",
+  "zh_desc": "车轮 56×46 科技 racing 带 轮胎 61/ 41×54 off road (已弃用)"
+ },
+ "22969c02.dat": {
+  "zh_name": "轮胎 56×46·已弃用",
+  "zh_desc": "车轮 56×46 科技 racing w 轮胎 61/ 41×54 电力 puller (已弃用)"
+ },
+ "22972.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #3"
+ },
+ "22973.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #4"
+ },
+ "22977.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "弹簧 用于 科技 减震器 6.5l extra stiff"
+ },
+ "23167.dat": {
+  "zh_name": "电动件 ·已弃用",
+  "zh_desc": "电动 科技 micro-scout 灰/黑 (已弃用)"
+ },
+ "23397.dat": {
+  "zh_name": "软管 24L",
+  "zh_desc": "带肋 软管 24l"
+ },
+ "23801.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 2 销孔 和 2 axleholes arms"
+ },
+ "2387.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #7 (薄 very 短)"
+ },
+ "2389.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #8 (薄 very 短)"
+ },
+ "2391.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 7 带 alternating 孔"
+ },
+ "2393.dat": {
+  "zh_name": "销 1×3",
+  "zh_desc": "十字 块 1×3 (销/销/销) 带 2 销"
+ },
+ "23948.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 11"
+ },
+ "2395.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #9 (中 triangle)"
+ },
+ "24014.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 12 齿 双 锥齿 带 轴 extension"
+ },
+ "2403.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #10 (中 triangle)"
+ },
+ "2405.dat": {
+  "zh_name": "车轮 5L",
+  "zh_desc": "车轮 spindle 轴 driver bar 5l"
+ },
+ "24116.dat": {
+  "zh_name": "面板 4×5×3·弯折",
+  "zh_desc": "面板 弯折 4×5×3"
+ },
+ "24116d01.dat": {
+  "zh_name": "面板 4×5×3·弯折",
+  "zh_desc": "面板 弯折 4×5×3 带 黑 lines 和 rectangles stickers #1"
+ },
+ "24116d02.dat": {
+  "zh_name": "面板 4×5×3·弯折",
+  "zh_desc": "面板 弯折 4×5×3 带 黑 lines 和 rectangles stickers #2"
+ },
+ "24116d03.dat": {
+  "zh_name": "面板 4×5×3·弯折",
+  "zh_desc": "面板 弯折 4×5×3 带 黑 lines 和 rectangles 和 红 和 白 危险 strips 倾斜 右 stickers"
+ },
+ "24116d04.dat": {
+  "zh_name": "面板 4×5×3·弯折",
+  "zh_desc": "面板 弯折 4×5×3 带 黑 lines 和 rectangles 和 红 和 白 危险 strips 倾斜 左 stickers"
+ },
+ "24118.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形"
+ },
+ "24118p01.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形 带 vent grid 右 图案"
+ },
+ "24118p02.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形 带 vent grid 左 图案"
+ },
+ "24119.dat": {
+  "zh_name": "面板 7×2×3·光滑",
+  "zh_desc": "面板 光滑 7×2×3"
+ },
+ "24119p00.dat": {
+  "zh_name": "面板 7×2×3·光滑",
+  "zh_desc": "面板 光滑 7×2×3 带 gas 盖 图案"
+ },
+ "24120.dat": {
+  "zh_name": "零件 4×5",
+  "zh_desc": "excavator bucket 4×5"
+ },
+ "24121.dat": {
+  "zh_name": "齿轮 11×11",
+  "zh_desc": "齿轮 环 四分之一 11×11 带 35 teeth"
+ },
+ "24121d01.dat": {
+  "zh_name": "齿轮 11×11",
+  "zh_desc": "齿轮 环 四分之一 11×11 带 35 teeth 带 crushing hazard 危险 sign 在 黄 背景 和 红 和 白 危险 条纹 倾斜 左 stickers"
+ },
+ "24121d02.dat": {
+  "zh_name": "齿轮 11×11",
+  "zh_desc": "齿轮 环 四分之一 11×11 带 35 teeth 带 crushing hazard 危险 sign 在 黄 背景 和 红 和 白 危险 条纹 倾斜 右 stickers"
+ },
+ "24121d03.dat": {
+  "zh_name": "齿轮 11×11",
+  "zh_desc": "齿轮 环 四分之一 11×11 带 35 teeth 带 crushing hazard 危险 sign 在 黄 背景 (upward facing) 和 红 和 白 危险 条纹 倾斜 右 stickers"
+ },
+ "24122.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴孔 带 2 垂直 bar tubes"
+ },
+ "2431.dat": {
+  "zh_name": "平滑片 1×4",
+  "zh_desc": "平滑片 1×4 带 groove"
+ },
+ "24316.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 3 带止位"
+ },
+ "2431d0r.dat": {
+  "zh_name": "平滑片 1×4",
+  "zh_desc": "平滑片 1×4 带 科技 supercar v8 标志 贴纸"
+ },
+ "24375.dat": {
+  "zh_name": "销 ·橡胶",
+  "zh_desc": "橡胶 销 用于 链条 履带 5 宽"
+ },
+ "2438.dat": {
+  "zh_name": "面板 5×3×2",
+  "zh_desc": "面板 5×3×2 corner 左"
+ },
+ "2438p01.dat": {
+  "zh_name": "面板 5×3×2",
+  "zh_desc": "面板 5×3×2 corner 左 带 ford gt headlight 图案"
+ },
+ "2442.dat": {
+  "zh_name": "面板 5×3×2",
+  "zh_desc": "面板 5×3×2 corner 右"
+ },
+ "2442p01.dat": {
+  "zh_name": "面板 5×3×2",
+  "zh_desc": "面板 5×3×2 corner 右 带 ford gt headlight 图案"
+ },
+ "24505.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 带 单 轴孔"
+ },
+ "2457.dat": {
+  "zh_name": "面板 3×2×1·带角度",
+  "zh_desc": "面板 弯曲 3×2×1 带角度 #3"
+ },
+ "2459.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42"
+ },
+ "2459p01.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42 带 白 x 在 黄 背景 和 银 vents 左 图案"
+ },
+ "2459p02.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42 带 白 x 在 黄 背景 和 银 vents 右 图案"
+ },
+ "2459p03.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42 带 白 x 在 深 azure 背景 和 银 vents 左 图案"
+ },
+ "2459p04.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42 带 白 x 在 深 azure 背景 和 银 vents 右 图案"
+ },
+ "2471.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 带 离合 在 两 sides"
+ },
+ "2473a.dat": {
+  "zh_name": "零件 2L",
+  "zh_desc": "transmission driving 环 2l 带 8 teeth"
+ },
+ "2474a.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 stepper 带 8 teeth"
+ },
+ "2477.dat": {
+  "zh_name": "梁 3×5·弯折",
+  "zh_desc": "梁 3×5 弯折 90 带 alternating 孔"
+ },
+ "2502.dat": {
+  "zh_name": "梁 2×12×9",
+  "zh_desc": "梁 2×12×9 带 夹爪"
+ },
+ "2509.dat": {
+  "zh_name": "面板 11×2×5",
+  "zh_desc": "面板 11×2×5 挡泥板 拱形 #32"
+ },
+ "2536.dat": {
+  "zh_name": "零件 ·已弃用",
+  "zh_desc": "plant tree palm trunk (已弃用)"
+ },
+ "25672.dat": {
+  "zh_name": "轴 2L",
+  "zh_desc": "轴 接合件 2l hilt"
+ },
+ "2607b.dat": {
+  "zh_name": "砖 2×3",
+  "zh_desc": "magnet holder 2×3 科技 砖"
+ },
+ "2607bc01.dat": {
+  "zh_name": "砖 2×3",
+  "zh_desc": "magnet holder 2×3 科技 砖 带 黑 magnet"
+ },
+ "26280.dat": {
+  "zh_name": "梁 2×2",
+  "zh_desc": "气动件 泵 2×2 底座 带 3l 梁"
+ },
+ "26280c01.dat": {
+  "zh_name": "梁 2×2",
+  "zh_desc": "气动件 泵 2×2 底座 带 3l 梁 带 黑 盖"
+ },
+ "26287.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "轴 接合件 3l"
+ },
+ "26288c01-f1.dat": {
+  "zh_name": "梁 2×2",
+  "zh_desc": "气动件 泵 2×2 带 3l 梁 (retracted)"
+ },
+ "26288c01-f2.dat": {
+  "zh_name": "梁 2×2·长",
+  "zh_desc": "气动件 泵 2×2 带 3l 梁 (加长)"
+ },
+ "2637.dat": {
+  "zh_name": "链节 16L",
+  "zh_desc": "链节 16l"
+ },
+ "26436-f1.dat": {
+  "zh_name": "气动件 23L",
+  "zh_desc": "气动件 管 23l"
+ },
+ "26436-f2.dat": {
+  "zh_name": "气动件 23L",
+  "zh_desc": "气动件 管 23l 带 端 凸起"
+ },
+ "26438-f1.dat": {
+  "zh_name": "气动件 40L",
+  "zh_desc": "气动件 管 40l"
+ },
+ "26438-f2.dat": {
+  "zh_name": "气动件 40L",
+  "zh_desc": "气动件 管 40l 带 端 凸起"
+ },
+ "26439-f1.dat": {
+  "zh_name": "气动件 48L",
+  "zh_desc": "气动件 管 48l"
+ },
+ "26439-f2.dat": {
+  "zh_name": "气动件 48L",
+  "zh_desc": "气动件 管 48l 带 端 凸起"
+ },
+ "26440-f1.dat": {
+  "zh_name": "气动件 32L",
+  "zh_desc": "气动件 管 32l"
+ },
+ "26440-f2.dat": {
+  "zh_name": "气动件 32L",
+  "zh_desc": "气动件 管 32l 带 端 凸起"
+ },
+ "26445-f1.dat": {
+  "zh_name": "气动件 4L",
+  "zh_desc": "气动件 管 4l"
+ },
+ "26445-f2.dat": {
+  "zh_name": "气动件 4L",
+  "zh_desc": "气动件 管 4l 带 端 凸起"
+ },
+ "26530.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形 带 vent grid 左 图案"
+ },
+ "26531.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形 带 vent grid 右 图案"
+ },
+ "26603p01.dat": {
+  "zh_name": "平滑片 2×3",
+  "zh_desc": "平滑片 2×3 带 技术 text tabular 在 chalkboard 图案"
+ },
+ "26674-f1.dat": {
+  "zh_name": "气动件 1×1×6·加强",
+  "zh_desc": "气动件 泵 1×1×6 带 加强 底座 (retracted)"
+ },
+ "26674-f2.dat": {
+  "zh_name": "气动件 1×1×6·加强长",
+  "zh_desc": "气动件 泵 1×1×6 带 加强 底座 (加长)"
+ },
+ "2698.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso"
+ },
+ "2698c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 (总成)"
+ },
+ "2698p01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 白 zipper 图案"
+ },
+ "2698p02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 orca 图案"
+ },
+ "2698p03.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "人偶 torso 带 科技 标志 和 齿轮 图案"
+ },
+ "2698p04.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 snowflake 标志 和 红 条纹 图案"
+ },
+ "2698p05.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 jacket 带 四 pockets 图案"
+ },
+ "2698p06.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 蓝 seatbelt 和 红 buckle 图案"
+ },
+ "2698p07.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 红 chest 和 triangle 图案"
+ },
+ "2698p08.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 torso 带 蓝 chest 和 belt 图案"
+ },
+ "2699.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "人偶 主体 连接器"
+ },
+ "2699c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 主体"
+ },
+ "2700.dat": {
+  "zh_name": "臂",
+  "zh_desc": "人偶 臂 段"
+ },
+ "2701.dat": {
+  "zh_name": "臂",
+  "zh_desc": "人偶 臂 轴承"
+ },
+ "2701c01.dat": {
+  "zh_name": "销",
+  "zh_desc": "人偶 臂 轴承 带 销"
+ },
+ "2702.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 hand"
+ },
+ "2703.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 leg upper 左"
+ },
+ "2704.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 leg lower"
+ },
+ "2705.dat": {
+  "zh_name": "销",
+  "zh_desc": "人偶 臂 轴承 销"
+ },
+ "2706.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 foot"
+ },
+ "2707.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头"
+ },
+ "2707p01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头 带 黑 shades 图案"
+ },
+ "2707p02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头 带 深 蓝 shades 图案"
+ },
+ "2707p03.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头 带 frown 和 smirk 图案"
+ },
+ "2707p04.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头 带 厚 eyebrows 图案"
+ },
+ "2707p05.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头 带 beard 图案"
+ },
+ "2707p06.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 头 带 standard grin 图案"
+ },
+ "2708.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 hair"
+ },
+ "2709.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 leg upper 右"
+ },
+ "2710.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 主体 lower"
+ },
+ "2711.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 2 叶片 带 2 凸点"
+ },
+ "2712.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 3 叶片"
+ },
+ "2713.dat": {
+  "zh_name": "零件",
+  "zh_desc": "ski"
+ },
+ "2715.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 helmet (待完善)"
+ },
+ "2716.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 helmet visor (待完善)"
+ },
+ "2717.dat": {
+  "zh_name": "零件 3×2",
+  "zh_desc": "seat 3×2 底座"
+ },
+ "2719.dat": {
+  "zh_name": "平板 1×10·带孔",
+  "zh_desc": "平板 1×10 带孔"
+ },
+ "2723.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔"
+ },
+ "2723d01.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 带 宽 黑 和 白 alternating sections 贴纸"
+ },
+ "2723d02.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 带 narrow 黑 和 白 alternating sections 贴纸"
+ },
+ "2723p01.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 和 metallic 银 圆盘 brake 图案"
+ },
+ "2723p02.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 带 深 偏蓝 灰 hubcap 图案"
+ },
+ "2723p03.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 带 黑 和 深 偏蓝 灰 circles 和 银 spokes 图案"
+ },
+ "2723p05.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 带 4 黑 sections 在 单 侧 和 8 在 reverse 图案"
+ },
+ "2723p07.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 带 银 和 浅 偏蓝 灰 fan 图案"
+ },
+ "2726.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶"
+ },
+ "2726c01.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 带 straight sided underside"
+ },
+ "2726c03.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶 带 metal fins"
+ },
+ "2727a.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 underside 带 底 方形 孔 带 straight sides"
+ },
+ "2727ac01.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 underside 带 底 方形 孔 带 straight sides 带 metal clamps"
+ },
+ "273.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 链节 带 二 凸点"
+ },
+ "2730.dat": {
+  "zh_name": "砖 1×10·带孔",
+  "zh_desc": "砖 1×10 带孔"
+ },
+ "2736.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 拖球"
+ },
+ "2737.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 tall"
+ },
+ "2738.dat": {
+  "zh_name": "臂 2×6.5",
+  "zh_desc": "suspension 臂 2×6.5 型 1"
+ },
+ "2739a.dat": {
+  "zh_name": "转向件 6L",
+  "zh_desc": "转向件 链节 6l 型 1"
+ },
+ "2740.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 带 销孔 和 shaft"
+ },
+ "2741.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 大"
+ },
+ "2742.dat": {
+  "zh_name": "零件",
+  "zh_desc": "propeller 3 叶片 15 diameter"
+ },
+ "2742c01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "propeller 3 叶片 15 diameter 带 浅 灰 科技 砖 和 齿轮 24t"
+ },
+ "2743.dat": {
+  "zh_name": "砖 1×4×1.667",
+  "zh_desc": "砖 1×4×1.667 wing 前"
+ },
+ "2744.dat": {
+  "zh_name": "砖 1×6×1.667",
+  "zh_desc": "砖 1×6×1.667 wing 后"
+ },
+ "2745.dat": {
+  "zh_name": "轴 4×4×1.667",
+  "zh_desc": "气缸 4×4×1.667 带 axleholes"
+ },
+ "2780.dat": {
+  "zh_name": "摩擦销 2L",
+  "zh_desc": "带摩擦的标准连接销，两端各插入一个销孔，是最常用的固定连接件（蓝色）。"
+ },
+ "2790a.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 齿条"
+ },
+ "2791a.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 齿轮 holder"
+ },
+ "2792.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 顶"
+ },
+ "2793.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 带 2 端口"
+ },
+ "27938.dat": {
+  "zh_name": "蜗杆 1L",
+  "zh_desc": "蜗杆 齿轮 1l"
+ },
+ "2793c01-f1.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 带 2 端口 (retracted)"
+ },
+ "2793c01-f2.dat": {
+  "zh_name": "气缸 2×2×5·长",
+  "zh_desc": "气动件 气缸 2×2×5 带 2 端口 (加长)"
+ },
+ "2793c03.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 带 2 端口 和 盖"
+ },
+ "27940.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "轴 3l 带 middle 垂直 销孔"
+ },
+ "2795.dat": {
+  "zh_name": "气缸 2×2×1",
+  "zh_desc": "气动件 气缸 2×2×1 盖 带 端口 槽"
+ },
+ "2796.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 杆 4l cylindrical"
+ },
+ "2796c01.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 杆 4l cylindrical 带 gasket"
+ },
+ "2797.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 底座 型 2"
+ },
+ "2797c01-f1.dat": {
+  "zh_name": "气动件 2×2×5",
+  "zh_desc": "气动件 泵 2×2×5 带 大 旋钮 (retracted)"
+ },
+ "2797c01-f2.dat": {
+  "zh_name": "气动件 2×2×5·长",
+  "zh_desc": "气动件 泵 2×2×5 带 大 旋钮 (加长)"
+ },
+ "2797c03.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 底座 型 2 和 盖"
+ },
+ "2798.dat": {
+  "zh_name": "气缸 2×2×4",
+  "zh_desc": "气动件 气缸 2×2×4"
+ },
+ "2799.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 带 大 旋钮 handle"
+ },
+ "2799c01.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 杆 4l cylindrical 带 gasket"
+ },
+ "2804.dat": {
+  "zh_name": "气缸 2×2×1",
+  "zh_desc": "气动件 气缸 2×2×1 盖 不带 端口 槽"
+ },
+ "2805.dat": {
+  "zh_name": "零件 2×2",
+  "zh_desc": "泵 2×2 gasket"
+ },
+ "2806.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 gasket"
+ },
+ "2814.dat": {
+  "zh_name": "零件 14×8",
+  "zh_desc": "excavator bucket 14×8 带 7 teeth"
+ },
+ "2815.dat": {
+  "zh_name": "轮胎",
+  "zh_desc": "wedge belt 车轮 轮胎"
+ },
+ "2819.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 小"
+ },
+ "28216.dat": {
+  "zh_name": "零件 10×7",
+  "zh_desc": "excavator bucket 10×7"
+ },
+ "2823.dat": {
+  "zh_name": "零件",
+  "zh_desc": "forklift fork"
+ },
+ "2823d01.dat": {
+  "zh_name": "贴纸",
+  "zh_desc": "forklift fork 带 octan 标志 左 贴纸"
+ },
+ "2823d02.dat": {
+  "zh_name": "贴纸",
+  "zh_desc": "forklift fork 带 octan 标志 右 贴纸"
+ },
+ "2825.dat": {
+  "zh_name": "举臂 4×0.5",
+  "zh_desc": "梁 4×0.5 举臂 带 boss"
+ },
+ "2837b.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 马达 9v 顶"
+ },
+ "2838.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 马达 9v 底座"
+ },
+ "2838c01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 马达 9v"
+ },
+ "2839a.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 科技 马达 9v shaft (带 fake metal 轴)"
+ },
+ "2840.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - 底座 底"
+ },
+ "2841.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - 顶 带 电力 cord inlet"
+ },
+ "2842.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 - cover (待完善)"
+ },
+ "2842c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 i 带 黄/红 buttons (总成)"
+ },
+ "2842c02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii 带 红/灰 buttons (总成)"
+ },
+ "2843.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - rectangular button pair"
+ },
+ "2844.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - 大 圆形 button"
+ },
+ "2845.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "control 中心 - battery cover"
+ },
+ "2850a.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头 带 侧 槽"
+ },
+ "2850b.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头 带 底 槽"
+ },
+ "2851.dat": {
+  "zh_name": "零件",
+  "zh_desc": "engine 活塞 圆形"
+ },
+ "2852.dat": {
+  "zh_name": "零件",
+  "zh_desc": "engine connecting 杆"
+ },
+ "2853.dat": {
+  "zh_name": "零件",
+  "zh_desc": "engine crankshaft"
+ },
+ "2854.dat": {
+  "zh_name": "零件",
+  "zh_desc": "engine crankshaft 中心"
+ },
+ "2855.dat": {
+  "zh_name": "零件",
+  "zh_desc": "turntable 型 1 顶"
+ },
+ "2856.dat": {
+  "zh_name": "零件",
+  "zh_desc": "turntable 型 1 底"
+ },
+ "28670.dat": {
+  "zh_name": "砖 1×6×1.667",
+  "zh_desc": "砖 1×6×1.667 wing 后"
+ },
+ "28978.dat": {
+  "zh_name": "链节 4×6·弯折",
+  "zh_desc": "链节 4×6 弯折 53.13"
+ },
+ "2900.dat": {
+  "zh_name": "连接器 ·柔性",
+  "zh_desc": "柔性-系统 销孔 连接器"
+ },
+ "2901.dat": {
+  "zh_name": "连接器 ·柔性",
+  "zh_desc": "柔性-系统 球 连接器"
+ },
+ "2904.dat": {
+  "zh_name": "转向件 2×2",
+  "zh_desc": "砖 2×2 带 motorcycle 转向件 头"
+ },
+ "2905.dat": {
+  "zh_name": "举臂 5×3×0.5",
+  "zh_desc": "梁 5×3×0.5 举臂 triangle"
+ },
+ "2906.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 4 叶片 7 diameter"
+ },
+ "2907.dat": {
+  "zh_name": "球",
+  "zh_desc": "球 带 grooves"
+ },
+ "2908.dat": {
+  "zh_name": "零件",
+  "zh_desc": "helicopter rotor holder"
+ },
+ "2909.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 气缸"
+ },
+ "2910.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 活塞 杆"
+ },
+ "29219.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 带 槽"
+ },
+ "2941.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 盖"
+ },
+ "2942.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 用于 泵 5.5l"
+ },
+ "2943a.dat": {
+  "zh_name": "气动件 1×1",
+  "zh_desc": "气动件 泵 1×1 底座"
+ },
+ "2943ac01.dat": {
+  "zh_name": "气缸 1×1×5.5",
+  "zh_desc": "气动件 气缸 1×1×5.5 和 盖"
+ },
+ "2943b.dat": {
+  "zh_name": "气动件 1×1",
+  "zh_desc": "气动件 泵 1×1 底座 带 stepped outlet"
+ },
+ "2943bc01.dat": {
+  "zh_name": "气缸 1×1×6",
+  "zh_desc": "气动件 气缸 1×1×6 带 stepped outlet 和 盖"
+ },
+ "2944.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 活塞 杆"
+ },
+ "2944c01.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 活塞 杆 带 gasket"
+ },
+ "2944c02.dat": {
+  "zh_name": "气动件 1×1",
+  "zh_desc": "气动件 泵 1×1 活塞 杆 带 gasket"
+ },
+ "2947a.dat": {
+  "zh_name": "气缸 1×5",
+  "zh_desc": "气动件 气缸 1×5 带 2 端口"
+ },
+ "2947b.dat": {
+  "zh_name": "气缸 1×5",
+  "zh_desc": "气动件 气缸 1×5 带 2 端口 带 stepped outlets"
+ },
+ "2947bc01.dat": {
+  "zh_name": "气缸 1×1×5",
+  "zh_desc": "气动件 气缸 1×1×5 带 2 端口 带 stepped outlets 和 盖"
+ },
+ "2950.dat": {
+  "zh_name": "零件 4×4×9",
+  "zh_desc": "excavator bucket 4×4×9"
+ },
+ "2951.dat": {
+  "zh_name": "零件 10×8",
+  "zh_desc": "excavator bucket 10×8"
+ },
+ "2958.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 2723"
+ },
+ "2958c01.dat": {
+  "zh_name": "贴纸 3×3",
+  "zh_desc": "圆盘 3×3 带 train fan 贴纸 (shortcut)"
+ },
+ "2959b.dat": {
+  "zh_name": "零件",
+  "zh_desc": "magnet cylindrical casing"
+ },
+ "2959bc01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "magnet cylindrical in casing (总成)"
+ },
+ "2984.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 micromotor 顶 holder"
+ },
+ "2985.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 micromotor 底 holder"
+ },
+ "2985c01.dat": {
+  "zh_name": "滑轮",
+  "zh_desc": "电动 科技 micromotor 带 顶 和 底 holder 和 灰 滑轮"
+ },
+ "2986a.dat": {
+  "zh_name": "滑轮",
+  "zh_desc": "电动 科技 micromotor 滑轮 - 滑轮"
+ },
+ "2986ac01.dat": {
+  "zh_name": "滑轮",
+  "zh_desc": "电动 科技 micromotor 滑轮"
+ },
+ "2989.dat": {
+  "zh_name": "砖 1×4·带孔",
+  "zh_desc": "砖 1×4 带孔 和 bumper holder"
+ },
+ "2991.dat": {
+  "zh_name": "砖 1×2·带角度",
+  "zh_desc": "砖 1×2 双 带角度 带 bumper holder"
+ },
+ "2994.dat": {
+  "zh_name": "车轮 12×20",
+  "zh_desc": "车轮 12×20 带 科技 轴孔 和 6 销孔"
+ },
+ "2999.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "大 车轮 轮毂"
+ },
+ "30.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 70644"
+ },
+ "30397.dat": {
+  "zh_name": "链节 5L",
+  "zh_desc": "链节 5l"
+ },
+ "30621.dat": {
+  "zh_name": "销 4×12",
+  "zh_desc": "砖 4×12 带 4 销 和 科技 孔"
+ },
+ "30622.dat": {
+  "zh_name": "销 1×4",
+  "zh_desc": "grille 1×4 带 2 销"
+ },
+ "30624.dat": {
+  "zh_name": "连接器 3×1×4",
+  "zh_desc": "连接器 3×1×4 带 二 销 和 click hinge"
+ },
+ "30632.dat": {
+  "zh_name": "销 6×4×3",
+  "zh_desc": "grille 6×4×3 带 2 销 和 2 销 孔"
+ },
+ "30647.dat": {
+  "zh_name": "销 1×4",
+  "zh_desc": "侧 flaring intake 1×4 带 二 销"
+ },
+ "3068bp0e.dat": {
+  "zh_name": "平滑片 2×2",
+  "zh_desc": "平滑片 2×2 带 白 \"police\" 在 蓝 badge 图案"
+ },
+ "3068bpx2.dat": {
+  "zh_name": "平滑片 2×2",
+  "zh_desc": "平滑片 2×2 带 红 \"tnt\" label 在 wood grain 图案"
+ },
+ "3069b.dat": {
+  "zh_name": "平滑片 1×2",
+  "zh_desc": "平滑片 1×2 带 groove"
+ },
+ "3069bd23.dat": {
+  "zh_name": "齿轮 1×2",
+  "zh_desc": "平滑片 1×2 带 科技 supercar 变速箱 1 和 2 黑 贴纸"
+ },
+ "3069bpta.dat": {
+  "zh_name": "平滑片 1×2",
+  "zh_desc": "平滑片 1×2 带 银 \"tm\" 图案"
+ },
+ "3070bpe0.dat": {
+  "zh_name": "平滑片 1×1",
+  "zh_desc": "平滑片 1×1 带 orange fox 头 在 lime pentagonal 盾牌 图案"
+ },
+ "3139.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 3139b"
+ },
+ "3139b.dat": {
+  "zh_name": "轮胎 80×8·光滑",
+  "zh_desc": "轮胎 4/ 80×8 单 光滑 型 1"
+ },
+ "31493.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "砖 1×2 带 轴孔 带 开口 sides 和 底 凸点"
+ },
+ "31511.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 circular 带 2 销 孔 和 3 轴孔"
+ },
+ "31520.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 circular 带 2 销 孔 和 3 轴孔"
+ },
+ "3167.dat": {
+  "zh_name": "梁 2×3",
+  "zh_desc": "梁 2×3 c-shaped"
+ },
+ "31794.dat": {
+  "zh_name": "臂 1×5",
+  "zh_desc": "suspension 臂 1×5 型 2"
+ },
+ "32000.dat": {
+  "zh_name": "砖 1×2·带孔",
+  "zh_desc": "砖 1×2 带孔"
+ },
+ "32001.dat": {
+  "zh_name": "平板 2×6·带孔",
+  "zh_desc": "平板 2×6 带孔"
+ },
+ "32002.dat": {
+  "zh_name": "摩擦销 3/4",
+  "zh_desc": "3/4 长的短摩擦销，用于薄件之间的紧固连接。"
+ },
+ "32005.dat": {
+  "zh_name": "转向件 6L",
+  "zh_desc": "转向件 链节 6l 型 2"
+ },
+ "32006.dat": {
+  "zh_name": "举臂 4×0.5",
+  "zh_desc": "梁 4×0.5 举臂 带 boss"
+ },
+ "32007.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "履带 链轮 车轮"
+ },
+ "32008.dat": {
+  "zh_name": "零件",
+  "zh_desc": "人偶 scuba flipper"
+ },
+ "32009.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双"
+ },
+ "32009d01.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双 带 红 和 白 危险 条纹 倾斜 左 贴纸"
+ },
+ "32009d02.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双 带 红 和 白 危险 条纹 倾斜 右 贴纸"
+ },
+ "32009d03.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双 带 黑 exclamation mark 在 黄 背景 左 model 贴纸"
+ },
+ "32009d04.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双 带 黑 exclamation mark 在 黄 背景 右 model 贴纸"
+ },
+ "32009d05.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双 带 黑 overhead load 危险 sign 在 黄 背景 左 model 贴纸"
+ },
+ "32009d06.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双 带 黑 overhead load 危险 sign 在 黄 背景 右 model 贴纸"
+ },
+ "32012.dat": {
+  "zh_name": "零件 2.5×2",
+  "zh_desc": "reel 2.5×2"
+ },
+ "32013.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 #1"
+ },
+ "32014.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 #6 (90 度)"
+ },
+ "32015.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 #5 (112.5 度)"
+ },
+ "32016.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 #3 (157.5 度)"
+ },
+ "32017.dat": {
+  "zh_name": "梁 5×0.5",
+  "zh_desc": "梁 5×0.5"
+ },
+ "32018.dat": {
+  "zh_name": "砖 1×14·带孔",
+  "zh_desc": "砖 1×14 带孔"
+ },
+ "32030.dat": {
+  "zh_name": "零件 18×10",
+  "zh_desc": "excavator bucket 18×10"
+ },
+ "32031.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 airtank 中心"
+ },
+ "32032.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 airtank 端"
+ },
+ "32034.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 #2 (180 度)"
+ },
+ "32039.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 (轴/衬套) 型 1"
+ },
+ "32040.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped, gasket"
+ },
+ "32051.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 离合 lid (待完善)"
+ },
+ "32052.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 离合 housing"
+ },
+ "32053.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 离合 中心"
+ },
+ "32054.dat": {
+  "zh_name": "销 ·长",
+  "zh_desc": "销 长 带止位 衬套"
+ },
+ "32056.dat": {
+  "zh_name": "举臂 3×3×0.5·弯折",
+  "zh_desc": "梁 3×3×0.5 举臂 弯折 90"
+ },
+ "32060.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 8 齿 timing 车轮"
+ },
+ "32061.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头"
+ },
+ "32062.dat": {
+  "zh_name": "轴 2L",
+  "zh_desc": "2 孔长的科技轴，带定位槽口，传递旋转（红色）。"
+ },
+ "32063.dat": {
+  "zh_name": "梁 6×0.5",
+  "zh_desc": "梁 6×0.5"
+ },
+ "32064a.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "砖 1×2 带 轴孔 带 开口 sides 和 凸点 blocker"
+ },
+ "32064b.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "砖 1×2 带 reduced 轴孔"
+ },
+ "32064c.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "砖 1×2 带 轴孔 带 开口 sides 和 底 凸点"
+ },
+ "32064d.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "砖 1×2 带 semi-reduced 轴孔"
+ },
+ "32065.dat": {
+  "zh_name": "梁 7×0.5",
+  "zh_desc": "梁 7×0.5"
+ },
+ "32067.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 圆形 底 前 lid"
+ },
+ "32068.dat": {
+  "zh_name": "轴 1×3",
+  "zh_desc": "十字 块 1×3 (轴/none/销)"
+ },
+ "32069.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 带 connectors"
+ },
+ "32072.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 4 旋钮"
+ },
+ "32073.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 5"
+ },
+ "32074.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 圆形 底 主体"
+ },
+ "32074c02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 圆形 底 不带 trigger"
+ },
+ "32075.dat": {
+  "zh_name": "零件 ·长",
+  "zh_desc": "竞赛 炮 trigger 长"
+ },
+ "32079.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 9 举臂 偏置 带 boss"
+ },
+ "32080.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 橡胶 tip fastener"
+ },
+ "32089.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "履带 链轮 车轮 20 齿 薄"
+ },
+ "32090.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 框架 5-point"
+ },
+ "32123a.dat": {
+  "zh_name": "轴 ·光滑",
+  "zh_desc": "衬套 1/2 光滑 带 轴孔 reduced"
+ },
+ "32123ac01.dat": {
+  "zh_name": "轮胎 80×8·光滑",
+  "zh_desc": "衬套 1/2 光滑 带 轴孔 reduced 带 黑 轮胎 4/ 80×8 单 光滑 型 2"
+ },
+ "32123b.dat": {
+  "zh_name": "轴 ·光滑",
+  "zh_desc": "衬套 1/2 光滑 带 轴孔 semi-reduced"
+ },
+ "32124.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 2 叶片 带 4 凸点"
+ },
+ "32125.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 3 叶片 带 6 凸点"
+ },
+ "32126.dat": {
+  "zh_name": "连接器 ·光滑",
+  "zh_desc": "连接器 toggle 关节 光滑"
+ },
+ "32132.dat": {
+  "zh_name": "齿条 1×12·带孔",
+  "zh_desc": "齿条 1×12 带孔"
+ },
+ "32133.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 箭头 shaft"
+ },
+ "32134.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 橡胶 tip"
+ },
+ "32137.dat": {
+  "zh_name": "连接器 3×2×2",
+  "zh_desc": "连接器 块 3×2×2"
+ },
+ "32138.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "销 3l 双 带 轴孔"
+ },
+ "32140.dat": {
+  "zh_name": "举臂 2×4·弯折",
+  "zh_desc": "梁 2×4 举臂 弯折 90"
+ },
+ "32165.dat": {
+  "zh_name": "连接器 3×6×1.667",
+  "zh_desc": "连接器 块 3×6×1.667"
+ },
+ "32166.dat": {
+  "zh_name": "连接器 3×6×1.667",
+  "zh_desc": "连接器 块 3×6×1.667 变速箱"
+ },
+ "32167.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 box 半 带 4 轴 stubs 和 6 销 sockets"
+ },
+ "32170.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "齿条 双 带 球关节"
+ },
+ "32171.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile"
+ },
+ "32172.dat": {
+  "zh_name": "连接器 3×3",
+  "zh_desc": "连接器 块 3×3 带 球 插孔"
+ },
+ "32173.dat": {
+  "zh_name": "球关节 2×6",
+  "zh_desc": "bionicle leg 2×6 带 2 球 joints"
+ },
+ "32175.dat": {
+  "zh_name": "连接器 3×3",
+  "zh_desc": "连接器 块 3×3 triangular"
+ },
+ "32177.dat": {
+  "zh_name": "举臂 7×1",
+  "zh_desc": "梁 7×1 举臂 带 ribs 和 fan"
+ },
+ "32181.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped, 气缸"
+ },
+ "32181c01.dat": {
+  "zh_name": "减震器 10L·已弃用",
+  "zh_desc": "减震器 10l damped, transclear 气缸 带 盖 (总成) (已弃用)"
+ },
+ "32181c02.dat": {
+  "zh_name": "减震器 10L·已弃用",
+  "zh_desc": "减震器 10l damped, transclear 气缸 (总成) (已弃用)"
+ },
+ "32181c03.dat": {
+  "zh_name": "减震器 10L·已弃用",
+  "zh_desc": "减震器 10l damped, translightblue 气缸 带 盖 (总成) (已弃用)"
+ },
+ "32181c04.dat": {
+  "zh_name": "减震器 10L·已弃用",
+  "zh_desc": "减震器 10l damped, translightblue 气缸 (总成) (已弃用)"
+ },
+ "32181c05.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped 带 黑 盖 主体 assembly"
+ },
+ "32182.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped, 气缸 盖"
+ },
+ "32183.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped, 活塞 杆"
+ },
+ "32183c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 32183c02"
+ },
+ "32183c02.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped 活塞 杆 带 gasket"
+ },
+ "32184.dat": {
+  "zh_name": "轴 1×3",
+  "zh_desc": "十字 块 1×3 (轴/销/轴)"
+ },
+ "32185.dat": {
+  "zh_name": "齿条 1×14·带孔",
+  "zh_desc": "齿条 1×14 带孔"
+ },
+ "32186.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 带 3 球 joints"
+ },
+ "32187.dat": {
+  "zh_name": "零件",
+  "zh_desc": "transmission driving 环 extension"
+ },
+ "32188.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #3"
+ },
+ "32189.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #4"
+ },
+ "32190.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #1"
+ },
+ "32190d01.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #1 带 白 \"v8\" 在 红 背景 贴纸"
+ },
+ "32191.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #2"
+ },
+ "32191d01.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #2 带 白 \"v8\" 在 红 背景 贴纸"
+ },
+ "32192.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 #4 (135 度)"
+ },
+ "32195a.dat": {
+  "zh_name": "臂 2×6.5",
+  "zh_desc": "suspension 臂 2×6.5 型 2"
+ },
+ "32195b.dat": {
+  "zh_name": "臂 2×6.5",
+  "zh_desc": "suspension 臂 2×6.5 型 3"
+ },
+ "32198.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 20 齿 锥齿"
+ },
+ "32199.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 11"
+ },
+ "32200.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 12"
+ },
+ "32201.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 14"
+ },
+ "32202.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 16"
+ },
+ "32209.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 5.5 带止位 型 1"
+ },
+ "32235.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 19"
+ },
+ "32239.dat": {
+  "zh_name": "齿轮 2×4×3.333",
+  "zh_desc": "变速箱 2×4×3.333"
+ },
+ "32249.dat": {
+  "zh_name": "举臂 3×3×0.5·弯折",
+  "zh_desc": "梁 3×3×0.5 举臂 弯折 90 四分之一 circle"
+ },
+ "32250.dat": {
+  "zh_name": "举臂 3×5×0.5·弯折",
+  "zh_desc": "梁 3×5×0.5 举臂 弯折 90 四分之一 ellipse"
+ },
+ "32251.dat": {
+  "zh_name": "举臂 5×7×0.5·弯折",
+  "zh_desc": "梁 5×7×0.5 举臂 弯折 90 四分之一 ellipse"
+ },
+ "32269.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 20 齿 双 锥齿"
+ },
+ "32270.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 12 齿 双 锥齿"
+ },
+ "32271.dat": {
+  "zh_name": "举臂 3×7·弯折",
+  "zh_desc": "梁 3×7 举臂 弯折 53.13"
+ },
+ "32271d03.dat": {
+  "zh_name": "举臂 3×7·弯折",
+  "zh_desc": "梁 3×7 举臂 弯折 53.13 带 红 和 白 diagonal 条纹 倾斜 右 贴纸"
+ },
+ "32271d04.dat": {
+  "zh_name": "举臂 3×7·弯折",
+  "zh_desc": "梁 3×7 举臂 弯折 53.13 带 红 和 白 diagonal 条纹 倾斜 左 贴纸"
+ },
+ "32272.dat": {
+  "zh_name": "零件 6×6×7",
+  "zh_desc": "dome 6×6×7"
+ },
+ "32272ps1.dat": {
+  "zh_name": "零件 6×6×7",
+  "zh_desc": "dome 6×6×7 带 sw droid 头 四分之一 带 displays 图案"
+ },
+ "32272ps2.dat": {
+  "zh_name": "零件 6×6×7",
+  "zh_desc": "dome 6×6×7 带 sw droid 头 四分之一 带 eye 图案"
+ },
+ "32273.dat": {
+  "zh_name": "零件 5×5",
+  "zh_desc": "turntable 5×5 底座"
+ },
+ "32274.dat": {
+  "zh_name": "零件 5×5",
+  "zh_desc": "turntable 5×5 顶"
+ },
+ "32276.dat": {
+  "zh_name": "零件",
+  "zh_desc": "micro-scout 顶 (待完善)"
+ },
+ "32276c01.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 micro-scout 深-灰 底 trans-蓝 lens"
+ },
+ "32276c02.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 micro-scout 黑 底 trans-红 lens"
+ },
+ "32277.dat": {
+  "zh_name": "零件",
+  "zh_desc": "micro-scout 底 (待完善)"
+ },
+ "32278.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 15"
+ },
+ "32278d02.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 15 带 \"d\", \"n\" 和 \"r\" 在 深 偏蓝 灰 贴纸"
+ },
+ "32278d03.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 15 带 \"lo\" 和 \"hi\" 在 深 偏蓝 灰 贴纸"
+ },
+ "32288.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 顶"
+ },
+ "32288c01.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 带 深 灰 底座 型 1"
+ },
+ "32288c02.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 带 浅 灰 底座 型 2"
+ },
+ "32289a.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 底座 型 1"
+ },
+ "32289b.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 底座 型 2"
+ },
+ "32290.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 lid"
+ },
+ "32291.dat": {
+  "zh_name": "轴 2×2",
+  "zh_desc": "十字 块 2×2 (轴/twin 销)"
+ },
+ "32293.dat": {
+  "zh_name": "转向件 9L",
+  "zh_desc": "转向件 链节 9l"
+ },
+ "32294.dat": {
+  "zh_name": "臂 1×9×2.5",
+  "zh_desc": "suspension 臂 1×9×2.5"
+ },
+ "32296.dat": {
+  "zh_name": "轮胎 29×54",
+  "zh_desc": "轮胎 50/ 29×54 科技 racing"
+ },
+ "32296p01.dat": {
+  "zh_name": "轮胎 29×54",
+  "zh_desc": "轮胎 50/ 29×54 带 白 \"科技 racing\" 图案"
+ },
+ "32298.dat": {
+  "zh_name": "轮胎 41×54",
+  "zh_desc": "轮胎 61/ 41×54 off road"
+ },
+ "32298p01.dat": {
+  "zh_name": "轮胎 41×54",
+  "zh_desc": "轮胎 61/ 41×54 电力 puller 带 白 \"科技 电力\" 图案"
+ },
+ "32305.dat": {
+  "zh_name": "连接器 7×4×3",
+  "zh_desc": "连接器 块 7×4×3"
+ },
+ "32307.dat": {
+  "zh_name": "连接器 3×6",
+  "zh_desc": "连接器 块 3×6 带 6 axleholes 和 groove"
+ },
+ "32308.dat": {
+  "zh_name": "举臂 7×3×2",
+  "zh_desc": "梁 7×3×2 举臂 split"
+ },
+ "32310.dat": {
+  "zh_name": "连接器 3×5×1.333",
+  "zh_desc": "连接器 块 3×5×1.333"
+ },
+ "32311.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 7 偏置 举臂 带 24 齿 gears"
+ },
+ "32316.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 5"
+ },
+ "32316d02.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 5 带 closed/开口 padlocks 和 letter \"n\" 在 红 背景 贴纸"
+ },
+ "32316d03.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 5 带 红 条纹 在 黑 贴纸"
+ },
+ "32316d05.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 5 带 银 rectangle in 黑 面板 在 浅 偏蓝 灰 贴纸"
+ },
+ "32316pt0.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 5 带 黑 ferrari horse 标志 图案"
+ },
+ "32324.dat": {
+  "zh_name": "砖 4×4",
+  "zh_desc": "砖 4×4 带 开口 中心 2×2"
+ },
+ "32333.dat": {
+  "zh_name": "砖 5×3×1",
+  "zh_desc": "砖 5×3×1 带 8 销孔 和 2 凸点"
+ },
+ "32339.dat": {
+  "zh_name": "面板",
+  "zh_desc": "电动 科技 solar 面板 底 (待完善)"
+ },
+ "32340.dat": {
+  "zh_name": "面板",
+  "zh_desc": "电动 科技 solar 面板 顶"
+ },
+ "32341.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 capacitor 顶"
+ },
+ "32342.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 capacitor 底"
+ },
+ "32344.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "micro-scout battery lid"
+ },
+ "32345.dat": {
+  "zh_name": "零件",
+  "zh_desc": "micro-scout lens"
+ },
+ "32346.dat": {
+  "zh_name": "轴",
+  "zh_desc": "micro-scout 轴孔 环 (待完善)"
+ },
+ "32348.dat": {
+  "zh_name": "举臂 4×4·弯折",
+  "zh_desc": "梁 4×4 举臂 弯折 53.13"
+ },
+ "32439.dat": {
+  "zh_name": "零件 5×5",
+  "zh_desc": "圆盘 5×5"
+ },
+ "32449.dat": {
+  "zh_name": "举臂 4×0.5",
+  "zh_desc": "梁 4×0.5 举臂"
+ },
+ "32474.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 blind"
+ },
+ "32474p01.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 blind 带 黑 eye 带 pupil 顶 左 图案"
+ },
+ "32474p02.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 blind 带 白 circle 图案"
+ },
+ "32474px0.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 blind 带 黑 eyes 和 中 azure smile 图案"
+ },
+ "32489.dat": {
+  "zh_name": "连接器 4×5×7.667",
+  "zh_desc": "连接器 块 4×5×7.667"
+ },
+ "3249.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 链节 带 bar"
+ },
+ "32494.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "车轮 spindle 轴 driver"
+ },
+ "32495.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "车轮 spindle 转向件 臂"
+ },
+ "32495c01.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "车轮 spindle 转向件 臂 (总成)"
+ },
+ "32496.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "车轮 spindle"
+ },
+ "32498.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 36 齿 双 锥齿"
+ },
+ "3250.dat": {
+  "zh_name": "零件",
+  "zh_desc": "环 15"
+ },
+ "32506.dat": {
+  "zh_name": "轴",
+  "zh_desc": "bionicle 夹爪 带 轴"
+ },
+ "3251.dat": {
+  "zh_name": "面板",
+  "zh_desc": "面板 气缸 d15 60°"
+ },
+ "32523.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3"
+ },
+ "32523p01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 \"40 1977 - 2017\" text 和 24 齿 齿轮 图案"
+ },
+ "32523p02.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 grille 图案"
+ },
+ "32524.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 7"
+ },
+ "32525.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11"
+ },
+ "32525d01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11 带 红 和 白 危险 条纹 stickers 在 两 sides"
+ },
+ "32525d02.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11 带 黑 条纹 在 深 azure 背景 左 贴纸"
+ },
+ "32525d03.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11 带 黑 条纹 在 深 azure 背景 右 贴纸"
+ },
+ "32525d04.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11 带 银 \"defender\" 在 白 贴纸"
+ },
+ "32526.dat": {
+  "zh_name": "梁 3×5·弯折",
+  "zh_desc": "梁 3×5 弯折 90"
+ },
+ "32526p01.dat": {
+  "zh_name": "梁 3×5·弯折",
+  "zh_desc": "梁 3×5 弯折 90 带 grille 图案"
+ },
+ "32527.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #5"
+ },
+ "32528.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 6#"
+ },
+ "32529.dat": {
+  "zh_name": "销 1×2×1",
+  "zh_desc": "销 接合件 平板 1×2×1 和 1/2"
+ },
+ "32530.dat": {
+  "zh_name": "平滑片 1×2",
+  "zh_desc": "平滑片 1×2 带 二 孔"
+ },
+ "32531a.dat": {
+  "zh_name": "砖 4×6",
+  "zh_desc": "砖 4×6 带 开口 中心 2×4 带 十字 underside 凸点"
+ },
+ "32531b.dat": {
+  "zh_name": "砖 4×6",
+  "zh_desc": "砖 4×6 带 开口 中心 2×4 带 圆形 underside 凸点"
+ },
+ "32532a.dat": {
+  "zh_name": "砖 6×8",
+  "zh_desc": "砖 6×8 带 开口 中心 4×6 带 十字 underside 凸点"
+ },
+ "32532b.dat": {
+  "zh_name": "砖 6×8",
+  "zh_desc": "砖 6×8 带 开口 中心 4×6 带 圆形 underside 凸点"
+ },
+ "32533.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile"
+ },
+ "32533p619.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile 带 bionicle kanoka 619 onu-metru 图案"
+ },
+ "32533p631.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile 带 bionicle kanoka 631 onu-metru 图案"
+ },
+ "32533p646.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile 带 bionicle kanoka 646 onu-metru 图案"
+ },
+ "32533p663.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile 带 bionicle kanoka 663 onu-metru 图案"
+ },
+ "32533p677.dat": {
+  "zh_name": "平滑片 5×5",
+  "zh_desc": "圆盘 5×5 projectile 带 bionicle kanoka 677 onu-metru 图案"
+ },
+ "32534.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #7"
+ },
+ "32535.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #8"
+ },
+ "32551.dat": {
+  "zh_name": "轴",
+  "zh_desc": "挂钩 带 轴"
+ },
+ "32555.dat": {
+  "zh_name": "砖 5×5·带孔",
+  "zh_desc": "砖 5×5 corner 带孔"
+ },
+ "32556a.dat": {
+  "zh_name": "销 ·长无摩擦",
+  "zh_desc": "销 长 无摩擦 带 单 槽"
+ },
+ "32556b.dat": {
+  "zh_name": "销 ·长无摩擦",
+  "zh_desc": "销 长 无摩擦 带 dual 槽"
+ },
+ "32557.dat": {
+  "zh_name": "销 2×3",
+  "zh_desc": "十字 块 2×3 (销/销/twin 销)"
+ },
+ "32576.dat": {
+  "zh_name": "连接器 3×4.5×2.333",
+  "zh_desc": "连接器 3×4.5×2.333 带 销 (待完善)"
+ },
+ "32578.dat": {
+  "zh_name": "夹爪",
+  "zh_desc": "bionicle matoran 夹爪 臂"
+ },
+ "32580.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 7"
+ },
+ "32905.dat": {
+  "zh_name": "蜗杆 2L",
+  "zh_desc": "蜗杆 齿轮 2l 带 轴孔 二-toothed sliding"
+ },
+ "332.dat": {
+  "zh_name": "轴",
+  "zh_desc": "micro-scout 轴孔 (待完善)"
+ },
+ "3326.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 3326b"
+ },
+ "3326a.dat": {
+  "zh_name": "关节",
+  "zh_desc": "universal 关节 中心 型 1"
+ },
+ "3326b.dat": {
+  "zh_name": "关节",
+  "zh_desc": "universal 关节 中心 型 2"
+ },
+ "33299a.dat": {
+  "zh_name": "举臂 3×0.5",
+  "zh_desc": "梁 3×0.5 举臂 带 boss 和 销 带 closed central 轴孔"
+ },
+ "33299b.dat": {
+  "zh_name": "举臂 3×0.5",
+  "zh_desc": "梁 3×0.5 举臂 带 boss 和 销 带 开口 central 轴孔"
+ },
+ "334.dat": {
+  "zh_name": "零件",
+  "zh_desc": "micro-scout button (待完善)"
+ },
+ "335.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5"
+ },
+ "335c01-f1.dat": {
+  "zh_name": "气缸 2×2×6.6",
+  "zh_desc": "气动件 气缸 2×2×6.6 带 1 端口 (retracted)"
+ },
+ "335c01-f2.dat": {
+  "zh_name": "气缸 2×2×6.6·长",
+  "zh_desc": "气动件 气缸 2×2×6.6 带 1 端口 (加长)"
+ },
+ "336.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 杆 5.5l"
+ },
+ "337.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 杆 4l"
+ },
+ "33763.dat": {
+  "zh_name": "软管 26L",
+  "zh_desc": "带肋 软管 26l"
+ },
+ "342.dat": {
+  "zh_name": "零件 ·柔性",
+  "zh_desc": "柔性-系统 cable 端"
+ },
+ "342c01.dat": {
+  "zh_name": "零件 ·柔性长",
+  "zh_desc": "柔性-系统 cable 96ldu 长 (开口 file 用于 usage guide)"
+ },
+ "343.dat": {
+  "zh_name": "零件 ·柔性",
+  "zh_desc": "柔性-系统 cable 段"
+ },
+ "34432.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 40 齿"
+ },
+ "3465a.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 3 销 车轮 轮毂"
+ },
+ "3465ac01.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 车轮 轮毂 和 driving shaft"
+ },
+ "3467.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 3 销 车轮 holder driving shaft"
+ },
+ "3468.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 主体 后"
+ },
+ "3468c01.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 主体"
+ },
+ "35185.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 20 齿 双 锥齿 带 离合 在 两 sides"
+ },
+ "35186.dat": {
+  "zh_name": "零件",
+  "zh_desc": "transmission driving 环 extension 带 eight 离合 teeth"
+ },
+ "35188.dat": {
+  "zh_name": "零件",
+  "zh_desc": "changeover rotary catch"
+ },
+ "35189.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轮毂 带 brake 圆盘 和 3 销孔"
+ },
+ "35257.dat": {
+  "zh_name": "转向件 9L",
+  "zh_desc": "转向件 链节 9l"
+ },
+ "3538.dat": {
+  "zh_name": "面板 11×2×5",
+  "zh_desc": "面板 11×2×5 挡泥板 拱形 带 rounded 顶 #43"
+ },
+ "35396.dat": {
+  "zh_name": "面板 4×5×3·弯折",
+  "zh_desc": "面板 弯折 4×5×3"
+ },
+ "3590.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 12 齿 带 离合 在 单 侧"
+ },
+ "36069ap01.dat": {
+  "zh_name": "零件 15×28",
+  "zh_desc": "sail 15×28 trapezoid 带 科技 racing yacht 图案"
+ },
+ "36069bp01.dat": {
+  "zh_name": "零件 13×26",
+  "zh_desc": "sail 13×26 triangular 带 科技 racing yacht 图案"
+ },
+ "3622p05.dat": {
+  "zh_name": "砖 1×3",
+  "zh_desc": "砖 1×3 带 cat face 带 宽 eyes 和 smiling 开口 mouth 带 单 齿 图案"
+ },
+ "3623p05.dat": {
+  "zh_name": "平板 1×3",
+  "zh_desc": "平板 1×3 带 high 和 pointed eyebrows 图案"
+ },
+ "3641.dat": {
+  "zh_name": "轮胎 50×8",
+  "zh_desc": "轮胎 6/ 50×8 偏置 履带"
+ },
+ "3647.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 8 齿"
+ },
+ "3648a.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 带 3 axleholes"
+ },
+ "3648b.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 带 单 轴孔"
+ },
+ "3649.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 40 齿"
+ },
+ "3650a.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 冠状 型 1"
+ },
+ "3650b.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 冠状 型 2"
+ },
+ "3650c.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 冠状 型 3"
+ },
+ "3651.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 (销/衬套) 带 2 凸点"
+ },
+ "3652.dat": {
+  "zh_name": "块 2×2",
+  "zh_desc": "活塞 2×2 块"
+ },
+ "3673.dat": {
+  "zh_name": "光销 2L",
+  "zh_desc": "无摩擦的标准连接销，可自由转动，常用作铰接轴（浅灰色）。"
+ },
+ "3691.dat": {
+  "zh_name": "块 4×4×3",
+  "zh_desc": "holder 块 4×4×3"
+ },
+ "3700.dat": {
+  "zh_name": "砖 1×2·带孔",
+  "zh_desc": "砖 1×2 带孔"
+ },
+ "3701.dat": {
+  "zh_name": "砖 1×4·带孔",
+  "zh_desc": "砖 1×4 带孔"
+ },
+ "370101.dat": {
+  "zh_name": "砖 1×4·带孔已弃用",
+  "zh_desc": "砖 1×4 带孔 白 (已弃用)"
+ },
+ "3702.dat": {
+  "zh_name": "砖 1×8·带孔",
+  "zh_desc": "砖 1×8 带孔"
+ },
+ "370226.dat": {
+  "zh_name": "砖 1×8·带孔已弃用",
+  "zh_desc": "砖 1×8 带孔 黑 (已弃用)"
+ },
+ "3703.dat": {
+  "zh_name": "砖 1×16·带孔",
+  "zh_desc": "砖 1×16 带孔"
+ },
+ "3704.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 2"
+ },
+ "3705.dat": {
+  "zh_name": "轴 4L",
+  "zh_desc": "4 孔长的科技轴，常用作齿轮 / 车轮的传动轴。"
+ },
+ "370526.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 4 黑 (已弃用)"
+ },
+ "3705c01.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 4 threaded"
+ },
+ "3706.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 6"
+ },
+ "370626.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 6 黑 (已弃用)"
+ },
+ "3707.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 8"
+ },
+ "370726.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 8 黑 (已弃用)"
+ },
+ "3708.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 12"
+ },
+ "370826.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 12 黑 (已弃用)"
+ },
+ "370926.dat": {
+  "zh_name": "平板 2×4·已弃用",
+  "zh_desc": "平板 2×4 黑 (已弃用)"
+ },
+ "3709b.dat": {
+  "zh_name": "平板 2×4·带孔",
+  "zh_desc": "平板 2×4 带孔"
+ },
+ "3711.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 链节"
+ },
+ "3712.dat": {
+  "zh_name": "衬套 4L",
+  "zh_desc": "universal 关节 4l 端 带 衬套 端"
+ },
+ "3712c01.dat": {
+  "zh_name": "衬套 4L",
+  "zh_desc": "universal 关节 4l 带 衬套 端 带 中心 型 2 (总成)"
+ },
+ "3712c02.dat": {
+  "zh_name": "衬套 4L",
+  "zh_desc": "universal 关节 4l 带 衬套 端 带 milky 白 中心 型 1 (总成)"
+ },
+ "3712c03.dat": {
+  "zh_name": "衬套 4L",
+  "zh_desc": "universal 关节 4l 带 衬套 端 带 中心 型 1 (总成)"
+ },
+ "3713.dat": {
+  "zh_name": "衬套",
+  "zh_desc": "衬套 带 双法兰"
+ },
+ "3736.dat": {
+  "zh_name": "滑轮",
+  "zh_desc": "滑轮 车轮 5d"
+ },
+ "3737.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 10"
+ },
+ "3737c01.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 10 threaded"
+ },
+ "3738.dat": {
+  "zh_name": "平板 2×8·带孔",
+  "zh_desc": "平板 2×8 带孔"
+ },
+ "3739.dat": {
+  "zh_name": "车轮 24×43",
+  "zh_desc": "车轮 24×43 科技"
+ },
+ "3739c01.dat": {
+  "zh_name": "轮胎 24×43",
+  "zh_desc": "车轮 24×43 科技 带 轮胎 24/ 80×43 偏置 履带"
+ },
+ "3740.dat": {
+  "zh_name": "轮胎 80×43",
+  "zh_desc": "轮胎 24/ 80×43 偏置 履带"
+ },
+ "3743.dat": {
+  "zh_name": "齿条 1×4",
+  "zh_desc": "齿条 1×4"
+ },
+ "37461-f1.dat": {
+  "zh_name": "气动件 14L",
+  "zh_desc": "气动件 管 14l"
+ },
+ "37461-f2.dat": {
+  "zh_name": "气动件 14L",
+  "zh_desc": "气动件 管 14l 带 端 凸起"
+ },
+ "37467-f1.dat": {
+  "zh_name": "气动件 13L",
+  "zh_desc": "气动件 管 13l"
+ },
+ "37467-f2.dat": {
+  "zh_name": "气动件 13L",
+  "zh_desc": "气动件 管 13l 带 端 凸起"
+ },
+ "3749.dat": {
+  "zh_name": "轴销",
+  "zh_desc": "轴销"
+ },
+ "3873.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 2.5 宽"
+ },
+ "389.dat": {
+  "zh_name": "砖 1×2·带孔",
+  "zh_desc": "砖 1×2 带孔 和 薄 顶"
+ },
+ "3894.dat": {
+  "zh_name": "砖 1×6·带孔",
+  "zh_desc": "砖 1×6 带孔"
+ },
+ "3895.dat": {
+  "zh_name": "砖 1×12·带孔",
+  "zh_desc": "砖 1×12 带孔"
+ },
+ "3916.dat": {
+  "zh_name": "举臂 3×9·弯折",
+  "zh_desc": "梁 3×9 举臂 弯折 90 四分之一 ellipse"
+ },
+ "39369.dat": {
+  "zh_name": "底板 11×19",
+  "zh_desc": "11×19 大尺寸底板，作为整个装配的承载基座。"
+ },
+ "39370.dat": {
+  "zh_name": "梁 5×3",
+  "zh_desc": "梁 5×3 h-shaped 带 球 插孔"
+ },
+ "39370c01.dat": {
+  "zh_name": "梁 5×3",
+  "zh_desc": "梁 5×3 h-shaped 带 球 插孔 带 白 19mm 球"
+ },
+ "39790.dat": {
+  "zh_name": "梁 15×11",
+  "zh_desc": "梁 15×11 带 开口 中心 13×9"
+ },
+ "39793.dat": {
+  "zh_name": "连接器 3×3",
+  "zh_desc": "连接器 块 3×3 带 9 垂直 孔"
+ },
+ "39794.dat": {
+  "zh_name": "梁 11×7",
+  "zh_desc": "梁 11×7 带 开口 中心 9×5"
+ },
+ "39888.dat": {
+  "zh_name": "销 ·长无摩擦",
+  "zh_desc": "销 长 无摩擦 型 2"
+ },
+ "40001.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 yoke 带 reduced 轴孔 和 开口 凸点"
+ },
+ "4019.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 16 齿"
+ },
+ "401926.dat": {
+  "zh_name": "齿轮 ·已弃用",
+  "zh_desc": "齿轮 16 齿 黑 (已弃用)"
+ },
+ "40339.dat": {
+  "zh_name": "轴 6L",
+  "zh_desc": "bionicle weapon trident 带 轴 6l"
+ },
+ "40340.dat": {
+  "zh_name": "轴",
+  "zh_desc": "bionicle weapon drill 带 轴"
+ },
+ "40344.dat": {
+  "zh_name": "砖 4×6",
+  "zh_desc": "砖 4×6 带 开口 中心 2×4 带 十字 underside 凸点"
+ },
+ "40345.dat": {
+  "zh_name": "砖 6×8",
+  "zh_desc": "砖 6×8 带 开口 中心 4×6 带 十字 underside 凸点"
+ },
+ "40490.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 9"
+ },
+ "40490d01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 9 带 红 和 白 diagonal 条纹 倾斜 左 贴纸"
+ },
+ "40490d03.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 9 带 齿轮 拉杆 console 左 带 \"dnr\" text 贴纸"
+ },
+ "40490d04.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 9 带 齿轮 拉杆 console 右 贴纸"
+ },
+ "4084.dat": {
+  "zh_name": "轮胎 75×8",
+  "zh_desc": "轮胎 8/ 75×8 偏置 履带"
+ },
+ "40918-f1.dat": {
+  "zh_name": "零件 12×2×2",
+  "zh_desc": "直线 作动器 12×2×2 (contracted)"
+ },
+ "40918-f2.dat": {
+  "zh_name": "零件 12×2×2·长",
+  "zh_desc": "直线 作动器 12×2×2 (加长)"
+ },
+ "4107073.dat": {
+  "zh_name": "气动件 ·已弃用",
+  "zh_desc": "气动件 airtank 蓝 (已弃用)"
+ },
+ "4107488.dat": {
+  "zh_name": "履带 ·已弃用",
+  "zh_desc": "履带 黑 (已弃用)"
+ },
+ "4107539.dat": {
+  "zh_name": "齿轮 ·已弃用",
+  "zh_desc": "齿轮 24 齿 离合 白/深 灰 (已弃用)"
+ },
+ "4107767.dat": {
+  "zh_name": "角度连接器 ·已弃用",
+  "zh_desc": "角度连接器 #6 (90 度) 黑 (已弃用)"
+ },
+ "4109810.dat": {
+  "zh_name": "轴 ·带槽已弃用",
+  "zh_desc": "轴 2 带槽口 黑 (已弃用)"
+ },
+ "4121715.dat": {
+  "zh_name": "销 ·带摩擦已弃用",
+  "zh_desc": "销 带摩擦 和 槽 黑 (已弃用)"
+ },
+ "41239.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 13"
+ },
+ "4125165a.dat": {
+  "zh_name": "贴纸 1.9×1.9",
+  "zh_desc": "贴纸 1.9×1.9 圆形 speedometer"
+ },
+ "4125165b.dat": {
+  "zh_name": "贴纸 1.9×1.9",
+  "zh_desc": "贴纸 1.9×1.9 圆形 tachometer"
+ },
+ "4125165fc01.dat": {
+  "zh_name": "贴纸 0.6×4.5",
+  "zh_desc": "贴纸 0.6×4.5 trapezoid 带 白 \"v8\" 在 左 侧 在 红 背景 (成型)"
+ },
+ "4125165gc01.dat": {
+  "zh_name": "贴纸 0.6×4.5",
+  "zh_desc": "贴纸 0.6×4.5 trapezoid 带 白 \"v8\" 在 右 侧 在 红 背景 (成型)"
+ },
+ "4128503.dat": {
+  "zh_name": "零件 5×5·已弃用",
+  "zh_desc": "turntable 5×5 (总成) 蓝 (已弃用)"
+ },
+ "41355-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 弹簧 hard (加长)"
+ },
+ "41355-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 弹簧 hard (压缩)"
+ },
+ "4140801.dat": {
+  "zh_name": "销 ·长已弃用",
+  "zh_desc": "销 长 带止位 衬套 黑 (已弃用)"
+ },
+ "4141.dat": {
+  "zh_name": "零件",
+  "zh_desc": "differential casing"
+ },
+ "4141498.dat": {
+  "zh_name": "电动件 ·已弃用",
+  "zh_desc": "电动 科技 micro-scout 白/深 灰 (已弃用)"
+ },
+ "4142.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "differential 冠状 车轮 28 齿"
+ },
+ "4143.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 14 齿 锥齿"
+ },
+ "4143005.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "销 1/2 蓝 (已弃用)"
+ },
+ "41475-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l hard (加长)"
+ },
+ "41475-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l hard (压缩)"
+ },
+ "41486.dat": {
+  "zh_name": "举臂 3×3.8×7·弯折",
+  "zh_desc": "梁 3×3.8×7 举臂 弯折 45 双"
+ },
+ "41531.dat": {
+  "zh_name": "销 4×4×2",
+  "zh_desc": "气缸 4×4×2 带 3 销 孔 和 中心 bar"
+ },
+ "4158.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "changeover 气缸 带 groove"
+ },
+ "4159.dat": {
+  "zh_name": "零件",
+  "zh_desc": "changeover catch fork"
+ },
+ "4160689.dat": {
+  "zh_name": "滑轮 ·已弃用",
+  "zh_desc": "滑轮 车轮 5d 白 (已弃用)"
+ },
+ "41665.dat": {
+  "zh_name": "梁 1×4×7",
+  "zh_desc": "梁 1×4×7 带 5 axleholes 和 2 孔 和 1 槽"
+ },
+ "41666.dat": {
+  "zh_name": "齿轮 1×6·锥齿",
+  "zh_desc": "臂 1×6 带 齿轮 12 齿 双 锥齿 端"
+ },
+ "41667.dat": {
+  "zh_name": "齿轮 3×2·锥齿",
+  "zh_desc": "臂 3×2 带 齿轮 36 齿 双 锥齿 四分之一"
+ },
+ "41669.dat": {
+  "zh_name": "轴 1×3",
+  "zh_desc": "齿 1×3 带 轴孔 带 rounded 底 cavity"
+ },
+ "41670.dat": {
+  "zh_name": "球关节 4×4",
+  "zh_desc": "bionicle leg 4×4 带 二 球 joints"
+ },
+ "41671.dat": {
+  "zh_name": "零件 4×5×7",
+  "zh_desc": "windscreen 4×5×7"
+ },
+ "41671p01.dat": {
+  "zh_name": "零件 4×5×7",
+  "zh_desc": "windscreen 4×5×7 带 blended clear streaks 图案"
+ },
+ "41672.dat": {
+  "zh_name": "梁 1×3×7",
+  "zh_desc": "梁 1×3×7 带 4 axleholes 和 3 孔"
+ },
+ "41677.dat": {
+  "zh_name": "举臂 2×0.5",
+  "zh_desc": "梁 2×0.5 举臂"
+ },
+ "41678.dat": {
+  "zh_name": "轴 2×2",
+  "zh_desc": "十字 块 2×2 split (轴/twin 销)"
+ },
+ "41679.dat": {
+  "zh_name": "举臂 4×0.5",
+  "zh_desc": "梁 4×0.5 举臂 带 click 旋转 hinge 半"
+ },
+ "41680.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 带 click 旋转 环"
+ },
+ "41681.dat": {
+  "zh_name": "举臂 3.8×1",
+  "zh_desc": "梁 3.8×1 举臂 带 click 旋转 环 插孔"
+ },
+ "41732.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 带 槽, bar 和 pivot"
+ },
+ "4174735a.dat": {
+  "zh_name": "贴纸 2.8×2.8",
+  "zh_desc": "贴纸 2.8×2.8 圆形 train fan"
+ },
+ "41752.dat": {
+  "zh_name": "销 ·橡胶",
+  "zh_desc": "橡胶 band holder 小 带 pinholes"
+ },
+ "41753.dat": {
+  "zh_name": "销 ·橡胶",
+  "zh_desc": "橡胶 band holder 大 带 pinholes"
+ },
+ "41817.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 气动件 软管 和 bladder attachments"
+ },
+ "41837.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "弹簧 用于 科技 减震器 6.5l soft"
+ },
+ "41838.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l soft (总成)"
+ },
+ "4185a.dat": {
+  "zh_name": "车轮 ·加强",
+  "zh_desc": "wedge belt 车轮 - not 加强"
+ },
+ "4185ac01.dat": {
+  "zh_name": "轮胎 ·加强",
+  "zh_desc": "wedge belt 车轮 (not 加强) 带 轮胎"
+ },
+ "4185b.dat": {
+  "zh_name": "车轮 ·加强",
+  "zh_desc": "wedge belt 车轮 - 加强"
+ },
+ "4185bc01.dat": {
+  "zh_name": "轮胎 ·加强",
+  "zh_desc": "wedge belt 车轮 (加强) 带 轮胎"
+ },
+ "4186017.dat": {
+  "zh_name": "轴销 ·已弃用",
+  "zh_desc": "轴销 tan (已弃用)"
+ },
+ "41894.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 大 带 四 孔"
+ },
+ "41894c01.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 带 2 球 joints (总成)"
+ },
+ "41895.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 带 2 球 joints"
+ },
+ "4192.dat": {
+  "zh_name": "转向件 2L",
+  "zh_desc": "转向件 constant velocity 8mm 关节 female 带 2l 轴"
+ },
+ "4198367.dat": {
+  "zh_name": "轴 ·柔性橡胶",
+  "zh_desc": "轴 接合件 双 柔性 橡胶 黑 (已弃用)"
+ },
+ "42003.dat": {
+  "zh_name": "轴 1×3",
+  "zh_desc": "十字 块 1×3 (轴/销/销)"
+ },
+ "4205436a.dat": {
+  "zh_name": "贴纸 2.9×2.9",
+  "zh_desc": "贴纸 2.9×2.9 圆形 带 黑 和 白 alternating sections"
+ },
+ "4206482.dat": {
+  "zh_name": "轴销 ·带摩擦已弃用",
+  "zh_desc": "轴销 带摩擦 蓝 (已弃用)"
+ },
+ "4211483.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "销 1/2 [71] (已弃用)"
+ },
+ "4211536.dat": {
+  "zh_name": "零件 ·已弃用",
+  "zh_desc": "pole reverser handle [71] (已弃用)"
+ },
+ "4211550.dat": {
+  "zh_name": "角度连接器 ·已弃用",
+  "zh_desc": "角度连接器 #1 浅 偏蓝 灰 (已弃用)"
+ },
+ "4211573.dat": {
+  "zh_name": "衬套 ·光滑已弃用",
+  "zh_desc": "衬套 1/2 光滑 浅 偏蓝 灰 (已弃用)"
+ },
+ "4211622.dat": {
+  "zh_name": "衬套 ·已弃用",
+  "zh_desc": "衬套 浅 偏蓝 灰 (已弃用)"
+ },
+ "4211807.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "销 浅 偏蓝 灰 (已弃用)"
+ },
+ "4211815.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 3 浅 偏蓝 灰 (已弃用)"
+ },
+ "42135.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 (轴/衬套) 型 2"
+ },
+ "4215a.dat": {
+  "zh_name": "面板 1×4×3",
+  "zh_desc": "面板 1×4×3"
+ },
+ "4215ad02.dat": {
+  "zh_name": "面板 1×4×3",
+  "zh_desc": "面板 1×4×3 带 solid 凸点 和 黄 box 和 箭头 右 贴纸"
+ },
+ "4215ad03.dat": {
+  "zh_name": "面板 1×4×3",
+  "zh_desc": "面板 1×4×3 带 solid 凸点 和 黄 box 和 箭头 左 贴纸"
+ },
+ "4218868.dat": {
+  "zh_name": "轴 3×3·已弃用",
+  "zh_desc": "圆盘 3×3 带 轴孔 黑 (已弃用)"
+ },
+ "42195.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "轴 接合件 3l 带 二 flat sides"
+ },
+ "4240416.dat": {
+  "zh_name": "关节 ·已弃用",
+  "zh_desc": "universal 关节 (总成) 浅 偏蓝 灰 (已弃用)"
+ },
+ "42529.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 56.5"
+ },
+ "42531.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 #30"
+ },
+ "42531p01.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 #30 带 银 honeycomb 左 图案"
+ },
+ "42531p02.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 #30 带 银 honeycomb 右 图案"
+ },
+ "42531p03.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 #30 带 红 和 白 triangular decorations 图案"
+ },
+ "42531p04.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 #30 带 蓝 和 白 triangular decorations 图案"
+ },
+ "4254.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l 活塞 杆"
+ },
+ "42545.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 #31"
+ },
+ "42545p01.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 #31 带 黑/红/灰 horizontal 条纹 左 图案"
+ },
+ "42545p02.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 #31 带 黑/红/灰 horizontal 条纹 右 图案"
+ },
+ "42545p03.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 #31 带 黑/红/灰 diagonal 条纹 左 图案"
+ },
+ "42545p04.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 #31 带 黑/红/灰 diagonal 条纹 右 图案"
+ },
+ "4255.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l 气缸"
+ },
+ "42590.dat": {
+  "zh_name": "马达 5×7×3",
+  "zh_desc": "马达 pull 后 5×7×3 型 6 (总成)"
+ },
+ "42607.dat": {
+  "zh_name": "砖 6×12",
+  "zh_desc": "wing 6×12 带 科技 砖"
+ },
+ "4261.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂"
+ },
+ "4261453.dat": {
+  "zh_name": "轴 1×2·已弃用",
+  "zh_desc": "十字 块 1×2 (轴/销) lime (已弃用)"
+ },
+ "4262.dat": {
+  "zh_name": "平板 1×6·带孔",
+  "zh_desc": "平板 1×6 带孔"
+ },
+ "4263.dat": {
+  "zh_name": "平板 1×4·带孔",
+  "zh_desc": "平板 1×4 带孔"
+ },
+ "4263624.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 5.5 带止位 深 偏蓝 灰 (已弃用)"
+ },
+ "4265a.dat": {
+  "zh_name": "衬套",
+  "zh_desc": "衬套 1/2 型 1"
+ },
+ "4265ac01.dat": {
+  "zh_name": "轮胎 75×8",
+  "zh_desc": "衬套 1/2 型 1 带 黑 轮胎 8/ 75×8 偏置 履带"
+ },
+ "4265ac02.dat": {
+  "zh_name": "轮胎 80×8·光滑",
+  "zh_desc": "衬套 1/2 型 1 带 黑 轮胎 4/ 80×8 单 光滑"
+ },
+ "42688.dat": {
+  "zh_name": "软管 33L·柔性",
+  "zh_desc": "柔性-系统 软管 33l (660ldu)"
+ },
+ "4273a.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 toggle 关节 toothed 带 no 槽"
+ },
+ "4273b.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 toggle 关节 toothed"
+ },
+ "4274.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 1/2"
+ },
+ "42865.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 ridges lengthwise 和 solid 端"
+ },
+ "42924.dat": {
+  "zh_name": "销 ·长带摩擦",
+  "zh_desc": "销 长 带摩擦 型 2"
+ },
+ "43045.dat": {
+  "zh_name": "销 2×4.5",
+  "zh_desc": "hinge 平板 2×4.5 顶 带 科技 销孔 和 2 孔"
+ },
+ "43056.dat": {
+  "zh_name": "销 2×4.5",
+  "zh_desc": "hinge 平板 2×4.5 底座 带 科技 销孔 和 2 孔"
+ },
+ "43056c01.dat": {
+  "zh_name": "销 2×4.5·带摩擦",
+  "zh_desc": "hinge 平板 2×4.5 带 科技 销孔 和 2 孔 带 科技 销 带摩擦 和 槽 黑 (总成)"
+ },
+ "43060.dat": {
+  "zh_name": "销 6×12",
+  "zh_desc": "wing 6×12 带 科技 砖 带 二 fixed 销"
+ },
+ "43093.dat": {
+  "zh_name": "轴销（带摩擦）",
+  "zh_desc": "一端是轴、一端是带摩擦销的连接件，把轴孔件固定到销孔件上（蓝色）。"
+ },
+ "43097-f1.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 型 2 (contracted)"
+ },
+ "43097-f2.dat": {
+  "zh_name": "零件 8×2×2·长",
+  "zh_desc": "直线 作动器 8×2×2 型 2 (加长)"
+ },
+ "43122.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "jet engine fan 带 10 blades 和 科技 销 [383] (已弃用)"
+ },
+ "43123.dat": {
+  "zh_name": "销 4×6",
+  "zh_desc": "砖 4×6 带 开口 中心 2×4 dual 销 在 端"
+ },
+ "43464.dat": {
+  "zh_name": "举臂 4×3",
+  "zh_desc": "梁 4×3 举臂 triangle"
+ },
+ "43675.dat": {
+  "zh_name": "软管 19L",
+  "zh_desc": "带肋 软管 19l"
+ },
+ "43822a.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 4174735a"
+ },
+ "43857.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 2"
+ },
+ "44079-f1.dat": {
+  "zh_name": "气动件 42L",
+  "zh_desc": "气动件 管 42l"
+ },
+ "44079-f2.dat": {
+  "zh_name": "气动件 42L",
+  "zh_desc": "气动件 管 42l 带 端 凸起"
+ },
+ "4412.dat": {
+  "zh_name": "零件 5×5×2.5",
+  "zh_desc": "dome 5×5×2.5"
+ },
+ "4412p01.dat": {
+  "zh_name": "零件 5×5×2.5",
+  "zh_desc": "dome 5×5×2.5 带 earth northern hemisphere 图案"
+ },
+ "4412p02.dat": {
+  "zh_name": "零件 5×5×2.5",
+  "zh_desc": "dome 5×5×2.5 带 earth southern hemisphere 图案"
+ },
+ "4413.dat": {
+  "zh_name": "零件 11×11×5.5",
+  "zh_desc": "dome 11×11×5.5"
+ },
+ "44135.dat": {
+  "zh_name": "零件",
+  "zh_desc": "bionicle rahkshi lower torso section"
+ },
+ "44137.dat": {
+  "zh_name": "连接器 4×4×2",
+  "zh_desc": "连接器 块 4×4×2"
+ },
+ "44148.dat": {
+  "zh_name": "零件",
+  "zh_desc": "bionicle rahkshi upper leg section"
+ },
+ "44224.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 旋转 关节 3 插孔"
+ },
+ "44225.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 旋转 关节 3 销"
+ },
+ "44294.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 7"
+ },
+ "44350.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #20"
+ },
+ "44351.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #21"
+ },
+ "44352.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #22"
+ },
+ "44353.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #23"
+ },
+ "44374.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "rotor 3 叶片 x 0.5 举臂"
+ },
+ "4442.dat": {
+  "zh_name": "平板 1×8·带孔",
+  "zh_desc": "平板 1×8 带孔"
+ },
+ "44486.dat": {
+  "zh_name": "齿轮 ·已弃用",
+  "zh_desc": "电动 科技 马达 9v geared (480rpm) (trans-clear) (已弃用)"
+ },
+ "4450.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 7 (168.75 度)"
+ },
+ "4459.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦"
+ },
+ "44775.dat": {
+  "zh_name": "齿条 11×2",
+  "zh_desc": "track 系统 gate 11×2 带 三 孔 和 paddle"
+ },
+ "44790.dat": {
+  "zh_name": "零件",
+  "zh_desc": "hockey helmet"
+ },
+ "44809.dat": {
+  "zh_name": "销 2×2·弯折",
+  "zh_desc": "十字 块 2×2 弯折 90 (销/销/销)"
+ },
+ "44852.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "轴 接合件 3×2 带 axial torsion 弹簧"
+ },
+ "44874.dat": {
+  "zh_name": "销 ·长",
+  "zh_desc": "销 长 带 销孔 型 2"
+ },
+ "4497946.dat": {
+  "zh_name": "连接器 3×3·已弃用",
+  "zh_desc": "连接器 块 3×3 triangular 带 轴孔 黑 (已弃用)"
+ },
+ "4500.dat": {
+  "zh_name": "面板 7×3×2·光滑",
+  "zh_desc": "面板 光滑 inverted 7×3×2"
+ },
+ "4506697.dat": {
+  "zh_name": "角度连接器 ·已弃用",
+  "zh_desc": "角度连接器 #5 (112.5 度) 白 (已弃用)"
+ },
+ "4514.dat": {
+  "zh_name": "转向件 6L",
+  "zh_desc": "转向件 链节 6l 垂直"
+ },
+ "4519.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "3 孔长的科技轴，穿过轴孔传递旋转（深灰色）。"
+ },
+ "4526.dat": {
+  "zh_name": "梁 13×3",
+  "zh_desc": "梁 13×3 带 二 开口 areas 5×1"
+ },
+ "4527.dat": {
+  "zh_name": "面板 3×13",
+  "zh_desc": "面板 3×13 弯曲 #52 tapered 左"
+ },
+ "45337.dat": {
+  "zh_name": "齿轮 3×4×1.667",
+  "zh_desc": "变速箱 3×4×1.667 t-shaped (总成)"
+ },
+ "45360.dat": {
+  "zh_name": "齿轮 3×3×1.667",
+  "zh_desc": "变速箱 3×3×1.667 corner 底座"
+ },
+ "45360c01.dat": {
+  "zh_name": "齿轮 3×3×1.667",
+  "zh_desc": "变速箱 3×3×1.667 corner (总成)"
+ },
+ "45361.dat": {
+  "zh_name": "齿轮 3×3×1.667",
+  "zh_desc": "变速箱 3×3×1.667 corner 顶"
+ },
+ "4548064c.dat": {
+  "zh_name": "贴纸 0.8×5.8",
+  "zh_desc": "贴纸 0.8×5.8 带 \"科技\" 标志 和 黄 在 右"
+ },
+ "4548064d.dat": {
+  "zh_name": "贴纸 0.8×5.8",
+  "zh_desc": "贴纸 0.8×5.8 带 \"科技\" 标志 和 黄 在 左"
+ },
+ "45575.dat": {
+  "zh_name": "销 ·柔性",
+  "zh_desc": "双 柔性 fixing 销"
+ },
+ "45590.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 接合件 双 柔性"
+ },
+ "45803.dat": {
+  "zh_name": "梁 3×7×3·弯折",
+  "zh_desc": "梁 3×7×3 弯折 90 双 chamfered"
+ },
+ "4586.dat": {
+  "zh_name": "梁 9×0.5",
+  "zh_desc": "梁 9×0.5 带 3 孔"
+ },
+ "4616b.dat": {
+  "zh_name": "销 2×4×2",
+  "zh_desc": "砖 2×4×2 带 engine cowling 和 孔 用于 科技 销"
+ },
+ "4617b.dat": {
+  "zh_name": "零件",
+  "zh_desc": "propeller 3 叶片 5.5 diameter 带 科技 销孔"
+ },
+ "46189.dat": {
+  "zh_name": "连接器 3×1×2",
+  "zh_desc": "连接器 3×1×2 带 销孔 和 二 销 (垂直 slits)"
+ },
+ "46217.dat": {
+  "zh_name": "齿轮 3×4×1.667",
+  "zh_desc": "变速箱 3×4×1.667 t-shaped 底座"
+ },
+ "46218.dat": {
+  "zh_name": "齿轮 3×4×1.667",
+  "zh_desc": "变速箱 3×4×1.667 t-shaped 顶"
+ },
+ "46219.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 12 齿 锥齿 带 单 轴 接合件"
+ },
+ "46220.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 12 齿 锥齿 带 双 轴 接合件"
+ },
+ "46224.dat": {
+  "zh_name": "齿轮 2×4×4",
+  "zh_desc": "变速箱 2×4×4 底座"
+ },
+ "46224c01.dat": {
+  "zh_name": "齿轮 2×4×4",
+  "zh_desc": "变速箱 2×4×4 (总成)"
+ },
+ "46225.dat": {
+  "zh_name": "齿轮 2×4×4",
+  "zh_desc": "变速箱 2×4×4 (轴 1)"
+ },
+ "46226.dat": {
+  "zh_name": "齿轮 2×4×4",
+  "zh_desc": "变速箱 2×4×4 轴 2"
+ },
+ "46227.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 24 齿 双 锥齿"
+ },
+ "46305.dat": {
+  "zh_name": "软管 40L·柔性",
+  "zh_desc": "柔性-系统 软管 40l (800ldu)"
+ },
+ "4631649a.dat": {
+  "zh_name": "贴纸 0.8×3.8",
+  "zh_desc": "贴纸 0.8×3.8 带 lego 标志 和 \"科技\""
+ },
+ "46372.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 28 齿 双 锥齿"
+ },
+ "46434.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 planetary 齿轮 reduction 车轮 轮毂"
+ },
+ "46481.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔 和 二 旋转 关节 sockets"
+ },
+ "46490.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 planetary 齿轮 reduction 主体 后"
+ },
+ "46490c01.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 planetary 齿轮 reduction 带 深 偏蓝 灰 车轮 轮毂"
+ },
+ "46490c02.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 planetary 齿轮 reduction 主体"
+ },
+ "46537.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 solid shaft 和 十字 shaped 橡胶 黑 tip"
+ },
+ "46667.dat": {
+  "zh_name": "销",
+  "zh_desc": "plane jet engine fan 带 10 blades 和 科技 销"
+ },
+ "46834.dat": {
+  "zh_name": "轴连接器",
+  "zh_desc": "离合 带 轴连接器 outer 侧"
+ },
+ "46835.dat": {
+  "zh_name": "轴连接器",
+  "zh_desc": "离合 带 轴连接器 inner 侧"
+ },
+ "46882.dat": {
+  "zh_name": "面板 15×2×7",
+  "zh_desc": "面板 15×2×7 挡泥板 带 trapezoidal arch"
+ },
+ "46882p01.dat": {
+  "zh_name": "面板 15×2×7",
+  "zh_desc": "面板 15×2×7 挡泥板 带 trapezoidal arch 带 黑 outline 图案"
+ },
+ "46891.dat": {
+  "zh_name": "零件 19×12",
+  "zh_desc": "excavator bucket 19×12"
+ },
+ "4691.dat": {
+  "zh_name": "气动件 2×4",
+  "zh_desc": "气动件 distribution 块 2×4 顶"
+ },
+ "4692.dat": {
+  "zh_name": "气动件 2×4",
+  "zh_desc": "气动件 distribution 块 2×4 底"
+ },
+ "4692c01.dat": {
+  "zh_name": "气动件 2×4",
+  "zh_desc": "气动件 distribution 块 2×4 (总成)"
+ },
+ "4694.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 casing"
+ },
+ "4694c01-f1.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 (总成 - neutral position)"
+ },
+ "4694c01-f2.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 (总成 - down position)"
+ },
+ "4694c01-f3.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 (总成 - up position)"
+ },
+ "4694c04.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 box"
+ },
+ "4695.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 拉杆"
+ },
+ "4697a.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 t-piece - 型 1"
+ },
+ "4697b.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 t-piece - 型 2"
+ },
+ "4698.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 nut"
+ },
+ "4700.dat": {
+  "zh_name": "零件 6×9",
+  "zh_desc": "excavator bucket 6×9"
+ },
+ "4701.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 底座 型 1"
+ },
+ "4706.dat": {
+  "zh_name": "气动件 2×4",
+  "zh_desc": "气动件 distribution 块 2×4 internals"
+ },
+ "4713.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 侧 cover"
+ },
+ "47154.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 9v geared (480 rpm) 底座"
+ },
+ "47154c01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 9v geared (480rpm)"
+ },
+ "47155.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 9v geared (480 rpm) 顶"
+ },
+ "47156.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 9v geared (480 rpm) shaft"
+ },
+ "47157.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 9v geared (480 rpm) 轴 衬套"
+ },
+ "4716.dat": {
+  "zh_name": "蜗杆 2L",
+  "zh_desc": "蜗杆 齿轮 2l"
+ },
+ "47222a.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 casing"
+ },
+ "47222ac01.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 box"
+ },
+ "47222b.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 和 stepped outlets casing"
+ },
+ "47223a-f1.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 (总成 - neutral position)"
+ },
+ "47223a-f2.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 (down position)"
+ },
+ "47223a-f3.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 (up position)"
+ },
+ "47223d-f1.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 和 stepped outlets (neutral position)"
+ },
+ "47223d-f2.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 和 stepped outlets (down position)"
+ },
+ "47223d-f3.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 和 stepped outlets (up position)"
+ },
+ "47224.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 带 弯曲 底座"
+ },
+ "47224c01-f1.dat": {
+  "zh_name": "气缸 2×2×5",
+  "zh_desc": "气动件 气缸 2×2×5 带 弯曲 底座 (retracted)"
+ },
+ "47224c01-f2.dat": {
+  "zh_name": "气缸 2×2×5·长",
+  "zh_desc": "气动件 气缸 2×2×5 带 弯曲 底座 (加长)"
+ },
+ "47300.dat": {
+  "zh_name": "球关节 3×3",
+  "zh_desc": "bionicle leg 3×3 带 2 球 joints"
+ },
+ "47314.dat": {
+  "zh_name": "零件",
+  "zh_desc": "bionicle weapon aero slicer"
+ },
+ "47325.dat": {
+  "zh_name": "连接器 2×3·橡胶",
+  "zh_desc": "连接器 2×3 带 球/轴 插孔 不带 橡胶 insert"
+ },
+ "47326.dat": {
+  "zh_name": "连接器 2×3·橡胶",
+  "zh_desc": "连接器 2×3 带 球/轴 插孔 带 橡胶 insert"
+ },
+ "47326p01.dat": {
+  "zh_name": "连接器 2×3·橡胶",
+  "zh_desc": "连接器 2×3 带 球/轴 插孔 带 橡胶 黑 insert"
+ },
+ "47326p02.dat": {
+  "zh_name": "连接器 2×3·橡胶",
+  "zh_desc": "连接器 2×3 带 球/轴 插孔 带 橡胶 白 insert"
+ },
+ "47326p03.dat": {
+  "zh_name": "连接器 2×3·橡胶",
+  "zh_desc": "连接器 2×3 带 球/轴 插孔 带 橡胶 浅 偏蓝 灰 insert"
+ },
+ "47330.dat": {
+  "zh_name": "球关节 3×3×1",
+  "zh_desc": "连接器 块 3×3×1 带 二 球 joints"
+ },
+ "47373-f1.dat": {
+  "zh_name": "减震器 11L·长",
+  "zh_desc": "减震器 11l/9l (in 加长 position, not pre-tensioned)"
+ },
+ "47373-f2.dat": {
+  "zh_name": "减震器 11L·长",
+  "zh_desc": "减震器 11l/9l (in 加长 position, pre-tensioned)"
+ },
+ "47373-f3.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l (in 压缩 position, not pre-tensioned)"
+ },
+ "47373-f4.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l (in 压缩 position, pre-tensioned)"
+ },
+ "47431.dat": {
+  "zh_name": "轴 2×2",
+  "zh_desc": "砖 2×2 带 轴孔, click 旋转 hinge (v) 和 fist"
+ },
+ "47432.dat": {
+  "zh_name": "砖 2×3",
+  "zh_desc": "砖 2×3 带 孔, click rot. hinge (v) 和 插孔"
+ },
+ "47452.dat": {
+  "zh_name": "砖 2×2",
+  "zh_desc": "砖 2×2 带 孔, click rot. hinge (h) 和 插孔"
+ },
+ "47454.dat": {
+  "zh_name": "砖 2×3",
+  "zh_desc": "砖 2×3 带 孔, click rot. hinge (h) 和 插孔"
+ },
+ "47455.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 带 click 旋转 销"
+ },
+ "47501.dat": {
+  "zh_name": "连接器 1×2",
+  "zh_desc": "连接器 1×2 带 二 销 和 stepped wedge"
+ },
+ "47712.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #24"
+ },
+ "47713.dat": {
+  "zh_name": "整流罩",
+  "zh_desc": "面板 整流罩 #25"
+ },
+ "4790.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "boat ship 车轮 带 unslotted 销"
+ },
+ "4790c01.dat": {
+  "zh_name": "车轮 1×2",
+  "zh_desc": "boat ship 车轮 带 unslotted 销 和 科技 砖 1×2"
+ },
+ "4790c02.dat": {
+  "zh_name": "车轮 1×2",
+  "zh_desc": "砖 1×2 带 brown boat ship 车轮 带 unslotted 销"
+ },
+ "4790c03.dat": {
+  "zh_name": "车轮 1×4",
+  "zh_desc": "砖 1×4 带 brown boat ship 车轮 带 unslotted 销"
+ },
+ "4790c04.dat": {
+  "zh_name": "车轮 1×2",
+  "zh_desc": "砖 1×2 带 reddish brown boat ship 车轮 带 unslotted 销"
+ },
+ "47972.dat": {
+  "zh_name": "连接器 3×1×3",
+  "zh_desc": "连接器 3×1×3 带 二 销 和 拖球"
+ },
+ "47973.dat": {
+  "zh_name": "连接器 3×1×3",
+  "zh_desc": "连接器 3×1×3 带 二 销 和 click hinge"
+ },
+ "47994.dat": {
+  "zh_name": "连接器 3×1×3",
+  "zh_desc": "连接器 3×1×3 带 2 clips 和 2 销 带 圆形 inside"
+ },
+ "48168.dat": {
+  "zh_name": "零件",
+  "zh_desc": "turntable 型 2 顶"
+ },
+ "48169.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔 和 旋转 关节 插孔"
+ },
+ "48170.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔, 半 旋转 关节 球 horiz"
+ },
+ "48171.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔, 半 旋转 关节 球 vert"
+ },
+ "48172.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔 和 二 旋转 关节 sockets"
+ },
+ "48202.dat": {
+  "zh_name": "零件 2×18",
+  "zh_desc": "bumper 2×18"
+ },
+ "48203.dat": {
+  "zh_name": "零件 2×6",
+  "zh_desc": "bumper 2×6"
+ },
+ "48267.dat": {
+  "zh_name": "轴 1×3",
+  "zh_desc": "齿 1×3 带 轴孔 带 straight 底 cavity"
+ },
+ "48452.dat": {
+  "zh_name": "零件",
+  "zh_desc": "turntable 型 2 底座"
+ },
+ "48454.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔, 半 旋转 关节 球 vert"
+ },
+ "48496.dat": {
+  "zh_name": "连接器 ·光滑",
+  "zh_desc": "连接器 toggle 关节 光滑 双 带 2 销"
+ },
+ "486-f1.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 crawler wedge shaped"
+ },
+ "486k01.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 crawler wedge shaped 段 straight"
+ },
+ "486k02.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 crawler wedge shaped 段 transition"
+ },
+ "486k03.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 crawler wedge shaped 段 弯曲"
+ },
+ "48912.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l 顶"
+ },
+ "48913.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l 底"
+ },
+ "48914.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l 弹簧 holder"
+ },
+ "48915.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l setting 环"
+ },
+ "48917.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l/9l 活塞"
+ },
+ "48918.dat": {
+  "zh_name": "减震器 11L·长",
+  "zh_desc": "弹簧 用于 科技 减震器 11l/9l (加长)"
+ },
+ "48918c01.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "弹簧 用于 科技 减震器 11l/9l (1/3 压缩)"
+ },
+ "48918c02.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "弹簧 用于 科技 减震器 11l/9l (2/3 压缩)"
+ },
+ "48918c03.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "弹簧 用于 科技 减震器 11l/9l (压缩)"
+ },
+ "48989.dat": {
+  "zh_name": "销 1×3",
+  "zh_desc": "十字 块 1×3 (销/销/销) 带 4 销"
+ },
+ "49130.dat": {
+  "zh_name": "销连接器 3×3·弯折",
+  "zh_desc": "销连接器 垂直 3×3 弯折 90 带 4 销, 槽 across 梁"
+ },
+ "49283.dat": {
+  "zh_name": "零件",
+  "zh_desc": "cable clip"
+ },
+ "49731.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 1/2 带 button"
+ },
+ "498.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 crawler"
+ },
+ "50029.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 2 叶片 带 4 凸点"
+ },
+ "50163.dat": {
+  "zh_name": "零件 ·已弃用",
+  "zh_desc": "turntable 型 2 (总成) 黑/深 stone (已弃用)"
+ },
+ "50450.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 32"
+ },
+ "50451.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 16"
+ },
+ "50900.dat": {
+  "zh_name": "销 12L",
+  "zh_desc": "bionicle rhotuka spinner ripcord 12l 带 hand grip"
+ },
+ "50901.dat": {
+  "zh_name": "轴",
+  "zh_desc": "bionicle rhotuka spinner holder 带 2 销 和 轴孔"
+ },
+ "50903.dat": {
+  "zh_name": "齿轮 2.5L",
+  "zh_desc": "bionicle rhotuka spinner 杆 2.5l 带 齿轮 8 齿"
+ },
+ "50904.dat": {
+  "zh_name": "举臂 2×8×2",
+  "zh_desc": "梁 2×8×2 双 举臂 带 2 1×3 beams"
+ },
+ "50914.dat": {
+  "zh_name": "销",
+  "zh_desc": "bionicle weapon pincer suukorak"
+ },
+ "50921.dat": {
+  "zh_name": "球关节 2×5·锥齿",
+  "zh_desc": "臂 2×5 带 球关节 和 齿轮 12 齿 双 锥齿"
+ },
+ "50923.dat": {
+  "zh_name": "球关节 ·带角度",
+  "zh_desc": "梁 2 举臂 带 带角度 球关节"
+ },
+ "50925.dat": {
+  "zh_name": "零件",
+  "zh_desc": "bionicle toa hordika torso"
+ },
+ "51149.dat": {
+  "zh_name": "轴",
+  "zh_desc": "transmission changeover catch 带 二-toothed 轴孔"
+ },
+ "52629.dat": {
+  "zh_name": "球",
+  "zh_desc": "球 19mm 用于 球 castor"
+ },
+ "52668.dat": {
+  "zh_name": "销 6×8·长",
+  "zh_desc": "砖 6×8 带 开口 中心 4×6 dual 销 两 端 和 单 长 侧"
+ },
+ "52730.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 constant velocity 8mm 关节 female"
+ },
+ "52731.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 constant velocity 8mm 关节 male"
+ },
+ "52901.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔"
+ },
+ "5294.dat": {
+  "zh_name": "臂 4×6",
+  "zh_desc": "suspension 臂 4×6 triangular"
+ },
+ "53168-f1.dat": {
+  "zh_name": "气动件 17L",
+  "zh_desc": "气动件 管 17l"
+ },
+ "53168-f2.dat": {
+  "zh_name": "气动件 17L",
+  "zh_desc": "气动件 管 17l 带 端 凸起"
+ },
+ "53178.dat": {
+  "zh_name": "齿条",
+  "zh_desc": "气动件 气缸 bracket"
+ },
+ "53184-f1.dat": {
+  "zh_name": "气动件 21L",
+  "zh_desc": "气动件 管 21l"
+ },
+ "53184-f2.dat": {
+  "zh_name": "气动件 21L",
+  "zh_desc": "气动件 管 21l 带 端 凸起"
+ },
+ "53293.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形"
+ },
+ "53475.dat": {
+  "zh_name": "软管 26L·柔性",
+  "zh_desc": "柔性-系统 软管 26l (520ldu)"
+ },
+ "53533.dat": {
+  "zh_name": "销 2×3",
+  "zh_desc": "十字 块 2×3 split (销/销/销) 带 销"
+ },
+ "53543.dat": {
+  "zh_name": "臂",
+  "zh_desc": "bionicle toa inika thigh armour"
+ },
+ "53550.dat": {
+  "zh_name": "球",
+  "zh_desc": "bionicle weapon 球 shooter magazine"
+ },
+ "53551.dat": {
+  "zh_name": "链条 1×3×0.5",
+  "zh_desc": "链条 链节 1×3×0.5"
+ },
+ "53585.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 带 轴孔 开口"
+ },
+ "53586.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 接合件 垂直 带 extension"
+ },
+ "5405.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 4 旋钮 45°"
+ },
+ "5426.dat": {
+  "zh_name": "面板 3×13",
+  "zh_desc": "面板 3×13 弯曲 #53 tapered 右"
+ },
+ "5427.dat": {
+  "zh_name": "面板 3×9×2",
+  "zh_desc": "面板 3×9×2 弯曲"
+ },
+ "5429.dat": {
+  "zh_name": "臂 13×6×3",
+  "zh_desc": "wishbone suspension 臂 13×6×3"
+ },
+ "54821.dat": {
+  "zh_name": "球",
+  "zh_desc": "bionicle 球 16.5 mm"
+ },
+ "55013.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 8 带止位"
+ },
+ "55236.dat": {
+  "zh_name": "销",
+  "zh_desc": "bionicle barraki spines"
+ },
+ "55423.dat": {
+  "zh_name": "车轮 ·橡胶",
+  "zh_desc": "train 车轮 用于 rc train w 科技 轴孔 和 橡胶 环"
+ },
+ "55615.dat": {
+  "zh_name": "销连接器 3×3·弯折",
+  "zh_desc": "销连接器 垂直 3×3 弯折 90 带 4 销, 槽 along 梁"
+ },
+ "5565.dat": {
+  "zh_name": "砖 1×3·带孔",
+  "zh_desc": "砖 1×3 带孔"
+ },
+ "55709.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 11"
+ },
+ "55767.dat": {
+  "zh_name": "零件 31×13",
+  "zh_desc": "support 31×13 bridge 侧"
+ },
+ "569.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 9 大 齿"
+ },
+ "570.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 15 大 齿"
+ },
+ "57028a.dat": {
+  "zh_name": "零件 ·橡胶已弃用",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 黑 tip (已弃用)"
+ },
+ "57028b.dat": {
+  "zh_name": "零件 ·橡胶已弃用",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 lime tip (已弃用)"
+ },
+ "57028c.dat": {
+  "zh_name": "零件 ·橡胶已弃用",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 灰 tip (已弃用)"
+ },
+ "57028d.dat": {
+  "zh_name": "零件 ·橡胶已弃用",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 黄 tip (已弃用)"
+ },
+ "57028p01.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 黑 tip 图案"
+ },
+ "57028p02.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 lime tip 图案"
+ },
+ "57028p03.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 浅 偏蓝 灰 tip 图案"
+ },
+ "57028p04.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 hollow 橡胶 黄 tip 图案"
+ },
+ "57029a.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 主体 带 truncated groove"
+ },
+ "57029ac01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 和 truncated grooves 不带 trigger"
+ },
+ "57029b.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 主体 带 groove"
+ },
+ "57029bc01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 和 grooves 不带 trigger"
+ },
+ "57046a.dat": {
+  "zh_name": "面板 8×17",
+  "zh_desc": "sheet plastic 科技 面板 8×17 triangular 带 10 孔"
+ },
+ "57046b.dat": {
+  "zh_name": "面板 11×23",
+  "zh_desc": "sheet plastic 科技 面板 11×23 triangular 带 10 孔"
+ },
+ "57046c.dat": {
+  "zh_name": "面板 15×33",
+  "zh_desc": "sheet plastic 科技 面板 15×33 triangular 带 10 孔"
+ },
+ "57046d.dat": {
+  "zh_name": "面板 8×8",
+  "zh_desc": "sheet plastic 科技 面板 8×8 circular 带 4 孔"
+ },
+ "57046e.dat": {
+  "zh_name": "面板 10×10",
+  "zh_desc": "sheet plastic 科技 面板 10×10 circular 带 5 孔"
+ },
+ "57046f.dat": {
+  "zh_name": "面板 10×10",
+  "zh_desc": "sheet plastic 科技 面板 10×10 四分之一 环 带 4 孔"
+ },
+ "5713.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "轴 3l 带 垂直 销孔"
+ },
+ "572.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 21 大 齿"
+ },
+ "57274.dat": {
+  "zh_name": "软管 32L·柔性",
+  "zh_desc": "柔性-系统 软管 32l (640ldu)"
+ },
+ "574.dat": {
+  "zh_name": "齿轮 130×17",
+  "zh_desc": "轮胎 10/ 130×17 偏置 履带 用于 科技 齿轮 9 齿"
+ },
+ "575.dat": {
+  "zh_name": "关节 4L",
+  "zh_desc": "universal 关节 4l 端 带 slotted 端"
+ },
+ "57515.dat": {
+  "zh_name": "臂 2×6",
+  "zh_desc": "suspension 臂 2×6"
+ },
+ "57518.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 5 宽"
+ },
+ "57518c01.dat": {
+  "zh_name": "链条 ·橡胶",
+  "zh_desc": "链条 履带 5 宽 带 红 橡胶 foot"
+ },
+ "57519.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 40.4"
+ },
+ "57520.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 25.4"
+ },
+ "57520p01.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 25.4 带 bionicle life counter 图案"
+ },
+ "57525.dat": {
+  "zh_name": "零件",
+  "zh_desc": "bionicle cordak blaster dart"
+ },
+ "57528.dat": {
+  "zh_name": "销 8×7",
+  "zh_desc": "bionicle weapon pincer 8×7"
+ },
+ "57565.dat": {
+  "zh_name": "销 6L",
+  "zh_desc": "bionicle weapon pincer 6l"
+ },
+ "57585.dat": {
+  "zh_name": "轴",
+  "zh_desc": "衬套 带 三 轴"
+ },
+ "57587.dat": {
+  "zh_name": "零件 7×7×5",
+  "zh_desc": "dome 7×7×5"
+ },
+ "575c01.dat": {
+  "zh_name": "关节 4L",
+  "zh_desc": "universal 关节 4l 带 slotted 端 带 milky 白 中心 型 1 (总成)"
+ },
+ "575c02.dat": {
+  "zh_name": "关节 ·已弃用",
+  "zh_desc": "universal 关节 型 1 (总成) 红 (已弃用)"
+ },
+ "57718.dat": {
+  "zh_name": "软管 ·已弃用",
+  "zh_desc": "带肋 软管 19 ribs flat 银 (已弃用)"
+ },
+ "57719.dat": {
+  "zh_name": "软管 7L",
+  "zh_desc": "带肋 软管 7l"
+ },
+ "57759.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 lid"
+ },
+ "57796ac01.dat": {
+  "zh_name": "零件 ·长",
+  "zh_desc": "竞赛 炮 带 flat 底 带 长 trigger (unloaded)"
+ },
+ "57796ac02.dat": {
+  "zh_name": "零件 ·长",
+  "zh_desc": "竞赛 炮 带 flat 底 带 长 trigger (loaded 带 箭头)"
+ },
+ "57796bc01.dat": {
+  "zh_name": "零件 ·短",
+  "zh_desc": "竞赛 炮 带 flat 底 带 短 trigger (unloaded)"
+ },
+ "57796bc02.dat": {
+  "zh_name": "零件 ·短",
+  "zh_desc": "竞赛 炮 带 flat 底 带 短 trigger (loaded 带 箭头)"
+ },
+ "5780.dat": {
+  "zh_name": "臂 7×8×2",
+  "zh_desc": "suspension 臂 7×8×2 双"
+ },
+ "58118.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 动力组 extension wire [50cm]"
+ },
+ "58121.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 xl 马达 (总成)"
+ },
+ "58121c01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 xl 马达 带 coiled cable"
+ },
+ "58124.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 连接器 顶 (待完善)"
+ },
+ "58124c01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 连接器 带 pf 底"
+ },
+ "58124c02.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 连接器 带 9v 底"
+ },
+ "58125a.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 连接器 底 (pf 型)(待完善)"
+ },
+ "58125b.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 连接器 底 (9v 型)(待完善)"
+ },
+ "58177.dat": {
+  "zh_name": "连接器 3×3",
+  "zh_desc": "连接器 块 3×3 triangular 带 轴孔"
+ },
+ "584.dat": {
+  "zh_name": "衬套",
+  "zh_desc": "衬套 带 单 法兰"
+ },
+ "585.dat": {
+  "zh_name": "衬套",
+  "zh_desc": "衬套 带 三 法兰"
+ },
+ "59141.dat": {
+  "zh_name": "球关节 ·带角度",
+  "zh_desc": "梁 2 举臂 带 带角度 球关节"
+ },
+ "59154.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 xl 马达 后 (待完善)"
+ },
+ "59155.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 xl 马达 前 (待完善)"
+ },
+ "59426.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 5.5 带止位 型 2"
+ },
+ "59443.dat": {
+  "zh_name": "轴 ·光滑",
+  "zh_desc": "轴 接合件 inline 光滑"
+ },
+ "59895.dat": {
+  "zh_name": "轮胎 80×8·光滑",
+  "zh_desc": "轮胎 4/ 80×8 单 光滑 型 2"
+ },
+ "5996.dat": {
+  "zh_name": "转向件 8L",
+  "zh_desc": "转向件 链节 8l"
+ },
+ "60.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 离合 outside"
+ },
+ "60288.dat": {
+  "zh_name": "零件 7×7×5",
+  "zh_desc": "dome 7×7×5"
+ },
+ "6037767a.dat": {
+  "zh_name": "贴纸 0.8×1.9",
+  "zh_desc": "贴纸 0.8×1.9 带 绿 和 红 buttons, 2 gauges 和 intercom handset"
+ },
+ "60483.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 2 举臂"
+ },
+ "60483pt1.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 2 举臂 带 lamborghini 标志 图案"
+ },
+ "60483pt2.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 2 举臂 带 银 p1 标志 图案"
+ },
+ "60484.dat": {
+  "zh_name": "梁 3×3",
+  "zh_desc": "梁 3×3 t-shaped"
+ },
+ "60485.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 9"
+ },
+ "6057482a.dat": {
+  "zh_name": "贴纸 0.8×1.9",
+  "zh_desc": "贴纸 0.8×1.9 带 7 gauges"
+ },
+ "60656.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 动力组 extension wire [20cm]"
+ },
+ "60778.dat": {
+  "zh_name": "软管 38L·柔性",
+  "zh_desc": "柔性-系统 软管 38l (760ldu)"
+ },
+ "60935.dat": {
+  "zh_name": "零件 11×8",
+  "zh_desc": "wing 11×8"
+ },
+ "61.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 32053"
+ },
+ "61069.dat": {
+  "zh_name": "面板 4×6.5",
+  "zh_desc": "面板 侧 flaring intake 4×6.5"
+ },
+ "61070.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 面板 整流罩 右"
+ },
+ "61070d01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 面板 整流罩 右 带 ev3 贴纸 #12"
+ },
+ "61071.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 面板 整流罩 左"
+ },
+ "61071d01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 面板 整流罩 左 带 ev3 贴纸 #13"
+ },
+ "61073.dat": {
+  "zh_name": "零件 3×8",
+  "zh_desc": "car spoiler 3×8 带 3 销孔"
+ },
+ "61184.dat": {
+  "zh_name": "销 2L",
+  "zh_desc": "销 1/2 带 bar 2l"
+ },
+ "61280.dat": {
+  "zh_name": "零件 ·短",
+  "zh_desc": "竞赛 炮 trigger 短"
+ },
+ "61332.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 型 2"
+ },
+ "6135.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "plant tree palm trunk 带 科技 轴孔 (已弃用)"
+ },
+ "61403.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "circular saw 叶片 14 齿"
+ },
+ "61408.dat": {
+  "zh_name": "举臂 3×0.5",
+  "zh_desc": "梁 3×0.5 举臂 带 boss 和 销 带 开口 central 轴孔"
+ },
+ "6142074s.dat": {
+  "zh_name": "贴纸 2.8×2.8",
+  "zh_desc": "贴纸 2.8×2.8 圆形 带 黑 和 白 alternating sections"
+ },
+ "61483.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "销 带 2 车轮 销"
+ },
+ "61510.dat": {
+  "zh_name": "零件 2×1",
+  "zh_desc": "reel 2×1"
+ },
+ "6154914d.dat": {
+  "zh_name": "齿轮 5.0×0.8",
+  "zh_desc": "贴纸 5.0×0.8 带 齿轮 拉杆 console 左 带 \"dnr\" text"
+ },
+ "6154914e.dat": {
+  "zh_name": "齿轮 5.0×0.8",
+  "zh_desc": "贴纸 5.0×0.8 带 齿轮 拉杆 console 右"
+ },
+ "6155286a.dat": {
+  "zh_name": "贴纸 1.2×2.6",
+  "zh_desc": "贴纸 1.2×2.6 带 黑 lines"
+ },
+ "6155286b.dat": {
+  "zh_name": "贴纸 2.7×10.7",
+  "zh_desc": "贴纸 2.7×10.7 带 黄 条纹 在 深 蓝 背景"
+ },
+ "6155286c.dat": {
+  "zh_name": "贴纸 4.3×6.8",
+  "zh_desc": "贴纸 4.3×6.8 带 air outlet grilles, hatches 和 electricity 危险 signs sloped 右"
+ },
+ "6155286d.dat": {
+  "zh_name": "贴纸 4.3×6.8",
+  "zh_desc": "贴纸 4.3×6.8 带 air outlet grilles, hatches 和 electricity 危险 signs sloped 左"
+ },
+ "6155286e.dat": {
+  "zh_name": "贴纸 0.7×4.0",
+  "zh_desc": "贴纸 0.7×4.0 带 红 和 白 diagonal 条纹 倾斜 右"
+ },
+ "6155286ec01.dat": {
+  "zh_name": "贴纸 0.7×4.0",
+  "zh_desc": "贴纸 0.7×4.0 带 红 和 白 diagonal 条纹 倾斜 右 (成型)"
+ },
+ "6155286f.dat": {
+  "zh_name": "贴纸 4.3×6.8",
+  "zh_desc": "贴纸 4.3×6.8 trapezium 带 黄 \"mkiii\", 深 蓝 和 黄 条纹 sloped 右"
+ },
+ "6155286g.dat": {
+  "zh_name": "贴纸 4.3×6.8",
+  "zh_desc": "贴纸 4.3×6.8 trapezium 带 黄 \"mkiii\", 深 蓝 和 黄 条纹 sloped 左"
+ },
+ "6155286h.dat": {
+  "zh_name": "贴纸 0.7×2.0",
+  "zh_desc": "贴纸 0.7×2.0 带 红 和 白 危险 条纹 倾斜 右"
+ },
+ "6155286i.dat": {
+  "zh_name": "贴纸 0.7×2.0",
+  "zh_desc": "贴纸 0.7×2.0 带 红 和 白 危险 条纹 倾斜 左"
+ },
+ "6155286j.dat": {
+  "zh_name": "贴纸 5.7×2.7",
+  "zh_desc": "贴纸 5.7×2.7 带 2 白 letters \"n\", 3 straight arrows 和 air outlet grilles"
+ },
+ "6155286k.dat": {
+  "zh_name": "贴纸 5.7×2.7",
+  "zh_desc": "贴纸 5.7×2.7 带 2 白 letters \"n\", 3 圆形 arrows 和 air outlet grilles"
+ },
+ "6155286l.dat": {
+  "zh_name": "贴纸 0.7×4.0",
+  "zh_desc": "贴纸 0.7×4.0 带 红 和 白 diagonal 条纹 倾斜 左"
+ },
+ "6155286lc01.dat": {
+  "zh_name": "贴纸 0.7×4.0",
+  "zh_desc": "贴纸 0.7×4.0 带 红 和 白 diagonal 条纹 倾斜 左 (成型)"
+ },
+ "6155286m.dat": {
+  "zh_name": "贴纸 2.7×10.7",
+  "zh_desc": "贴纸 2.7×10.7 带 白 \"mk iii\", 黑 \"42055\" over 黄 条纹 在 深 蓝 背景"
+ },
+ "6155286oc01.dat": {
+  "zh_name": "贴纸 2.6×3.5",
+  "zh_desc": "贴纸 2.6×3.5 带 黑 lines 和 rectangles 和 红 和 白 危险 条纹 倾斜 右 (成型)"
+ },
+ "6155286p.dat": {
+  "zh_name": "贴纸 2.6×1.2",
+  "zh_desc": "贴纸 2.6×1.2 带 黑 lines 和 红 和 白 危险 条纹 倾斜 右"
+ },
+ "6155286qc01.dat": {
+  "zh_name": "贴纸 2.6×3.5",
+  "zh_desc": "贴纸 2.6×3.5 带 黑 lines 和 rectangles (成型 #1)"
+ },
+ "6155286qc02.dat": {
+  "zh_name": "贴纸 2.6×3.5",
+  "zh_desc": "贴纸 2.6×3.5 带 黑 lines 和 rectangles (成型 #2)"
+ },
+ "6155286r.dat": {
+  "zh_name": "贴纸 2.6×1.2",
+  "zh_desc": "贴纸 2.6×1.2 带 黑 lines 和 红 和 白 危险 条纹 倾斜 左"
+ },
+ "6155286sc01.dat": {
+  "zh_name": "贴纸 2.6×3.5",
+  "zh_desc": "贴纸 2.6×3.5 带 黑 lines 和 rectangles 和 红 和 白 危险 条纹 倾斜 左 (成型)"
+ },
+ "6155286t.dat": {
+  "zh_name": "贴纸 2.7×5.7",
+  "zh_desc": "贴纸 2.7×5.7 带 浅 偏蓝 灰 和 深 偏蓝 灰 危险 条纹"
+ },
+ "6155286u.dat": {
+  "zh_name": "贴纸 0.7×0.7",
+  "zh_desc": "贴纸 0.7×0.7 带 黑 exclamation mark 在 黄 背景"
+ },
+ "6155286v.dat": {
+  "zh_name": "贴纸 0.7×0.7",
+  "zh_desc": "贴纸 0.7×0.7 带 黑 overhead load 危险 sign 在 黄 背景"
+ },
+ "6155286wc01.dat": {
+  "zh_name": "贴纸 0.7×0.7",
+  "zh_desc": "贴纸 0.7×0.7 带 黑 crushing hazard 危险 sign 在 黄 背景 (成型)"
+ },
+ "6155286x.dat": {
+  "zh_name": "车轮 2.7×5.7",
+  "zh_desc": "贴纸 2.7×5.7 带 白 \"bucket 车轮 excavator mk iii\" 和 技术 data"
+ },
+ "6155286y.dat": {
+  "zh_name": "贴纸 0.7×4.0",
+  "zh_desc": "贴纸 0.7×4.0 带 closed/开口 padlocks 和 letter \"n\" 在 红 背景 带 白 条纹"
+ },
+ "61795.dat": {
+  "zh_name": "轴",
+  "zh_desc": "bionicle weapon 盾牌 叶片 带 轴孔"
+ },
+ "61800.dat": {
+  "zh_name": "轴",
+  "zh_desc": "wing 带 轴孔"
+ },
+ "61801.dat": {
+  "zh_name": "零件 5L",
+  "zh_desc": "bionicle jet booster 5l"
+ },
+ "61810.dat": {
+  "zh_name": "零件",
+  "zh_desc": "bionicle weapon nynrah ghost blaster 泵"
+ },
+ "61903.dat": {
+  "zh_name": "关节 3L",
+  "zh_desc": "universal 关节 3l (总成)"
+ },
+ "61904.dat": {
+  "zh_name": "齿条 2×2",
+  "zh_desc": "直线 作动器 2×2 bracket hinged mount"
+ },
+ "61905.dat": {
+  "zh_name": "马达 2×2",
+  "zh_desc": "直线 作动器 2×2 马达 mount"
+ },
+ "61927-f1.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 (contracted)"
+ },
+ "61927-f2.dat": {
+  "zh_name": "零件 8×2×2·长",
+  "zh_desc": "直线 作动器 8×2×2 (加长)"
+ },
+ "6216a.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "电动 科技 马达 4.5v 不带 中心 销孔 (已弃用)"
+ },
+ "6216b.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 带 4v 标志"
+ },
+ "6216c.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 带 4v 标志"
+ },
+ "6216d.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 带 12v 标志"
+ },
+ "6216e.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 带 12v 标志"
+ },
+ "6216m.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "电动 科技 马达 4.5v 带 中心 销孔 (已弃用)"
+ },
+ "6221.dat": {
+  "zh_name": "零件",
+  "zh_desc": "handle"
+ },
+ "62271.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 底座"
+ },
+ "62271c01.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 主体 assembly"
+ },
+ "62272.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 主体"
+ },
+ "62273.dat": {
+  "zh_name": "轴 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 轴 衬套"
+ },
+ "62274.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 活塞 头"
+ },
+ "62274c01.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 活塞 assembly"
+ },
+ "62274c02.dat": {
+  "zh_name": "零件 12×2×2",
+  "zh_desc": "直线 作动器 12×2×2 活塞 assembly"
+ },
+ "62275.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 活塞"
+ },
+ "6228775r.dat": {
+  "zh_name": "贴纸 0.9×4.8",
+  "zh_desc": "贴纸 0.9×4.8 带 黑 条纹 在 深 azure 背景 右"
+ },
+ "6228775s.dat": {
+  "zh_name": "贴纸 0.9×4.8",
+  "zh_desc": "贴纸 0.9×4.8 带 黑 条纹 在 深 azure 背景 左"
+ },
+ "6228a.dat": {
+  "zh_name": "马达 ·已弃用",
+  "zh_desc": "电动 科技 马达 12v (已弃用)"
+ },
+ "6239p01.dat": {
+  "zh_name": "零件 2×6×4",
+  "zh_desc": "tail shuttle 2×6×4 带 airline bird 在 白 circle 图案"
+ },
+ "6239p02.dat": {
+  "zh_name": "零件 2×6×4",
+  "zh_desc": "tail shuttle 2×6×4 带 eagle 和 \"police\" 图案"
+ },
+ "62462.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 带 槽"
+ },
+ "6247.dat": {
+  "zh_name": "链节 11L",
+  "zh_desc": "链节 11l"
+ },
+ "6248.dat": {
+  "zh_name": "车轮 10×17.4",
+  "zh_desc": "车轮 rim 10×17.4 带 4 凸点 和 科技 销孔"
+ },
+ "62519.dat": {
+  "zh_name": "关节 3L",
+  "zh_desc": "universal 关节 3l 中心"
+ },
+ "62520.dat": {
+  "zh_name": "关节 3L",
+  "zh_desc": "universal 关节 3l 端"
+ },
+ "62531.dat": {
+  "zh_name": "面板 11×2×3·光滑",
+  "zh_desc": "面板 光滑 11×2×3"
+ },
+ "62821.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "differential 带 单 齿轮 28 齿 锥齿"
+ },
+ "6283148d.dat": {
+  "zh_name": "贴纸 0.8×3.1",
+  "zh_desc": "贴纸 0.8×3.1 带 红 条纹 在 黑"
+ },
+ "6283148i.dat": {
+  "zh_name": "贴纸 0.8×4.0",
+  "zh_desc": "贴纸 0.8×4.0 带 银 \"defender\" 在 白"
+ },
+ "6283148k.dat": {
+  "zh_name": "贴纸 0.8×3.1",
+  "zh_desc": "贴纸 0.8×3.1 带 \"d\", \"n\" 和 \"r\" 在 深 偏蓝 灰"
+ },
+ "6283148m.dat": {
+  "zh_name": "面板 0.8×4.0",
+  "zh_desc": "贴纸 0.8×4.0 带 银 rectangle in 黑 面板 在 浅 偏蓝 灰"
+ },
+ "6283148v.dat": {
+  "zh_name": "贴纸 0.8×3.1",
+  "zh_desc": "贴纸 0.8×3.1 带 \"lo\" 和 \"hi\" 在 深 偏蓝 灰"
+ },
+ "6283148y.dat": {
+  "zh_name": "贴纸 0.8×2.0",
+  "zh_desc": "贴纸 0.8×2.0 带 plus 和 minus symbols 在 深 偏蓝 灰"
+ },
+ "63144-f1.dat": {
+  "zh_name": "减震器 10L·长",
+  "zh_desc": "减震器 10l damped 不带 弹簧 (加长)"
+ },
+ "63144-f2.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped 不带 弹簧 (压缩)"
+ },
+ "63539-f1.dat": {
+  "zh_name": "气动件 12L",
+  "zh_desc": "气动件 管 12l"
+ },
+ "63539-f2.dat": {
+  "zh_name": "气动件 12L",
+  "zh_desc": "气动件 管 12l 带 端 凸起"
+ },
+ "63540-f1.dat": {
+  "zh_name": "气动件 24L",
+  "zh_desc": "气动件 管 24l"
+ },
+ "63869.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "十字 块 3×2 (轴/三联 销)"
+ },
+ "63869d01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 15 带 plus 和 minus symbols 在 深 偏蓝 灰 贴纸"
+ },
+ "641.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 14 齿"
+ },
+ "6415918u.dat": {
+  "zh_name": "齿条 1.9×1.9",
+  "zh_desc": "贴纸 1.9×1.9 带 track map"
+ },
+ "64178.dat": {
+  "zh_name": "梁 11×5",
+  "zh_desc": "梁 11×5 带 开口 中心 5×3"
+ },
+ "64179.dat": {
+  "zh_name": "梁 7×5",
+  "zh_desc": "梁 7×5 带 开口 中心 5×3"
+ },
+ "642.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 21 大 齿"
+ },
+ "64275.dat": {
+  "zh_name": "零件 1×8",
+  "zh_desc": "bionicle thornax launcher 半 1×8"
+ },
+ "64275c01.dat": {
+  "zh_name": "零件 1×8",
+  "zh_desc": "bionicle thornax launcher 半 1×8 (tensioned)"
+ },
+ "64276.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "梁 2 举臂 带 straight 球关节"
+ },
+ "64289.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 9"
+ },
+ "64290.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11"
+ },
+ "643.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 35 大 齿"
+ },
+ "64391.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #4 (中)"
+ },
+ "64391d01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #4 (中) 带 ev3 贴纸 #2"
+ },
+ "64391d02.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #4 (中) 带 ev3 贴纸 #4"
+ },
+ "64391d03.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #4 (中) 带 ev3 贴纸 #5"
+ },
+ "64392.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #17 (宽 长)"
+ },
+ "64393.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #6 (长)"
+ },
+ "64393d01.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #6 (长) 带 ev3 贴纸 #8"
+ },
+ "64393d02.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #6 (长) 带 ev3 贴纸 #10"
+ },
+ "64393d03.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #6 (长) 带 ev3 贴纸 #13"
+ },
+ "64394.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #13 (宽 中)"
+ },
+ "644.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 42 大 齿"
+ },
+ "64451.dat": {
+  "zh_name": "链节 4×6·弯折",
+  "zh_desc": "链节 4×6 弯折 53.13"
+ },
+ "64680.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #14 (宽 中)"
+ },
+ "64681.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #5 (长)"
+ },
+ "64681d01.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #5 (长) 带 ev3 贴纸 #7"
+ },
+ "64681d02.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #5 (长) 带 ev3 贴纸 #9"
+ },
+ "64681d03.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #5 (长) 带 ev3 贴纸 #14"
+ },
+ "64682.dat": {
+  "zh_name": "整流罩 ·光滑长",
+  "zh_desc": "面板 整流罩 光滑 #18 (宽 长)"
+ },
+ "64683.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #3 (中)"
+ },
+ "64683d01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #3 (中) 带 ev3 贴纸 #1"
+ },
+ "64683d02.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #3 (中) 带 ev3 贴纸 #3"
+ },
+ "64683d03.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 #3 (中) 带 ev3 贴纸 #6"
+ },
+ "64781.dat": {
+  "zh_name": "齿条 1×13",
+  "zh_desc": "齿条 1×13 带 销孔 和 axleholes"
+ },
+ "64782.dat": {
+  "zh_name": "面板 5×11",
+  "zh_desc": "面板 5×11"
+ },
+ "64871.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 15"
+ },
+ "65098.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "销 3l 双 带 轴孔 和 销 带 rectangular 孔"
+ },
+ "65141.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l 活塞 连接器 带 销孔"
+ },
+ "65141c01.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l 活塞"
+ },
+ "65142.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l 活塞 杆"
+ },
+ "65143.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l 主体"
+ },
+ "65143c01.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l 主体 assembly"
+ },
+ "65144.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l 盖"
+ },
+ "65151c01-f1.dat": {
+  "zh_name": "减震器 11L·长",
+  "zh_desc": "减震器 11l soft 带 浅 偏蓝 灰 端 (加长)"
+ },
+ "65151c01-f2.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l soft 带 浅 偏蓝 灰 端 (压缩)"
+ },
+ "65151c02-f1.dat": {
+  "zh_name": "减震器 11L·长",
+  "zh_desc": "减震器 11l soft 带 黑 端 (加长)"
+ },
+ "65151c02-f2.dat": {
+  "zh_name": "减震器 11L",
+  "zh_desc": "减震器 11l soft 带 黑 端 (压缩)"
+ },
+ "65249.dat": {
+  "zh_name": "轴销 2L·长无摩擦",
+  "zh_desc": "轴销 长 无摩擦 带 2l 轴"
+ },
+ "65304.dat": {
+  "zh_name": "销 ·长",
+  "zh_desc": "销 长 带止位 衬套 型 2"
+ },
+ "6536.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "十字 块 1×2 (轴/销)"
+ },
+ "6538a.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 接合件"
+ },
+ "6538b.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 接合件 偏置"
+ },
+ "6539.dat": {
+  "zh_name": "零件",
+  "zh_desc": "transmission driving 环"
+ },
+ "6540a.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 大 带 轴孔"
+ },
+ "6540b.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 大 带 销孔"
+ },
+ "6541.dat": {
+  "zh_name": "砖 1×1·带孔",
+  "zh_desc": "砖 1×1 带孔"
+ },
+ "65413.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 28 齿 双 锥齿 带 销孔"
+ },
+ "65414.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "differential casing 用于 5 internal gears"
+ },
+ "65414c01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "differential 带 红 28 齿 drive 齿轮 和 tan satellites"
+ },
+ "65416.dat": {
+  "zh_name": "零件 6×6",
+  "zh_desc": "brake 圆盘 6×6"
+ },
+ "65421.dat": {
+  "zh_name": "零件",
+  "zh_desc": "concrete mixer 半 shell"
+ },
+ "65421p01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "concrete mixer 半 shell 带 黄 和 orange arrows 和 白 c 图案"
+ },
+ "65422-f1.dat": {
+  "zh_name": "梁 19L·弯折",
+  "zh_desc": "rotor 叶片 19l 带 梁 3l 弯折 右"
+ },
+ "65422-f2.dat": {
+  "zh_name": "梁 19L·弯折",
+  "zh_desc": "rotor 叶片 19l 带 梁 3l 弯折 左"
+ },
+ "65422.dat": {
+  "zh_name": "梁 19L",
+  "zh_desc": "rotor 叶片 19l 带 梁 3l"
+ },
+ "6542a.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 16 齿 带 离合"
+ },
+ "6542b.dat": {
+  "zh_name": "齿轮 ·光滑",
+  "zh_desc": "齿轮 16 齿 带 离合 光滑"
+ },
+ "6543.dat": {
+  "zh_name": "齿轮 4×6",
+  "zh_desc": "平板 4×6 带 4 position 齿轮 shift gate"
+ },
+ "6543d01.dat": {
+  "zh_name": "齿轮 4×6",
+  "zh_desc": "平板 4×6 带 4 position 齿轮 shift gate 带 科技 supercar 变速箱 1 和 2-3 和 4 白 stickers"
+ },
+ "65487.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 带 垂直 销孔 型 2"
+ },
+ "65489.dat": {
+  "zh_name": "销 1×3",
+  "zh_desc": "十字 块 1×3 (销/销/销) 带 4 销 rectangular 中心 孔"
+ },
+ "6549.dat": {
+  "zh_name": "拉杆",
+  "zh_desc": "4 speed shift 拉杆"
+ },
+ "6550.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 pole reverser - 顶"
+ },
+ "6551a.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 pole reverser - 底"
+ },
+ "6551c01.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 pole reverser 带 深 灰 底 - 主体"
+ },
+ "6552.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 pole reverser - 中心"
+ },
+ "6553.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 (轴) 带 轴 1.5"
+ },
+ "6558.dat": {
+  "zh_name": "摩擦销 长 3L",
+  "zh_desc": "3 孔长的带摩擦双头连接销（蓝色）。"
+ },
+ "6562.dat": {
+  "zh_name": "轴销",
+  "zh_desc": "轴销"
+ },
+ "6571.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 臂 3h 带 拖球 sockets"
+ },
+ "6572.dat": {
+  "zh_name": "臂 2×4.8",
+  "zh_desc": "suspension 臂 2×4.8 带 拖球"
+ },
+ "6573.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "differential 带 齿轮 16 齿 和 24 齿"
+ },
+ "6574.dat": {
+  "zh_name": "齿条 1×2.4",
+  "zh_desc": "齿条 1×2.4 带 towballs"
+ },
+ "6575a.dat": {
+  "zh_name": "轴",
+  "zh_desc": "凸轮 带 narrow slit 和 recessed 轴孔"
+ },
+ "6575b.dat": {
+  "zh_name": "凸轮",
+  "zh_desc": "凸轮 带 宽 slit"
+ },
+ "65768.dat": {
+  "zh_name": "零件",
+  "zh_desc": "propeller 3 叶片 3.5 diameter 带 科技 销孔"
+ },
+ "6577.dat": {
+  "zh_name": "衬套",
+  "zh_desc": "衬套 1/2 型 2"
+ },
+ "6577c01.dat": {
+  "zh_name": "轮胎 50×8",
+  "zh_desc": "衬套 1/2 型 2 带 黑 轮胎 6/ 50×8 偏置 履带"
+ },
+ "65803.dat": {
+  "zh_name": "砖 16×16×1.333",
+  "zh_desc": "砖 16×16×1.333"
+ },
+ "65817.dat": {
+  "zh_name": "梁 15×11",
+  "zh_desc": "梁 15×11 带 perforated 中心 平板 13×9"
+ },
+ "65826.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 1/2 带 凸点 管"
+ },
+ "6585.dat": {
+  "zh_name": "齿轮 4×4×1.667",
+  "zh_desc": "变速箱 4×4×1.667"
+ },
+ "6587.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 3 带 凸点"
+ },
+ "6588.dat": {
+  "zh_name": "齿轮 2×4×3",
+  "zh_desc": "变速箱 2×4×3 和 1/3"
+ },
+ "6589.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 12 齿 锥齿"
+ },
+ "6590.dat": {
+  "zh_name": "衬套",
+  "zh_desc": "衬套 带 双法兰"
+ },
+ "6592.dat": {
+  "zh_name": "齿条 1×10·带孔",
+  "zh_desc": "齿条 1×10 带孔"
+ },
+ "6606.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 concave #43"
+ },
+ "6608.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头 不带 凸点"
+ },
+ "6609.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 concave #42"
+ },
+ "6610.dat": {
+  "zh_name": "转向件 4L",
+  "zh_desc": "转向件 链节 4l"
+ },
+ "6611.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 4-way 60 度"
+ },
+ "6612.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 9 带 alternating 孔"
+ },
+ "6614.dat": {
+  "zh_name": "框架 5×3",
+  "zh_desc": "框架 5×3 engine holder"
+ },
+ "6615.dat": {
+  "zh_name": "车轮 4L",
+  "zh_desc": "车轮 spindle 轴 driver bar 4l"
+ },
+ "6625.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶 型 2"
+ },
+ "6625c01.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 带 closed 底"
+ },
+ "6625c02.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶 型 2 带 metal parts"
+ },
+ "6626.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 underside 带 closed 底"
+ },
+ "6628.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 拖球 带摩擦"
+ },
+ "6629.dat": {
+  "zh_name": "举臂 4×6·弯折",
+  "zh_desc": "梁 4×6 举臂 弯折 53.13"
+ },
+ "6630.dat": {
+  "zh_name": "齿条 1×8·带孔",
+  "zh_desc": "齿条 1×8 带孔"
+ },
+ "6631.dat": {
+  "zh_name": "齿轮 2×6",
+  "zh_desc": "平板 2×6 带 2 position 齿轮 shift gate"
+ },
+ "6632.dat": {
+  "zh_name": "举臂 3×0.5",
+  "zh_desc": "梁 3×0.5 举臂"
+ },
+ "6637c01.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 fiber optics element - housing"
+ },
+ "6637e.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 fiber optics element - 底"
+ },
+ "6638.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 fiber optics element - 顶"
+ },
+ "6639.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 fiber optics element - axis"
+ },
+ "6640a.dat": {
+  "zh_name": "电动件 12L",
+  "zh_desc": "电动 科技 fiber optics cable 12l"
+ },
+ "6640b.dat": {
+  "zh_name": "电动件 5L",
+  "zh_desc": "电动 科技 fiber optics cable 5l"
+ },
+ "6641.dat": {
+  "zh_name": "零件",
+  "zh_desc": "transmission changeover catch 型 1"
+ },
+ "6642-f1.dat": {
+  "zh_name": "销连接器 ·柔性",
+  "zh_desc": "柔性-系统 销连接器 双 (开口)"
+ },
+ "6642.dat": {
+  "zh_name": "销连接器 ·柔性",
+  "zh_desc": "柔性-系统 销连接器 双 closed"
+ },
+ "6642k01.dat": {
+  "zh_name": "销连接器 ·柔性",
+  "zh_desc": "柔性-系统 销连接器 双 底"
+ },
+ "6643-f1.dat": {
+  "zh_name": "销连接器 ·柔性",
+  "zh_desc": "柔性-系统 销连接器 单 (开口)"
+ },
+ "6643.dat": {
+  "zh_name": "销连接器 ·柔性",
+  "zh_desc": "柔性-系统 销连接器 单 closed"
+ },
+ "6643k01.dat": {
+  "zh_name": "销连接器 ·柔性",
+  "zh_desc": "柔性-系统 销连接器 单 底"
+ },
+ "6644-f1.dat": {
+  "zh_name": "连接器 ·柔性",
+  "zh_desc": "柔性-系统 球 连接器 (开口)"
+ },
+ "6644.dat": {
+  "zh_name": "连接器 ·柔性",
+  "zh_desc": "柔性-系统 球 连接器 closed"
+ },
+ "6644k01.dat": {
+  "zh_name": "连接器 ·柔性",
+  "zh_desc": "柔性-系统 球 连接器 底"
+ },
+ "6644k02.dat": {
+  "zh_name": "连接器 ·柔性",
+  "zh_desc": "柔性-系统 连接器 顶"
+ },
+ "66645ap01.dat": {
+  "zh_name": "零件 13×42",
+  "zh_desc": "sail 13×42 trapezoid 带 科技 catamaran 图案"
+ },
+ "66645bp01.dat": {
+  "zh_name": "零件 10×42",
+  "zh_desc": "sail 10×42 trapezoid 带 科技 catamaran 图案"
+ },
+ "66906.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 拖球 带摩擦"
+ },
+ "67139.dat": {
+  "zh_name": "连接器 3×5×1",
+  "zh_desc": "连接器 块 3×5×1 带 cutout"
+ },
+ "67141.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形 带 rounded 顶"
+ },
+ "67142.dat": {
+  "zh_name": "面板 5×13",
+  "zh_desc": "面板 5×13 弯曲 #50 tapered 左"
+ },
+ "67325.dat": {
+  "zh_name": "转向件 1L",
+  "zh_desc": "转向件 臂 带 3 球 joints 带 1l 臂 侧 connection"
+ },
+ "67491.dat": {
+  "zh_name": "梁 19×3",
+  "zh_desc": "梁 19×3 带 三 开口 areas 5×1"
+ },
+ "67498-f1.dat": {
+  "zh_name": "减震器 18L·长",
+  "zh_desc": "减震器 18l (加长)"
+ },
+ "67498-f2.dat": {
+  "zh_name": "减震器 18L",
+  "zh_desc": "减震器 18l (压缩)"
+ },
+ "67678-f1.dat": {
+  "zh_name": "气动件 25L",
+  "zh_desc": "气动件 管 25l"
+ },
+ "67678-f2.dat": {
+  "zh_name": "气动件 25L",
+  "zh_desc": "气动件 管 25l 带 端 凸起"
+ },
+ "67697.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "梁 2 举臂 带 straight 球关节"
+ },
+ "6797.dat": {
+  "zh_name": "零件 4×4×1.333",
+  "zh_desc": "engine air scoop 4×4×1.333"
+ },
+ "67c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 75974"
+ },
+ "680c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 71372c01"
+ },
+ "68196.dat": {
+  "zh_name": "面板 5×13",
+  "zh_desc": "面板 5×13 弯曲 #51 tapered 右"
+ },
+ "69633.dat": {
+  "zh_name": "减震器 18L",
+  "zh_desc": "减震器 18l 主体"
+ },
+ "69633c01.dat": {
+  "zh_name": "减震器 18L",
+  "zh_desc": "减震器 18l 主体 assembly"
+ },
+ "69635.dat": {
+  "zh_name": "减震器 18L",
+  "zh_desc": "减震器 18l 活塞"
+ },
+ "69636.dat": {
+  "zh_name": "减震器",
+  "zh_desc": "转向盘 轴承 带 4 销孔 和 减震器 插孔"
+ },
+ "69638.dat": {
+  "zh_name": "减震器 18L",
+  "zh_desc": "减震器 18l 盖"
+ },
+ "69732.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 16"
+ },
+ "69761.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 22 齿 锥齿 带 销孔"
+ },
+ "69762.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 14 齿 锥齿"
+ },
+ "69778.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 12 齿"
+ },
+ "69779.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 20 齿"
+ },
+ "69819.dat": {
+  "zh_name": "轴 2×2·加强",
+  "zh_desc": "十字 块 2×2 split 加强 (轴/twin 销)"
+ },
+ "69900.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 2 宽 带 central divider"
+ },
+ "69910.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 7 宽 带 cleat"
+ },
+ "69911.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 带 rounded 顶"
+ },
+ "70023b.dat": {
+  "zh_name": "零件",
+  "zh_desc": "magnet cylindrical 7mm (17.5ldu)"
+ },
+ "70038.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "弹簧 用于 科技 减震器 6.5l"
+ },
+ "70184-f1.dat": {
+  "zh_name": "气动件 2×2×5",
+  "zh_desc": "弹簧 用于 气动件 泵 2×2×5 不带 旋钮 (压缩)"
+ },
+ "70184-f2.dat": {
+  "zh_name": "气动件 2×2×5·长",
+  "zh_desc": "弹簧 用于 气动件 泵 2×2×5 不带 旋钮 (加长)"
+ },
+ "70450a.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 泵 大 弹簧 压缩"
+ },
+ "70450b.dat": {
+  "zh_name": "气动件 ·长",
+  "zh_desc": "气动件 泵 大 弹簧 加长"
+ },
+ "70496.dat": {
+  "zh_name": "挂钩 ·已弃用",
+  "zh_desc": "挂钩 大 metallic (已弃用)"
+ },
+ "70591.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "control 中心 - 橡胶 foot"
+ },
+ "70644.dat": {
+  "zh_name": "挂钩",
+  "zh_desc": "挂钩 大 metallic"
+ },
+ "70688.dat": {
+  "zh_name": "软管 27L·柔性",
+  "zh_desc": "柔性-系统 软管 27l (540ldu)"
+ },
+ "70823.dat": {
+  "zh_name": "马达 ·已弃用",
+  "zh_desc": "电动 科技 micromotor (总成) 红 (已弃用)"
+ },
+ "70834.dat": {
+  "zh_name": "气动件 1×1",
+  "zh_desc": "气动件 泵 1×1 gasket"
+ },
+ "70961.dat": {
+  "zh_name": "零件 2×4·橡胶",
+  "zh_desc": "bumper 2×4 橡胶"
+ },
+ "70962.dat": {
+  "zh_name": "零件 2×6·橡胶带角度",
+  "zh_desc": "bumper 2×6 橡胶 带角度"
+ },
+ "70978.dat": {
+  "zh_name": "软管 21L·柔性",
+  "zh_desc": "柔性-系统 软管 21l (420ldu)"
+ },
+ "71122.dat": {
+  "zh_name": "平板 ·橡胶",
+  "zh_desc": "control 中心 ii - 橡胶 平板"
+ },
+ "71175.dat": {
+  "zh_name": "软管 12L·柔性",
+  "zh_desc": "柔性-系统 软管 12l (240ldu)"
+ },
+ "71177.dat": {
+  "zh_name": "软管 14L·柔性",
+  "zh_desc": "柔性-系统 软管 14l (280ldu)"
+ },
+ "71192.dat": {
+  "zh_name": "软管 16L·柔性",
+  "zh_desc": "柔性-系统 软管 16l (320ldu)"
+ },
+ "71194.dat": {
+  "zh_name": "软管 15L·柔性",
+  "zh_desc": "柔性-系统 软管 15l (300ldu)"
+ },
+ "71372-f1.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "履带 (成型 用于 2 链轮 wheels)"
+ },
+ "71372c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 71372-f1"
+ },
+ "71372k01.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 段 - straight"
+ },
+ "71372k02.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 段 - transition"
+ },
+ "71372k03.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 段 - 弯曲"
+ },
+ "71427.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 mini-马达 9v"
+ },
+ "71505.dat": {
+  "zh_name": "软管 11L·柔性",
+  "zh_desc": "柔性-系统 软管 11l (220ldu)"
+ },
+ "71533k01.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 管 端 (bulged)"
+ },
+ "71533k02.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 管 端 (non-bulged)"
+ },
+ "71533k03.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 管 段"
+ },
+ "71551.dat": {
+  "zh_name": "软管 13L·柔性",
+  "zh_desc": "柔性-系统 软管 13l (260ldu)"
+ },
+ "71582.dat": {
+  "zh_name": "软管 18L·柔性",
+  "zh_desc": "柔性-系统 软管 18l (360ldu)"
+ },
+ "71682.dat": {
+  "zh_name": "面板 3×2×1",
+  "zh_desc": "面板 弯曲 3×2×1"
+ },
+ "71682pt0.dat": {
+  "zh_name": "面板 3×2×1",
+  "zh_desc": "面板 弯曲 3×2×1 带 中 银 ferrari text 图案"
+ },
+ "71682pt1.dat": {
+  "zh_name": "面板 3×2×1",
+  "zh_desc": "面板 弯曲 3×2×1 带 ferrari 标志 右 图案"
+ },
+ "71682pt2.dat": {
+  "zh_name": "面板 3×2×1",
+  "zh_desc": "面板 弯曲 3×2×1 带 ferrari 标志 左 图案"
+ },
+ "71682pt3.dat": {
+  "zh_name": "面板 3×2×1",
+  "zh_desc": "面板 弯曲 3×2×1 带 大 银 ferrari text 图案"
+ },
+ "71682pt4.dat": {
+  "zh_name": "面板 3×2×1",
+  "zh_desc": "面板 弯曲 3×2×1 带 银 p1 标志 图案"
+ },
+ "71689.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 extension"
+ },
+ "71708.dat": {
+  "zh_name": "举臂 2×3·弯折",
+  "zh_desc": "梁 2×3 举臂 弯折 90 四分之一 ellipse"
+ },
+ "71709.dat": {
+  "zh_name": "大面板 3×7",
+  "zh_desc": "3×7 科技面板，20 个端口、4 个插接聚合，常作车身外壳大覆盖件。"
+ },
+ "71710.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 15 带 alternating 孔"
+ },
+ "71711.dat": {
+  "zh_name": "零件 9×9",
+  "zh_desc": "brake 圆盘 9×9"
+ },
+ "71711p01.dat": {
+  "zh_name": "零件 9×9",
+  "zh_desc": "brake 圆盘 9×9 带 浅 偏蓝 灰 rim 图案"
+ },
+ "71735c01.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "履带 cybermaster (成型 用于 5 链轮 车轮 20 齿)"
+ },
+ "71735k01.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 cybermaster 段 straight"
+ },
+ "71819.dat": {
+  "zh_name": "软管 12L",
+  "zh_desc": "带肋 软管 12l"
+ },
+ "71830-f1.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 弹簧 (relaxed)"
+ },
+ "71830-f2.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 弹簧 (压缩)"
+ },
+ "71917.dat": {
+  "zh_name": "软管 9L",
+  "zh_desc": "带肋 软管 9l"
+ },
+ "71923.dat": {
+  "zh_name": "软管 14L",
+  "zh_desc": "带肋 软管 14l"
+ },
+ "71944.dat": {
+  "zh_name": "软管 6L",
+  "zh_desc": "带肋 软管 6l"
+ },
+ "71944k01.dat": {
+  "zh_name": "软管",
+  "zh_desc": "带肋 软管 端 段"
+ },
+ "71944k02.dat": {
+  "zh_name": "软管",
+  "zh_desc": "带肋 软管 mid 段"
+ },
+ "71945.dat": {
+  "zh_name": "软管 13L",
+  "zh_desc": "带肋 软管 13l"
+ },
+ "71946.dat": {
+  "zh_name": "软管 15L",
+  "zh_desc": "带肋 软管 15l"
+ },
+ "71947.dat": {
+  "zh_name": "软管 16L",
+  "zh_desc": "带肋 软管 16l"
+ },
+ "71949.dat": {
+  "zh_name": "软管 10L",
+  "zh_desc": "带肋 软管 10l"
+ },
+ "71951.dat": {
+  "zh_name": "软管 8L",
+  "zh_desc": "带肋 软管 8l"
+ },
+ "71952.dat": {
+  "zh_name": "软管 4L",
+  "zh_desc": "带肋 软管 4l"
+ },
+ "71953.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "弹簧 用于 科技 减震器 6.5l stiff"
+ },
+ "71986.dat": {
+  "zh_name": "软管 11L",
+  "zh_desc": "带肋 软管 11l"
+ },
+ "72008.dat": {
+  "zh_name": "连接器 2×2",
+  "zh_desc": "连接器 块 2×2 带 1×1 cutout"
+ },
+ "72039.dat": {
+  "zh_name": "软管 18L",
+  "zh_desc": "带肋 软管 18l"
+ },
+ "7222.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "轴 带 4 车轮 销"
+ },
+ "7229.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 带 中心 轴孔"
+ },
+ "7244.dat": {
+  "zh_name": "梁 2L",
+  "zh_desc": "梁 2l 带 垂直 1l 轴"
+ },
+ "72504.dat": {
+  "zh_name": "软管 2L",
+  "zh_desc": "带肋 软管 2l"
+ },
+ "72706.dat": {
+  "zh_name": "软管 3L",
+  "zh_desc": "带肋 软管 3l"
+ },
+ "72853.dat": {
+  "zh_name": "软管 5L",
+  "zh_desc": "带肋 软管 5l"
+ },
+ "72892.dat": {
+  "zh_name": "轴 4.8L·柔性",
+  "zh_desc": "轴 柔性 26 带 轴 4.8l 和 轴 2l 在 端"
+ },
+ "73071.dat": {
+  "zh_name": "零件",
+  "zh_desc": "differential"
+ },
+ "731.dat": {
+  "zh_name": "减震器 6.5L·已弃用",
+  "zh_desc": "减震器 6.5l, 活塞 杆 带 弹簧 (已弃用)"
+ },
+ "73109.dat": {
+  "zh_name": "平板 1×2",
+  "zh_desc": "砖 1×2 带 平板 1×2"
+ },
+ "73129.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l (总成)"
+ },
+ "73230.dat": {
+  "zh_name": "轴 1×1",
+  "zh_desc": "砖 1×1 带 轴孔"
+ },
+ "7329.dat": {
+  "zh_name": "角度连接器",
+  "zh_desc": "角度连接器 3-way 60 度 + 120 度 y-shaped"
+ },
+ "73479.dat": {
+  "zh_name": "气动件 2×4·已弃用",
+  "zh_desc": "气动件 distribution 块 2×4 (总成) lt 灰 (已弃用)"
+ },
+ "73485.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 10 threaded 黑 (已弃用)"
+ },
+ "73507.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 11 带 alternating 孔"
+ },
+ "73763.dat": {
+  "zh_name": "蜗杆 6L",
+  "zh_desc": "蜗杆 齿轮 6l"
+ },
+ "73839.dat": {
+  "zh_name": "轴 ·已弃用",
+  "zh_desc": "轴 4 threaded 黑 (已弃用)"
+ },
+ "74695.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 2 举臂"
+ },
+ "74698.dat": {
+  "zh_name": "梁 2×2",
+  "zh_desc": "平滑片 2×2 圆形 带 科技 半 梁"
+ },
+ "74741-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l soft (加长)"
+ },
+ "74741-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l soft (压缩)"
+ },
+ "74981-f1.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 带 2 端口 (retracted)"
+ },
+ "74981-f2.dat": {
+  "zh_name": "气缸 1×1·长",
+  "zh_desc": "气动件 气缸 1×1 带 2 端口 (加长)"
+ },
+ "74982-f1.dat": {
+  "zh_name": "气动件 1×1×5.5",
+  "zh_desc": "气动件 泵 1×1×5.5 (retracted)"
+ },
+ "74982-f2.dat": {
+  "zh_name": "气动件 1×1×5.5·长",
+  "zh_desc": "气动件 泵 1×1×5.5 (加长)"
+ },
+ "75214.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 pole reverser 带 深 灰 底"
+ },
+ "75348-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 中 hard (加长)"
+ },
+ "75348-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 中 hard (压缩)"
+ },
+ "75535.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形"
+ },
+ "75544.dat": {
+  "zh_name": "马达 11×11·带角度",
+  "zh_desc": "windscreen 11×11 motorcycle 带 带角度 销孔"
+ },
+ "75544p01.dat": {
+  "zh_name": "马达 11×11·带角度",
+  "zh_desc": "windscreen 11×11 motorcycle 带 带角度 销孔 带 白 sides 图案"
+ },
+ "75815.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 fiber optics element"
+ },
+ "75974.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 airtank (总成)"
+ },
+ "76019.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 离合 带 深 灰 中心"
+ },
+ "76100c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 圆形 底 (unloaded)"
+ },
+ "76100c02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 圆形 底 (loaded 带 箭头)"
+ },
+ "76110p01.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 橡胶 黑 tip"
+ },
+ "76110p02.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 橡胶 purple tip"
+ },
+ "76110p03.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 橡胶 深 蓝 tip"
+ },
+ "76110p04.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 橡胶 flat 银 tip"
+ },
+ "76110p05.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 橡胶 lime tip"
+ },
+ "76138.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l stiff (总成)"
+ },
+ "76244.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 离合 带 dkstone 中心"
+ },
+ "76250.dat": {
+  "zh_name": "软管 4L·柔性",
+  "zh_desc": "柔性-系统 软管 4l (80ldu)"
+ },
+ "76252.dat": {
+  "zh_name": "软管 22L·柔性",
+  "zh_desc": "柔性-系统 软管 22l (440ldu)"
+ },
+ "76254.dat": {
+  "zh_name": "软管 23L·柔性",
+  "zh_desc": "柔性-系统 软管 23l (460ldu)"
+ },
+ "76260.dat": {
+  "zh_name": "软管 8L·柔性",
+  "zh_desc": "柔性-系统 软管 8l (160ldu)"
+ },
+ "76263.dat": {
+  "zh_name": "软管 3L·柔性",
+  "zh_desc": "柔性-系统 软管 3l (60ldu)"
+ },
+ "76270.dat": {
+  "zh_name": "软管 17L·柔性",
+  "zh_desc": "柔性-系统 软管 17l (340ldu)"
+ },
+ "76276.dat": {
+  "zh_name": "软管 20L·柔性",
+  "zh_desc": "柔性-系统 软管 20l (400ldu)"
+ },
+ "76277.dat": {
+  "zh_name": "软管 24L·柔性",
+  "zh_desc": "柔性-系统 软管 24l (480ldu)"
+ },
+ "76279.dat": {
+  "zh_name": "软管 6L·柔性",
+  "zh_desc": "柔性-系统 软管 6l (120ldu)"
+ },
+ "76280.dat": {
+  "zh_name": "软管 28L·柔性",
+  "zh_desc": "柔性-系统 软管 28l (560ldu)"
+ },
+ "76281.dat": {
+  "zh_name": "软管 45L·柔性",
+  "zh_desc": "柔性-系统 软管 45l (900ldu)"
+ },
+ "76282.dat": {
+  "zh_name": "软管 30L·柔性",
+  "zh_desc": "柔性-系统 软管 30l (600ldu)"
+ },
+ "76283.dat": {
+  "zh_name": "软管 31L·柔性",
+  "zh_desc": "柔性-系统 软管 31l (620ldu)"
+ },
+ "76289.dat": {
+  "zh_name": "软管 7L·柔性",
+  "zh_desc": "柔性-系统 软管 7l (140ldu)"
+ },
+ "76307.dat": {
+  "zh_name": "软管 5L·柔性",
+  "zh_desc": "柔性-系统 软管 5l (100ldu)"
+ },
+ "76320-f1.dat": {
+  "zh_name": "减震器 10L·长",
+  "zh_desc": "减震器 10l damped (加长)"
+ },
+ "76320-f2.dat": {
+  "zh_name": "减震器 10L",
+  "zh_desc": "减震器 10l damped (压缩)"
+ },
+ "76324.dat": {
+  "zh_name": "软管 9L·柔性",
+  "zh_desc": "柔性-系统 软管 9l (180ldu)"
+ },
+ "76348.dat": {
+  "zh_name": "软管 10L·柔性",
+  "zh_desc": "柔性-系统 软管 10l (200ldu)"
+ },
+ "76389.dat": {
+  "zh_name": "软管 29L·柔性",
+  "zh_desc": "柔性-系统 软管 29l (580ldu)"
+ },
+ "76421.dat": {
+  "zh_name": "零件 5×5",
+  "zh_desc": "turntable 5×5 (总成)"
+ },
+ "76424.dat": {
+  "zh_name": "电动件 ·已弃用",
+  "zh_desc": "电动 科技 micro-scout 白/深 灰 (已弃用)"
+ },
+ "76537.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l extra stiff (总成)"
+ },
+ "7660.dat": {
+  "zh_name": "蜗杆 2×5",
+  "zh_desc": "十字 块 2×5 (轴/销) 带 垂直 孔 用于 蜗杆 齿轮 6l"
+ },
+ "768.dat": {
+  "zh_name": "齿轮 2×4×3",
+  "zh_desc": "齿轮 块 2×4×3"
+ },
+ "77.dat": {
+  "zh_name": "软管 ·柔性",
+  "zh_desc": "柔性-系统 软管 段"
+ },
+ "77107.dat": {
+  "zh_name": "零件",
+  "zh_desc": "环 11"
+ },
+ "77590.dat": {
+  "zh_name": "转向件 3.5L",
+  "zh_desc": "转向件 constant velocity 8mm 关节 male 带 sliding 轴孔 3.5l"
+ },
+ "77765.dat": {
+  "zh_name": "销 ·长",
+  "zh_desc": "销 长 带 端 stop"
+ },
+ "78442.dat": {
+  "zh_name": "齿轮 6×6",
+  "zh_desc": "齿轮 环 四分之一 6×6 带 15 teeth"
+ },
+ "79306-f1.dat": {
+  "zh_name": "气动件 2L",
+  "zh_desc": "气动件 管 2l"
+ },
+ "79306-f2.dat": {
+  "zh_name": "气动件 2L",
+  "zh_desc": "气动件 管 2l 带 端 凸起"
+ },
+ "79505.dat": {
+  "zh_name": "销",
+  "zh_desc": "旋转 关节 disk 带 销 和 2 垂直 click 旋转 环 sockets"
+ },
+ "79717p01-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 厚 带 蓝 fake 弹簧 (加长)"
+ },
+ "79717p01-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 带 蓝 fake 弹簧 (压缩)"
+ },
+ "79717p02-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 厚 带 红 fake 弹簧 (加长)"
+ },
+ "79717p02-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 带 红 fake 弹簧 (压缩)"
+ },
+ "79717p03-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 厚 带 黄 fake 弹簧 (加长)"
+ },
+ "79717p03-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 带 黄 fake 弹簧 (压缩)"
+ },
+ "79717p04-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 厚 带 黑 fake 弹簧 (加长)"
+ },
+ "79717p04-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 带 黑 fake 弹簧 (压缩)"
+ },
+ "79766.dat": {
+  "zh_name": "梁 15×7",
+  "zh_desc": "梁 15×7 带 开口 中心 和 3 truss bars"
+ },
+ "79767.dat": {
+  "zh_name": "梁 15×5",
+  "zh_desc": "梁 15×5 带 开口 中心 和 3 truss bars"
+ },
+ "79768.dat": {
+  "zh_name": "梁 16×7",
+  "zh_desc": "梁 16×7 triangular 带 diagonal bars"
+ },
+ "80021.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 活塞"
+ },
+ "80022.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 气缸"
+ },
+ "80028-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 厚 fake 弹簧 (加长)"
+ },
+ "80028-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 fake 弹簧 (压缩)"
+ },
+ "80267.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 左 #61 (宽 中 parallelogram)"
+ },
+ "80267p01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 左 #61 (宽 中 parallelogram) 带 黑 条纹 图案"
+ },
+ "80268.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 右 #60 (宽 中 parallelogram)"
+ },
+ "80268p01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 右 #60 (宽 中 parallelogram) 带 黑 条纹 图案"
+ },
+ "80271.dat": {
+  "zh_name": "面板 4×5×5·弯折",
+  "zh_desc": "面板 弯折 4×5×5 tapered 左 #70"
+ },
+ "80272.dat": {
+  "zh_name": "面板 4×5×5·弯折",
+  "zh_desc": "面板 弯折 4×5×5 tapered 右 #71"
+ },
+ "80273.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 propeller 5 叶片 9 diameter 带 方形 孔"
+ },
+ "80274.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 右 #62 (宽 中 triangle)"
+ },
+ "80278.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 左 #63 (宽 中 triangle)"
+ },
+ "80284.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 带 rounded 顶 和 pointed 底"
+ },
+ "80285.dat": {
+  "zh_name": "面板 3×2×5",
+  "zh_desc": "面板 3×2×5"
+ },
+ "80286.dat": {
+  "zh_name": "举臂 2×5·弯折",
+  "zh_desc": "梁 2×5 举臂 弯折 90 四分之一 ellipse"
+ },
+ "80295.dat": {
+  "zh_name": "零件 4×3",
+  "zh_desc": "reel 4×3"
+ },
+ "80428.dat": {
+  "zh_name": "零件 7×11×2",
+  "zh_desc": "weight 7×11×2"
+ },
+ "80431.dat": {
+  "zh_name": "砖 1×2×1.333·带孔",
+  "zh_desc": "砖 1×2×1.333 带孔 和 旋转 关节 插孔"
+ },
+ "80441.dat": {
+  "zh_name": "轮胎 2×21·橡胶",
+  "zh_desc": "车轮 2×21 带 科技 销孔 带 integral 橡胶 轮胎"
+ },
+ "80441p01.dat": {
+  "zh_name": "轮胎 2×21·橡胶",
+  "zh_desc": "车轮 2×21 带 科技 销孔 带 integral 橡胶 黑 轮胎 图案"
+ },
+ "80441p02.dat": {
+  "zh_name": "轮胎 2×21·橡胶",
+  "zh_desc": "车轮 2×21 带 科技 销孔 带 integral 橡胶 tan 轮胎 图案"
+ },
+ "80477.dat": {
+  "zh_name": "销 1L·带摩擦",
+  "zh_desc": "销 带摩擦 和 拖球 在 1l bar"
+ },
+ "80563.dat": {
+  "zh_name": "销",
+  "zh_desc": "旋转 关节 插孔 带 二 摩擦 销"
+ },
+ "80623.dat": {
+  "zh_name": "软管 47L·柔性",
+  "zh_desc": "柔性-系统 软管 47l (940ldu)"
+ },
+ "80910.dat": {
+  "zh_name": "轴 2×4",
+  "zh_desc": "十字 块 2×4 split (销/轴/轴/销)"
+ },
+ "81346.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 20 齿 带 离合 在 两 sides"
+ },
+ "821405b.dat": {
+  "zh_name": "贴纸 0.7×3.9",
+  "zh_desc": "贴纸 0.7×3.9 带 octan 标志 和 text"
+ },
+ "85543-f1.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "橡胶 belt 圆形 15 / 1.6 (成型 用于 crane jaw 弯曲 closed)"
+ },
+ "85543-f4.dat": {
+  "zh_name": "衬套 ·橡胶",
+  "zh_desc": "橡胶 belt 圆形 15 / 1.6 (成型 用于 2 科技 bushes)"
+ },
+ "85543-f5.dat": {
+  "zh_name": "车轮 8×11.2·橡胶",
+  "zh_desc": "橡胶 belt 圆形 15 / 1.6 (成型 用于 科技 衬套 - 车轮 rim 8×11.2 带 中心 groove)"
+ },
+ "85940.dat": {
+  "zh_name": "梁 ·带角度",
+  "zh_desc": "梁 2 带 带角度 bar"
+ },
+ "85943.dat": {
+  "zh_name": "举臂 1×2",
+  "zh_desc": "砖 1×2 带 二 liftarms"
+ },
+ "85984p00.dat": {
+  "zh_name": "砖 1×2×0.667",
+  "zh_desc": "slope 砖 31 1×2×0.667 带 黑 tiger 条纹 图案"
+ },
+ "868.dat": {
+  "zh_name": "轴",
+  "zh_desc": "train 12v 作动器 科技 轴"
+ },
+ "86849.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 带 槽"
+ },
+ "87079p0e.dat": {
+  "zh_name": "平滑片 2×4",
+  "zh_desc": "平滑片 2×4 带 \"60 years\" 图案"
+ },
+ "87079pz4.dat": {
+  "zh_name": "平滑片 2×4",
+  "zh_desc": "平滑片 2×4 带 brickheadz seasonal calendar 图案"
+ },
+ "87080.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #1 (短)"
+ },
+ "87080p01.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #1 (短) 带 gas 盖 图案"
+ },
+ "87082.dat": {
+  "zh_name": "销 ·长",
+  "zh_desc": "销 长 带 销孔 型 1"
+ },
+ "87083.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 4 带止位"
+ },
+ "87086.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #2 (短)"
+ },
+ "87407.dat": {
+  "zh_name": "齿轮 ·锥齿",
+  "zh_desc": "齿轮 20 齿 锥齿 带 销孔"
+ },
+ "87408.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 toggle 关节 双 带 轴 和 销 孔"
+ },
+ "87745.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 弯曲 带 fin 和 孔"
+ },
+ "87761.dat": {
+  "zh_name": "齿条 1×7",
+  "zh_desc": "齿条 1×7 带 销孔 和 axleholes"
+ },
+ "87948-f1.dat": {
+  "zh_name": "气动件 16L",
+  "zh_desc": "气动件 管 16l"
+ },
+ "87948-f2.dat": {
+  "zh_name": "气动件 16L",
+  "zh_desc": "气动件 管 16l 带 端 凸起"
+ },
+ "87949-f1.dat": {
+  "zh_name": "气动件 36L",
+  "zh_desc": "气动件 管 36l"
+ },
+ "87949-f2.dat": {
+  "zh_name": "气动件 36L",
+  "zh_desc": "气动件 管 36l 带 端 凸起"
+ },
+ "87950-f1.dat": {
+  "zh_name": "气动件 20L",
+  "zh_desc": "气动件 管 20l"
+ },
+ "87950-f2.dat": {
+  "zh_name": "气动件 20L",
+  "zh_desc": "气动件 管 20l 带 端 凸起"
+ },
+ "88323.dat": {
+  "zh_name": "链条 ·加强",
+  "zh_desc": "链条 履带 5 宽 加强"
+ },
+ "88323c01.dat": {
+  "zh_name": "链条 ·加强橡胶",
+  "zh_desc": "链条 履带 5 宽 加强 带 单 黑 橡胶 foot 右"
+ },
+ "88323c02.dat": {
+  "zh_name": "链条 ·加强橡胶",
+  "zh_desc": "链条 履带 5 宽 加强 带 单 黑 橡胶 foot 左"
+ },
+ "88323c03.dat": {
+  "zh_name": "链条 ·加强橡胶",
+  "zh_desc": "链条 履带 5 宽 加强 带 2 黑 橡胶 feet"
+ },
+ "88323c04.dat": {
+  "zh_name": "链条 ·加强橡胶",
+  "zh_desc": "链条 履带 5 宽 加强 带 单 orange 橡胶 foot 右"
+ },
+ "88323c05.dat": {
+  "zh_name": "链条 ·加强橡胶",
+  "zh_desc": "链条 履带 5 宽 加强 带 单 orange 橡胶 foot 左"
+ },
+ "88323c06.dat": {
+  "zh_name": "链条 ·加强橡胶",
+  "zh_desc": "链条 履带 5 宽 加强 带 2 orange 橡胶 feet"
+ },
+ "89678.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 1/2 带摩擦"
+ },
+ "89679.dat": {
+  "zh_name": "面板 1×2×1",
+  "zh_desc": "面板 弯曲 1×2×1"
+ },
+ "89679pt0.dat": {
+  "zh_name": "面板 1×2×1",
+  "zh_desc": "面板 弯曲 1×2×1 带 ferrari 标志 图案"
+ },
+ "89953.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l soft 带 tight coil 弹簧 (总成)"
+ },
+ "89953p01.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l soft 带 黑 活塞 杆 带 tight coil 弹簧 (总成)"
+ },
+ "89954.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l stiff 带 弹簧 带 tight coils 于 端 (总成)"
+ },
+ "89954p01.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "减震器 6.5l stiff 带 黑 活塞 杆 带 弹簧 带 tight coils 于 端 (总成)"
+ },
+ "90026.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "弹簧 用于 科技 减震器 6.5l soft 带 tight coil"
+ },
+ "90033.dat": {
+  "zh_name": "减震器 6.5L",
+  "zh_desc": "弹簧 用于 科技 减震器 6.5l stiff 带 tight coils 于 端"
+ },
+ "90202.dat": {
+  "zh_name": "销连接器",
+  "zh_desc": "销连接器 圆形 带 4 clips"
+ },
+ "90630.dat": {
+  "zh_name": "球关节 1×3",
+  "zh_desc": "十字 块 1×3 (销/dimple/销) 带 2 销 和 2 球 joints"
+ },
+ "90634.dat": {
+  "zh_name": "球关节 3×1",
+  "zh_desc": "连接器 3×1 带 二 销 和 三 球 joints 在 轴 5l"
+ },
+ "913.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 拉杆"
+ },
+ "91347.dat": {
+  "zh_name": "零件 2×7×2.5",
+  "zh_desc": "crane jaw 弯曲 2×7×2.5"
+ },
+ "91347c01-f1.dat": {
+  "zh_name": "销连接器 ·橡胶",
+  "zh_desc": "crane jaw 弯曲 x 4 带 黑 科技 销连接器 和 白 橡胶 belt"
+ },
+ "914.dat": {
+  "zh_name": "轴 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 轴 型 1"
+ },
+ "916.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 switch"
+ },
+ "9244.dat": {
+  "zh_name": "关节 ·已弃用",
+  "zh_desc": "universal 关节 (总成 assembly shortcut) 浅 灰 (已弃用)"
+ },
+ "92693c01-f1.dat": {
+  "zh_name": "零件 4×1×1",
+  "zh_desc": "直线 作动器 4×1×1 (contracted)"
+ },
+ "92693c01-f2.dat": {
+  "zh_name": "零件 4×1×1·长",
+  "zh_desc": "直线 作动器 4×1×1 (加长)"
+ },
+ "92693c01.dat": {
+  "zh_name": "零件 4×1×1",
+  "zh_desc": "直线 作动器 4×1×1 主体 assembly"
+ },
+ "92694.dat": {
+  "zh_name": "零件 4×1×1",
+  "zh_desc": "直线 作动器 4×1×1 主体"
+ },
+ "92695.dat": {
+  "zh_name": "轴 4×1×1",
+  "zh_desc": "直线 作动器 4×1×1 轴 作动器"
+ },
+ "92696.dat": {
+  "zh_name": "零件 4×1×1",
+  "zh_desc": "直线 作动器 4×1×1 活塞"
+ },
+ "92697.dat": {
+  "zh_name": "零件 4×1×1",
+  "zh_desc": "直线 作动器 4×1×1 盖"
+ },
+ "92842.dat": {
+  "zh_name": "零件",
+  "zh_desc": "propeller 3 叶片 5.5 diameter 带 科技 销孔 和 flat 端 blades"
+ },
+ "92906.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 constant velocity 4.8mm 关节 female"
+ },
+ "92907.dat": {
+  "zh_name": "轴 2×2×2·弯折",
+  "zh_desc": "十字 块 2×2×2 弯折 90 split (销/twin 轴)"
+ },
+ "92908.dat": {
+  "zh_name": "转向件",
+  "zh_desc": "转向件 portal 轴 框架"
+ },
+ "92909.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轮毂 用于 portal 轴"
+ },
+ "92910.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 2.25 diameter 带 c-shape 框架"
+ },
+ "92911.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 2.25 diameter 插孔"
+ },
+ "92911c01.dat": {
+  "zh_name": "球关节",
+  "zh_desc": "球关节 2.25 diameter 插孔 带 steel 球 18 mm"
+ },
+ "94925.dat": {
+  "zh_name": "齿轮 ·加强",
+  "zh_desc": "齿轮 16 齿 加强"
+ },
+ "95292-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l extra hard (加长)"
+ },
+ "95292-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l extra hard (压缩)"
+ },
+ "96889-f1.dat": {
+  "zh_name": "气动件 33L",
+  "zh_desc": "气动件 管 33l"
+ },
+ "96889-f2.dat": {
+  "zh_name": "气动件 33L",
+  "zh_desc": "气动件 管 33l 带 端 凸起"
+ },
+ "96890-f1.dat": {
+  "zh_name": "气动件 54L",
+  "zh_desc": "气动件 管 54l"
+ },
+ "96890-f2.dat": {
+  "zh_name": "气动件 54L",
+  "zh_desc": "气动件 管 54l 带 端 凸起"
+ },
+ "96891-f1.dat": {
+  "zh_name": "气动件 80L",
+  "zh_desc": "气动件 管 80l"
+ },
+ "96891-f2.dat": {
+  "zh_name": "气动件 80L",
+  "zh_desc": "气动件 管 80l 带 端 凸起"
+ },
+ "973p95.dat": {
+  "zh_name": "零件",
+  "zh_desc": "minifig torso 带 白/黄/orange racesuit 图案"
+ },
+ "973p96.dat": {
+  "zh_name": "零件",
+  "zh_desc": "minifig torso 带 中 蓝 trim 和 flowers 图案"
+ },
+ "973pbv.dat": {
+  "zh_name": "零件",
+  "zh_desc": "minifig torso 带 spider man 图案"
+ },
+ "98285.dat": {
+  "zh_name": "销 2×4.5",
+  "zh_desc": "hinge 平板 2×4.5 底座 带 科技 销孔 和 3 孔"
+ },
+ "98286.dat": {
+  "zh_name": "销 2×4.5",
+  "zh_desc": "hinge 平板 2×4.5 顶 带 科技 销孔 和 3 孔"
+ },
+ "98286c01.dat": {
+  "zh_name": "销 2×4.5·带摩擦",
+  "zh_desc": "hinge 平板 2×4.5 带 科技 销 带摩擦 和 槽"
+ },
+ "98347.dat": {
+  "zh_name": "销 0.5×4",
+  "zh_desc": "叶片 弯曲 0.5×4 带 销孔"
+ },
+ "984.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "轴 接合件 3×2 带 弹簧 - 轴 housing"
+ },
+ "985.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "轴 接合件 3×2 带 axial torsion 弹簧 - 顶"
+ },
+ "98578.dat": {
+  "zh_name": "球",
+  "zh_desc": "spiked 球 半"
+ },
+ "98585.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 circular 带 2 销 孔 和 3 轴孔"
+ },
+ "986.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "轴 接合件 3×2 带 弹簧 - housing 底"
+ },
+ "987.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "轴 接合件 3×2 带 弹簧 - 弹簧"
+ },
+ "98989.dat": {
+  "zh_name": "轴 2×4",
+  "zh_desc": "十字 块 2×4 (轴/销/销/twin 销)"
+ },
+ "99008.dat": {
+  "zh_name": "轴",
+  "zh_desc": "轴 4 带 middle cylindrical stop"
+ },
+ "99009.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "turntable 28 齿 底"
+ },
+ "99010.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "turntable 28 齿 顶"
+ },
+ "99012.dat": {
+  "zh_name": "轴 8L",
+  "zh_desc": "rotor 1 叶片 8l 带 销孔 和 轴孔"
+ },
+ "99013.dat": {
+  "zh_name": "梁 31L",
+  "zh_desc": "rotor 1 叶片 31l 带 梁 3l"
+ },
+ "99013p01.dat": {
+  "zh_name": "梁 31L·橡胶",
+  "zh_desc": "rotor 1 叶片 31l 带 梁 3l 带 黑 橡胶 tip"
+ },
+ "99013p02.dat": {
+  "zh_name": "梁 31L·橡胶",
+  "zh_desc": "rotor 1 叶片 31l 带 梁 3l 带 黄 橡胶 tip"
+ },
+ "99021.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "气动件 软管 连接器 带 衬套"
+ },
+ "993.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 cable 3ldu twin"
+ },
+ "99498.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达"
+ },
+ "99498c01.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 带 coiled cable"
+ },
+ "99499.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 大 马达"
+ },
+ "99499c01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 大 马达 带 coiled cable"
+ },
+ "99773.dat": {
+  "zh_name": "举臂 5×3×0.5",
+  "zh_desc": "梁 5×3×0.5 举臂 triangle 型 2"
+ },
+ "99798-f1.dat": {
+  "zh_name": "气动件 1×1×6",
+  "zh_desc": "气动件 泵 1×1×6 (retracted)"
+ },
+ "99798-f2.dat": {
+  "zh_name": "气动件 1×1×6·长",
+  "zh_desc": "气动件 泵 1×1×6 (加长)"
+ },
+ "99799.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 用于 泵 6l"
+ },
+ "99948.dat": {
+  "zh_name": "球",
+  "zh_desc": "steel 球 18mm 用于 球 castor"
+ },
+ "parts/32269.dat": {
+  "zh_name": "零件",
+  "zh_desc": "parts/32269.dat"
+ },
+ "s/10089s01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 大 马达 外壳 后 四分之一"
+ },
+ "s/10090s01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 动力组 大 马达 外壳 前 四分之一"
+ },
+ "s/10130s01.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 外壳 后 半"
+ },
+ "s/10131s01.dat": {
+  "zh_name": "伺服马达",
+  "zh_desc": "电动 动力组 伺服马达 外壳 前 四分之一"
+ },
+ "s/12787s03.dat": {
+  "zh_name": "马达 6×5×3",
+  "zh_desc": "马达 pull 后 6×5×3 common shell"
+ },
+ "s/15100s01.dat": {
+  "zh_name": "销 ·带摩擦",
+  "zh_desc": "销 带摩擦 带 垂直 销孔 不带 销"
+ },
+ "s/15265s02.dat": {
+  "zh_name": "零件 23×13",
+  "zh_desc": "excavator bucket 23×13 侧"
+ },
+ "s/15361s01.dat": {
+  "zh_name": "销 3×5×8",
+  "zh_desc": "气缸 半 3×5×8 带 销 孔"
+ },
+ "s/15461s01.dat": {
+  "zh_name": "连接器 3×1×2",
+  "zh_desc": "连接器 3×1×2 带 销孔 和 二 销 common geometry"
+ },
+ "s/18585s01.dat": {
+  "zh_name": "砖 2×4·带孔",
+  "zh_desc": "砖 2×4 带孔 和 launcher - 孔"
+ },
+ "s/18938s01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "turntable 60 齿 顶 四分之一"
+ },
+ "s/18939s01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "turntable 60 齿 底 四分之一"
+ },
+ "s/1936s01.dat": {
+  "zh_name": "销 5×5",
+  "zh_desc": "swashplate 5×5 顶 带 5 销 孔 半"
+ },
+ "s/1936s02.dat": {
+  "zh_name": "销 5×5",
+  "zh_desc": "swashplate 5×5 顶 销孔"
+ },
+ "s/1937s01.dat": {
+  "zh_name": "销 5×5",
+  "zh_desc": "swashplate 5×5 底座 带 4 销 孔 1/4"
+ },
+ "s/22385s01.dat": {
+  "zh_name": "平滑片 3×2·带角度",
+  "zh_desc": "平滑片 3×2 带 带角度 端 不带 顶 face"
+ },
+ "s/23801s01.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 2 销孔 和 2 axleholes arms 半"
+ },
+ "s/2405s01.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "车轮 spindle 轴 driver bar 关节"
+ },
+ "s/24118s01.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 半 不带 前 face"
+ },
+ "s/24119s01.dat": {
+  "zh_name": "面板 7×2×3·光滑",
+  "zh_desc": "面板 光滑 7×2×3 不带 顶"
+ },
+ "s/2431s01.dat": {
+  "zh_name": "平滑片 1×4",
+  "zh_desc": "平滑片 1×4 带 groove 不带 顶 face"
+ },
+ "s/2438s01.dat": {
+  "zh_name": "面板 5×3×2",
+  "zh_desc": "面板 5×3×2 corner 左 不带 顶 surface"
+ },
+ "s/2459p01s01.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42 带 白 x 和 银 vents 图案"
+ },
+ "s/2459s01.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 带 rounded 顶 #42 半 不带 前"
+ },
+ "s/2502s01.dat": {
+  "zh_name": "梁 2×12×9",
+  "zh_desc": "梁 2×12×9 带 夹爪 - 半"
+ },
+ "s/2509s01.dat": {
+  "zh_name": "面板 11×2×5",
+  "zh_desc": "面板 11×2×5 挡泥板 拱形 #32 不带 前 半"
+ },
+ "s/26603s01.dat": {
+  "zh_name": "平滑片 2×3",
+  "zh_desc": "平滑片 2×3 不带 顶"
+ },
+ "s/2723s01.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 不带 顶 surface"
+ },
+ "s/2723s02.dat": {
+  "zh_name": "轴 3×3",
+  "zh_desc": "圆盘 3×3 带 轴孔 不带 printable surfaces"
+ },
+ "s/2841s02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - 顶 不带 电力 cord inlet area"
+ },
+ "s/2850s01.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头 common geometry 半"
+ },
+ "s/2906s01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 4 叶片 7 diameter"
+ },
+ "s/2943s01.dat": {
+  "zh_name": "气动件 1×1",
+  "zh_desc": "气动件 泵 1×1 底座 主体"
+ },
+ "s/2947s01.dat": {
+  "zh_name": "气缸 1×5",
+  "zh_desc": "气动件 气缸 1×5 带 2 端口 主体"
+ },
+ "s/30632s01.dat": {
+  "zh_name": "连接器 6×4×3",
+  "zh_desc": "grille 6×4×3 带 2 销 和 2 销 孔 - connectors"
+ },
+ "s/3068bs01.dat": {
+  "zh_name": "平滑片 2×2",
+  "zh_desc": "平滑片 2×2 带 groove 不带 face"
+ },
+ "s/3167s01.dat": {
+  "zh_name": "梁 3×2",
+  "zh_desc": "梁 3×2 c-shaped 半"
+ },
+ "s/32039s01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 (轴/衬套) 不带 inner wall"
+ },
+ "s/32064s01.dat": {
+  "zh_name": "轴 1×2",
+  "zh_desc": "砖 1×2 带 轴孔"
+ },
+ "s/32074s02.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 圆形 底 主体 - 半"
+ },
+ "s/32090s02.dat": {
+  "zh_name": "履带",
+  "zh_desc": "履带 框架 5-point 底座 node"
+ },
+ "s/32125s01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "rotor 3 叶片 带 6 凸点 - 单 叶片"
+ },
+ "s/32133s01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 箭头 shaft - common geometry"
+ },
+ "s/32138s01.dat": {
+  "zh_name": "轴 3L",
+  "zh_desc": "销 3l 双 带 轴孔 中心"
+ },
+ "s/32167s01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 box 半 带 4 轴 stubs 和 6 销 sockets - 半"
+ },
+ "s/32195s01.dat": {
+  "zh_name": "臂 2×6.5",
+  "zh_desc": "suspension 臂 2×6.5 main"
+ },
+ "s/32272s01.dat": {
+  "zh_name": "零件 6×6×7",
+  "zh_desc": "dome 6×6×7 不带 顶 surfaces"
+ },
+ "s/32272s02.dat": {
+  "zh_name": "零件 6×6×7",
+  "zh_desc": "dome 6×6×7 半"
+ },
+ "s/32273s01.dat": {
+  "zh_name": "连接器 5×5",
+  "zh_desc": "turntable 5×5 connectors"
+ },
+ "s/32288s01.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 顶 - 半"
+ },
+ "s/32289as01.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 - main 半 底座 型 1"
+ },
+ "s/32289s01.dat": {
+  "zh_name": "马达 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 底座 - main 半"
+ },
+ "s/32305s01.dat": {
+  "zh_name": "连接器 7×4×3",
+  "zh_desc": "连接器 块 7×4×3 半"
+ },
+ "s/32311s01.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 7 偏置 举臂 带 24 齿 gears - 半"
+ },
+ "s/32316s01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 5 不带 侧"
+ },
+ "s/32324s01.dat": {
+  "zh_name": "砖 4×4",
+  "zh_desc": "砖 4×4 带 开口 中心 2×2 - 单 半"
+ },
+ "s/32439s01.dat": {
+  "zh_name": "零件 5×5",
+  "zh_desc": "圆盘 5×5 不带 顶 surface"
+ },
+ "s/32489s01.dat": {
+  "zh_name": "连接器 4×5×7.667",
+  "zh_desc": "连接器 块 4×5×7.667 - 半"
+ },
+ "s/3251s01.dat": {
+  "zh_name": "面板",
+  "zh_desc": "面板 气缸 d15 60° 半"
+ },
+ "s/32523s01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 3 不带 侧"
+ },
+ "s/32526s01.dat": {
+  "zh_name": "梁 3×5·弯折短",
+  "zh_desc": "梁 3×5 弯折 90 不带 短 face"
+ },
+ "s/32531s01.dat": {
+  "zh_name": "砖 4×6",
+  "zh_desc": "砖 4×6 带 开口 中心 2×4 - 单 半 不带 underside 凸点"
+ },
+ "s/32532s01.dat": {
+  "zh_name": "砖 6×8",
+  "zh_desc": "砖 6×8 带 开口 中心 4×6 - 单 半 不带 underside 凸点"
+ },
+ "s/32532s02.dat": {
+  "zh_name": "砖 6×8",
+  "zh_desc": "砖 6×8 带 开口 中心 4×6 - connection 孔 带 fillet 1×1"
+ },
+ "s/33299s01.dat": {
+  "zh_name": "举臂 3×0.5",
+  "zh_desc": "梁 3×0.5 举臂 带 boss 和 销 - common sections"
+ },
+ "s/336s01.dat": {
+  "zh_name": "气缸 2×2",
+  "zh_desc": "气动件 气缸 2×2 活塞 杆 端"
+ },
+ "s/3538s01.dat": {
+  "zh_name": "面板 11×2×5",
+  "zh_desc": "面板 11×2×5 挡泥板 拱形 带 rounded 顶 #43 不带 前 半"
+ },
+ "s/3622s01.dat": {
+  "zh_name": "砖 1×3",
+  "zh_desc": "砖 1×3 不带 前 face"
+ },
+ "s/3623s01.dat": {
+  "zh_name": "平板 1×3",
+  "zh_desc": "平板 1×3 不带 前 face"
+ },
+ "s/3650s01.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 24 齿 冠状 - common structure"
+ },
+ "s/3736c.dat": {
+  "zh_name": "滑轮",
+  "zh_desc": "滑轮 车轮 5d 中心"
+ },
+ "s/39369s01.dat": {
+  "zh_name": "梁 19×11",
+  "zh_desc": "梁 19×11 底板 middle 孔"
+ },
+ "s/39369s02.dat": {
+  "zh_name": "梁 19×11",
+  "zh_desc": "梁 19×11 底板 侧 段"
+ },
+ "s/39369s03.dat": {
+  "zh_name": "梁 19×11",
+  "zh_desc": "梁 19×11 底板 corner"
+ },
+ "s/39370s01.dat": {
+  "zh_name": "梁 5×3",
+  "zh_desc": "梁 5×3 h-shaped 带 球 插孔 半"
+ },
+ "s/39790s01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 带 alternate 孔 段"
+ },
+ "s/39790s02.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 带 alternate 孔 corner"
+ },
+ "s/39793s01.dat": {
+  "zh_name": "连接器 3×3",
+  "zh_desc": "连接器 块 3×3 带 9 垂直 孔 四分之一"
+ },
+ "s/40001s02.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 yoke 轮毂"
+ },
+ "s/41666s01.dat": {
+  "zh_name": "齿轮 1×6·锥齿",
+  "zh_desc": "1/2 科技 臂 1×6 带 齿轮 12 齿 双 锥齿 端"
+ },
+ "s/4215as01.dat": {
+  "zh_name": "面板 1×4×3",
+  "zh_desc": "面板 1×4×3 不带 前 face"
+ },
+ "s/42529s02.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 56.5 轮毂 销孔"
+ },
+ "s/42531s01.dat": {
+  "zh_name": "面板 9×2×3",
+  "zh_desc": "面板 9×2×3 挡泥板 拱形 #30 半 不带 前"
+ },
+ "s/42545s01.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 #31 半 不带 前"
+ },
+ "s/42607s01.dat": {
+  "zh_name": "砖 6×12",
+  "zh_desc": "wing 6×12 带 科技 砖 - 1×4 chamfered 侧 带 cutouts"
+ },
+ "s/42607s03.dat": {
+  "zh_name": "砖 6×12",
+  "zh_desc": "wing 6×12 带 科技 砖 - 半"
+ },
+ "s/42607s04.dat": {
+  "zh_name": "砖 6×12",
+  "zh_desc": "wing 6×12 带 科技 砖 - 1×4 chamfered 侧 带 cutouts"
+ },
+ "s/4273s01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 toggle 关节 toothed 不带 轴 衬套"
+ },
+ "s/4412s00.dat": {
+  "zh_name": "零件 5×5×2.5",
+  "zh_desc": "dome 5×5×2.5 不带 outer surface"
+ },
+ "s/4413s00.dat": {
+  "zh_name": "零件 11×11×5.5",
+  "zh_desc": "dome 11×11×5.5 不带 outer surface"
+ },
+ "s/4500s01.dat": {
+  "zh_name": "面板 7×3×2·光滑",
+  "zh_desc": "面板 光滑 inverted 7×3×2 半"
+ },
+ "s/45803s01.dat": {
+  "zh_name": "梁 3×7×3·弯折",
+  "zh_desc": "梁 3×7×3 弯折 90 双 chamfered - 半"
+ },
+ "s/46882s01.dat": {
+  "zh_name": "面板 15×2×7",
+  "zh_desc": "面板 15×2×7 挡泥板 带 trapezoidal arch 半 structure"
+ },
+ "s/46891s01.dat": {
+  "zh_name": "零件 19×12",
+  "zh_desc": "excavator bucket 19×12 半"
+ },
+ "s/47155s01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 科技 马达 9v geared 顶 - 连接器"
+ },
+ "s/47222s01.dat": {
+  "zh_name": "气动件",
+  "zh_desc": "气动件 阀 带 销孔 casing 主体"
+ },
+ "s/47431s01.dat": {
+  "zh_name": "轴 2×2",
+  "zh_desc": "砖 2×2 带 reduced 轴孔 不带 端 faces"
+ },
+ "s/4790s00.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "boat ship 车轮 - 车轮"
+ },
+ "s/47972s01.dat": {
+  "zh_name": "连接器 3×1×3",
+  "zh_desc": "连接器 3×1×3 带 二 销 半"
+ },
+ "s/48168s01.dat": {
+  "zh_name": "齿条",
+  "zh_desc": "turntable 型 2 顶 - bracket"
+ },
+ "s/48170s01.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔"
+ },
+ "s/48170s02.dat": {
+  "zh_name": "关节",
+  "zh_desc": "旋转 关节 球 半"
+ },
+ "s/48170s03.dat": {
+  "zh_name": "砖 2×2·带孔",
+  "zh_desc": "砖 2×2 带孔 型 2 不带 端 faces"
+ },
+ "s/48170s05.dat": {
+  "zh_name": "砖",
+  "zh_desc": "砖 带 horizontal click 旋转 hinge - 插孔"
+ },
+ "s/48170s06.dat": {
+  "zh_name": "砖",
+  "zh_desc": "砖 带 vertical click 旋转 hinge - 插孔"
+ },
+ "s/48170s07.dat": {
+  "zh_name": "砖 2×3·带孔",
+  "zh_desc": "砖 2×3 带孔 型 2 不带 端 faces"
+ },
+ "s/48452s01.dat": {
+  "zh_name": "齿条",
+  "zh_desc": "turntable 型 2 底座 - bracket"
+ },
+ "s/48989s01.dat": {
+  "zh_name": "销 1×3",
+  "zh_desc": "十字 块 1×3 (销/销/销) 中心"
+ },
+ "s/50904s01.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "举臂 轴孔 带 reduced strain relief"
+ },
+ "s/5294s01.dat": {
+  "zh_name": "臂 4×6",
+  "zh_desc": "suspension 臂 4×6 triangular 半"
+ },
+ "s/53178s01.dat": {
+  "zh_name": "齿条",
+  "zh_desc": "气动件 气缸 bracket - 半"
+ },
+ "s/53533s01.dat": {
+  "zh_name": "销 2×3",
+  "zh_desc": "十字 块 2×3 split (销/销/销) 带 销 臂"
+ },
+ "s/53550s01.dat": {
+  "zh_name": "球",
+  "zh_desc": "bionicle weapon 球 shooter magazine 半"
+ },
+ "s/5427s01.dat": {
+  "zh_name": "面板 3×9×2",
+  "zh_desc": "面板 3×9×2 弯曲 不带 patternable surface - 半"
+ },
+ "s/55615s01.dat": {
+  "zh_name": "销连接器 3×3·弯折",
+  "zh_desc": "销连接器 垂直 3×3 弯折 90 带 4 销 半"
+ },
+ "s/57028as01.dat": {
+  "zh_name": "零件 ·橡胶",
+  "zh_desc": "竞赛 箭头 带 橡胶 端 - shaft"
+ },
+ "s/57028s01.dat": {
+  "zh_name": "零件 ·橡胶已弃用",
+  "zh_desc": "竞赛 箭头 带 橡胶 端 shaft (已弃用)"
+ },
+ "s/57029as01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 主体 - 半 带 truncated 底 groove"
+ },
+ "s/57029bs01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底 主体 - 半 带 底 groove"
+ },
+ "s/57029s01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "竞赛 炮 带 flat 底座 主体 - 半 不带 底"
+ },
+ "s/57518s01.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 5 宽"
+ },
+ "s/57519s02.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 40.4 销孔"
+ },
+ "s/57520s02.dat": {
+  "zh_name": "链轮",
+  "zh_desc": "链轮 车轮 25.4 不带 前 face"
+ },
+ "s/5780s01.dat": {
+  "zh_name": "臂 7×8×2",
+  "zh_desc": "suspension 臂 7×8×2 双 半"
+ },
+ "s/58124s01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 连接器 顶"
+ },
+ "s/60483s01.dat": {
+  "zh_name": "举臂",
+  "zh_desc": "梁 2 举臂 不带 侧"
+ },
+ "s/61069s01.dat": {
+  "zh_name": "面板 4×6.5",
+  "zh_desc": "面板 侧 flaring intake 4×6.5 半"
+ },
+ "s/61904s01.dat": {
+  "zh_name": "齿条 2×2",
+  "zh_desc": "直线 作动器 2×2 bracket hinged mount"
+ },
+ "s/61905s01.dat": {
+  "zh_name": "马达 2×2",
+  "zh_desc": "直线 作动器 2×2 马达 mount 四分之一"
+ },
+ "s/6239s01.dat": {
+  "zh_name": "零件 2×6×4",
+  "zh_desc": "tail shuttle 2×6×4 不带 decorated surfaces"
+ },
+ "s/62531s01.dat": {
+  "zh_name": "面板 11×2×3·光滑",
+  "zh_desc": "面板 光滑 11×2×3 半"
+ },
+ "s/64178s01.dat": {
+  "zh_name": "梁 11×5",
+  "zh_desc": "梁 11×5 带 开口 中心 5×3 四分之一"
+ },
+ "s/64179s01.dat": {
+  "zh_name": "梁 7×5",
+  "zh_desc": "梁 7×5 带 开口 中心 5×3 四分之一"
+ },
+ "s/64680s01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 宽 subpart"
+ },
+ "s/64683s01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 端"
+ },
+ "s/64683s02.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 端 不带 侧 faces"
+ },
+ "s/64781s01.dat": {
+  "zh_name": "齿条",
+  "zh_desc": "齿条 带 销孔 和 axleholes - 端"
+ },
+ "s/64782s01.dat": {
+  "zh_name": "面板",
+  "zh_desc": "面板 corner section"
+ },
+ "s/65421s00.dat": {
+  "zh_name": "零件",
+  "zh_desc": "concrete mixer 半 shell 不带 patternable area"
+ },
+ "s/65421s01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "concrete mixer 半 shell 半"
+ },
+ "s/6575s01.dat": {
+  "zh_name": "凸轮",
+  "zh_desc": "凸轮 - 主体"
+ },
+ "s/65803s01.dat": {
+  "zh_name": "砖 16×16×1.333",
+  "zh_desc": "砖 16×16×1.333 - 四分之一"
+ },
+ "s/65803s02.dat": {
+  "zh_name": "砖 16×16×1.333",
+  "zh_desc": "砖 16×16×1.333 - 1/8"
+ },
+ "s/65803s03.dat": {
+  "zh_name": "销 16×16×1.333",
+  "zh_desc": "砖 16×16×1.333 - 销孔"
+ },
+ "s/65817s01.dat": {
+  "zh_name": "梁 15×11",
+  "zh_desc": "梁 15×11 带 perforated 中心 平板 13×9 梁 段"
+ },
+ "s/65817s02.dat": {
+  "zh_name": "梁 15×11",
+  "zh_desc": "梁 15×11 带 perforated 中心 平板 13×9 四分之一"
+ },
+ "s/6585s01.dat": {
+  "zh_name": "齿轮 4×4×1.667",
+  "zh_desc": "变速箱 4×4×1.667 半"
+ },
+ "s/6608s01.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头 不带 凸点 半"
+ },
+ "s/6608s02.dat": {
+  "zh_name": "气缸",
+  "zh_desc": "engine 气缸 头 不带 凸点 四分之一"
+ },
+ "s/6614s01.dat": {
+  "zh_name": "框架 5×3",
+  "zh_desc": "框架 5×3 engine holder - slanted sides 半"
+ },
+ "s/6637s01.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 科技 fiber optics element - 底 半"
+ },
+ "s/67139s01.dat": {
+  "zh_name": "连接器 3×5×1",
+  "zh_desc": "连接器 块 3×5×1 带 cutout - outer 销孔 四分之一"
+ },
+ "s/67141s01.dat": {
+  "zh_name": "面板 15×2×5",
+  "zh_desc": "面板 15×2×5 挡泥板 拱形 带 rounded 顶"
+ },
+ "s/67142s01.dat": {
+  "zh_name": "销 5×13",
+  "zh_desc": "面板 5×13 弯曲 tapered, 销孔"
+ },
+ "s/69636s01.dat": {
+  "zh_name": "减震器",
+  "zh_desc": "转向盘 轴承 带 4 销孔 和 减震器 插孔 半"
+ },
+ "s/69910s01.dat": {
+  "zh_name": "链条",
+  "zh_desc": "链条 履带 7 宽 带 cleat - 半"
+ },
+ "s/69911s01.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 带 rounded 顶"
+ },
+ "s/700s02.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "齿轮 大 - 轮毂 subpart"
+ },
+ "s/71689s01.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 extension"
+ },
+ "s/71708s01.dat": {
+  "zh_name": "举臂 2×3·弯折",
+  "zh_desc": "梁 2×3 举臂 弯折 90 四分之一 ellipse - 不带 轴孔 和 surfaces"
+ },
+ "s/71710s01.dat": {
+  "zh_name": "梁 2L",
+  "zh_desc": "梁 带 alternating 孔 - 2l section"
+ },
+ "s/71710s02.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 带 alternating 孔 - 端 section"
+ },
+ "s/71711s01.dat": {
+  "zh_name": "轮毂 9×9",
+  "zh_desc": "brake 圆盘 9×9 轮毂 和 spokes"
+ },
+ "s/71711s02.dat": {
+  "zh_name": "轮毂 9×9",
+  "zh_desc": "brake 圆盘 9×9 轮毂 半"
+ },
+ "s/75544p01s03.dat": {
+  "zh_name": "马达 11×11·带角度",
+  "zh_desc": "windscreen 11×11 motorcycle 带 带角度 销孔 侧 带 白 图案"
+ },
+ "s/75544s01.dat": {
+  "zh_name": "马达 11×11·带角度",
+  "zh_desc": "windscreen 11×11 motorcycle 带 带角度 销孔 侧 不带 顶"
+ },
+ "s/75544s03.dat": {
+  "zh_name": "马达 11×11·带角度",
+  "zh_desc": "windscreen 11×11 motorcycle 带 带角度 销孔 侧 不带 图案"
+ },
+ "s/7660s01.dat": {
+  "zh_name": "蜗杆 2×5",
+  "zh_desc": "十字 块 2×5 (轴/销) 带 垂直 孔 用于 蜗杆 齿轮 6l - 半"
+ },
+ "s/78442s01.dat": {
+  "zh_name": "齿轮 6×6",
+  "zh_desc": "齿轮 环 四分之一 6×6 带 15 teeth 半"
+ },
+ "s/79766s01.dat": {
+  "zh_name": "梁 15×7",
+  "zh_desc": "梁 15×7 带 开口 中心 和 3 truss bars 四分之一"
+ },
+ "s/79766s03.dat": {
+  "zh_name": "梁 15×7",
+  "zh_desc": "梁 15×7 带 开口 中心 和 3 truss bars 销孔"
+ },
+ "s/79767s01.dat": {
+  "zh_name": "梁 15×5",
+  "zh_desc": "梁 15×5 带 开口 中心 和 3 truss bars 四分之一"
+ },
+ "s/79768s01.dat": {
+  "zh_name": "梁 16×7",
+  "zh_desc": "梁 16×7 triangular 带 diagonal bars - 半"
+ },
+ "s/79768s02.dat": {
+  "zh_name": "梁 16×7",
+  "zh_desc": "梁 16×7 triangular 带 diagonal bars - 四分之一"
+ },
+ "s/80267s01.dat": {
+  "zh_name": "整流罩 ·光滑",
+  "zh_desc": "面板 整流罩 光滑 左 #61 不带 前"
+ },
+ "s/80273s01.dat": {
+  "zh_name": "梁",
+  "zh_desc": "梁 propeller 5 叶片 9 diameter 带 方形 孔 1/5"
+ },
+ "s/80284s01.dat": {
+  "zh_name": "面板 13×2×5",
+  "zh_desc": "面板 13×2×5 挡泥板 拱形 带 rounded 顶 和 pointed 底 - 半"
+ },
+ "s/80285s01.dat": {
+  "zh_name": "面板 3×2×5",
+  "zh_desc": "面板 3×2×5 - 半"
+ },
+ "s/80295s02.dat": {
+  "zh_name": "零件 4×3",
+  "zh_desc": "reel 4×3 半"
+ },
+ "s/80441s01.dat": {
+  "zh_name": "轮胎 2×21",
+  "zh_desc": "车轮 2×21 带 科技 销孔 带 integral 轮胎 rim"
+ },
+ "s/85984s01.dat": {
+  "zh_name": "砖 1×2×0.667",
+  "zh_desc": "slope 砖 31 1×2×0.667 不带 顶 surface"
+ },
+ "s/87079s01.dat": {
+  "zh_name": "平滑片 2×4",
+  "zh_desc": "平滑片 2×4 不带 顶 surface"
+ },
+ "s/87080s05.dat": {
+  "zh_name": "整流罩 ·光滑短",
+  "zh_desc": "面板 整流罩 光滑 #1 (短) 不带 侧 face"
+ },
+ "s/87082s01.dat": {
+  "zh_name": "销 ·长",
+  "zh_desc": "销 长 带 销孔 不带 销"
+ },
+ "s/87408s01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "连接器 toggle 关节 双 带 轴/销 孔 - 1/2"
+ },
+ "s/87745s01.dat": {
+  "zh_name": "销",
+  "zh_desc": "销 接合件 圆形 弯曲 带 fin 和 孔 (半 part 不带 fin)"
+ },
+ "s/87761s01.dat": {
+  "zh_name": "齿条 ·带孔",
+  "zh_desc": "齿条 带孔 和 axleholes - 端 带 单 齿"
+ },
+ "s/98285s01.dat": {
+  "zh_name": "销 2×4.5",
+  "zh_desc": "hinge 平板 2×4.5 底座 带 科技 销孔"
+ },
+ "s/98286s01.dat": {
+  "zh_name": "销 2×4.5",
+  "zh_desc": "hinge 平板 2×4.5 顶 带 科技 销孔"
+ },
+ "s/985s02.dat": {
+  "zh_name": "轴 3×2",
+  "zh_desc": "轴 接合件 3×2 带 axial torsion 弹簧 - 轴孔"
+ },
+ "s/faxle1.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "柔性 轴 段 #1"
+ },
+ "s/faxle2.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "柔性 轴 段 #2"
+ },
+ "s/faxle3.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "柔性 轴 段 #3"
+ },
+ "s/faxle4.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "柔性 轴 段 #4"
+ },
+ "s/faxle5.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "柔性 轴 段 #5"
+ },
+ "s/t1031s03.dat": {
+  "zh_name": "底板 1×5",
+  "zh_desc": "| minutebot 科技 底板 1×5 孔 group"
+ },
+ "s/t1031s04.dat": {
+  "zh_name": "底板 5×5",
+  "zh_desc": "| minutebot 科技 底板 5×5 孔 group"
+ },
+ "s/u9181s01.dat": {
+  "zh_name": "马达 5×7×3",
+  "zh_desc": "马达 pull 后 5×7×3 型 6 - 半"
+ },
+ "s/u9373s01.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "电动 科技 马达 后 不带 中心 销孔 (已弃用)"
+ },
+ "s/u9417s01.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 主体 - 半"
+ },
+ "s/u9622s01.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带/不带 中心 销孔 后 - main subfile"
+ },
+ "t1031.dat": {
+  "zh_name": "底板 21×31",
+  "zh_desc": "| minutebot 科技 底板 21×31"
+ },
+ "u1208a.dat": {
+  "zh_name": "轴 ·短",
+  "zh_desc": "轴 adapter metal 短"
+ },
+ "u1208b.dat": {
+  "zh_name": "轴 ·长",
+  "zh_desc": "轴 adapter metal 长"
+ },
+ "u9010.dat": {
+  "zh_name": "轴 4.8L·柔性",
+  "zh_desc": "轴 柔性 26 轴 - 4.8l 端"
+ },
+ "u9011.dat": {
+  "zh_name": "轴 2L·柔性",
+  "zh_desc": "轴 柔性 26 轴 - 2l 端"
+ },
+ "u9012.dat": {
+  "zh_name": "轴 ·柔性",
+  "zh_desc": "轴 柔性 26 - 柔性 part"
+ },
+ "u9013.dat": {
+  "zh_name": "零件 12×6",
+  "zh_desc": "screw 12×6 pan cruciform"
+ },
+ "u9022.dat": {
+  "zh_name": "零件 4×4",
+  "zh_desc": "screw 4×4 beveled triangular"
+ },
+ "u9029.dat": {
+  "zh_name": "轴 5×7×3",
+  "zh_desc": "马达 pull 后 5×7×3 型 6 - 轴 衬套"
+ },
+ "u9038.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - 顶 不带 电力 cord inlet"
+ },
+ "u9053.dat": {
+  "zh_name": "软管 ·柔性",
+  "zh_desc": "柔性-系统 软管 端"
+ },
+ "u9077.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 9v geared (480rpm) inside"
+ },
+ "u9111c01.dat": {
+  "zh_name": "零件",
+  "zh_desc": "moved to 21828c01"
+ },
+ "u9112.dat": {
+  "zh_name": "气缸 1×11",
+  "zh_desc": "气动件 气缸 1×11 活塞 杆"
+ },
+ "u9113.dat": {
+  "zh_name": "气缸 2×11",
+  "zh_desc": "气动件 气缸 2×11 活塞 杆"
+ },
+ "u9144.dat": {
+  "zh_name": "面板",
+  "zh_desc": "电动 科技 solar 面板 cell"
+ },
+ "u9145.dat": {
+  "zh_name": "气缸 1×11",
+  "zh_desc": "气动件 气缸 1×11 带 2 端口 主体"
+ },
+ "u9145c01.dat": {
+  "zh_name": "气缸 1×11",
+  "zh_desc": "气动件 气缸 1×11 带 2 端口 主体 和 盖"
+ },
+ "u9181.dat": {
+  "zh_name": "马达 5×7×3",
+  "zh_desc": "马达 pull 后 5×7×3 型 6 左 (待完善)"
+ },
+ "u9182.dat": {
+  "zh_name": "马达 5×7×3",
+  "zh_desc": "马达 pull 后 5×7×3 型 6 右 (待完善)"
+ },
+ "u9190.dat": {
+  "zh_name": "电动件",
+  "zh_desc": "电动 动力组 4-wire ribbon cable 段"
+ },
+ "u9190c01.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 coiled cable 带 深 偏蓝 灰 functions 连接器 带 pf 底"
+ },
+ "u9190c02.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 coiled cable 带 深 偏蓝 灰 functions 连接器 带 pf 底"
+ },
+ "u9190c03.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 动力组 coiled cable 带 深 偏蓝 灰 functions 连接器 带 pf 底"
+ },
+ "u9202.dat": {
+  "zh_name": "零件",
+  "zh_desc": "control 中心 ii - 电力 插孔"
+ },
+ "u9241.dat": {
+  "zh_name": "车轮",
+  "zh_desc": "train 车轮 用于 rc train 带 科技 轴孔"
+ },
+ "u9242.dat": {
+  "zh_name": "车轮 ·橡胶",
+  "zh_desc": "橡胶 环 用于 train 车轮 用于 rc train 带 科技 轴孔"
+ },
+ "u9269.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 underside metal clamp"
+ },
+ "u9280.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶 inside metal"
+ },
+ "u9281.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶 inside metal 左 侧"
+ },
+ "u9282.dat": {
+  "zh_name": "砖 2×2×0.667",
+  "zh_desc": "电动 砖 2×2×0.667 顶 inside metal 右 侧"
+ },
+ "u9283.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 马达 9v metal 条纹"
+ },
+ "u9306.dat": {
+  "zh_name": "气缸 2×2×1",
+  "zh_desc": "气动件 气缸 2×2×1 盖 带 端口 槽 带 flat 顶"
+ },
+ "u9329.dat": {
+  "zh_name": "气动件 2×2",
+  "zh_desc": "气动件 泵 2×2 活塞 带 1.2 杆"
+ },
+ "u9330.dat": {
+  "zh_name": "气动件 2×2×1",
+  "zh_desc": "气动件 泵 2×2×1 盖 带 1.2 孔"
+ },
+ "u9337.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 主体 前"
+ },
+ "u9338.dat": {
+  "zh_name": "气缸 1×1",
+  "zh_desc": "气动件 气缸 1×1 gasket"
+ },
+ "u9342.dat": {
+  "zh_name": "齿轮 2×4×3",
+  "zh_desc": "齿轮 块 2×4×3 - 底"
+ },
+ "u9343.dat": {
+  "zh_name": "齿轮 2×4×3",
+  "zh_desc": "齿轮 块 2×4×3 - 顶"
+ },
+ "u9344.dat": {
+  "zh_name": "齿轮 2×4×3",
+  "zh_desc": "齿轮 块 2×4×3 - gears"
+ },
+ "u9345.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 科技 mini-马达 9v - 轴"
+ },
+ "u9346.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 mini-马达 9v - 主体"
+ },
+ "u9346c01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 mini-马达 9v - 主体 assembly"
+ },
+ "u9347.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 mini-马达 9v - contact"
+ },
+ "u9348.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 mini-马达 9v - lid"
+ },
+ "u9351-f1.dat": {
+  "zh_name": "气动件 2×2×5",
+  "zh_desc": "弹簧 用于 气动件 泵 2×2×5 带 5.5l 活塞 (压缩)"
+ },
+ "u9351-f2.dat": {
+  "zh_name": "气动件 2×2×5·长",
+  "zh_desc": "弹簧 用于 气动件 泵 2×2×5 带 5.5l 活塞 (加长)"
+ },
+ "u9372.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 马达 casing"
+ },
+ "u9372c01.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 - 主体 assembly (已弃用)"
+ },
+ "u9372c02.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 - 主体 assembly (已弃用)"
+ },
+ "u9373.dat": {
+  "zh_name": "销 ·已弃用",
+  "zh_desc": "电动 科技 马达 后 带 中心 销孔 (已弃用)"
+ },
+ "u9374.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 科技 马达 plastic 轴"
+ },
+ "u9374c01.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 科技 马达 4.5v / 12v - 轴 assembly"
+ },
+ "u9375.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 科技 马达 steel 轴"
+ },
+ "u9376.dat": {
+  "zh_name": "马达 ·已弃用",
+  "zh_desc": "电动 科技 马达 后 (已弃用)"
+ },
+ "u9377.dat": {
+  "zh_name": "齿轮",
+  "zh_desc": "电动 科技 马达 和 变速箱 plastic 轴"
+ },
+ "u9384.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 micromotor 后"
+ },
+ "u9384c01.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 micromotor (总成)"
+ },
+ "u9384c02.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 micromotor 主体"
+ },
+ "u9385.dat": {
+  "zh_name": "马达",
+  "zh_desc": "电动 科技 micromotor 前"
+ },
+ "u9386.dat": {
+  "zh_name": "轴",
+  "zh_desc": "电动 科技 micromotor 轴"
+ },
+ "u9387.dat": {
+  "zh_name": "滑轮 ·橡胶",
+  "zh_desc": "电动 科技 micromotor 滑轮 - 衬套 橡胶"
+ },
+ "u9409-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 弹簧 soft (加长)"
+ },
+ "u9409-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 弹簧 soft (压缩)"
+ },
+ "u9410-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 弹簧 中 (加长)"
+ },
+ "u9410-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 弹簧 中 (压缩)"
+ },
+ "u9411-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 弹簧 extra hard (加长)"
+ },
+ "u9411-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 弹簧 extra hard (压缩)"
+ },
+ "u9413.dat": {
+  "zh_name": "气动件 1×1·加强",
+  "zh_desc": "气动件 泵 1×1 底座 加强"
+ },
+ "u9414.dat": {
+  "zh_name": "气动件 1×1·加强",
+  "zh_desc": "气动件 泵 1×1 带 加强 底座 盖"
+ },
+ "u9415.dat": {
+  "zh_name": "气缸 1×1·加强",
+  "zh_desc": "气动件 气缸 1×1 用于 泵 6l 带 加强 底座"
+ },
+ "u9416.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 前 cover"
+ },
+ "u9417.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 主体"
+ },
+ "u9417c01.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 box"
+ },
+ "u9418.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 后 cover"
+ },
+ "u9419.dat": {
+  "zh_name": "轴",
+  "zh_desc": "气动件 阀 带 轴孔 拉杆"
+ },
+ "u9476.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 planetary 齿轮 reduction 主体 前"
+ },
+ "u9477.dat": {
+  "zh_name": "转向盘",
+  "zh_desc": "转向盘 轴承 带 planetary 齿轮 reduction driving shaft"
+ },
+ "u9487.dat": {
+  "zh_name": "零件 12×2×2",
+  "zh_desc": "直线 作动器 12×2×2 主体"
+ },
+ "u9487c01.dat": {
+  "zh_name": "零件 12×2×2",
+  "zh_desc": "直线 作动器 12×2×2 主体 assembly"
+ },
+ "u9488.dat": {
+  "zh_name": "零件 12×2×2",
+  "zh_desc": "直线 作动器 12×2×2 活塞"
+ },
+ "u9489.dat": {
+  "zh_name": "零件 12×2×2",
+  "zh_desc": "直线 作动器 12×2×2 底座"
+ },
+ "u9510.dat": {
+  "zh_name": "轴 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 轴 型 2"
+ },
+ "u9511.dat": {
+  "zh_name": "轴 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 轴"
+ },
+ "u9518.dat": {
+  "zh_name": "齿轮 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 rear 齿轮 cover upper part"
+ },
+ "u9519.dat": {
+  "zh_name": "齿轮 6×17×5",
+  "zh_desc": "电动 科技 马达 4.5v 6×17×5 rear 齿轮 cover 底 part"
+ },
+ "u9559.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 型 2 主体"
+ },
+ "u9559c01.dat": {
+  "zh_name": "零件 8×2×2",
+  "zh_desc": "直线 作动器 8×2×2 主体 assembly"
+ },
+ "u9562-f1.dat": {
+  "zh_name": "减震器 9L·长",
+  "zh_desc": "减震器 9l 厚 internal 弹簧 (加长)"
+ },
+ "u9562-f2.dat": {
+  "zh_name": "减震器 9L",
+  "zh_desc": "减震器 9l 厚 弹簧 (压缩)"
+ },
+ "u9622.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 带 4v 标志 - 后"
+ },
+ "u9622c01.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 带 4v 标志 - 主体 assembly"
+ },
+ "u9623.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 带 4v 标志 - 后"
+ },
+ "u9623c01.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 带 4v 标志 - 主体 assembly"
+ },
+ "u9624.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 带 12v 标志 - 后"
+ },
+ "u9624c01.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 带 中心 销孔 带 12v 标志 - 主体 assembly"
+ },
+ "u9625.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 带 12v 标志 - 后"
+ },
+ "u9625c01.dat": {
+  "zh_name": "销",
+  "zh_desc": "电动 科技 马达 不带 中心 销孔 带 12v 标志 - 主体 assembly"
+ },
+ "u9626.dat": {
+  "zh_name": "连接器",
+  "zh_desc": "电动 科技 马达 连接器"
+ }
+}

@@ -41,12 +41,15 @@ export interface PartSearchHit {
   id: string;
   part_num: string;
   name: string;
+  zh_name?: string;
+  zh_desc?: string;
   status: string;
   confidence: number;
   thumbnail_url: string;
   _formatted?: {
     part_num: string;
     name: string;
+    zh_name?: string;
   };
 }
 
@@ -172,7 +175,7 @@ export function usePartSearch() {
 
       const response = await clientRef.current.index('parts').search(finalQuery, {
         limit: 50,
-        attributesToHighlight: ['part_num', 'name'],
+        attributesToHighlight: ['part_num', 'zh_name', 'name'],
         filter: ['status = verified'] // 默认可加上状态过滤，或由 UI 控制，此处演示基础展示
       });
 
