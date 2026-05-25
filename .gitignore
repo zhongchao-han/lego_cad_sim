@@ -55,6 +55,7 @@ tmp/
 debug_*
 *.bak
 *.bak_*
+dev_backend.log
 
 # Generated 3D Assets and Thumbnails
 *.glb

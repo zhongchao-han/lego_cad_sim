@@ -53,6 +53,7 @@ function makeMockDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
     slidingTarget: () => null,
     slideOffset: () => 0,
     hasSelection: () => false,
+    isSingleSelection: () => false,
 
     setSearchOpen: vi.fn(),
     undo: vi.fn(),
@@ -72,6 +73,7 @@ function makeMockDeps(overrides: Partial<DispatcherDeps> = {}): DispatcherDeps {
     rotateSelectedSingle: vi.fn(),
     flipSelected: vi.fn(),
     translateSelectedGroup: vi.fn(),
+    translateSelectedSingle: vi.fn(),
     commitFreePlacing: vi.fn(),
     commitAxialSliding: vi.fn(),
     updateSlideOffset: vi.fn(),
@@ -381,6 +383,13 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     const deps = idleSel();
     expect(dispatchKey(kev({ key: 'ArrowLeft', shiftKey: true }), deps)).toBe('idle.translate.left');
     expect(deps.translateSelectedGroup).toHaveBeenCalledWith([-FINE, 0, 0]);
+  });
+
+  it('case 29b: 单件选中 → 方向键走 translateSelectedSingle（树模型相对滑动），不调整组', () => {
+    const deps = idleSel({ isSingleSelection: () => true });
+    expect(dispatchKey(kev({ key: 'ArrowRight' }), deps)).toBe('idle.translate.right');
+    expect(deps.translateSelectedSingle).toHaveBeenCalledWith([STEP, 0, 0]);
+    expect(deps.translateSelectedGroup).not.toHaveBeenCalled();
   });
 
   it('case 31: IDLE 但无选中 → [/] 与方向键都不命中（返 null）', () => {
