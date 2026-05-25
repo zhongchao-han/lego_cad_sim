@@ -16,6 +16,9 @@ export interface VerifiedPart {
   mesh_url: string;
   // L50：backend categorize_part() 注入
   name?: string;
+  // 中文名 / 描述：backend /api/get_verified_parts 从 part_names_zh.json 注入
+  zh_name?: string;
+  zh_desc?: string;
   category?: string;
   // L44：backend extract_tooth_count() 注入；非齿轮 / 异形齿轮 = null
   tooth_count?: number | null;

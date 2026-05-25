@@ -162,6 +162,7 @@ export function PartLibraryPanel() {
                         <button
                           key={part.part_id}
                           onClick={() => previewPart(part.part_id)}
+                          title={part.zh_desc || part.name || undefined}
                           className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
                             previewPartId === part.part_id
                               ? 'bg-blue-50 border-blue-200 shadow-sm'
@@ -185,17 +186,19 @@ export function PartLibraryPanel() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-slate-700 truncate">
-                              {part.part_id.replace('.dat', '')}
+                              {part.zh_name || part.name || part.part_id.replace('.dat', '')}
                             </div>
                             <div
-                              className="text-[10px] text-slate-400 uppercase tracking-wider"
+                              className="text-[10px] text-slate-400 tracking-wider truncate"
                               title={
                                 part.plug_count != null && part.plug_count > 0
                                   ? '走法 A 期 A2：ports = 物理 commit 单元（底层怎么接）；plugs = 视觉/选择聚合层（用户怎么看）。例：2x4 plate 8 port / 2 plug（顶/底各 1 整片 stud）。'
                                   : undefined
                               }
                             >
-                              {formatPortPlugLabel(part.port_count, part.plug_count)}
+                              <span className="font-mono text-slate-500">{part.part_id.replace('.dat', '')}</span>
+                              <span className="mx-1">·</span>
+                              <span className="uppercase">{formatPortPlugLabel(part.port_count, part.plug_count)}</span>
                             </div>
                             {isAutoColor && (
                               <div className="text-[9px] text-amber-500 font-bold tracking-wide mt-0.5">

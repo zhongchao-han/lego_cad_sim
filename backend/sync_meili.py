@@ -13,6 +13,8 @@ MEILI_HOST = os.getenv("MEILI_HOST", "http://localhost:7700")
 MEILI_MASTER_KEY = os.getenv("MEILI_MASTER_KEY", "Lego_CAD_Sim_Meili_Master_Key_2026")
 # 配置文件默认路径
 DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "ldraw_port_configs.json")
+# 中文名 / 描述映射（由 backend/gen_zh_names.py 生成）。缺失则中文字段留空，不阻断同步。
+ZH_NAMES_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "part_names_zh.json")
 # LDraw 零件库默认路径。
 # 约定：LDRAW_PARTS_ROOT 是**库根目录**（含 parts/、p/ 等子目录），跟
 # backend/server.py 同源。.dat 实际放在 root/parts/，所以这里手动 join。
@@ -44,6 +46,17 @@ def sync_to_meilisearch() -> None:
         logger.error(f"加载 JSON 配置文件失败: {e}")
         return
 
+    # 中文名映射（可选）：缺文件不致命，仅记一条 warning。
+    zh_map: Dict[str, Any] = {}
+    if os.path.exists(ZH_NAMES_FILE):
+        try:
+            with open(ZH_NAMES_FILE, 'r', encoding='utf-8') as f:
+                zh_map = json.load(f)
+        except Exception as e:
+            logger.warning(f"加载中文名映射失败（将跳过中文字段）: {e}")
+    else:
+        logger.warning(f"未找到中文名映射 {ZH_NAMES_FILE}，请先跑 python -m backend.gen_zh_names")
+
     try:
         client = meilisearch.Client(MEILI_HOST, MEILI_MASTER_KEY)
         
@@ -56,11 +69,14 @@ def sync_to_meilisearch() -> None:
             doc_id = part_id.lower().replace('.dat', '').replace('-', '_').replace(' ', '_').replace('/', '_')
             part_num = part_id.lower().replace('.dat', '')
             name = get_part_name(part_id)
-            
+            zh = zh_map.get(part_id, {})
+
             doc = {
                 'id': doc_id,
                 'part_num': part_num,
                 'name': name,
+                'zh_name': zh.get('zh_name', ''),   # 中文名（可搜、列表显示）
+                'zh_desc': zh.get('zh_desc', ''),   # 中文描述（可搜、tooltip）
                 'category': categorize(name),  # L50：分级目录字段
                 'status': metadata.get('status', 'pending'),
                 'confidence': metadata.get('confidence', 1.0),
@@ -73,7 +89,7 @@ def sync_to_meilisearch() -> None:
             logger.info(f"正在向 MeiliSearch 同步 {len(documents)} 个零件文档...")
             print("正在配置索引...")
             client.index('parts').update_settings({
-                'searchableAttributes': ['part_num', 'name', 'category'],
+                'searchableAttributes': ['part_num', 'zh_name', 'name', 'zh_desc', 'category'],
                 'filterableAttributes': ['status', 'confidence', 'has_sites', 'category'],
                 'synonyms': {
                     'plate': ['baseplate', 'panel', 'board', 'slab', 'tile'],
