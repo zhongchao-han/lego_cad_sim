@@ -20,6 +20,8 @@ import axios from 'axios';
 import { useStore } from '../store';
 import { Search, Box, ChevronRight, ChevronDown, Star } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
+import { useHoverPreview } from '../hooks/useHoverPreview';
+import { PartHoverPreview } from './PartHoverPreview';
 import {
   type VerifiedPart,
   FREQUENT_BUCKET,
@@ -41,6 +43,7 @@ export function PartLibraryPanel() {
   const partUsages = useStore((s) => s.partUsages);
   const setPartCatalog = useStore((s) => s.setPartCatalog);
   const setSearchOpen = useStore((s) => s.setSearchOpen);
+  const { preview, onEnter, onLeave } = useHoverPreview();
 
   useEffect(() => {
     const fetchParts = async () => {
@@ -89,7 +92,7 @@ export function PartLibraryPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white/90 backdrop-blur-md border-r shadow-xl w-72 pointer-events-auto overflow-hidden transition-all">
+    <div data-preview-boundary className="flex flex-col h-full bg-white/90 backdrop-blur-md border-r shadow-xl w-72 pointer-events-auto overflow-hidden transition-all">
       {/* 标题栏 */}
       <div className="p-4 border-b bg-slate-50">
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -162,14 +165,17 @@ export function PartLibraryPanel() {
                         <button
                           key={part.part_id}
                           onClick={() => previewPart(part.part_id)}
-                          title={part.zh_desc || part.name || undefined}
                           className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
                             previewPartId === part.part_id
                               ? 'bg-blue-50 border-blue-200 shadow-sm'
                               : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-100'
                           }`}
                         >
-                          <div className="relative w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                          <div
+                            className="relative w-12 h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0"
+                            onMouseEnter={(e) => onEnter(part.part_id, e.currentTarget)}
+                            onMouseLeave={onLeave}
+                          >
                             <img
                               src={`${BACKEND_ORIGIN}/api/thumbnails/${part.part_id.replace('.dat', '.png')}`}
                               alt={part.part_id}
@@ -184,7 +190,7 @@ export function PartLibraryPanel() {
                             />
                             <Box className="w-6 h-6 text-slate-300 transition-colors group-hover:text-blue-400" style={{ display: 'none' }} />
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0" title={part.zh_desc || part.name || undefined}>
                             <div className="text-sm font-semibold text-slate-700 truncate">
                               {part.zh_name || part.name || part.part_id.replace('.dat', '')}
                             </div>
@@ -223,6 +229,8 @@ export function PartLibraryPanel() {
       <div className="p-3 border-t bg-slate-50 text-[10px] text-slate-400 text-center italic">
         Select a part to preview and pick connection port.
       </div>
+
+      <PartHoverPreview preview={preview} />
     </div>
   );
 }
