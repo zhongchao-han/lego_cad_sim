@@ -14,7 +14,7 @@ import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
 import { useKeyboardDispatcher } from './hooks/useKeyboardDispatcher';
-import { isTurntableAssemblyTop } from './utils/turntableAssembly';
+import { turntableBaseFor } from './utils/turntableAssembly';
 import { getDefaultColorCode } from './utils/partColorDefaults';
 import { DebugOverlay } from './components/DebugOverlay';
 import { StatusBar } from './components/StatusBar';
@@ -232,8 +232,9 @@ function App() {
             if (view === 'EDITOR') {
               const partId = partNum + ".dat";
               // 「整体转盘」：直接走组合放置（一次落两半、预连 revolute），不走单件预览。
-              if (isTurntableAssemblyTop(partId)) {
-                startFreePlacingTurntable?.(getDefaultColorCode(partId, 71));
+              const turntableBase = turntableBaseFor(partId);
+              if (turntableBase) {
+                startFreePlacingTurntable?.(partId, turntableBase, getDefaultColorCode(partId, 71));
                 setSearchOpen(false);
                 return;
               }

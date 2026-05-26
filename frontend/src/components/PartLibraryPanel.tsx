@@ -22,8 +22,8 @@ import { Search, Box, ChevronRight, ChevronDown, Star } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
 import {
   isHiddenTurntableBase,
-  isTurntableAssemblyTop,
   turntableAssemblyName,
+  turntableBaseFor,
 } from '../utils/turntableAssembly';
 import {
   type VerifiedPart,
@@ -175,9 +175,11 @@ export function PartLibraryPanel() {
                       return (
                         <button
                           key={part.part_id}
-                          onClick={() => isTurntableAssemblyTop(part.part_id)
-                            ? startFreePlacingTurntable(resolvedColor)
-                            : previewPart(part.part_id)}
+                          onClick={() => {
+                            const base = turntableBaseFor(part.part_id);
+                            if (base) startFreePlacingTurntable(part.part_id, base, resolvedColor);
+                            else previewPart(part.part_id);
+                          }}
                           title={part.zh_desc || part.name || undefined}
                           className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
                             previewPartId === part.part_id

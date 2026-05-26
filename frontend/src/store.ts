@@ -328,10 +328,10 @@ interface StoreState {
     }
   ) => void;
   commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
-  /** 「整体转盘」组合放置：一次放下转盘顶 18938 + 底座 18939（同轴、预连成
-   *  revolute），用户当一个零件搜/放，落地即可相对旋转。复用 commitFreePlacing
-   *  的多件+组内连接管线。 */
-  startFreePlacingTurntable: (colorCode: number, options?: {
+  /** 「整体转盘」组合放置：一次放下转盘顶 + 底座（同轴、预连成 revolute），用户当
+   *  一个零件搜/放，落地即可相对旋转。复用 commitFreePlacing 的多件+组内连接管线。
+   *  topLdrawId/baseLdrawId 由 turntableAssembly 对表给出（两半须已加 hub 端口）。 */
+  startFreePlacingTurntable: (topLdrawId: string, baseLdrawId: string, colorCode: number, options?: {
     pointer?: { clientX: number; clientY: number } | null;
   }) => void;
 }
@@ -1769,11 +1769,11 @@ export const useStore = create<StoreState>()(
     get().addLog(`Started free placing for new part ${ldrawId}.`, 'ACTION');
   },
 
-  startFreePlacingTurntable: (colorCode: number, options = {}) => {
+  startFreePlacingTurntable: (topLdrawId: string, baseLdrawId: string, colorCode: number, options = {}) => {
     const { pointer = null } = options;
     // 两半都放在组合体本地原点 → 落地后位置相同 = 同轴、原点重合（装配态）。
-    const topId = '18938_' + window.crypto.randomUUID().substring(0, 8);
-    const botId = '18939_' + window.crypto.randomUUID().substring(0, 8);
+    const topId = topLdrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0, 8);
+    const botId = baseLdrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0, 8);
     const mk = (id: string, ldrawId: string): { id: string; state: PartState } => ({
       id, state: {
         ldrawId, position: [0, 0, 0] as Vec3, quaternion: [0, 0, 0, 1] as Quat,
@@ -1785,7 +1785,7 @@ export const useStore = create<StoreState>()(
     const topHubKey = portKey([0, 0, 0], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]);
     const botHubKey = portKey([0, 0, 0], [[1, 0, 0], [0, 0, 1], [0, -1, 0]]);
     set({
-      freePlacingPayload: [mk(topId, '18938.dat'), mk(botId, '18939.dat')],
+      freePlacingPayload: [mk(topId, topLdrawId), mk(botId, baseLdrawId)],
       freePlacingMeta: {
         connections: [{ from: topId, to: botId }],
         occupied: { [topId]: { [topHubKey]: botId }, [botId]: { [botHubKey]: topId } },
@@ -1795,7 +1795,7 @@ export const useStore = create<StoreState>()(
       interactionPhase: InteractionPhase.FREE_PLACING,
       previewPartId: null,
     });
-    get().addLog('Started placing turntable assembly (18938 + 18939).', 'ACTION');
+    get().addLog(`Started placing turntable assembly (${topLdrawId} + ${baseLdrawId}).`, 'ACTION');
   },
 
   commitFreePlacing: (finalStates?: Record<string, PartState>) => {
