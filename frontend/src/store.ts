@@ -27,6 +27,10 @@ import { computeMovingGroup, buildComponentGraph, pickGroundAnchors } from './ut
 import {
   findMeshPartnerAndDelta,
   rotateGearAroundOwnAxis,
+  gearAxisLocalFor,
+  isTurntableBase,
+  propagateGearMesh,
+  getAxisWorld,
   type GearPart,
 } from './utils/gearMath';
 import { getDefaultColorCode, hasPresetColor } from './utils/partColorDefaults';
@@ -270,6 +274,9 @@ interface StoreState {
    *  相对「地基」（连通组里最大零件）。子装配随动、内部连接保持；只重连评估
    *  子装配↔地基界面（对齐保持 / 微移复原 / 否则脱开）。可撤销。 */
   rotateSelectedSingle: (angleRads: number) => void;
+  /** 齿轮咬合联动：以 sourceId 绕自身轴转 deltaRad 为源，沿场景啮合图带动咬合的
+   *  齿轮/转盘按齿比反向转。由 rotateSelectedSingle 在转动齿轮/转盘后调用。可撤销。 */
+  _applyGearLinkage: (sourceId: string, deltaRad: number) => void;
   /** 翻面：把「选中件 + 子装配」绕世界 X 轴翻转 180°（pivot = 包围盒中心），相对地基。
    *  翻面后若端口仍能对齐（自动微移）则保持连接，否则脱开。可撤销。 */
   flipSelected: () => void;
@@ -321,6 +328,12 @@ interface StoreState {
     }
   ) => void;
   commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
+  /** 「整体转盘」组合放置：一次放下转盘顶 + 底座（同轴、预连成 revolute），用户当
+   *  一个零件搜/放，落地即可相对旋转。复用 commitFreePlacing 的多件+组内连接管线。
+   *  topLdrawId/baseLdrawId 由 turntableAssembly 对表给出（两半须已加 hub 端口）。 */
+  startFreePlacingTurntable: (topLdrawId: string, baseLdrawId: string, colorCode: number, options?: {
+    pointer?: { clientX: number; clientY: number } | null;
+  }) => void;
 }
 
 const quatNormalize = (q: [number, number, number, number]): Quat => {
@@ -1075,10 +1088,12 @@ export const useStore = create<StoreState>()(
       if (groupSet.has(pid)) return;
       const meta = partCatalog[pst.ldrawId];
       if (!meta?.toothCount) return;
+      if (isTurntableBase(pst.ldrawId, meta.name)) return; // 转盘底座无外齿，不啮合
       candidates.push({
         partId: pid, ldrawId: pst.ldrawId,
         position: pst.position, quaternion: pst.quaternion,
         toothCount: meta.toothCount,
+        axisLocal: gearAxisLocalFor(pst.ldrawId, meta.name),
       });
     });
     // 对 group 中每个有齿数的零件，查 mesh partner 并应用 phase
@@ -1090,14 +1105,16 @@ export const useStore = create<StoreState>()(
       const meta = partCatalog[ldrawId];
       if (!meta?.toothCount) return;
       const pose = groupNewPoses[pid];
+      const axisLocal = gearAxisLocalFor(ldrawId, meta.name);
       const sourceGear: GearPart = {
         partId: pid, ldrawId,
         position: pose.position, quaternion: pose.quaternion,
         toothCount: meta.toothCount,
+        axisLocal,
       };
       const result = findMeshPartnerAndDelta(sourceGear, candidates);
       if (!result || Math.abs(result.delta) < 1e-9) return;
-      const newQuat = rotateGearAroundOwnAxis(pose.quaternion, result.delta);
+      const newQuat = rotateGearAroundOwnAxis(pose.quaternion, result.delta, axisLocal);
       groupNewPoses[pid] = { position: pose.position, quaternion: newQuat };
       get().addLog(
         `[GearMesh] ${pid} (T=${meta.toothCount}) ↔ ${result.partner.partId} ` +
@@ -1752,6 +1769,35 @@ export const useStore = create<StoreState>()(
     get().addLog(`Started free placing for new part ${ldrawId}.`, 'ACTION');
   },
 
+  startFreePlacingTurntable: (topLdrawId: string, baseLdrawId: string, colorCode: number, options = {}) => {
+    const { pointer = null } = options;
+    // 两半都放在组合体本地原点 → 落地后位置相同 = 同轴、原点重合（装配态）。
+    const topId = topLdrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0, 8);
+    const botId = baseLdrawId.split('.')[0] + '_' + window.crypto.randomUUID().substring(0, 8);
+    const mk = (id: string, ldrawId: string): { id: string; state: PartState } => ({
+      id, state: {
+        ldrawId, position: [0, 0, 0] as Vec3, quaternion: [0, 0, 0, 1] as Quat,
+        colorCode, zone: ZoneType.ACTIVE_ARENA,
+      },
+    });
+    // hub 端口 key（与 data/ldraw_port_configs.json 里 hub 端口的 rotation 一致）：
+    // 顶 MALE 法线 -Y，底 FEMALE 法线 +Y。用 portKey 现算，免硬编码字符串格式。
+    const topHubKey = portKey([0, 0, 0], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]);
+    const botHubKey = portKey([0, 0, 0], [[1, 0, 0], [0, 0, 1], [0, -1, 0]]);
+    set({
+      freePlacingPayload: [mk(topId, topLdrawId), mk(botId, baseLdrawId)],
+      freePlacingMeta: {
+        connections: [{ from: topId, to: botId }],
+        occupied: { [topId]: { [topHubKey]: botId }, [botId]: { [botHubKey]: topId } },
+      },
+      freePlacingProjectionMode: FreePlacingProjectionMode.GROUND_PLANE,
+      freePlacingPointer: pointer,
+      interactionPhase: InteractionPhase.FREE_PLACING,
+      previewPartId: null,
+    });
+    get().addLog(`Started placing turntable assembly (${topLdrawId} + ${baseLdrawId}).`, 'ACTION');
+  },
+
   commitFreePlacing: (finalStates?: Record<string, PartState>) => {
     const { freePlacingPayload, freePlacingMeta } = get();
     if (!freePlacingPayload || freePlacingPayload.length === 0) return;
@@ -2385,6 +2431,89 @@ export const useStore = create<StoreState>()(
           treeSplitMoving(comp, selectedIds, conn, ps, cat),
       },
     );
+    // 齿轮咬合联动：若选中件是齿轮/转盘且其自转轴≈世界 Y（本次绕 Y 转即它的自转），
+    // 沿啮合图带动咬合的齿轮/转盘按齿比反向转（齿轮驱动转盘、转盘反驱齿轮同此路）。
+    if (selection.primaryId) get()._applyGearLinkage(selection.primaryId, angleRads);
+  },
+
+  // 齿轮咬合联动：以 sourceId 绕自身轴转 deltaRad 为源，沿场景啮合图传播，
+  // 把被带动齿轮/转盘各自绕其轴转对应增量（reverse 齿比）。单独可撤销命令。
+  // 被带动件若是「转盘顶」（有底座邻居），则连同挂在其上的整个子装配绕转盘轴刚体
+  // 一起转（排除底座侧）；普通齿轮仍只本体自转。
+  _applyGearLinkage: (sourceId: string, deltaRad: number) => {
+    const { parts, partCatalog, connections } = get();
+    const src = parts[sourceId];
+    if (!src) return;
+    const srcMeta = partCatalog[src.ldrawId];
+    if (!srcMeta?.toothCount) return; // 选中件不是齿轮/转盘 → 无联动
+    if (isTurntableBase(src.ldrawId, srcMeta.name)) return; // 转盘底座不作驱动源
+    // 仅当选中件自转轴≈世界 Y 时联动（本次旋转是绕世界 Y；否则不是纯自转，跳过）。
+    const srcAxisWorld = getAxisWorld(src.quaternion as Quat, undefined, gearAxisLocalFor(src.ldrawId, srcMeta.name));
+    if (Math.abs(srcAxisWorld.y) < 0.999) return;
+
+    const gears: GearPart[] = [];
+    Object.entries(parts).forEach(([pid, p]) => {
+      if (p.zone !== ZoneType.ACTIVE_ARENA) return;
+      const meta = partCatalog[p.ldrawId];
+      if (!meta?.toothCount) return;
+      if (isTurntableBase(p.ldrawId, meta.name)) return; // 转盘底座无外齿，不啮合
+      gears.push({
+        partId: pid, ldrawId: p.ldrawId, position: p.position as Vec3,
+        quaternion: p.quaternion as Quat, toothCount: meta.toothCount,
+        axisLocal: gearAxisLocalFor(p.ldrawId, meta.name),
+      });
+    });
+    const driven = propagateGearMesh(gears, sourceId, deltaRad);
+    if (driven.size === 0) return;
+
+    const byId = new Map(gears.map(g => [g.partId, g]));
+    const finalU: Record<string, Partial<PartState>> = {};
+    const prevU: Record<string, Partial<PartState>> = {};
+    const capturePrev = (id: string) => {
+      const c = parts[id];
+      if (c && !prevU[id]) prevU[id] = { position: [...c.position] as Vec3, quaternion: [...c.quaternion] as Quat };
+    };
+    driven.forEach((d, pid) => {
+      const g = byId.get(pid); const cur = parts[pid];
+      if (!g || !cur) return;
+      // 转盘顶 = 有一个「底座」邻居（经 hub 同轴相连）。找到它 → 连同挂载子装配
+      // （从顶出发、不穿过底座的连通子集）绕转盘轴刚体一起转。
+      const baseNb = [...(connections[pid] ?? [])].find(nb => {
+        const m = partCatalog[parts[nb]?.ldrawId ?? ''];
+        return m && isTurntableBase(parts[nb].ldrawId, m.name);
+      });
+      if (baseNb) {
+        const axisV = getAxisWorld(cur.quaternion as Quat, undefined, g.axisLocal).clone().normalize();
+        const axis: Vec3 = [axisV.x, axisV.y, axisV.z];
+        const pivot = cur.position as Vec3; // hub 在局部原点 → 转盘轴过 cur.position
+        const group = getConnectedGroup(connections, pid, baseNb); // 顶 + 挂载件，排除底座
+        group.forEach(mid => {
+          const mp = parts[mid];
+          if (!mp) return;
+          capturePrev(mid);
+          const np = rotatePartAboutPivot(
+            { position: mp.position as Vec3, quaternion: mp.quaternion as Quat }, pivot, axis, d,
+          );
+          finalU[mid] = { position: np.position, quaternion: np.quaternion };
+        });
+      } else {
+        // 普通齿轮：原地绕自身轴自转。
+        capturePrev(pid);
+        finalU[pid] = { quaternion: rotateGearAroundOwnAxis(cur.quaternion as Quat, d, g.axisLocal) };
+      }
+    });
+    if (Object.keys(finalU).length === 0) return;
+
+    const applyFn = () => get().batchUpdatePartStates(finalU);
+    const revertFn = () => get().batchUpdatePartStates(prevU);
+    const emptySnap: TopologySnapshot = {
+      addedParts: {}, removedParts: {}, addedConnections: [], removedConnections: [],
+    };
+    const cmd = createTopologyCommand('TRANSFORM', emptySnap, applyFn, revertFn);
+    applyFn();
+    _history.push(cmd);
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    get().addLog(`齿轮联动：带动 ${driven.size} 个齿轮/转盘`, 'INFO');
   },
 
   flipSelected: () => {

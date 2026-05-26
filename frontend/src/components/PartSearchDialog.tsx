@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { usePartSearch } from '../hooks/usePartSearch';
+import { isHiddenTurntableBase, turntableAssemblyName } from '../utils/turntableAssembly';
+import { isDeprecatedPart } from '../utils/partVisibility';
 import { useHoverPreview } from '../hooks/useHoverPreview';
 import { PartHoverPreview } from './PartHoverPreview';
 
@@ -13,6 +15,13 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
   const { query, setQuery, results, isLoading, error, handleQueryChange } = usePartSearch();
   const inputRef = useRef<HTMLInputElement>(null);
   const { preview, onEnter, onLeave } = useHoverPreview();
+  // 呈现层收敛：隐藏已弃用(Obsolete)件 + 转盘底座；转盘顶条目改名「…（整体）」。
+  const displayResults = results
+    .filter((hit) => !isDeprecatedPart(hit.name) && !isHiddenTurntableBase(hit.part_num))
+    .map((hit) => {
+      const name = turntableAssemblyName(hit.part_num);
+      return name ? { ...hit, zh_name: name } : hit;
+    });
 
   // Focus on mount/open
   useEffect(() => {
@@ -69,7 +78,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
           )}
 
           <ul className="py-2">
-            {results.map((hit) => (
+            {displayResults.map((hit) => (
               <li
                 key={hit.id}
                 onClick={() => {
@@ -119,7 +128,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
 
         <div className="px-4 py-2 border-t border-white/5 bg-black/20 flex justify-between text-[10px] font-mono text-gray-500">
           <span className="flex gap-2">
-            {results.length > 0 ? `${results.length} 个结果` : '等待输入…'}
+            {displayResults.length > 0 ? `${displayResults.length} 个结果` : '等待输入…'}
             {isLoading ? <span className="text-blue-500/50 animate-pulse">搜索中…</span> : null}
           </span>
           <span className="flex items-center gap-1">本地语义搜索</span>

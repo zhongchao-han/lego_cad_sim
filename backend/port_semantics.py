@@ -127,6 +127,13 @@ INTERFACE_REGISTRY: Dict[str, ConnectionInterface] = {
     "tube.dat":     ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
     "tube2.dat":    ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
     "tube10.dat":   ConnectionInterface(Gender.FEMALE, Profile.STUD, 6.0 * LDU, 4.0 * LDU),
+
+    # 转盘同轴对接（Turntable hub）：上下两半绕公共竖直轴相对旋转。
+    # 当作 CYLINDER 销/孔语义 → derive_joint_params 给出 continuous（1 DoF 旋转）。
+    # 上半=MALE（向下插），下半=FEMALE。半径仿 peg/peghole（间隙配合，自由转）。
+    # 这是上下两半之间**唯一**的连接（单边）—— 多于一条会被判过约束 → fixed 锁死。
+    "turntable_pin":    ConnectionInterface(Gender.MALE,   Profile.CYLINDER, 5.9 * LDU, 20.0 * LDU),
+    "turntable_socket": ConnectionInterface(Gender.FEMALE, Profile.CYLINDER, 6.0 * LDU, 20.0 * LDU),
 }
 
 

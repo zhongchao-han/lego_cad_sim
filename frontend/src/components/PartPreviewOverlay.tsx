@@ -7,6 +7,7 @@ import { X, MousePointer2, Palette } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
 import { LEGO_PALETTE as PALETTE } from '../utils/legoPalette';
 import { FreePlacingProjectionMode } from '../types';
+import { isTurntableAssemblyTop, turntableBaseFor } from '../utils/turntableAssembly';
 
 export function PartPreviewOverlay() {
   const previewPartId = useStore((s) => s.previewPartId);
@@ -14,6 +15,7 @@ export function PartPreviewOverlay() {
   const setActiveColorCode = useStore((s) => s.setActiveColorCode);
 
   const handlePortClick = useStore((s) => s.handlePortClick);
+  const startFreePlacingTurntable = useStore((s) => s.startFreePlacingTurntable);
   const setPreviewPartId = (id: string | null) => useStore.setState({ previewPartId: id });
   const clearPhase = () => useStore.setState({ interactionPhase: 'IDLE' as any });
 
@@ -36,6 +38,11 @@ export function PartPreviewOverlay() {
   };
 
   const onPortSelected = async (portInfo: any) => {
+    // 「整体转盘」：不按单个端口 snap（那只会落顶半），改为整体落地放置（两半同轴预连）。
+    if (previewPartId && isTurntableAssemblyTop(previewPartId)) {
+      const base = turntableBaseFor(previewPartId);
+      if (base) { startFreePlacingTurntable(previewPartId, base, resolvedColor); return; }
+    }
     // 为即将加入场景的零件生成唯一标识位 (InstanceID)
     const instanceId = `${previewPartId}_${window.crypto.randomUUID().substring(0,8)}`;
     await handlePortClick({
@@ -108,6 +115,14 @@ export function PartPreviewOverlay() {
                 </span>
                 <button
                   onClick={(e) => {
+                    // 「整体转盘」：落地放下两半（同轴、预连 revolute），而非单件。
+                    const base = turntableBaseFor(previewPartId);
+                    if (base) {
+                      startFreePlacingTurntable(previewPartId, base, resolvedColor, {
+                        pointer: { clientX: e.clientX, clientY: e.clientY },
+                      });
+                      return;
+                    }
                     // UX 反馈修复：不再把模态相机朝向带进落地姿态（会让 orbit 过
                     // 视角的零件落地歪斜）。零件一律以原始姿态（平躺）落地，可预期。
                     useStore.getState().startFreePlacing(

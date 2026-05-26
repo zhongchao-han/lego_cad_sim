@@ -23,6 +23,11 @@ import { getDefaultColorCode } from '../utils/partColorDefaults';
 import { useHoverPreview } from '../hooks/useHoverPreview';
 import { PartHoverPreview } from './PartHoverPreview';
 import {
+  isHiddenTurntableBase,
+  turntableAssemblyName,
+} from '../utils/turntableAssembly';
+import { isDeprecatedPart } from '../utils/partVisibility';
+import {
   type VerifiedPart,
   FREQUENT_BUCKET,
   computeBuckets,
@@ -50,7 +55,16 @@ export function PartLibraryPanel() {
       try {
         const res = await axios.get(`${BACKEND_ORIGIN}/api/get_verified_parts`);
         const data: VerifiedPart[] = res.data;
-        setParts(data);
+        // 显示列表收敛（catalog 仍灌入全部 data，引擎要其元数据）：
+        //   - 隐藏已弃用（Obsolete）零件
+        //   - 隐藏转盘底座、顶条目改名为「…（整体）」
+        const display = data
+          .filter(p => !isDeprecatedPart(p.name) && !isHiddenTurntableBase(p.part_id))
+          .map(p => {
+            const name = turntableAssemblyName(p.part_id);
+            return name ? { ...p, zh_name: name } : p;
+          });
+        setParts(display);
         // L44 / L50：把后端返回的 name / category / tooth_count 元数据填进 store，
         // 让 snapParts 等不再触达 PartLibraryPanel 也能查 ldrawId 元数据。
         const catalog: Record<string, import('../types').PartCatalogEntry> = {};

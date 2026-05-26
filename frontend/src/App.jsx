@@ -228,7 +228,8 @@ function App() {
           onSelectPart={(partNum) => {
             if (view === 'EDITOR') {
               const partId = partNum + ".dat";
-              // 添加到暂存区，并同时激活大弹窗预览模式
+              // 添加到暂存区，并同时激活大弹窗预览模式（转盘整体放置由预览面板里的
+              // 「Drop to Ground」按 turntableAssembly 对表分流，这里与普通件一致）。
               addStagedPart?.({ part_id: partId });
               previewPart?.(partId);
             } else {
