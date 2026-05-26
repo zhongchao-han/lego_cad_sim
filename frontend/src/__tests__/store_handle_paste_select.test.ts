@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import axios from 'axios';
 import { useStore } from '../store';
+import { isTurntablePair } from '../utils/turntableAssembly';
 import { ZoneType, InteractionPhase, SelectionLevel } from '../types';
 
 vi.mock('axios');
@@ -331,5 +332,71 @@ describe('store.selectPart — append toggle + level=PART/GROUP', () => {
     useStore.getState().selectPart('C', SelectionLevel.GROUP); // 默认 append=false
     expect(useStore.getState().selection.allConnectedIds).toEqual(['C']);
     expect(useStore.getState().selection.primaryId).toBe('C');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// selectPart — 整体转盘两半绑定（顶/底当一个单元，选/移/删/转一起）
+// ─────────────────────────────────────────────────────────────────────────
+describe('isTurntablePair', () => {
+  it('顶↔底配对（顺序无关，带/不带 .dat 都认）', () => {
+    expect(isTurntablePair('18938.dat', '18939.dat')).toBe(true);
+    expect(isTurntablePair('18939.dat', '18938.dat')).toBe(true);
+    expect(isTurntablePair('18938', '18939')).toBe(true);
+  });
+  it('非配对返回 false', () => {
+    expect(isTurntablePair('18938.dat', '99009.dat')).toBe(false); // 顶配错底
+    expect(isTurntablePair('2780.dat', '39369.dat')).toBe(false);  // 普通件
+  });
+});
+
+describe('store.selectPart — 整体转盘绑定', () => {
+  beforeEach(() => {
+    resetStore();
+    useStore.setState({
+      parts: {
+        // 转盘 A：顶 tA ↔ 底 bA（18938/18939）
+        tA: { ldrawId: '18938.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+        bA: { ldrawId: '18939.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+        // 转盘 B：另一对（28齿 99010/99009），与 A 不相连
+        tB: { ldrawId: '99010.dat', position: [1, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+        bB: { ldrawId: '99009.dat', position: [1, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 1, zone: ZoneType.ACTIVE_ARENA },
+        // 普通件 P，独立
+        P: { ldrawId: '2780.dat', position: [5, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      connections: {
+        tA: new Set(['bA']), bA: new Set(['tA']),
+        tB: new Set(['bB']), bB: new Set(['tB']),
+      },
+    } as any);
+  });
+
+  it('INDIVIDUAL 单选转盘顶 → 自动带上 hub 连接的底座（两半一起）', () => {
+    useStore.getState().selectPart('tA', SelectionLevel.INDIVIDUAL);
+    expect(useStore.getState().selection.allConnectedIds.sort()).toEqual(['bA', 'tA']);
+  });
+
+  it('INDIVIDUAL 单选转盘底 → 反向也带上顶', () => {
+    useStore.getState().selectPart('bA', SelectionLevel.INDIVIDUAL);
+    expect(useStore.getState().selection.allConnectedIds.sort()).toEqual(['bA', 'tA']);
+  });
+
+  it('多转盘隔离：选 A 的顶只带 A 的底，不波及 B', () => {
+    useStore.getState().selectPart('tA', SelectionLevel.INDIVIDUAL);
+    const ids = useStore.getState().selection.allConnectedIds.sort();
+    expect(ids).toEqual(['bA', 'tA']);
+    expect(ids).not.toContain('tB');
+    expect(ids).not.toContain('bB');
+  });
+
+  it('普通件不受绑定影响（INDIVIDUAL 仍只选自己）', () => {
+    useStore.getState().selectPart('P', SelectionLevel.INDIVIDUAL);
+    expect(useStore.getState().selection.allConnectedIds).toEqual(['P']);
+  });
+
+  it('连接断开的转盘半（无邻居）→ 只选自己，绑定不误抓另一对', () => {
+    useStore.setState({ connections: { tB: new Set(['bB']), bB: new Set(['tB']) } } as any); // tA/bA 连接已断
+    useStore.getState().selectPart('tA', SelectionLevel.INDIVIDUAL);
+    expect(useStore.getState().selection.allConnectedIds).toEqual(['tA']);
   });
 });

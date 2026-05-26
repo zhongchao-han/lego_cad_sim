@@ -34,6 +34,7 @@ import {
   type GearPart,
 } from './utils/gearMath';
 import { getDefaultColorCode, hasPresetColor } from './utils/partColorDefaults';
+import { isTurntablePair } from './utils/turntableAssembly';
 
 type ConnectionGraph = Record<string, Set<string>>;
 
@@ -2020,6 +2021,25 @@ export const useStore = create<StoreState>()(
           newIds = getConnectedGroup(get().connections, id, "");
       } else if (id) {
           newIds = [id];
+      }
+
+      // 整体转盘绑定：选中转盘的任一半（顶/底），必带上它 hub 连接的另一半——任何
+      // 选择级别（含 INDIVIDUAL 单击）都生效。选/移/删/转均派生自 allConnectedIds，
+      // 绑定在此即可让两半在这些操作上当一个整体，杜绝单击单移把两半甩散。
+      if (newIds.length > 0) {
+          const parts = get().parts;
+          const conns = get().connections;
+          const bonded = new Set(newIds);
+          for (const sid of newIds) {
+              const sLd = parts[sid]?.ldrawId;
+              const nbrs = conns[sid];
+              if (!sLd || !nbrs) continue;
+              for (const nb of nbrs) {
+                  const nLd = parts[nb]?.ldrawId;
+                  if (nLd && isTurntablePair(sLd, nLd)) bonded.add(nb);
+              }
+          }
+          newIds = Array.from(bonded);
       }
 
       let allConnectedIds: string[] = [];
