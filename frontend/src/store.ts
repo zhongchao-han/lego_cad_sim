@@ -2403,9 +2403,10 @@ export const useStore = create<StoreState>()(
 
   // 齿轮咬合联动：以 sourceId 绕自身轴转 deltaRad 为源，沿场景啮合图传播，
   // 把被带动齿轮/转盘各自绕其轴转对应增量（reverse 齿比）。单独可撤销命令。
-  // 注：v1 只转被带动件本体（不连带其上挂载的子装配）。
+  // 被带动件若是「转盘顶」（有底座邻居），则连同挂在其上的整个子装配绕转盘轴刚体
+  // 一起转（排除底座侧）；普通齿轮仍只本体自转。
   _applyGearLinkage: (sourceId: string, deltaRad: number) => {
-    const { parts, partCatalog } = get();
+    const { parts, partCatalog, connections } = get();
     const src = parts[sourceId];
     if (!src) return;
     const srcMeta = partCatalog[src.ldrawId];
@@ -2433,11 +2434,38 @@ export const useStore = create<StoreState>()(
     const byId = new Map(gears.map(g => [g.partId, g]));
     const finalU: Record<string, Partial<PartState>> = {};
     const prevU: Record<string, Partial<PartState>> = {};
+    const capturePrev = (id: string) => {
+      const c = parts[id];
+      if (c && !prevU[id]) prevU[id] = { position: [...c.position] as Vec3, quaternion: [...c.quaternion] as Quat };
+    };
     driven.forEach((d, pid) => {
       const g = byId.get(pid); const cur = parts[pid];
       if (!g || !cur) return;
-      prevU[pid] = { quaternion: [...cur.quaternion] as Quat };
-      finalU[pid] = { quaternion: rotateGearAroundOwnAxis(cur.quaternion as Quat, d, g.axisLocal) };
+      // 转盘顶 = 有一个「底座」邻居（经 hub 同轴相连）。找到它 → 连同挂载子装配
+      // （从顶出发、不穿过底座的连通子集）绕转盘轴刚体一起转。
+      const baseNb = [...(connections[pid] ?? [])].find(nb => {
+        const m = partCatalog[parts[nb]?.ldrawId ?? ''];
+        return m && isTurntableBase(parts[nb].ldrawId, m.name);
+      });
+      if (baseNb) {
+        const axisV = getAxisWorld(cur.quaternion as Quat, undefined, g.axisLocal).clone().normalize();
+        const axis: Vec3 = [axisV.x, axisV.y, axisV.z];
+        const pivot = cur.position as Vec3; // hub 在局部原点 → 转盘轴过 cur.position
+        const group = getConnectedGroup(connections, pid, baseNb); // 顶 + 挂载件，排除底座
+        group.forEach(mid => {
+          const mp = parts[mid];
+          if (!mp) return;
+          capturePrev(mid);
+          const np = rotatePartAboutPivot(
+            { position: mp.position as Vec3, quaternion: mp.quaternion as Quat }, pivot, axis, d,
+          );
+          finalU[mid] = { position: np.position, quaternion: np.quaternion };
+        });
+      } else {
+        // 普通齿轮：原地绕自身轴自转。
+        capturePrev(pid);
+        finalU[pid] = { quaternion: rotateGearAroundOwnAxis(cur.quaternion as Quat, d, g.axisLocal) };
+      }
     });
     if (Object.keys(finalU).length === 0) return;
 
