@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { usePartSearch } from '../hooks/usePartSearch';
 import { isHiddenTurntableBase, turntableAssemblyName } from '../utils/turntableAssembly';
 import { isDeprecatedPart } from '../utils/partVisibility';
+import { useHoverPreview } from '../hooks/useHoverPreview';
+import { PartHoverPreview } from './PartHoverPreview';
 
 interface PartSearchDialogProps {
   onSelectPart?: (partNum: string) => void;
@@ -12,6 +14,7 @@ interface PartSearchDialogProps {
 export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart, isOpen, onClose }) => {
   const { query, setQuery, results, isLoading, error, handleQueryChange } = usePartSearch();
   const inputRef = useRef<HTMLInputElement>(null);
+  const { preview, onEnter, onLeave } = useHoverPreview();
   // 呈现层收敛：隐藏已弃用(Obsolete)件 + 转盘底座；转盘顶条目改名「…（整体）」。
   const displayResults = results
     .filter((hit) => !isDeprecatedPart(hit.name) && !isHiddenTurntableBase(hit.part_num))
@@ -39,6 +42,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
+        data-preview-boundary
         className="w-full max-w-2xl bg-[#2a2a2e] rounded-xl shadow-2xl border border-white/10 overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -83,7 +87,11 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
                 }}
                 className="flex items-center gap-4 p-3 mx-2 rounded-lg hover:bg-white/5 cursor-pointer group transition-colors"
               >
-                <div className="w-12 h-12 flex-shrink-0 bg-black/40 rounded flex items-center justify-center border border-white/5 overflow-hidden">
+                <div
+                  className="w-12 h-12 flex-shrink-0 bg-black/40 rounded flex items-center justify-center border border-white/5 overflow-hidden"
+                  onMouseEnter={(e) => onEnter(hit.part_num, e.currentTarget)}
+                  onMouseLeave={onLeave}
+                >
                   {hit.thumbnail_url ? (
                     <img
                       src={`http://localhost:8000${hit.thumbnail_url}`}
@@ -126,6 +134,8 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
           <span className="flex items-center gap-1">本地语义搜索</span>
         </div>
       </div>
+
+      <PartHoverPreview preview={preview} />
     </div>
   );
 };
