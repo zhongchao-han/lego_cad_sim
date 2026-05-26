@@ -14,6 +14,8 @@ import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
 import { useKeyboardDispatcher } from './hooks/useKeyboardDispatcher';
+import { isTurntableAssemblyTop } from './utils/turntableAssembly';
+import { getDefaultColorCode } from './utils/partColorDefaults';
 import { DebugOverlay } from './components/DebugOverlay';
 import { StatusBar } from './components/StatusBar';
 import { Toolbar } from './components/Toolbar';
@@ -148,6 +150,7 @@ function App() {
   const interactionPhase = useStore((state) => state.interactionPhase);
   const addStagedPart = useStore((state) => state.addStagedPart);
   const previewPart = useStore((state) => state.previewPart);
+  const startFreePlacingTurntable = useStore((state) => state.startFreePlacingTurntable);
 
   // 搜索面板开/关状态。Issue #64 #1：从局部 useState 提到 store，让
   // useKeyboardDispatcher 单 handler 能 phase-aware 路由 Esc。
@@ -228,6 +231,12 @@ function App() {
           onSelectPart={(partNum) => {
             if (view === 'EDITOR') {
               const partId = partNum + ".dat";
+              // 「整体转盘」：直接走组合放置（一次落两半、预连 revolute），不走单件预览。
+              if (isTurntableAssemblyTop(partId)) {
+                startFreePlacingTurntable?.(getDefaultColorCode(partId, 71));
+                setSearchOpen(false);
+                return;
+              }
               // 添加到暂存区，并同时激活大弹窗预览模式
               addStagedPart?.({ part_id: partId });
               previewPart?.(partId);

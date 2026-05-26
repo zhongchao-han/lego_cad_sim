@@ -328,6 +328,12 @@ interface StoreState {
     }
   ) => void;
   commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
+  /** 「整体转盘」组合放置：一次放下转盘顶 18938 + 底座 18939（同轴、预连成
+   *  revolute），用户当一个零件搜/放，落地即可相对旋转。复用 commitFreePlacing
+   *  的多件+组内连接管线。 */
+  startFreePlacingTurntable: (colorCode: number, options?: {
+    pointer?: { clientX: number; clientY: number } | null;
+  }) => void;
 }
 
 const quatNormalize = (q: [number, number, number, number]): Quat => {
@@ -1761,6 +1767,35 @@ export const useStore = create<StoreState>()(
       previewPartId: null // 关掉预览层
     });
     get().addLog(`Started free placing for new part ${ldrawId}.`, 'ACTION');
+  },
+
+  startFreePlacingTurntable: (colorCode: number, options = {}) => {
+    const { pointer = null } = options;
+    // 两半都放在组合体本地原点 → 落地后位置相同 = 同轴、原点重合（装配态）。
+    const topId = '18938_' + window.crypto.randomUUID().substring(0, 8);
+    const botId = '18939_' + window.crypto.randomUUID().substring(0, 8);
+    const mk = (id: string, ldrawId: string): { id: string; state: PartState } => ({
+      id, state: {
+        ldrawId, position: [0, 0, 0] as Vec3, quaternion: [0, 0, 0, 1] as Quat,
+        colorCode, zone: ZoneType.ACTIVE_ARENA,
+      },
+    });
+    // hub 端口 key（与 data/ldraw_port_configs.json 里 hub 端口的 rotation 一致）：
+    // 顶 MALE 法线 -Y，底 FEMALE 法线 +Y。用 portKey 现算，免硬编码字符串格式。
+    const topHubKey = portKey([0, 0, 0], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]);
+    const botHubKey = portKey([0, 0, 0], [[1, 0, 0], [0, 0, 1], [0, -1, 0]]);
+    set({
+      freePlacingPayload: [mk(topId, '18938.dat'), mk(botId, '18939.dat')],
+      freePlacingMeta: {
+        connections: [{ from: topId, to: botId }],
+        occupied: { [topId]: { [topHubKey]: botId }, [botId]: { [botHubKey]: topId } },
+      },
+      freePlacingProjectionMode: FreePlacingProjectionMode.GROUND_PLANE,
+      freePlacingPointer: pointer,
+      interactionPhase: InteractionPhase.FREE_PLACING,
+      previewPartId: null,
+    });
+    get().addLog('Started placing turntable assembly (18938 + 18939).', 'ACTION');
   },
 
   commitFreePlacing: (finalStates?: Record<string, PartState>) => {

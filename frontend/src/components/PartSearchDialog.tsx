@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePartSearch } from '../hooks/usePartSearch';
+import { isHiddenTurntableBase, turntableAssemblyName } from '../utils/turntableAssembly';
 
 interface PartSearchDialogProps {
   onSelectPart?: (partNum: string) => void;
@@ -10,6 +11,13 @@ interface PartSearchDialogProps {
 export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart, isOpen, onClose }) => {
   const { query, setQuery, results, isLoading, error, handleQueryChange } = usePartSearch();
   const inputRef = useRef<HTMLInputElement>(null);
+  // 「整体转盘」呈现层收敛：搜索结果里隐藏底座、顶条目改名为「…（整体）」。
+  const displayResults = results
+    .filter((hit) => !isHiddenTurntableBase(hit.part_num))
+    .map((hit) => {
+      const name = turntableAssemblyName(hit.part_num);
+      return name ? { ...hit, zh_name: name } : hit;
+    });
 
   // Focus on mount/open
   useEffect(() => {
@@ -65,7 +73,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
           )}
 
           <ul className="py-2">
-            {results.map((hit) => (
+            {displayResults.map((hit) => (
               <li
                 key={hit.id}
                 onClick={() => {
@@ -111,7 +119,7 @@ export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart
 
         <div className="px-4 py-2 border-t border-white/5 bg-black/20 flex justify-between text-[10px] font-mono text-gray-500">
           <span className="flex gap-2">
-            {results.length > 0 ? `${results.length} 个结果` : '等待输入…'}
+            {displayResults.length > 0 ? `${displayResults.length} 个结果` : '等待输入…'}
             {isLoading ? <span className="text-blue-500/50 animate-pulse">搜索中…</span> : null}
           </span>
           <span className="flex items-center gap-1">本地语义搜索</span>
