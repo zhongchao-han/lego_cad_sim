@@ -52,3 +52,11 @@ export function turntableBaseFor(partId: string): string | null {
 export function turntableAssemblyName(partId: string): string | null {
   return TURNTABLE_PAIRS[normalizeId(partId)]?.name ?? null;
 }
+
+/** 两个 ldrawId 是否构成「整体转盘」的顶↔底配对（顺序无关）。用于把已放下的
+ *  两半在选择/移动/删除上绑成一个整体单元。 */
+export function isTurntablePair(aLdrawId: string, bLdrawId: string): boolean {
+  const a = normalizeId(aLdrawId);
+  const b = normalizeId(bLdrawId);
+  return TURNTABLE_PAIRS[a]?.base === b || TURNTABLE_PAIRS[b]?.base === a;
+}

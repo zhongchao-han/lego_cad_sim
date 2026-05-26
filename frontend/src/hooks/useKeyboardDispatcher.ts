@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
 import { SelectionLevel } from '../types';
+import { isTurntablePair } from '../utils/turntableAssembly';
 import { dispatchKey, type DispatcherDeps } from './keyboardDispatch';
 
 /**
@@ -33,7 +34,18 @@ export function useKeyboardDispatcher() {
       hasSelection: () => useStore.getState().selection.primaryId !== null,
       isSingleSelection: () => {
         const sel = useStore.getState().selection;
-        return sel.level !== SelectionLevel.GROUP && sel.allConnectedIds.length <= 1;
+        if (sel.level === SelectionLevel.GROUP) return false;
+        const ids = sel.allConnectedIds;
+        if (ids.length <= 1) return true;
+        // 整体转盘的两半被绑成一个单元（见 store.selectPart），仍按单件处理 →
+        // 方向键走树模型相对滑动（两半作为一个子树相对挂载面动），而非整组刚体搬运。
+        if (ids.length === 2) {
+          const parts = useStore.getState().parts;
+          const a = parts[ids[0]]?.ldrawId;
+          const b = parts[ids[1]]?.ldrawId;
+          if (a && b && isTurntablePair(a, b)) return true;
+        }
+        return false;
       },
 
       // Actions — Zustand 保证函数引用稳定，直接取一次即可
