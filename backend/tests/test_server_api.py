@@ -618,48 +618,41 @@ class TestGlbSubdirectoryUrlRegression(unittest.TestCase):
         )
 
 
-class TestLlmRewriteProxy(unittest.TestCase):
-    """POST /api/llm_rewrite — AI 语义改写后端代理（key 留后端，前端不接触）。"""
+class TestSearchEndpoint(unittest.TestCase):
+    """POST /api/search — 本地向量语义搜索端点（mock 掉向量计算，只验端点接线）。"""
 
-    def test_no_key_configured_returns_error(self):
-        """[LLM-1] 未配置 DEEPSEEK_API_KEY → 返回 error，提示去 backend/.env 配。"""
-        # 强制清空 key（本地可能从 backend/.env 注入，CI 则本就没有），保证确定性。
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": ""}, clear=False):
-            client = _get_client()
-            resp = client.post("/api/llm_rewrite", json={"query": "红色大板"})
-        self.assertEqual(resp.status_code, 200)
-        body = resp.json()
-        self.assertEqual(body["status"], "error")
-        self.assertIn("DEEPSEEK_API_KEY", body["msg"])
-
-    def test_empty_query_returns_error(self):
-        """[LLM-2] 空 query → error（即便配了 key）。"""
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}, clear=False):
-            client = _get_client()
-            resp = client.post("/api/llm_rewrite", json={"query": "   "})
-        self.assertEqual(resp.json()["status"], "error")
-
-    def test_success_returns_keywords_without_real_network(self):
-        """[LLM-3] 配了 key + monkeypatch _call_deepseek → 返回 keywords，不打真网络。"""
-        import backend.server as srv
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}, clear=False), \
-             patch.object(srv, "_call_deepseek", return_value="Baseplate 19 11") as mock_call:
-            client = _get_client()
-            resp = client.post("/api/llm_rewrite", json={"query": "很多孔的大平板"})
+    def test_empty_query_returns_empty(self):
+        """[SEARCH-1] 空 query → success + 空命中，不触碰向量计算。"""
+        client = _get_client()
+        resp = client.post("/api/search", json={"query": "   "})
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["status"], "success")
-        self.assertEqual(body["keywords"], "Baseplate 19 11")
-        mock_call.assert_called_once()  # 走了代理而非真网络
+        self.assertEqual(body["hits"], [])
 
-    def test_empty_llm_result_returns_error(self):
-        """[LLM-4] 大模型返回空串 → error（_call_deepseek 已 strip，空白即空）。"""
+    def test_success_returns_hits(self):
+        """[SEARCH-2] monkeypatch semantic_search.search → 返回命中（不加载模型/向量）。"""
         import backend.server as srv
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test"}, clear=False), \
-             patch.object(srv, "_call_deepseek", return_value=""):
+        fake_hits = [{"id": "2855", "part_num": "2855", "name": "Turntable", "status": "verified"}]
+        with patch.object(srv.semantic_search, "search", return_value=fake_hits) as mock_search:
             client = _get_client()
-            resp = client.post("/api/llm_rewrite", json={"query": "随便"})
-        self.assertEqual(resp.json()["status"], "error")
+            resp = client.post("/api/search", json={"query": "起重机旋转的那种大齿轮"})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["hits"], fake_hits)
+        mock_search.assert_called_once()
+
+    def test_missing_index_returns_error(self):
+        """[SEARCH-3] 向量索引缺失（FileNotFoundError）→ status=error，附提示。"""
+        import backend.server as srv
+        with patch.object(srv.semantic_search, "search", side_effect=FileNotFoundError("索引缺失")):
+            client = _get_client()
+            resp = client.post("/api/search", json={"query": "plate"})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["hits"], [])
 
 
 if __name__ == "__main__":

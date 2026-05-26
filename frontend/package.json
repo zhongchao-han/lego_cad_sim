@@ -21,7 +21,6 @@
     "axios": "^1.13.6",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.577.0",
-    "meilisearch": "^0.57.0",
     "prop-types": "^15.8.1",
     "r3f-perf": "^7.2.3",
     "react": "^19.2.0",

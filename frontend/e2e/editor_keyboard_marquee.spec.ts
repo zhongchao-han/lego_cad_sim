@@ -51,7 +51,7 @@ test.describe('Keyboard + Marquee — C7/C8/C10', () => {
   // C7 — Esc 复合
   // ──────────────────────────────────────────────────────────────────────
   test('C7-EscCompound: Esc closes search + Esc clears selection', async ({ page }) => {
-    const searchInput = page.locator('input[placeholder*="Search parts by id"]');
+    const searchInput = page.locator('[data-testid="part-search-input"]');
 
     // ── 7a：搜索打开时 Esc 关搜索 ────────────────────────────────────────
     // App.jsx 监听 Cmd/Ctrl+K 触发 setIsSearchOpen(true)；Esc 走 App.jsx
