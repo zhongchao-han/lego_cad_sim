@@ -2,7 +2,7 @@ import { Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Html } from '@react-three/drei';
 import { useStore } from '../store';
-import { InteractivePart } from './InteractivePart';
+import { PreviewModel } from './PreviewModel';
 import { X, MousePointer2, Palette } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
 import { LEGO_PALETTE as PALETTE } from '../utils/legoPalette';
@@ -88,13 +88,12 @@ export function PartPreviewOverlay() {
                  <directionalLight position={[1, 2, 3]} intensity={1.5} />
                  <directionalLight position={[-2, 1, -1]} intensity={0.6} />
 
-                 <InteractivePart
+                 <PreviewModel
                    partId={previewPartId}
                    colorCode={resolvedColor}
                    onPortClick={onPortSelected}
                    isStatic={true}
                    opacity={0.8}
-                   autoCenter={true}
                  />
 
                  <CameraControls
