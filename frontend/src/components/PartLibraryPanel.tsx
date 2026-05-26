@@ -23,8 +23,8 @@ import { getDefaultColorCode } from '../utils/partColorDefaults';
 import {
   isHiddenTurntableBase,
   turntableAssemblyName,
-  turntableBaseFor,
 } from '../utils/turntableAssembly';
+import { isDeprecatedPart } from '../utils/partVisibility';
 import {
   type VerifiedPart,
   FREQUENT_BUCKET,
@@ -42,7 +42,6 @@ export function PartLibraryPanel() {
   const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set([FREQUENT_BUCKET]));
 
   const previewPart = useStore((s) => s.previewPart);
-  const startFreePlacingTurntable = useStore((s) => s.startFreePlacingTurntable);
   const previewPartId = useStore((s) => s.previewPartId);
   const partUsages = useStore((s) => s.partUsages);
   const setPartCatalog = useStore((s) => s.setPartCatalog);
@@ -53,10 +52,11 @@ export function PartLibraryPanel() {
       try {
         const res = await axios.get(`${BACKEND_ORIGIN}/api/get_verified_parts`);
         const data: VerifiedPart[] = res.data;
-        // 「整体转盘」呈现层收敛：隐藏底座、顶条目改名为「…（整体）」。
-        // 注意：catalog 仍灌入全部 data（含底座，引擎要其元数据），仅显示列表收敛。
+        // 显示列表收敛（catalog 仍灌入全部 data，引擎要其元数据）：
+        //   - 隐藏已弃用（Obsolete）零件
+        //   - 隐藏转盘底座、顶条目改名为「…（整体）」
         const display = data
-          .filter(p => !isHiddenTurntableBase(p.part_id))
+          .filter(p => !isDeprecatedPart(p.name) && !isHiddenTurntableBase(p.part_id))
           .map(p => {
             const name = turntableAssemblyName(p.part_id);
             return name ? { ...p, zh_name: name } : p;
@@ -175,11 +175,7 @@ export function PartLibraryPanel() {
                       return (
                         <button
                           key={part.part_id}
-                          onClick={() => {
-                            const base = turntableBaseFor(part.part_id);
-                            if (base) startFreePlacingTurntable(part.part_id, base, resolvedColor);
-                            else previewPart(part.part_id);
-                          }}
+                          onClick={() => previewPart(part.part_id)}
                           title={part.zh_desc || part.name || undefined}
                           className={`w-full group flex items-center gap-3 p-3 rounded-lg transition-all text-left border ${
                             previewPartId === part.part_id

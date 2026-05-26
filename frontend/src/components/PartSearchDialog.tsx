@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePartSearch } from '../hooks/usePartSearch';
 import { isHiddenTurntableBase, turntableAssemblyName } from '../utils/turntableAssembly';
+import { isDeprecatedPart } from '../utils/partVisibility';
 
 interface PartSearchDialogProps {
   onSelectPart?: (partNum: string) => void;
@@ -11,9 +12,9 @@ interface PartSearchDialogProps {
 export const PartSearchDialog: React.FC<PartSearchDialogProps> = ({ onSelectPart, isOpen, onClose }) => {
   const { query, setQuery, results, isLoading, error, handleQueryChange } = usePartSearch();
   const inputRef = useRef<HTMLInputElement>(null);
-  // 「整体转盘」呈现层收敛：搜索结果里隐藏底座、顶条目改名为「…（整体）」。
+  // 呈现层收敛：隐藏已弃用(Obsolete)件 + 转盘底座；转盘顶条目改名「…（整体）」。
   const displayResults = results
-    .filter((hit) => !isHiddenTurntableBase(hit.part_num))
+    .filter((hit) => !isDeprecatedPart(hit.name) && !isHiddenTurntableBase(hit.part_num))
     .map((hit) => {
       const name = turntableAssemblyName(hit.part_num);
       return name ? { ...hit, zh_name: name } : hit;
