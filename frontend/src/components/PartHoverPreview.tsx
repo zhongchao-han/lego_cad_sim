@@ -2,7 +2,7 @@ import { Suspense, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { CameraControls, Html } from '@react-three/drei';
-import { InteractivePart } from './InteractivePart';
+import { PreviewModel } from './PreviewModel';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
 import type { HoverPreviewState } from '../hooks/useHoverPreview';
 
@@ -96,11 +96,10 @@ export function PartHoverPreview({ preview }: { preview: HoverPreviewState }) {
           <directionalLight position={[1, 2, 3]} intensity={1.5} />
           <directionalLight position={[-2, 1, -1]} intensity={0.6} />
 
-          <InteractivePart
+          <PreviewModel
             partId={normalizedId}
             colorCode={colorCode}
             disableEvents
-            autoCenter
             showPorts={false}
           />
 
