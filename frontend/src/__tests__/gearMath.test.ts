@@ -15,8 +15,11 @@ import {
   checkMeshGeometry,
   computePhaseDelta,
   findMeshPartnerAndDelta,
+  gearAxisLocalFor,
+  isTurntableBase,
   getAxisWorld,
   LEGO_GEAR_MODULE_M,
+  propagateGearMesh,
   rotateGearAroundOwnAxis,
   type GearPart,
 } from '../utils/gearMath';
@@ -205,5 +208,89 @@ describe('findMeshPartnerAndDelta', () => {
     const source = make('G1', [0, 0, 0], 24);
     const result = findMeshPartnerAndDelta(source, [source]);
     expect(result).toBeNull();
+  });
+});
+
+describe('gearAxisLocalFor', () => {
+  it('转盘（名字含 Turntable）→ +Y', () => {
+    expect(gearAxisLocalFor('18938.dat', 'Technic Turntable 60 Tooth Top')).toEqual([0, 1, 0]);
+  });
+  it('转盘（仅按 id 命中）→ +Y', () => {
+    expect(gearAxisLocalFor('18939.dat', null)).toEqual([0, 1, 0]);
+  });
+  it('普通齿轮 → +Z', () => {
+    expect(gearAxisLocalFor('3648.dat', 'Technic Gear 24 Tooth')).toEqual([0, 0, 1]);
+  });
+});
+
+describe('isTurntableBase', () => {
+  it('转盘底座（Bottom/Base）→ true', () => {
+    expect(isTurntableBase('18939.dat', 'Technic Turntable 60 Tooth Bottom')).toBe(true);
+    expect(isTurntableBase('48452.dat', 'Technic Turntable Type 2 Base')).toBe(true);
+  });
+  it('转盘带齿顶（Top）→ false（参与啮合）', () => {
+    expect(isTurntableBase('18938.dat', 'Technic Turntable 60 Tooth Top')).toBe(false);
+  });
+  it('普通齿轮 → false', () => {
+    expect(isTurntableBase('3648.dat', 'Technic Gear 24 Tooth')).toBe(false);
+  });
+});
+
+describe('getAxisWorld / rotateGearAroundOwnAxis 带 axisLocal', () => {
+  it('axisLocal=+Y, identity quat → 世界 +Y', () => {
+    const out = getAxisWorld(IDENTITY_QUAT, undefined, [0, 1, 0]);
+    expectClose(out.x, 0); expectClose(out.y, 1); expectClose(out.z, 0);
+  });
+  it('绕局部 +Y 转 90° → Ry 四元数', () => {
+    const q = rotateGearAroundOwnAxis(IDENTITY_QUAT, Math.PI / 2, [0, 1, 0]);
+    expectClose(q[1], Math.SQRT1_2); expectClose(q[3], Math.SQRT1_2);
+    expectClose(q[0], 0); expectClose(q[2], 0);
+  });
+});
+
+describe('propagateGearMesh — 咬合联动', () => {
+  const gear = (id: string, pos: Vec3, T: number, axisLocal: Vec3 = [0, 0, 1]): GearPart => ({
+    partId: id, ldrawId: 'g', position: pos, quaternion: IDENTITY_QUAT, toothCount: T, axisLocal,
+  });
+
+  it('两 24T 外啮合：源转 θ → 被动转 −θ', () => {
+    const d = (24 + 24) / 2 * LEGO_GEAR_MODULE_M;
+    const res = propagateGearMesh([gear('A', [0, 0, 0], 24), gear('B', [d, 0, 0], 24)], 'A', 0.5);
+    expectClose(res.get('B')!, -0.5);
+    expect(res.has('A')).toBe(false); // 不含源自身
+  });
+
+  it('齿比：源 12T 转 θ → 被动 24T 转 −θ/2', () => {
+    const d = (12 + 24) / 2 * LEGO_GEAR_MODULE_M;
+    const res = propagateGearMesh([gear('A', [0, 0, 0], 12), gear('B', [d, 0, 0], 24)], 'A', 1.0);
+    expectClose(res.get('B')!, -0.5);
+  });
+
+  it('三轮链 A(24)-B(12)-C(24) 共线：C 与 A 同向同速', () => {
+    const dAB = (24 + 12) / 2 * LEGO_GEAR_MODULE_M;
+    const dBC = (12 + 24) / 2 * LEGO_GEAR_MODULE_M;
+    const res = propagateGearMesh([
+      gear('A', [0, 0, 0], 24), gear('B', [dAB, 0, 0], 12), gear('C', [dAB + dBC, 0, 0], 24),
+    ], 'A', 0.3);
+    expectClose(res.get('B')!, -0.6); // -0.3*24/12
+    expectClose(res.get('C')!, 0.3);  // -(-0.6)*12/24
+  });
+
+  it('齿轮(12T)咬转盘(60T)：均 +Y 轴，源齿轮转 θ → 转盘转 −θ/5', () => {
+    const d = (12 + 60) / 2 * LEGO_GEAR_MODULE_M;
+    const res = propagateGearMesh([
+      gear('GEAR', [0, 0, 0], 12, [0, 1, 0]),
+      gear('TT', [d, 0, 0], 60, [0, 1, 0]),
+    ], 'GEAR', 1.0);
+    expectClose(res.get('TT')!, -0.2);
+  });
+
+  it('共轴两件（转盘上下两半）不互相带动', () => {
+    // 同位置、同 +Y 轴 → planarDist≈0 → 无啮合边
+    const res = propagateGearMesh([
+      gear('TOP', [0, 0, 0], 60, [0, 1, 0]),
+      gear('BOT', [0, 0, 0], 60, [0, 1, 0]),
+    ], 'TOP', 0.5);
+    expect(res.size).toBe(0);
   });
 });
