@@ -112,70 +112,70 @@ export const DraftHistoryPanel: React.FC = () => {
   const sync = getSyncState();
 
   return (
-    <div className="fixed top-20 right-6 w-[400px] max-h-[72vh] bg-slate-900/92 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl flex flex-col overflow-hidden z-[1000] animate-in slide-in-from-top-5 pointer-events-auto">
+    <div className="fixed top-20 right-6 w-[420px] max-h-[72vh] bg-slate-900/95 backdrop-blur-xl border border-white/25 rounded-xl shadow-2xl flex flex-col overflow-hidden z-[1000] animate-in slide-in-from-top-5 pointer-events-auto">
       {/* Header */}
-      <div className="bg-white/5 border-b border-white/10 p-3 flex items-center justify-between">
+      <div className="bg-white/10 border-b border-white/20 px-3 py-2.5 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <History size={16} className="text-sky-400" />
-          <span className="text-sm font-bold text-white tracking-wide">草稿历史</span>
+          <History size={18} className="text-sky-400" />
+          <span className="text-base font-bold text-white tracking-wide">草稿历史</span>
           <span
-            className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${
-              sync.dirty ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+            className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
+              sync.dirty ? 'bg-amber-500/25 text-amber-200' : 'bg-emerald-500/25 text-emerald-200'
             }`}
             title={sync.dirty ? '有改动尚未同步到云端' : '已同步到云端'}
           >
-            <Cloud size={11} />
+            <Cloud size={12} />
             {sync.dirty ? '待同步' : '已同步'}
           </span>
         </div>
         <div className="flex items-center space-x-1">
-          <button onClick={() => void refresh()} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title="刷新">
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          <button onClick={() => void refresh()} className="p-1.5 hover:bg-white/20 rounded-md text-slate-300 hover:text-white transition-colors" title="刷新">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={() => toggle(false)} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title="关闭">
-            <X size={16} />
+          <button onClick={() => toggle(false)} className="p-1.5 hover:bg-white/20 rounded-md text-slate-300 hover:text-white transition-colors" title="关闭">
+            <X size={18} />
           </button>
         </div>
       </div>
 
       {/* Action */}
-      <div className="px-3 py-2 border-b border-white/5">
+      <div className="px-3 py-2.5 border-b border-white/10">
         <button
           onClick={() => void saveNamed()}
           disabled={busy}
-          className="w-full flex items-center justify-center gap-2 text-xs font-semibold py-2 rounded-lg bg-sky-600/80 hover:bg-sky-600 text-white transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 text-sm font-semibold py-2.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/40 transition-colors disabled:opacity-50"
         >
-          <Save size={14} /> 保存命名快照
+          <Save size={16} /> 保存命名快照
         </button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4 scrollbar-thin scrollbar-thumb-white/10">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-5 scrollbar-thin scrollbar-thumb-white/10">
         {/* 本地快照 */}
         <section>
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            <HardDrive size={12} /> 本地快照
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+            <HardDrive size={14} /> 本地快照
           </div>
           {snaps.length === 0 ? (
-            <p className="text-[11px] text-slate-500 italic py-2">还没有快照。搭建过程中会自动定期保存。</p>
+            <p className="text-xs text-slate-400 italic py-2">还没有快照。搭建过程中会自动定期保存。</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {snaps.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group">
+                <li key={s.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors group">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-slate-100 truncate">{s.label}</span>
-                      {!s.auto && <span className="text-[9px] px-1 rounded bg-sky-500/20 text-sky-300 shrink-0">手动</span>}
+                      <span className="text-sm text-slate-50 truncate">{s.label}</span>
+                      {!s.auto && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/30 text-sky-200 shrink-0">手动</span>}
                     </div>
-                    <div className="text-[10px] text-slate-500">{relTime(s.ts)} · {fmtSize(s.size)}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">{relTime(s.ts)} · {fmtSize(s.size)}</div>
                   </div>
                   <button onClick={() => void doRestoreSnapshot(s.id, s.label)} disabled={busy}
-                    className="p-1.5 rounded-md text-slate-400 hover:bg-sky-500/20 hover:text-sky-300 transition-colors disabled:opacity-40" title="恢复到此快照">
-                    <RotateCcw size={14} />
+                    className="p-2 rounded-md text-slate-300 hover:bg-sky-500/30 hover:text-sky-200 transition-colors disabled:opacity-40" title="恢复到此快照">
+                    <RotateCcw size={16} />
                   </button>
                   <button onClick={() => void doDeleteSnapshot(s.id)} disabled={busy}
-                    className="p-1.5 rounded-md text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors disabled:opacity-40" title="删除快照">
-                    <Trash2 size={14} />
+                    className="p-2 rounded-md text-slate-300 hover:bg-rose-500/30 hover:text-rose-200 transition-colors disabled:opacity-40" title="删除快照">
+                    <Trash2 size={16} />
                   </button>
                 </li>
               ))}
@@ -185,25 +185,25 @@ export const DraftHistoryPanel: React.FC = () => {
 
         {/* 云端备份 */}
         <section>
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-            <Cloud size={12} /> 云端备份（跨设备）
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+            <Cloud size={14} /> 云端备份（跨设备）
           </div>
           {cloud.length === 0 ? (
-            <p className="text-[11px] text-slate-500 italic py-2">暂无云端备份（后端未连接或还没同步）。</p>
+            <p className="text-xs text-slate-400 italic py-2">暂无云端备份（后端未连接或还没同步）。</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {cloud.map((b) => (
-                <li key={b.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                <li key={b.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-slate-100 truncate font-mono">{b.id.slice(0, 18)}</span>
-                      {b.id === myBuildId && <span className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 shrink-0">本设备</span>}
+                      <span className="text-sm text-slate-50 truncate font-mono">{b.id.slice(0, 18)}</span>
+                      {b.id === myBuildId && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 shrink-0">本设备</span>}
                     </div>
-                    <div className="text-[10px] text-slate-500">{relTime(b.updated_at)} · {fmtSize(b.size)}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">{relTime(b.updated_at)} · {fmtSize(b.size)}</div>
                   </div>
                   <button onClick={() => void doPullCloud(b.id)} disabled={busy}
-                    className="p-1.5 rounded-md text-slate-400 hover:bg-sky-500/20 hover:text-sky-300 transition-colors disabled:opacity-40" title="拉回此备份">
-                    <RotateCcw size={14} />
+                    className="p-2 rounded-md text-slate-300 hover:bg-sky-500/30 hover:text-sky-200 transition-colors disabled:opacity-40" title="拉回此备份">
+                    <RotateCcw size={16} />
                   </button>
                 </li>
               ))}
