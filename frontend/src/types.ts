@@ -40,7 +40,6 @@ export interface SelectionAnchor {
 // --- 区域定义 ---
 export enum ZoneType {
   ACTIVE_ARENA = 'ACTIVE_ARENA',
-  STAGED       = 'STAGED',
   PREVIEW      = 'PREVIEW',
 }
 

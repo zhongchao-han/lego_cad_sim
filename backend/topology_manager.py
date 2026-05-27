@@ -25,7 +25,7 @@ class PartNode:
         inertia: Optional[np.ndarray] = None,
         ldraw_id: Optional[str] = None,
     ):
-        self.part_id = part_id    # 全局唯一的零件实例 ID（前端的 staging tray 实例 id）
+        self.part_id = part_id    # 全局唯一的零件实例 ID（前端零件实例 id）
         self.name = name          # 零件名称 (如 '1x3_beam')
         # L45：可选的原始 LDraw .dat 文件名（如 "3001.dat"）；urdf_exporter 用它
         # 查 backend.category.extract_tooth_count 推齿数，决定是否给该 joint 生成

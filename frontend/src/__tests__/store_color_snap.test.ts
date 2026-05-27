@@ -20,7 +20,6 @@ describe('store.snapParts — 零件颜色状态转移验证', () => {
         },
       },
       connections: {},
-      stagingGrid: { releaseSlot: vi.fn() } as any,
     } as any);
 
     // 默认通过后端 snap

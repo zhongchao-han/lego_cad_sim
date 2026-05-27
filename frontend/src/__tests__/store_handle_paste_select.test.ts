@@ -117,11 +117,11 @@ describe('store.handlePortClick — 补遗分支', () => {
   });
 
   it('case 4: SOURCE_LOCKED + snap 失败 (target 不在 ACTIVE_ARENA) → 回滚到 IDLE + selectedPort=null', async () => {
-    // target zone=STAGED → snapParts 在 L660 return false
+    // target zone=PREVIEW（非 ACTIVE_ARENA）→ snapParts return false
     useStore.setState({
       parts: {
         src:    { ldrawId: 'src.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
-        target: { ldrawId: 'target.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.STAGED },
+        target: { ldrawId: 'target.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.PREVIEW },
       },
       selectedPort: makePort('src') as any,
       interactionPhase: InteractionPhase.SOURCE_LOCKED,
