@@ -76,3 +76,4 @@ frontend/test-results/
 coverage/
 frontend/coverage/
 htmlcov/
+.rb_cache/

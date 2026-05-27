@@ -38,19 +38,27 @@ describe('store.snapParts — 零件颜色状态转移验证', () => {
     globalQuat: [0, 0, 0, 1] as any,
   });
 
-  it('全新零件实例的颜色应当继承当前的 activeColorCode', async () => {
-    const source = makeMockPort('71709_new_instance', '71709'); // .dat will be stripped by getDefaultColorCode
+  it('库内件全新实例 → 取固定真实色（全锁），不随 activeColorCode', async () => {
+    // 71709 = Panel 3x7，全锁后固定为其真实最常见色 黑(0)；即便 active 画笔为红(4) 也应取 0。
+    const source = makeMockPort('71709_new_instance', '71709');
     const target = makeMockPort('target.dat');
 
-    // 吸附
     await useStore.getState().snapParts(source, target);
 
-    const parts = useStore.getState().parts;
-    const newPart = parts['71709_new_instance'];
-    
+    const newPart = useStore.getState().parts['71709_new_instance'];
     expect(newPart).toBeDefined();
-    // 由于 71709 已经撤销了专属白名单，此时必然依靠 activeColorCode 降级，这里 active 为 4。
-    // 旧版遗留代码会将其硬编码覆盖为 7，这一步测试我们已拆掉硬编码并正确传递了状态。
+    expect(newPart.colorCode).toBe(0);
+  });
+
+  it('库外件全新实例 → 回退继承当前 activeColorCode', async () => {
+    // 不在生成表内的件（如自定义件）无固定色，降级到 active 画笔色，这里为 4。
+    const source = makeMockPort('zzz_custom_new', 'zzz_custom_999');
+    const target = makeMockPort('target.dat');
+
+    await useStore.getState().snapParts(source, target);
+
+    const newPart = useStore.getState().parts['zzz_custom_new'];
+    expect(newPart).toBeDefined();
     expect(newPart.colorCode).toBe(4);
   });
 });

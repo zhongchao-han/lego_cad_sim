@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""
+gen_part_colors.py
+==================
+为零件库全集烘焙固定默认色（全锁：每件一个定死的颜色，改色对其无效）。
+
+定色优先级（Why）：
+  1) 真实色优先 —— data/rebrickable_common_colors.json：每个零件在全部官方
+     套装里「最常见的真实颜色」（由 fetch_rebrickable_colors.py 统计）。这是
+     「这个件你平时见到的颜色」的最佳依据。Rebrickable 的 color id 即 LDraw 码。
+  2) 规则兜底 —— Rebrickable 没收录的件（非官方 / 子件 / 冷门），按真实约定：
+     · 轴按长度：偶数长 红、奇数长 黄（2016 起的现代色码）；
+     · 销：摩擦 黑、长摩擦 蓝、无阻力 茶；
+     · 齿轮：双斜齿 黑、8齿 深灰、其余 浅灰；
+     · 轮：轮胎 黑、轮毂/轮辋 浅灰；衬套：半 黄 / 整 浅灰；
+     · 结构件/其余：浅灰或深灰（真实科技件以灰黑为主，不再硬上鲜艳色）。
+
+权威全集：data/ldraw_port_configs.json 全部条目；name/category 由
+  backend.category.categorize_part 复刻后端运行时逻辑。
+
+输出：frontend/src/utils/partColors.generated.ts（key=小写件号无 .dat）
+重新生成：python scripts/gen_part_colors.py
+  （刷新真实色数据另跑 scripts/fetch_rebrickable_colors.py。）
+颜色码参照 LDraw LDConfig.ldr。
+"""
+import json
+import os
+import re
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+from backend.category import categorize_part  # noqa: E402
+
+CONFIGS = os.path.join(REPO, "data", "ldraw_port_configs.json")
+RB_COLORS = os.path.join(REPO, "data", "rebrickable_common_colors.json")
+OUT = os.path.join(REPO, "frontend", "src", "utils", "partColors.generated.ts")
+
+# ── 规则兜底：类别 → LDraw 颜色码（真实中性色；功能件另由名字规则判）──────────
+CATEGORY_COLORS = {
+    "Beam": 71, "Brick": 71, "Plate": 71, "Panel": 71, "Tile": 71,
+    "Connector": 71, "Cylinder": 71, "Pneumatic": 71, "Sticker": 71, "Other": 71,
+    "Steering": 72, "Electric": 72,   # 转向件 / 电机：偏深灰
+    "Gear": 71, "Axle": 71, "Pin": 71, "Wheel": 71,  # 这些另有名字规则，此为再兜底
+}
+DEFAULT_COLOR = 71
+
+_AXLE_LEN = re.compile(r"^technic axle\s+(\d+)\b")
+_AXLE_FLEX = re.compile(r"^technic axle flexible\s+(\d+)\b")
+_PIN_HEAD = re.compile(r"^technic (axle )?pin\b")
+
+
+def _clean(name: str) -> str:
+    return name.lstrip("~=").strip().lower()
+
+
+def axle_color(name: str):
+    """纯十字轴按长度（现代色码）：偶数长 红 / 奇数长 黄。非纯轴返回 None。"""
+    n = _clean(name)
+    m = _AXLE_LEN.match(n) or _AXLE_FLEX.match(n)
+    if not m:
+        return None
+    return 4 if int(m.group(1)) % 2 == 0 else 14   # 偶红 / 奇黄
+
+
+def pin_color(name: str):
+    """销按类型：摩擦 黑 / 长摩擦 蓝 / 无阻力 茶。非销返回 None。"""
+    n = _clean(name)
+    if not _PIN_HEAD.match(n):
+        return None
+    if "without friction" in n or "frictionless" in n:
+        return 19                      # 无阻力销 茶
+    if "friction" in n:
+        if "long" in n or re.search(r"\b3l\b", n):
+            return 1                   # 长摩擦销 蓝
+        return 0                       # 摩擦销 黑
+    return 19                          # 销接头 / 圆销（无阻力）茶
+
+
+def bush_color(name: str):
+    """衬套：半衬套(1/2) 黄 / 整衬套 浅灰。非衬套返回 None。"""
+    n = _clean(name)
+    if not n.startswith("technic bush"):
+        return None
+    return 14 if "1/2" in n else 71
+
+
+def gear_color(name: str) -> int:
+    """齿轮：双斜齿 黑 / 8齿 深灰 / 其余 浅灰。"""
+    n = _clean(name)
+    if "double bevel" in n:
+        return 0
+    if re.search(r"\b8\s+tooth", n):
+        return 72
+    return 71
+
+
+def wheel_color(name: str) -> int:
+    """轮：轮胎/橡胶 黑 / 轮毂·轮辋 浅灰。"""
+    n = _clean(name)
+    if "tyre" in n or "tire" in n or "rubber" in n:
+        return 0
+    return 71
+
+
+def rule_color(name: str, category: str) -> int:
+    ac = axle_color(name)
+    if ac is not None:
+        return ac
+    pc = pin_color(name)
+    if pc is not None:
+        return pc
+    bc = bush_color(name)
+    if bc is not None:
+        return bc
+    if category == "Gear":
+        return gear_color(name)
+    if category == "Wheel":
+        return wheel_color(name)
+    return CATEGORY_COLORS.get(category, DEFAULT_COLOR)
+
+
+def norm(pid: str) -> str:
+    pid = pid.lower()
+    if pid.endswith(".dat"):
+        pid = pid[:-4]
+    return pid
+
+
+def resolve_parts_dir() -> str:
+    env = os.environ.get("LDRAW_PARTS_ROOT")
+    cands = []
+    if env:
+        cands.append(os.path.join(env, "parts"))
+    cands.append(os.path.join(REPO, "ldraw_lib", "parts"))
+    cands.append(os.path.normpath(os.path.join(REPO, "..", "..", "..", "ldraw_lib", "parts")))
+    for c in cands:
+        if os.path.isdir(c):
+            return c
+    raise RuntimeError(f"找不到 ldraw parts 目录，试过：{cands}")
+
+
+def main() -> None:
+    parts_dir = resolve_parts_dir()
+    with open(CONFIGS, encoding="utf-8") as f:
+        configs = json.load(f)
+    real = {}
+    if os.path.exists(RB_COLORS):
+        with open(RB_COLORS, encoding="utf-8") as f:
+            real = json.load(f)
+    else:
+        print(f"⚠ 缺 {RB_COLORS}（先跑 fetch_rebrickable_colors.py）；全部走规则兜底。")
+
+    colors: dict[str, int] = {}
+    real_hits = 0
+    for pid in configs:
+        key = norm(pid)
+        if key in real:
+            colors[key] = int(real[key])
+            real_hits += 1
+        else:
+            name, category = categorize_part(pid, parts_dir)
+            colors[key] = rule_color(name, category)
+
+    items = sorted(colors.items())
+    lines = [
+        "// AUTO-GENERATED by scripts/gen_part_colors.py — DO NOT EDIT BY HAND.",
+        "// 零件库全集固定默认色（LDraw 码）：优先 Rebrickable 各件最常见真实色，",
+        "// 未收录者按真实约定规则兜底。改色对表内零件无效（全锁），见 partColorDefaults.ts。",
+        f"// 共 {len(items)} 件，其中 {real_hits} 件用真实色。重新生成：python scripts/gen_part_colors.py",
+        "export const PART_COLORS: Readonly<Record<string, number>> = {",
+    ]
+    for k, v in items:
+        lines.append(f"  {json.dumps(k)}: {v},")
+    lines.append("} as const;")
+    lines.append("")
+
+    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines))
+    print(f"wrote {len(items)} entries ({real_hits} real / {len(items) - real_hits} rule) -> {OUT}")
+
+
+if __name__ == "__main__":
+    main()

@@ -3,31 +3,24 @@ import { Canvas } from '@react-three/fiber';
 import { CameraControls, Html } from '@react-three/drei';
 import { useStore } from '../store';
 import { PreviewModel } from './PreviewModel';
-import { X, MousePointer2, Palette } from 'lucide-react';
+import { X, MousePointer2 } from 'lucide-react';
 import { getDefaultColorCode } from '../utils/partColorDefaults';
-import { LEGO_PALETTE as PALETTE } from '../utils/legoPalette';
 import { FreePlacingProjectionMode } from '../types';
 import { isTurntableAssemblyTop, turntableBaseFor } from '../utils/turntableAssembly';
 
 export function PartPreviewOverlay() {
   const previewPartId = useStore((s) => s.previewPartId);
   const activeColorCode = useStore((s) => s.activeColorCode);
-  const setActiveColorCode = useStore((s) => s.setActiveColorCode);
 
   const handlePortClick = useStore((s) => s.handlePortClick);
   const startFreePlacingTurntable = useStore((s) => s.startFreePlacingTurntable);
   const setPreviewPartId = (id: string | null) => useStore.setState({ previewPartId: id });
   const clearPhase = () => useStore.setState({ interactionPhase: 'IDLE' as any });
 
-  // 计算当前预览零件的最终展示颜色（字典优先 > 画笔色）
+  // 当前预览零件的固定惯例色（全锁；库外件回退画笔色）。用于预览渲染与落地放置。
   const resolvedColor = useMemo(() => {
     if (!previewPartId) return activeColorCode;
     return getDefaultColorCode(previewPartId, activeColorCode);
-  }, [previewPartId, activeColorCode]);
-
-  const isAutoColor = useMemo(() => {
-    if (!previewPartId) return false;
-    return getDefaultColorCode(previewPartId, activeColorCode) !== activeColorCode;
   }, [previewPartId, activeColorCode]);
 
   if (!previewPartId) return null;
@@ -59,8 +52,8 @@ export function PartPreviewOverlay() {
       
       <div className="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[860px] h-[520px] flex pointer-events-auto relative ring-1 ring-black/10 overflow-hidden">
         
-        {/* 左侧：3D 预览区 */}
-        <div className="flex-1 min-w-0 flex flex-col border-r border-slate-200">
+        {/* 3D 预览区（单栏；零件颜色按惯例全锁，无配色面板） */}
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="p-4 flex items-center justify-between border-b bg-slate-50">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -71,7 +64,13 @@ export function PartPreviewOverlay() {
                 <p className="text-[10px] text-slate-400 font-mono tracking-tighter">PREVIEW: {previewPartId}</p>
               </div>
             </div>
-            {/* 移动端关闭按钮（可选） */}
+            <button
+              onClick={handleClose}
+              className="p-1 hover:bg-slate-100 rounded-md transition-colors text-slate-400"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           <div className="flex-1 relative bg-slate-100">
@@ -141,69 +140,6 @@ export function PartPreviewOverlay() {
           </div>
         </div>
 
-        {/* 右侧：属性与颜色配置面板 */}
-        <div className="w-56 shrink-0 bg-white flex flex-col">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              <Palette className="w-4 h-4 text-blue-500" />
-              Appearance
-            </h3>
-            <button 
-              onClick={handleClose}
-              className="p-1 hover:bg-slate-100 rounded-md transition-colors text-slate-400"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="p-4 flex-1 overflow-y-auto">
-            <div className="mb-4">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Part Color</p>
-              
-              {isAutoColor ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs text-amber-800 font-semibold flex items-center gap-1.5 mb-1.5">
-                    ⚡ Classic Preset
-                  </p>
-                  <p className="text-[10px] text-amber-600/80 leading-relaxed">
-                    This is a highly specific Technic part. Its color is locked to its real-world functional default (#{resolvedColor}).
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-[10px] text-slate-400 mb-3">
-                    Select a color for this instance before dropping it into the assembly.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {PALETTE.map(({ code, hex, name }) => {
-                      const isActive = code === activeColorCode;
-                      return (
-                        <button
-                          key={code}
-                          title={`${name} (LDraw #${code})`}
-                          onClick={() => setActiveColorCode(code)}
-                          style={{ backgroundColor: hex }}
-                          className={`
-                            w-8 h-8 rounded-full transition-all duration-150 shrink-0
-                            ${isActive
-                              ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md scale-110'
-                              : 'hover:scale-110 hover:ring-1 hover:ring-slate-400/50 opacity-80 hover:opacity-100'
-                            }
-                            ${hex === '#FFFFFF' ? 'border border-slate-300' : ''}
-                          `}
-                        />
-                      );
-                    })}
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-slate-100">
-                    <p className="text-[10px] font-mono text-slate-400">Selected: LDraw Color #{activeColorCode}</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        
       </div>
     </div>
   );
