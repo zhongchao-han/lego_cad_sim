@@ -30,6 +30,7 @@ from backend import semantic_search
 from backend.mass_estimator import estimate_mass_com_for_part
 from backend.statics_solver import solve_reactions
 from backend.stress_analysis import enrich_reactions_with_stress
+from backend import build_store
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -165,6 +166,12 @@ class ForceRequest(BaseModel):
     link_name: str
     force: list
     position: list = [0, 0, 0]
+
+class BuildPutRequest(BaseModel):
+    """整份草稿的后台同步写入。data 为前端 persist 序列化串（后端不解析其内部结构）。
+    client_ts 为前端落定时间戳（毫秒），用于 last-write-wins 排序。"""
+    data: str
+    client_ts: float
 
 class LDrawPort(BaseModel):
     name: str
@@ -785,6 +792,29 @@ async def apply_force(req: ForceRequest):
         await asyncio.to_thread(engine.apply_user_force, req.link_name, req.force, req.position)
         return {"status": "success"}
     return {"status": "ignored", "msg": "System must be in SIMULATION mode to apply physics forces."}
+
+# --- 草稿持久化（Layer 2：跨设备防丢兜底）---
+
+@app.put("/api/builds/{build_id}")
+async def put_build(build_id: str, req: BuildPutRequest):
+    """后台同步：前端把整份草稿 PUT 到后端。本地优先，这里只做异地兜底。
+    SQLite 调用为同步阻塞，挪到线程池避免卡住 asyncio 主循环。"""
+    return await asyncio.to_thread(
+        build_store.put_build, build_id, req.data, req.client_ts
+    )
+
+@app.get("/api/builds/{build_id}")
+async def get_build(build_id: str):
+    """拉回某份草稿（设备/浏览器数据丢失后的恢复）。"""
+    result = await asyncio.to_thread(build_store.get_build, build_id)
+    if result is None:
+        return {"status": "not_found"}
+    return {"status": "ok", **result}
+
+@app.get("/api/builds")
+async def list_builds():
+    """列出全部已同步草稿元信息（恢复 UI 用）。"""
+    return {"status": "ok", "builds": await asyncio.to_thread(build_store.list_builds)}
 
 # --- WebSocket ---
 

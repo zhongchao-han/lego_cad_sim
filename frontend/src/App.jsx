@@ -10,6 +10,7 @@ import { PartLibraryPanel } from './components/PartLibraryPanel';
 import { StagingTrayPanel } from './components/StagingTrayPanel';
 import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
+import { DraftHistoryPanel } from './components/DraftHistoryPanel';
 import { PartSearchDialog } from './components/PartSearchDialog';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary';
 import { WebGLRecoveryWatcher } from './components/WebGLRecoveryWatcher';
@@ -202,6 +203,7 @@ function App() {
       
       
       <LogPanel />
+      <DraftHistoryPanel />
       <DebugOverlay />
 
       <RenderErrorBoundary 

@@ -4,14 +4,17 @@ declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     __STORE__: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    __PERSIST__: any;
   }
 }
 
 /**
- * E3 — localStorage reload (zustand persist 持久化端到端)
+ * E3 — IndexedDB reload (zustand persist 防损坏持久化端到端)
  *
- * store.ts L1718-1758 配置 persist middleware：
+ * store.ts 配置 persist middleware：
  *   key: 'lego-cad-assembly-storage'
+ *   storage: 防损坏 IndexedDB 双槽适配器（persistence/safeStorage.ts）
  *   partialize: parts / connections(Set→Array) / occupiedPorts /
  *               activeColorCode / cameraTarget / partUsages /
  *               hiddenParts(Set→Array)
@@ -22,8 +25,9 @@ declare global {
  *           / view / mode / clipboard 等交互态。
  *
  * 测试核心三个持久化字段 + 临时字段 reset + 'State rehydrated' log。
+ * 注意：写入经 debounce（800ms），故注入后调 __PERSIST__.flush() 等落盘再 reload。
  */
-test.describe('Persistence — E3 localStorage reload', () => {
+test.describe('Persistence — E3 IndexedDB reload', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/search/key', (route) =>
@@ -39,10 +43,17 @@ test.describe('Persistence — E3 localStorage reload', () => {
 
     await page.goto('/');
     await page.waitForFunction(() => window.__STORE__ !== undefined);
-    // Playwright 默认每个 test 拿 fresh context（含 fresh localStorage），
-    // 但显式清一下兜底；写在 goto 之后避免覆盖到 zustand persist 第一次
-    // hydrate（hydrate 一次会读现有 storage 然后 set，clear 再注入更稳）。
-    await page.evaluate(() => localStorage.clear());
+    // Playwright 默认每个 test 拿 fresh context（含 fresh IndexedDB），
+    // 但显式删一下兜底，避免上一轮残留污染 hydrate。
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase('lego-cad-persist');
+        req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      });
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.__STORE__ !== undefined);
     await page.waitForTimeout(200);
   });
 
@@ -100,6 +111,9 @@ test.describe('Persistence — E3 localStorage reload', () => {
     expect(pre.hiddenHasB).toBe(true);
     expect(pre.phase).toBe('SOURCE_LOCKED');
     expect(pre.hasSelectedPort).toBe(true);
+
+    // ── 等防损坏存储把 debounced 写入落盘（双槽 + checksum）再 reload ──────
+    await page.evaluate(() => window.__PERSIST__.flush());
 
     // ── reload：触发 zustand persist rehydrate ────────────────────────────
     // page.route 在 navigation 之间保留（Playwright 文档保证）。

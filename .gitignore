@@ -57,6 +57,9 @@ debug_*
 *.bak_*
 dev_backend.log
 
+# 草稿持久化运行时 DB（Layer 2 后端 builds 存储，运行时自建，勿提交）
+data/builds.db
+
 # Generated 3D Assets and Thumbnails
 *.glb
 data/custom_assets/thumbnails/*.png
