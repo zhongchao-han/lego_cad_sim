@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { CameraControls } from '@react-three/drei';
+import { registerCameraGroundAxesProvider } from './utils/cameraGroundAxes';
 
 /**
  * 通用相机控制器组件 (CameraController)
@@ -35,6 +36,33 @@ export const CameraController: React.FC<CameraControllerProps> = ({
       controlsRef.current.setTarget(target[0], target[1], target[2], true);
     }
   }, [target]);
+
+  // 把相机地面方向暴露给键盘 dispatcher（方向键平移跟随视角，见 cameraGroundAxes.ts）。
+  // 惰性读 matrixWorld：按键时才算，零 per-frame 开销。
+  useEffect(() => {
+    registerCameraGroundAxesProvider(() => {
+      const cam = controlsRef.current?.camera;
+      if (!cam) return null;
+      const e = cam.matrixWorld.elements;
+      // 相机 local +X（屏幕右）投影到地面。无 roll 的轨道相机里它恒为水平，即便俯视也稳定。
+      let rx = e[0], rz = e[2];
+      const rlen = Math.hypot(rx, rz);
+      if (rlen < 1e-6) return null;
+      rx /= rlen; rz /= rlen;
+      // 视线方向（local -Z）投影 = 屏幕「前/深处」。
+      let fx = -e[8], fz = -e[10];
+      let flen = Math.hypot(fx, fz);
+      if (flen < 1e-6) {
+        // 正俯视时视线≈竖直、投影退化 → 用相机 local +Y（屏幕上方）投影兜底。
+        fx = e[4]; fz = e[6];
+        flen = Math.hypot(fx, fz);
+        if (flen < 1e-6) return null;
+      }
+      fx /= flen; fz /= flen;
+      return { right: [rx, rz], forward: [fx, fz] };
+    });
+    return () => registerCameraGroundAxesProvider(null);
+  }, []);
 
   return (
       <CameraControls 

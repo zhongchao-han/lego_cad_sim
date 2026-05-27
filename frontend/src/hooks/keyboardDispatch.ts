@@ -27,6 +27,7 @@
 import { InteractionPhase } from '../types';
 import { fitForSlide, getSlideStepFactor } from '../utils/fitMath';
 import type { SelectedPortInfo } from '../types';
+import type { GroundAxes } from '../utils/cameraGroundAxes';
 
 const LDU = 0.0004; // 1 LDraw unit in meters（跟 store / SiteGizmo 同源）
 
@@ -72,6 +73,9 @@ export interface DispatcherDeps {
   translateSelectedGroup: (delta: [number, number, number]) => void;
   /** 树模型单件平移：只动选中件的子树，地基/祖先不动，落定自动吸附重连。 */
   translateSelectedSingle: (delta: [number, number, number]) => void;
+  /** 当前相机在地面上的 右/前 方向（方向键平移跟随视角）。无相机/测试时可缺省 →
+   *  退回固定世界轴。见 utils/cameraGroundAxes.ts。 */
+  getCameraGroundAxes?: () => GroundAxes | null;
   commitFreePlacing: (target: undefined) => void;
   commitAxialSliding: () => void;
   updateSlideOffset: (offset: number, shift: boolean) => void;
@@ -141,6 +145,40 @@ const NUDGE_FINE_M = 4 * LDU;
 const nudge = (d: DispatcherDeps, delta: [number, number, number]): void => {
   if (d.isSingleSelection()) d.translateSelectedSingle(delta);
   else d.translateSelectedGroup(delta);
+};
+
+/** 屏幕方向 → 地面世界轴平移 delta（米）。
+ *
+ *  旋转操作桌面后，方向键应按**屏幕**方向移动零件。但 LEGO 必须落在 stud 网格上，
+ *  连续的相机相对向量会让零件走斜线脱网 → 改为**吸附到最接近的世界轴(±X/±Z)**：
+ *  既跟随视角（视角每转 90° 映射跟着转），又保持网格对齐。
+ *
+ *  无相机信息（初始化/单测缺省 getCameraGroundAxes）→ 退回原固定世界轴语义：
+ *  left=-X, right=+X, up(away)=-Z, down(toward)=+Z。 */
+const screenNudgeDelta = (
+  d: DispatcherDeps,
+  dir: 'left' | 'right' | 'up' | 'down',
+  step: number,
+): [number, number, number] => {
+  const axes = d.getCameraGroundAxes?.() ?? null;
+  if (!axes) {
+    switch (dir) {
+      case 'left':  return [-step, 0, 0];
+      case 'right': return [step, 0, 0];
+      case 'up':    return [0, 0, -step];
+      case 'down':  return [0, 0, step];
+    }
+  }
+  // 取屏幕方向对应的地面向量（up = 进画面深处 = forward）。
+  const v: [number, number] =
+    dir === 'right' ? axes.right :
+    dir === 'left'  ? [-axes.right[0], -axes.right[1]] :
+    dir === 'up'    ? axes.forward :
+                      [-axes.forward[0], -axes.forward[1]];
+  // 吸附到最接近的世界轴：比较 |x| 与 |z|，大的那个定轴，符号定方向。
+  return Math.abs(v[0]) >= Math.abs(v[1])
+    ? [Math.sign(v[0]) * step, 0, 0]
+    : [0, 0, Math.sign(v[1]) * step];
 };
 
 // ───── KEYMAP — 按优先级降序声明 ─────────────────────────────────────────────
@@ -371,7 +409,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      nudge(d, [-s, 0, 0]);
+      nudge(d, screenNudgeDelta(d, 'left', s));
     },
   },
   {
@@ -380,7 +418,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      nudge(d, [s, 0, 0]);
+      nudge(d, screenNudgeDelta(d, 'right', s));
     },
   },
   {
@@ -389,7 +427,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      nudge(d, [0, 0, -s]);
+      nudge(d, screenNudgeDelta(d, 'up', s));
     },
   },
   {
@@ -398,7 +436,7 @@ export const KEYMAP: KeymapEntry[] = [
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
-      nudge(d, [0, 0, s]);
+      nudge(d, screenNudgeDelta(d, 'down', s));
     },
   },
 ];
