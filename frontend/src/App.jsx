@@ -7,7 +7,6 @@ import Scene from './Scene';
 import { VerificationWorkbench } from './VerificationWorkbench.tsx';
 
 import { PartLibraryPanel } from './components/PartLibraryPanel';
-import { StagingTrayPanel } from './components/StagingTrayPanel';
 import { PartPreviewOverlay } from './components/PartPreviewOverlay';
 import { LogPanel } from './components/LogPanel';
 import { DraftHistoryPanel } from './components/DraftHistoryPanel';
@@ -79,11 +78,8 @@ function AssemblyUI() {
 
       <div className="absolute top-0 bottom-7 left-0 flex pointer-events-none z-10">
         <div className="pointer-events-auto flex flex-col w-72 shadow-2xl bg-white border-r border-slate-200 h-full overflow-hidden">
-          <div className="flex-1 min-h-0 border-b border-slate-100 overflow-y-auto">
-             <PartLibraryPanel />
-          </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
-             <StagingTrayPanel />
+             <PartLibraryPanel />
           </div>
         </div>
       </div>
@@ -147,7 +143,6 @@ function App() {
   const abortCurrentInteraction = useStore((state) => state.abortCurrentInteraction);
   const deselectAll = useStore((state) => state.deselectAll);
   const interactionPhase = useStore((state) => state.interactionPhase);
-  const addStagedPart = useStore((state) => state.addStagedPart);
   const previewPart = useStore((state) => state.previewPart);
 
   // 搜索面板开/关状态。Issue #64 #1：从局部 useState 提到 store，让
@@ -230,9 +225,8 @@ function App() {
           onSelectPart={(partNum) => {
             if (view === 'EDITOR') {
               const partId = partNum + ".dat";
-              // 添加到暂存区，并同时激活大弹窗预览模式（转盘整体放置由预览面板里的
-              // 「Drop to Ground」按 turntableAssembly 对表分流，这里与普通件一致）。
-              addStagedPart?.({ part_id: partId });
+              // 激活大弹窗预览模式（转盘整体放置由预览面板里的「Drop to Ground」
+              // 按 turntableAssembly 对表分流，这里与普通件一致）。
               previewPart?.(partId);
             } else {
               console.log(`[Verify View] Selected Part: ${partNum}`);

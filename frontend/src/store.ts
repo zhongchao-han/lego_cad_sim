@@ -31,7 +31,6 @@ import {
   FreePlacingProjectionMode
 } from './types';
 import { isValidTransition } from './interactionFSM';
-import { StagingGrid } from './staging';
 import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyCommand } from './historyStack';
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
@@ -131,7 +130,6 @@ interface StoreState {
   previewPartId: string | null;
   canUndo: boolean;
   canRedo: boolean;
-  stagingGrid: StagingGrid;
   snapPreState: {
     movedPartIds: string[];
     prevPositions: Record<string, { position: Vec3; quaternion: Quat }>;
@@ -333,7 +331,6 @@ interface StoreState {
   setBlocked: (report: InterferenceReport) => void;
   setPhase: (phase: InteractionPhase) => void;
   previewPart: (id: string | null) => void;
-  stagePart: (id: string) => void;
   commitAxialSliding: () => void;
   focusCameraOnSelected: () => void;
   startFreePlacing: (
@@ -538,7 +535,6 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'previewPartId',
   'canUndo',
   'canRedo',
-  'stagingGrid',
   'snapPreState',
   'continuousPlacementSource',
   'logs',
@@ -637,7 +633,6 @@ export const useStore = create<StoreState>()(
   previewPartId: null,
   canUndo: false,
   canRedo: false,
-  stagingGrid: new StagingGrid(),
   snapPreState: null,
   continuousPlacementSource: null,
 
@@ -730,7 +725,6 @@ export const useStore = create<StoreState>()(
 
   reset: () => {
       get().addLog("Store reset to default state.");
-      get().stagingGrid.clearAll();
       set({
         parts: {},
         connections: {},
@@ -1055,7 +1049,7 @@ export const useStore = create<StoreState>()(
   },
 
   snapParts: async (source, target, slideOffset = 0, shiftKey = false) => {
-    const { parts, connections, stagingGrid, occupiedPorts } = get();
+    const { parts, connections, occupiedPorts } = get();
     const targetPart = parts[target.partId];
     if (!targetPart || targetPart.zone !== ZoneType.ACTIVE_ARENA) return false;
     // 修自 issue #66：calculateClampedOffset 在生产路径接通。
@@ -1163,8 +1157,6 @@ export const useStore = create<StoreState>()(
       };
     });
 
-    stagingGrid.releaseSlot(source.partId);
-
     const newConnections = { ...connections };
     [source.partId, target.partId].forEach(id => { if (!newConnections[id]) newConnections[id] = new Set(); });
     newConnections[source.partId].add(target.partId);
@@ -1263,7 +1255,7 @@ export const useStore = create<StoreState>()(
       // 罕见竞态：用户在 axios.then 之前就触发 commitAxialSliding（snapPreState
       // 已被消费为 SnapCommand 后置 null）。此时退化为"只更新当前状态、不进入
       // undo 栈"——AutoLatch 边在状态里持续存在 (功能正确)，仅丢失专属撤销步骤；
-      // 用户后续删除任一相关零件时仍会通过 stagePart/deletePart 的级联清理走
+      // 用户后续删除任一相关零件时仍会通过 deletePart 的级联清理走
       // 正常路径。
       //
       // 幂等性：写入前检查 connections.has(peer) 与 occupiedPorts[id][key] 是否
@@ -2777,139 +2769,6 @@ export const useStore = create<StoreState>()(
       continuousPlacementSource: null // 清除连续放置状态
     });
   },
-  stagePart: (id) => {
-    const p = get().parts[id];
-    if (p) {
-        // 记录操作前的状态，以便撤销
-        const prevPartState = JSON.parse(JSON.stringify(p)) as PartState;
-        const prevConnections = get().connections[id] ? Array.from(get().connections[id]) : [];
-        const removedConns: Array<{ from: string; to: string }> = [];
-        prevConnections.forEach(target => {
-            removedConns.push({ from: id, to: target });
-        });
-
-        // 暂存零件被移走时，相关端口占用条目（自身全部 + 对端指向它的反向条目）需一并撤销，
-        // 以便对端的孔重新进入"可拾取"状态。
-        const curOcc = get().occupiedPorts;
-        const removedOcc: Record<string, Record<string, string>> = {};
-        if (curOcc[id] && Object.keys(curOcc[id]).length > 0) {
-            removedOcc[id] = { ...curOcc[id] };
-        }
-        Object.keys(curOcc).forEach(peerId => {
-            if (peerId === id) return;
-            const matched: Record<string, string> = {};
-            Object.entries(curOcc[peerId]).forEach(([k, v]) => {
-                if (v === id) matched[k] = v;
-            });
-            if (Object.keys(matched).length > 0) removedOcc[peerId] = matched;
-        });
-
-        const clearOccupied = () => set(state => {
-            const ro: OccupiedPortMap = { ...state.occupiedPorts };
-            Object.entries(removedOcc).forEach(([partId, kvs]) => {
-                const cur = ro[partId];
-                if (!cur) return;
-                const cleaned = { ...cur };
-                Object.keys(kvs).forEach(k => delete cleaned[k]);
-                if (Object.keys(cleaned).length === 0) delete ro[partId];
-                else ro[partId] = cleaned;
-            });
-            delete ro[id];
-            return { occupiedPorts: ro };
-        });
-
-        const restoreOccupied = () => set(state => {
-            const ro: OccupiedPortMap = { ...state.occupiedPorts };
-            Object.entries(removedOcc).forEach(([partId, kvs]) => {
-                ro[partId] = { ...(ro[partId] || {}), ...kvs };
-            });
-            return { occupiedPorts: ro };
-        });
-
-        get().addLog(`Staging part: ${id}`);
-        const slot = get().stagingGrid.assign(id);
-        if (!slot) {
-            get().addLog(`Staging tray FULL. Cannot stage ${id}`, 'ERROR');
-            return;
-        }
-
-        const newPos = slot.worldPosition;
-
-        const executeStage = () => {
-            const currentSlot = get().stagingGrid.assign(id);
-            if (currentSlot) {
-                get().updatePartState(id, {
-                    zone: ZoneType.STAGED,
-                    position: currentSlot.worldPosition as Vec3,
-                    quaternion: [0, 0, 0, 1] as Quat
-                });
-            }
-            set(state => {
-                const newConns = { ...state.connections };
-                delete newConns[id];
-                Object.keys(newConns).forEach(targetId => {
-                    if (newConns[targetId].has(id)) {
-                        const nextSet = new Set(newConns[targetId]);
-                        nextSet.delete(id);
-                        newConns[targetId] = nextSet;
-                    }
-                });
-                return { connections: newConns };
-            });
-            clearOccupied();
-        };
-
-        const undoStage = () => {
-            get().stagingGrid.releaseSlot(id);
-            get().updatePartState(id, prevPartState);
-            set(state => {
-                const newConns = { ...state.connections };
-                removedConns.forEach(c => {
-                    if (!newConns[c.from]) newConns[c.from] = new Set();
-                    if (!newConns[c.to]) newConns[c.to] = new Set();
-                    newConns[c.from].add(c.to);
-                    newConns[c.to].add(c.from);
-                });
-                return { connections: newConns };
-            });
-            restoreOccupied();
-        };
-
-        // 立即执行并入栈
-        get().updatePartState(id, {
-            zone: ZoneType.STAGED,
-            position: newPos as Vec3,
-            quaternion: [0, 0, 0, 1] as Quat // 重置为水平
-        });
-
-        set(state => {
-            const newConns = { ...state.connections };
-            // 清除自己的
-            delete newConns[id];
-            // 从邻居中删除自己
-            Object.keys(newConns).forEach(targetId => {
-                if (newConns[targetId].has(id)) {
-                    const nextSet = new Set(newConns[targetId]);
-                    nextSet.delete(id);
-                    newConns[targetId] = nextSet;
-                }
-            });
-            return { connections: newConns };
-        });
-        clearOccupied();
-
-        const snap: TopologySnapshot = {
-            addedParts: {},
-            removedParts: {},
-            addedConnections: [],
-            removedConnections: removedConns,
-            removedOccupiedPorts: removedOcc,
-        };
-        const cmd = createTopologyCommand('STAGE', snap, executeStage, undoStage);
-        _history.push(cmd);
-        set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
-    }
-  }
 }), {
   name: 'lego-cad-assembly-storage',
   // 防损坏存储：IndexedDB 双槽 + checksum + 读失败回退（详见 persistence/safeStorage.ts）。
@@ -2935,12 +2794,6 @@ export const useStore = create<StoreState>()(
   },
   onRehydrateStorage: () => (state) => {
     if (state) {
-      state.stagingGrid.clearAll();
-      Object.entries(state.parts).forEach(([id, p]) => {
-        if (p.zone === ZoneType.STAGED) {
-          state.stagingGrid.assign(id);
-        }
-      });
       state.addLog('State rehydrated from local storage.');
     }
   }

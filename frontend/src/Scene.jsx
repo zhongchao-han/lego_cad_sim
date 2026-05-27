@@ -21,16 +21,11 @@ const LegoPart = memo(({ id }) => {
     const handlePortClickStore = useStore((s) => s.handlePortClick);
     const setHoveredPort = useStore((s) => s.setHoveredPort);
     const setFocus = useStore((s) => s.setFocus);
-    const stagePart = useStore((s) => s.stagePart);
 
     if (!state) return null;
 
     const onDoubleClick = () => {
-        if (mode === 'ASSEMBLY' && state.zone === ZoneType.ACTIVE_ARENA) {
-            stagePart(id);
-        } else {
-            setFocus({ partId: id, mode: 'part' });
-        }
+        setFocus({ partId: id, mode: 'part' });
     };
 
     return (

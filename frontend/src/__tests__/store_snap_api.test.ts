@@ -66,7 +66,7 @@ describe('store.snapParts — 后端 API 联调', () => {
           position: [0.1, 0, 0],
           quaternion: [0, 0, 0, 1],
           colorCode: 7,
-          zone: ZoneType.STAGED,
+          zone: ZoneType.ACTIVE_ARENA,
         },
         'target.dat': {
           ldrawId: 'target.dat',

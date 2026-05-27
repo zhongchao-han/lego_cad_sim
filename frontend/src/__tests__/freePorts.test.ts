@@ -174,10 +174,10 @@ describe('countAssemblyFreePortsCheap', () => {
     expect(countAssemblyFreePortsCheap(parts, catalog, occupied, ZoneType.ACTIVE_ARENA)).toBe(0);
   });
 
-  it('case 16: 非 ACTIVE_ARENA 零件被排除 (STAGED 不计入)', () => {
+  it('case 16: 非 ACTIVE_ARENA 零件被排除 (PREVIEW 不计入)', () => {
     const parts = {
       p1: { ldrawId: 'A.dat', zone: ZoneType.ACTIVE_ARENA },
-      p2: { ldrawId: 'A.dat', zone: ZoneType.STAGED },
+      p2: { ldrawId: 'A.dat', zone: ZoneType.PREVIEW },
     };
     const catalog = { 'A.dat': { portCount: 4 } };
     expect(countAssemblyFreePortsCheap(parts, catalog, {}, ZoneType.ACTIVE_ARENA)).toBe(4);

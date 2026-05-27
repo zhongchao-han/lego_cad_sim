@@ -244,7 +244,7 @@ describe('countAssemblyTotalPlugsCheap', () => {
   it('case 16: 非 ACTIVE_ARENA 零件不计入', () => {
     const parts = {
       p1: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },
-      p2: { ldrawId: '170.dat', zone: ZoneType.STAGED },
+      p2: { ldrawId: '170.dat', zone: ZoneType.PREVIEW },
     };
     const catalog = { '170.dat': { plugCount: 2 } };
     expect(countAssemblyTotalPlugsCheap(parts, catalog, ZoneType.ACTIVE_ARENA)).toBe(2);
@@ -358,10 +358,10 @@ describe('countAssemblyFreePlugsCheap', () => {
     ).toBe(5);
   });
 
-  it('case 26: 非 ACTIVE_ARENA 零件被排除 (STAGED 不计入)', () => {
+  it('case 26: 非 ACTIVE_ARENA 零件被排除 (PREVIEW 不计入)', () => {
     const parts = {
       a: { ldrawId: '170.dat', zone: ZoneType.ACTIVE_ARENA },
-      b: { ldrawId: '170.dat', zone: ZoneType.STAGED },
+      b: { ldrawId: '170.dat', zone: ZoneType.PREVIEW },
     };
     const catalog = { '170.dat': { portCount: 8, plugCount: 2 } };
     expect(

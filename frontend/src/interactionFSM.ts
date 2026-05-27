@@ -40,7 +40,7 @@ export function transition(from: InteractionPhase, to: InteractionPhase): Intera
  * 根据用户动作推断目标阶段。
  */
 export const InteractionEvents = {
-  /** 用户点击侧边栏或暂存区零件，开启预览 */
+  /** 用户点击侧边栏零件，开启预览 */
   previewPart: (current: InteractionPhase): InteractionPhase =>
     transition(current, InteractionPhase.PREVIEWING),
 
