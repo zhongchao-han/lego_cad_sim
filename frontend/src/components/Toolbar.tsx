@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, type ComponentType } from 'react';
 import {
   RotateCcw, RotateCw, FlipVertical2, Palette, Copy, Trash2,
-  Undo2, Redo2, Search, Zap, Unlink, Link2,
+  Undo2, Redo2, Search, Zap, Unlink, Link2, History,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { InteractionPhase } from '../types';
@@ -38,6 +38,8 @@ export function Toolbar() {
   const setSearchOpen = useStore((s) => s.setSearchOpen);
   const setShowReactionForces = useStore((s) => s.setShowReactionForces);
   const recolorSelected = useStore((s) => s.recolorSelected);
+  const showDraftHistory = useStore((s) => s.showDraftHistory);
+  const toggleDraftHistory = useStore((s) => s.toggleDraftHistory);
 
   const [recolorOpen, setRecolorOpen] = useState(false);
 
@@ -137,6 +139,8 @@ export function Toolbar() {
         onClick={() => setSearchOpen(true)} testid="tb-search" />
       <ToolBtn icon={Zap} label="受力可视化" kbd="" active={showReactionForces}
         onClick={() => setShowReactionForces(!showReactionForces)} testid="tb-forces" />
+      <ToolBtn icon={History} label="草稿历史（自动快照 / 跨设备恢复）" kbd="" active={showDraftHistory}
+        onClick={() => toggleDraftHistory()} testid="tb-draft-history" />
     </div>
   );
 }

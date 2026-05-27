@@ -1,6 +1,20 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import axios from 'axios';
+import debounce from 'lodash.debounce';
+import { safeStorage, flushSafeStorage } from './persistence/safeStorage';
+import {
+  captureSnapshot,
+  listSnapshots,
+  restoreSnapshot,
+  deleteSnapshot,
+} from './persistence/snapshots';
+import {
+  markDirtyAndSync,
+  startBackendSync,
+  pullFromBackend,
+  listBackendBuilds,
+} from './persistence/backendSync';
 import {
   InteractionPhase,
   SelectionLevel,
@@ -138,6 +152,7 @@ interface StoreState {
   // 日志系统
   logs: StoreLog[];
   showLogPanel: boolean;
+  showDraftHistory: boolean;
   isContextLost: boolean;
 
   /** Cmd+K 全局搜索面板的开/关状态。从 App.jsx 局部 useState 提到 store
@@ -234,6 +249,7 @@ interface StoreState {
   addLog: (msg: string, type?: StoreLog['type']) => void;
   clearLogs: () => void;
   toggleLogPanel: (show?: boolean) => void;
+  toggleDraftHistory: (show?: boolean) => void;
   // ── 命名约定（issue #64 #2 收口）──────────────────────────────────────────
   // boolean state 用 `is*` 前缀；其 setter **去掉 is**，名字表达 intent 而非
   // 字段名。全 store 一致：isSearchOpen→setSearchOpen / isContextLost→
@@ -527,6 +543,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'continuousPlacementSource',
   'logs',
   'showLogPanel',
+  'showDraftHistory',
   'isContextLost',
   'isSearchOpen',
   'portSelectionLevel',
@@ -629,6 +646,7 @@ export const useStore = create<StoreState>()(
   
   logs: [],
   showLogPanel: false,
+  showDraftHistory: false,
   isContextLost: false,
   isSearchOpen: false,
   portSelectionLevel: SelectionLevel.INDIVIDUAL,
@@ -1395,6 +1413,7 @@ export const useStore = create<StoreState>()(
 
   clearLogs: () => set({ logs: [] }),
   toggleLogPanel: (show) => set(s => ({ showLogPanel: show !== undefined ? show : !s.showLogPanel })),
+  toggleDraftHistory: (show) => set(s => ({ showDraftHistory: show !== undefined ? show : !s.showDraftHistory })),
   
   setContextLost: (lost: boolean) => {
       get().addLog(`WebGL Context ${lost ? 'Lost' : 'Restored'}`, lost ? 'ERROR' : 'INFO');
@@ -2893,6 +2912,9 @@ export const useStore = create<StoreState>()(
   }
 }), {
   name: 'lego-cad-assembly-storage',
+  // 防损坏存储：IndexedDB 双槽 + checksum + 读失败回退（详见 persistence/safeStorage.ts）。
+  // 取代旧的 localStorage —— 容量更大、不随"清缓存"被误删、解析失败不再清空草稿。
+  storage: createJSONStorage(() => safeStorage),
   partialize: (state) => persistShape(state),
   // Rehydrate 时需要把 connections 里的 Array 转回 Set
   merge: (persistedState: unknown, currentState: StoreState) => {
@@ -2928,6 +2950,45 @@ export const useStore = create<StoreState>()(
 if (typeof window !== 'undefined') {
   // @ts-ignore
   window.__STORE__ = useStore;
+}
+
+// ---------------------------------------------------------------------------
+// 草稿持久化触发器（Layer 1 自动快照 + Layer 2 后台同步）
+// ---------------------------------------------------------------------------
+// 主存储（persist）已在每次改动自动写本地双槽。这里额外在"结构性改动"后：
+//  1. debounce 8s 拍一份历史快照（保留最近 N 份，供回滚）。
+//  2. 标记 dirty 触发后台同步到后端（本地优先，不阻塞）。
+// 仅当 parts / connections 引用变化才触发，避免 hover/选择等瞬态改动空转。
+if (typeof window !== 'undefined') {
+  startBackendSync();
+
+  const _autoSnapshot = debounce(() => {
+    void captureSnapshot({ auto: true, label: '自动快照' });
+  }, 8000);
+
+  let _prevParts = useStore.getState().parts;
+  let _prevConns = useStore.getState().connections;
+  useStore.subscribe((state) => {
+    if (state.parts !== _prevParts || state.connections !== _prevConns) {
+      _prevParts = state.parts;
+      _prevConns = state.connections;
+      _autoSnapshot();
+      markDirtyAndSync();
+    }
+  });
+
+  // 恢复/快照 API：供 UI（草稿历史面板）、E2E 与控制台手动恢复使用。
+  // restore/pull 写回主槽后需 reload 让 persist 重新 hydrate。
+  // @ts-ignore
+  window.__PERSIST__ = {
+    flush: flushSafeStorage,
+    captureSnapshot,
+    listSnapshots,
+    restoreSnapshot,
+    deleteSnapshot,
+    pullFromBackend,
+    listBackendBuilds,
+  };
 }
 
 // ---------------------------------------------------------------------------
