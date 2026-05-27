@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { SelectionLevel } from '../types';
 import { isTurntablePair } from '../utils/turntableAssembly';
 import { dispatchKey, type DispatcherDeps } from './keyboardDispatch';
+import { getCameraGroundAxes } from '../utils/cameraGroundAxes';
 
 /**
  * 全局键盘 dispatcher（issue #64 #1 / C.1 单 listener；#64 C.2 表驱动重构）。
@@ -68,6 +69,7 @@ export function useKeyboardDispatcher() {
       flipSelected: useStore.getState().flipSelected,
       translateSelectedGroup: useStore.getState().translateSelectedGroup,
       translateSelectedSingle: useStore.getState().translateSelectedSingle,
+      getCameraGroundAxes,
       commitFreePlacing: useStore.getState().commitFreePlacing,
       commitAxialSliding: useStore.getState().commitAxialSliding,
       updateSlideOffset: useStore.getState().updateSlideOffset,
