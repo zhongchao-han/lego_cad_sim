@@ -59,7 +59,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
         if (flen < 1e-6) return null;
       }
       fx /= flen; fz /= flen;
-      return { right: [rx, rz], forward: [fx, fz] };
+      // 视线方向(世界系,单位向量)=相机 local -Z：col2=(e[8],e[9],e[10]) 是 local +Z，
+      // 视线 = -localZ。供旋转绕「最接近视线的世界轴」用。
+      const viewDir: [number, number, number] = [-e[8], -e[9], -e[10]];
+      return { right: [rx, rz], forward: [fx, fz], viewDir };
     });
     return () => registerCameraGroundAxesProvider(null);
   }, []);

@@ -27,7 +27,7 @@
 import { InteractionPhase } from '../types';
 import { fitForSlide, getSlideStepFactor } from '../utils/fitMath';
 import type { SelectedPortInfo } from '../types';
-import type { GroundAxes } from '../utils/cameraGroundAxes';
+import { screenSpinAxisAngle, type GroundAxes } from '../utils/cameraGroundAxes';
 
 const LDU = 0.0004; // 1 LDraw unit in meters（跟 store / SiteGizmo 同源）
 
@@ -68,7 +68,7 @@ export interface DispatcherDeps {
   focusCameraOnSelected: () => void;
   rotateSelectedPart: (rad: number) => void;
   rotateSelectedGroup: (rad: number) => void;
-  rotateSelectedSingle: (rad: number) => void;
+  rotateSelectedSingle: (axis: [number, number, number], rad: number) => void;
   flipSelected: () => void;
   translateSelectedGroup: (delta: [number, number, number]) => void;
   /** 树模型单件平移：只动选中件的子树，地基/祖先不动，落定自动吸附重连。 */
@@ -393,15 +393,25 @@ export const KEYMAP: KeymapEntry[] = [
   // ── 已放置零件自由编辑（IDLE + 有选中零件）：[/] 只转选中的那一个零件
   //    （相对其余装配，转完自动微移重连 / 失败脱开），方向键平移整组。
   //    跟上面端口旋转按 phase 互斥（那些要 SOURCE_LOCKED/AXIAL_SLIDING）。
+  //    [=屏幕逆时针、]=屏幕顺时针，绕「最接近视线的世界轴」转（screenSpinAxisAngle），
+  //    跟左右平移吸附世界轴同理：看哪个面就在那个屏幕平面上顺/逆时针自转。
   {
     id: 'idle.rotate-single.ccw',
     match: (e, d) => e.key === '[' && canEditSelectedGroup(d),
-    run: (e, d) => { e.preventDefault(); d.rotateSelectedSingle(-Math.PI / 2); },
+    run: (e, d) => {
+      e.preventDefault();
+      const { axis, angle } = screenSpinAxisAngle('ccw', Math.PI / 2, d.getCameraGroundAxes?.() ?? null);
+      d.rotateSelectedSingle(axis, angle);
+    },
   },
   {
     id: 'idle.rotate-single.cw',
     match: (e, d) => e.key === ']' && canEditSelectedGroup(d),
-    run: (e, d) => { e.preventDefault(); d.rotateSelectedSingle(Math.PI / 2); },
+    run: (e, d) => {
+      e.preventDefault();
+      const { axis, angle } = screenSpinAxisAngle('cw', Math.PI / 2, d.getCameraGroundAxes?.() ?? null);
+      d.rotateSelectedSingle(axis, angle);
+    },
   },
   {
     id: 'idle.translate.left',

@@ -349,16 +349,32 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     ...over,
   });
 
-  it('case 27: IDLE+selection + [ → "idle.rotate-single.ccw" 只转选中件 -90°', () => {
+  // [/] = 屏幕逆/顺时针，绕「最接近视线的世界轴」转（screenSpinAxisAngle）。
+  // 无相机（默认/测试）退回俯视 viewDir=[0,-1,0]：轴=[0,-1,0]（指向屏幕里），]=+90°、[=-90°。
+  it('case 27: IDLE+selection + [（屏幕逆时针，俯视默认）→ "idle.rotate-single.ccw" → 绕[0,-1,0] -90°', () => {
     const deps = idleSel();
     expect(dispatchKey(kev({ key: '[' }), deps)).toBe('idle.rotate-single.ccw');
-    expect(deps.rotateSelectedSingle).toHaveBeenCalledWith(-Math.PI / 2);
+    expect(deps.rotateSelectedSingle).toHaveBeenCalledWith([0, -1, 0], -Math.PI / 2);
   });
 
-  it('case 28: IDLE+selection + ] → "idle.rotate-single.cw" 只转选中件 +90°', () => {
+  it('case 28: IDLE+selection + ]（屏幕顺时针，俯视默认）→ "idle.rotate-single.cw" → 绕[0,-1,0] +90°', () => {
     const deps = idleSel();
     expect(dispatchKey(kev({ key: ']' }), deps)).toBe('idle.rotate-single.cw');
-    expect(deps.rotateSelectedSingle).toHaveBeenCalledWith(Math.PI / 2);
+    expect(deps.rotateSelectedSingle).toHaveBeenCalledWith([0, -1, 0], Math.PI / 2);
+  });
+
+  it('case 28b: 旋转轴跟随视线——正对件(视线≈-Z) → [/] 绕世界 Z 轴自转(屏幕平面内)', () => {
+    const facingZ = idleSel({
+      getCameraGroundAxes: () => ({ right: [1, 0], forward: [0, -1], viewDir: [0, -0.4, -0.9] }),
+    });
+    dispatchKey(kev({ key: ']' }), facingZ); // 屏幕顺时针 → 绕指向屏幕里的 [0,0,-1] +90°
+    expect(facingZ.rotateSelectedSingle).toHaveBeenCalledWith([0, 0, -1], Math.PI / 2);
+
+    const facingZ2 = idleSel({
+      getCameraGroundAxes: () => ({ right: [1, 0], forward: [0, -1], viewDir: [0, -0.4, -0.9] }),
+    });
+    dispatchKey(kev({ key: '[' }), facingZ2); // 屏幕逆时针 → -90°
+    expect(facingZ2.rotateSelectedSingle).toHaveBeenCalledWith([0, 0, -1], -Math.PI / 2);
   });
 
   it('case 29: IDLE+selection + 方向键 → 平移整组（world X/Z，默认 20 LDU）', () => {
