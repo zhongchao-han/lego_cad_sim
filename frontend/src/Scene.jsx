@@ -428,32 +428,33 @@ export default function Scene() {
             
             {/* Outline Effect removed due to react-three/postprocessing Selection context infinite loop bug */}
 
-            {/* 宏观治理：使用程序化虚拟现实工作室，彻底脱离在线 CDN 依赖 */}
+            {/* 程序化虚拟摄影棚（无在线 CDN）。与缩略图生成器同配方：中性灰软箱 +
+                柔和主/补光，避免白色环境光把零件洗平、保留塑料质感与明暗层次。 */}
             <Environment frames={1} resolution={256}>
               <group>
-                {/* 模拟摄影棚软灯箱 (Soft Box) */}
+                {/* 模拟摄影棚软灯箱 (Soft Box) —— 中性灰，提升对比与立体感 */}
                 <mesh position={[0, 5, 0]} rotation={[Math.PI / 2, 0, 0]}>
                   <planeGeometry args={[10, 10]} />
-                  <meshBasicMaterial color="white" />
+                  <meshBasicMaterial color="#8a8a8a" />
                 </mesh>
                 <mesh position={[5, 0, 2]} rotation={[0, -Math.PI / 2, 0]}>
                   <planeGeometry args={[10, 10]} />
-                  <meshBasicMaterial color="white" />
+                  <meshBasicMaterial color="#8a8a8a" />
                 </mesh>
                 <mesh position={[-5, 0, -2]} rotation={[0, Math.PI / 2, 0]}>
                   <planeGeometry args={[10, 10]} />
-                  <meshBasicMaterial color="white" />
+                  <meshBasicMaterial color="#8a8a8a" />
                 </mesh>
               </group>
             </Environment>
-            
-            <ambientLight intensity={0.6} />
+
+            <ambientLight intensity={0.55} />
             <directionalLight
                 position={[0.8, 1.5, 1.2]}
-                intensity={2.0}
+                intensity={1.5}
                 castShadow
             />
-            <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.8} />
+            <directionalLight position={[-1.2, 0.8, -1.0]} intensity={0.45} />
 
             <CameraController target={cameraTarget} />
 
