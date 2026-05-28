@@ -72,7 +72,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     setup([[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]]);
     const q0 = [...useStore.getState().parts.P.quaternion];
 
-    useStore.getState().rotateSelectedSingle(Math.PI / 2);
+    useStore.getState().rotateSelectedSingle([0, 1, 0], Math.PI / 2);
 
     const st = useStore.getState();
     // 连接保持
@@ -86,7 +86,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
   it('沿 X 双点端口：转 90° 变沿 Z，微移无法复原 → 脱开（连接+占用双侧清除）', () => {
     setup([[A, 0, 0], [-A, 0, 0]]);
 
-    useStore.getState().rotateSelectedSingle(Math.PI / 2);
+    useStore.getState().rotateSelectedSingle([0, 1, 0], Math.PI / 2);
 
     const st = useStore.getState();
     // 连接断开（双向）
@@ -102,7 +102,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     const q0 = [...useStore.getState().parts.P.quaternion];
     const occP0 = { ...useStore.getState().occupiedPorts.P };
 
-    useStore.getState().rotateSelectedSingle(Math.PI / 2);
+    useStore.getState().rotateSelectedSingle([0, 1, 0], Math.PI / 2);
     expect(useStore.getState().connections.P?.has('Q') ?? false).toBe(false);
 
     useStore.getState().undo();
@@ -136,7 +136,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     const pinQ0 = [...useStore.getState().parts.pin.quaternion];
     const baseQ0 = [...useStore.getState().parts.base.quaternion];
 
-    useStore.getState().rotateSelectedSingle(Math.PI / 2);
+    useStore.getState().rotateSelectedSingle([0, 1, 0], Math.PI / 2);
 
     const st = useStore.getState();
     // 插销随板转了（姿态改变）
@@ -380,7 +380,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     resetStore();
     useStore.setState({ parts: { P: part('P.dat') }, partCatalog: { 'P.dat': { bboxCenter: [0, 0, 0] } } } as any);
     // selection.primaryId 为 null
-    expect(() => useStore.getState().rotateSelectedSingle(Math.PI / 2)).not.toThrow();
+    expect(() => useStore.getState().rotateSelectedSingle([0, 1, 0], Math.PI / 2)).not.toThrow();
     expect(useStore.getState().parts.P.quaternion).toEqual([0, 0, 0, 1]);
   });
 });

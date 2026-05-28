@@ -287,11 +287,13 @@ interface StoreState {
   rotateSelectedGroup: (angleRads: number) => void;
   /** 已放置零件自由编辑（IDLE + selection）：转「选中件 + 挂在其上的子装配」整体，
    *  相对「地基」（连通组里最大零件）。子装配随动、内部连接保持；只重连评估
-   *  子装配↔地基界面（对齐保持 / 微移复原 / 否则脱开）。可撤销。 */
-  rotateSelectedSingle: (angleRads: number) => void;
+   *  子装配↔地基界面（对齐保持 / 微移复原 / 否则脱开）。可撤销。
+   *  axis = 旋转轴（世界系，由调用方按当前视角选「最接近视线的世界轴」，见 cameraGroundAxes）。 */
+  rotateSelectedSingle: (axis: Vec3, angleRads: number) => void;
   /** 齿轮咬合联动：以 sourceId 绕自身轴转 deltaRad 为源，沿场景啮合图带动咬合的
-   *  齿轮/转盘按齿比反向转。由 rotateSelectedSingle 在转动齿轮/转盘后调用。可撤销。 */
-  _applyGearLinkage: (sourceId: string, deltaRad: number) => void;
+   *  齿轮/转盘按齿比反向转。仅当本次旋转轴 axis ≈ 选中件自身自转轴（即真在自转，
+   *  而非被甩动）时才联动。由 rotateSelectedSingle 在转动齿轮/转盘后调用。可撤销。 */
+  _applyGearLinkage: (sourceId: string, axis: Vec3, deltaRad: number) => void;
   /** 翻面：把「选中件 + 子装配」绕世界 X 轴翻转 180°（pivot = 包围盒中心），相对地基。
    *  翻面后若端口仍能对齐（自动微移）则保持连接，否则脱开。可撤销。 */
   flipSelected: () => void;
@@ -2446,41 +2448,46 @@ export const useStore = create<StoreState>()(
     get().addLog(`${opts.label}（选中件 ${primaryId}${withN}）${movePart}${detachPart}${attachPart}${keepPart}`, 'ACTION');
   },
 
-  rotateSelectedSingle: (angleRads: number) => {
-    // 绕选中件竖直轴(世界 Y)转「选中件子树」：用树模型切分（地基=最低件，永不跟动），
-    // 跟单件平移/翻面同一套规则。修复旧 bug：转大平板时若平板本身是连通组里体积最大件，
-    // 旧的 pickBasePart 会把它自己当地基 → 整组(含底板/地板)被一起转走。
+  rotateSelectedSingle: (axis: Vec3, angleRads: number) => {
+    // 绕给定世界轴 axis 转「选中件子树」：用树模型切分（地基=最低件，永不跟动），
+    // 跟单件平移/翻面同一套规则。axis 由调用方按当前视角选「最接近视线的世界轴」，
+    // 使旋转表现为当前屏幕平面内的顺/逆时针自转（看哪个面就转哪个面）。
+    // 修复旧 bug：转大平板时若平板本身是连通组里体积最大件，旧的 pickBasePart 会把它
+    // 自己当地基 → 整组(含底板/地板)被一起转走。
     const { selection } = get();
     const selectedIds = selection.allConnectedIds.length
       ? selection.allConnectedIds
       : (selection.primaryId ? [selection.primaryId] : []);
     get()._transformSelectedSubassembly(
-      (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, [0, 1, 0], angleRads),
+      (oldPose, pivot) => rotatePartAboutPivot(oldPose, pivot, axis, angleRads),
       {
-        autoMove: true, label: `绕 Y 轴旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°`,
+        autoMove: true, label: `旋转 ${(angleRads * 180 / Math.PI).toFixed(0)}°`,
         computeSplit: ({ comp, connections: conn, parts: ps, partCatalog: cat }) =>
           treeSplitMoving(comp, selectedIds, conn, ps, cat),
       },
     );
-    // 齿轮咬合联动：若选中件是齿轮/转盘且其自转轴≈世界 Y（本次绕 Y 转即它的自转），
+    // 齿轮咬合联动：若选中件是齿轮/转盘且本次旋转轴≈它自身自转轴（即真在自转），
     // 沿啮合图带动咬合的齿轮/转盘按齿比反向转（齿轮驱动转盘、转盘反驱齿轮同此路）。
-    if (selection.primaryId) get()._applyGearLinkage(selection.primaryId, angleRads);
+    if (selection.primaryId) get()._applyGearLinkage(selection.primaryId, axis, angleRads);
   },
 
   // 齿轮咬合联动：以 sourceId 绕自身轴转 deltaRad 为源，沿场景啮合图传播，
   // 把被带动齿轮/转盘各自绕其轴转对应增量（reverse 齿比）。单独可撤销命令。
   // 被带动件若是「转盘顶」（有底座邻居），则连同挂在其上的整个子装配绕转盘轴刚体
   // 一起转（排除底座侧）；普通齿轮仍只本体自转。
-  _applyGearLinkage: (sourceId: string, deltaRad: number) => {
+  _applyGearLinkage: (sourceId: string, axis: Vec3, deltaRad: number) => {
     const { parts, partCatalog, connections } = get();
     const src = parts[sourceId];
     if (!src) return;
     const srcMeta = partCatalog[src.ldrawId];
     if (!srcMeta?.toothCount) return; // 选中件不是齿轮/转盘 → 无联动
     if (isTurntableBase(src.ldrawId, srcMeta.name)) return; // 转盘底座不作驱动源
-    // 仅当选中件自转轴≈世界 Y 时联动（本次旋转是绕世界 Y；否则不是纯自转，跳过）。
-    const srcAxisWorld = getAxisWorld(src.quaternion as Quat, undefined, gearAxisLocalFor(src.ldrawId, srcMeta.name));
-    if (Math.abs(srcAxisWorld.y) < 0.999) return;
+    // 仅当本次旋转轴≈选中件自身自转轴时联动（即真在「绕自身轴自转」，而非被甩动）。
+    // dot 同时给出旋转方向相对 +srcAxisWorld 的符号，把 deltaRad 归一到该约定。
+    const srcAxisWorld = getAxisWorld(src.quaternion as Quat, undefined, gearAxisLocalFor(src.ldrawId, srcMeta.name)).clone().normalize();
+    const dot = axis[0] * srcAxisWorld.x + axis[1] * srcAxisWorld.y + axis[2] * srcAxisWorld.z;
+    if (Math.abs(dot) < 0.999) return; // 旋转轴与自转轴不平行 → 非自转，跳过
+    const spinDelta = deltaRad * Math.sign(dot);
 
     const gears: GearPart[] = [];
     Object.entries(parts).forEach(([pid, p]) => {
@@ -2494,7 +2501,7 @@ export const useStore = create<StoreState>()(
         axisLocal: gearAxisLocalFor(p.ldrawId, meta.name),
       });
     });
-    const driven = propagateGearMesh(gears, sourceId, deltaRad);
+    const driven = propagateGearMesh(gears, sourceId, spinDelta);
     if (driven.size === 0) return;
 
     const byId = new Map(gears.map(g => [g.partId, g]));

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store';
 import { InteractionPhase } from '../types';
+import { getCameraGroundAxes, screenSpinAxisAngle } from '../utils/cameraGroundAxes';
 
 /**
  * Toolbar — 顶部固定工具栏（UX 反馈：让用户一眼看到有哪些功能 + 快捷键，也能直接点）。
@@ -41,6 +42,12 @@ export function Toolbar() {
 
   const hasSel = interactionPhase === InteractionPhase.IDLE && primaryId !== null;
 
+  // [/] 与按钮同一套：绕「最接近视线的世界轴」做屏幕平面顺/逆时针自转（看哪个面就转哪个面）。
+  const spinSelected = (screen: 'cw' | 'ccw') => {
+    const { axis, angle } = screenSpinAxisAngle(screen, Math.PI / 2, getCameraGroundAxes());
+    rotateSelectedSingle(axis, angle);
+  };
+
   const selectedIds = useMemo(
     () => (allConnectedIds.length > 0 ? allConnectedIds : primaryId ? [primaryId] : []),
     [allConnectedIds, primaryId],
@@ -65,9 +72,9 @@ export function Toolbar() {
                  px-2 py-1.5 rounded-2xl shadow-xl border border-white/20 relative"
     >
       <ToolBtn icon={RotateCcw} label="逆时针旋转 90°" kbd="[" disabled={!hasSel}
-        onClick={() => rotateSelectedSingle(-Math.PI / 2)} testid="tb-rotate-ccw" />
+        onClick={() => spinSelected('ccw')} testid="tb-rotate-ccw" />
       <ToolBtn icon={RotateCw} label="顺时针旋转 90°" kbd="]" disabled={!hasSel}
-        onClick={() => rotateSelectedSingle(Math.PI / 2)} testid="tb-rotate-cw" />
+        onClick={() => spinSelected('cw')} testid="tb-rotate-cw" />
       <ToolBtn icon={FlipVertical2} label="翻面 180°" kbd="⇧F" disabled={!hasSel}
         onClick={() => flipSelected()} testid="tb-flip" />
 
