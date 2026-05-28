@@ -4,6 +4,7 @@ import { useGLTF, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import axios from 'axios';
 import { LDrawMeshRenderer } from './components/LDrawMeshRenderer';
+import { getDefaultColorCode } from './utils/partColorDefaults';
 
 const BACKEND_ORIGIN = ((import.meta as unknown as Record<string, Record<string, string>>).env?.['VITE_BACKEND_ORIGIN']) || 'http://127.0.0.1:8000';
 
@@ -90,26 +91,26 @@ function ModelViewer({ partId, meshUrl, onRendered }: { partId: string, meshUrl:
 
   return (
     <group>
-      {/* 软光源营造高质感 LDraw 预设阴影 - 调低强度以防过曝 */}
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[10, 20, 10]} intensity={1.1} castShadow />
-      <directionalLight position={[-10, 10, -10]} intensity={0.4} />
-      
+      {/* 软光源 + 中性环境：调暗以免把黑/深色件洗成灰白（白色 Environment 是主要过曝源）。 */}
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[10, 20, 10]} intensity={0.9} castShadow />
+      <directionalLight position={[-10, 10, -10]} intensity={0.3} />
+
       <LDrawMeshRenderer url={meshUrl} />
 
       <Environment frames={1} resolution={256}>
         <group>
           <mesh position={[0, 5, 0]} rotation={[Math.PI / 2, 0, 0]}>
             <planeGeometry args={[10, 10]} />
-            <meshBasicMaterial color="white" />
+            <meshBasicMaterial color="#666666" />
           </mesh>
           <mesh position={[5, 0, 2]} rotation={[0, -Math.PI / 2, 0]}>
             <planeGeometry args={[10, 10]} />
-            <meshBasicMaterial color="white" />
+            <meshBasicMaterial color="#666666" />
           </mesh>
           <mesh position={[-5, 0, -2]} rotation={[0, Math.PI / 2, 0]}>
             <planeGeometry args={[10, 10]} />
-            <meshBasicMaterial color="white" />
+            <meshBasicMaterial color="#666666" />
           </mesh>
         </group>
       </Environment>
@@ -159,8 +160,10 @@ export function ThumbnailGenerator() {
     addLog(`[FETCH] Resolving backend GLB for ${partId}...`);
     
     try {
-      // 改用 color=1 (经典乐高科技蓝)，提供极佳的几何对比度与工程感
-      const res = await axios.get(`${BACKEND_ORIGIN}/api/ldraw_part/${partId}?color=1`, { timeout: 30000 });
+      // 缩略图按该零件的固定真实色渲染（与库内放置后的颜色一致）；
+      // 库外件回退浅蓝灰。见 partColorDefaults / partColors.generated。
+      const color = getDefaultColorCode(partId, 71);
+      const res = await axios.get(`${BACKEND_ORIGIN}/api/ldraw_part/${partId}?color=${color}`, { timeout: 30000 });
       const url = res.data.mesh_url;
       if (url) {
         // This will mount the model, which computes bounds, positions camera, and calls captureSnapshot

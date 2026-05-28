@@ -173,8 +173,6 @@ export function PartLibraryPanel() {
                 {isOpen && (
                   <div className="p-2 space-y-1">
                     {items.map(part => {
-                      const resolvedColor = getDefaultColorCode(part.part_id, 71);
-                      const isAutoColor = resolvedColor !== 71;
                       return (
                         <button
                           key={part.part_id}
@@ -191,7 +189,9 @@ export function PartLibraryPanel() {
                             onMouseLeave={onLeave}
                           >
                             <img
-                              src={`${BACKEND_ORIGIN}/api/thumbnails/${part.part_id.replace('.dat', '.png')}`}
+                              // ?c=<颜色码> 作缓存戳：缩略图按零件固定色重烘后颜色变 → URL 变 →
+                              // 浏览器必然重新拉取，绕开 <img> 旧图缓存（否则强刷也可能显旧色）。
+                              src={`${BACKEND_ORIGIN}/api/thumbnails/${part.part_id.replace('.dat', '.png')}?c=${getDefaultColorCode(part.part_id, 71)}`}
                               alt={part.part_id}
                               className="w-10 h-10 object-contain transition-transform group-hover:scale-110"
                               loading="lazy"
@@ -220,11 +220,6 @@ export function PartLibraryPanel() {
                               <span className="mx-1">·</span>
                               <span className="uppercase">{formatPortPlugLabel(part.port_count, part.plug_count)}</span>
                             </div>
-                            {isAutoColor && (
-                              <div className="text-[9px] text-amber-500 font-bold tracking-wide mt-0.5">
-                                ⚡ PRESET COLOR
-                              </div>
-                            )}
                           </div>
                           <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform ${
                             previewPartId === part.part_id ? 'translate-x-1 text-blue-500' : 'group-hover:translate-x-1'
