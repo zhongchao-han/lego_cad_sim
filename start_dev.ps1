@@ -85,13 +85,17 @@ try {
 
 # 当 cwd 不是主仓自身（即位于 git worktree）时，把后端的资产根显式指向主仓的 data/ 与 ldraw_lib/，
 # 否则后端会按 backend/__file__ 解析到 worktree 自己空的 data/，导致 /ldraw_meshes/*.glb 全部 404。
+# 同理，云端备份的 SQLite 库（data/builds.db）也必须指回主仓，否则每个 worktree 各用各的空库，
+# 跨 worktree 起服务会看不到彼此搭的云端备份（build_store.py 默认按 backend/__file__ 解析到本 worktree）。
 $isWorktree = ($mainRepoRoot -ne $workTreeRoot)
 if ($isWorktree) {
     $env:MESH_CACHE_ROOT  = Join-Path $mainRepoRoot "data\custom_assets"
     $env:LDRAW_PARTS_ROOT = Join-Path $mainRepoRoot "ldraw_lib"
+    $env:BUILDS_DB_PATH   = Join-Path $mainRepoRoot "data\builds.db"
     Write-Host ("  Main repo    : {0}  [WORKTREE — pointing assets here]" -f $mainRepoRoot) -ForegroundColor Yellow
     Write-Host ("    MESH_CACHE_ROOT  = {0}" -f $env:MESH_CACHE_ROOT)  -ForegroundColor DarkGray
     Write-Host ("    LDRAW_PARTS_ROOT = {0}" -f $env:LDRAW_PARTS_ROOT) -ForegroundColor DarkGray
+    Write-Host ("    BUILDS_DB_PATH   = {0}" -f $env:BUILDS_DB_PATH)   -ForegroundColor DarkGray
 
     # Worktree 的 frontend/ 默认没有 node_modules（每个 worktree 各自 npm install 既慢又
     # 容易和主仓版本 drift）。若缺失，则用 NTFS Junction 链接到主仓的 node_modules：
