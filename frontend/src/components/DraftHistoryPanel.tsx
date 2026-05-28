@@ -155,11 +155,12 @@ export const DraftHistoryPanel: React.FC = () => {
         <section>
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
             <HardDrive size={14} /> 本地快照
+            {snaps.length > 0 && <span className="text-slate-400 normal-case">（{snaps.length}）</span>}
           </div>
           {snaps.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">还没有快照。搭建过程中会自动定期保存。</p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-1.5 max-h-[38vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
               {snaps.map((s) => (
                 <li key={s.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors group">
                   <div className="flex-1 min-w-0">
@@ -187,11 +188,12 @@ export const DraftHistoryPanel: React.FC = () => {
         <section>
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
             <Cloud size={14} /> 云端备份（跨设备）
+            {cloud.length > 0 && <span className="text-slate-400 normal-case">（{cloud.length}）</span>}
           </div>
           {cloud.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">暂无云端备份（后端未连接或还没同步）。</p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-1.5 max-h-[38vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
               {cloud.map((b) => (
                 <li key={b.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
                   <div className="flex-1 min-w-0">
