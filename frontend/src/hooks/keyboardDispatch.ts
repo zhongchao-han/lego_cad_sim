@@ -141,6 +141,11 @@ const canEditSelectedGroup = (deps: DispatcherDeps): boolean =>
 const NUDGE_STEP_M = 20 * LDU;
 const NUDGE_FINE_M = 4 * LDU;
 
+// 竖直步长（米）：默认 1 brick 高（24 LDU），Shift 细调 1 plate（8 LDU）。
+// 竖直网格单位 ≠ 水平（水平按 stud 间距 20 LDU）：LEGO 高度都是 plate(8)/brick(24) 的整数倍。
+const LIFT_STEP_M = 24 * LDU;
+const LIFT_FINE_M = 8 * LDU;
+
 /** 方向键平移路由：单件选中 → 树模型相对滑动；双击整组 / 多选 → 整组刚体搬运。 */
 const nudge = (d: DispatcherDeps, delta: [number, number, number]): void => {
   if (d.isSingleSelection()) d.translateSelectedSingle(delta);
@@ -413,9 +418,13 @@ export const KEYMAP: KeymapEntry[] = [
       d.rotateSelectedSingle(axis, angle);
     },
   },
+  //    平移键位双轨：方向键 + 游戏式 WASD/QE（裸键，相机纯鼠标不占键盘）。
+  //      A/← 左、D/→ 右、W/↑ 前(进画面)、S/↓ 后；均跟随视角吸附世界轴。
+  //      Q 下、E 上：绝对世界 Y（+Y=上，见 store heightOf 地基锚点语义），
+  //      跟视角无关，竖直步长按 brick(24)/plate(8) 而非水平 stud(20)。
   {
     id: 'idle.translate.left',
-    match: (e, d) => e.key === 'ArrowLeft' && canEditSelectedGroup(d),
+    match: (e, d) => (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') && canEditSelectedGroup(d),
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
@@ -424,7 +433,7 @@ export const KEYMAP: KeymapEntry[] = [
   },
   {
     id: 'idle.translate.right',
-    match: (e, d) => e.key === 'ArrowRight' && canEditSelectedGroup(d),
+    match: (e, d) => (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') && canEditSelectedGroup(d),
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
@@ -433,7 +442,7 @@ export const KEYMAP: KeymapEntry[] = [
   },
   {
     id: 'idle.translate.away',
-    match: (e, d) => e.key === 'ArrowUp' && canEditSelectedGroup(d),
+    match: (e, d) => (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') && canEditSelectedGroup(d),
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
@@ -442,11 +451,29 @@ export const KEYMAP: KeymapEntry[] = [
   },
   {
     id: 'idle.translate.toward',
-    match: (e, d) => e.key === 'ArrowDown' && canEditSelectedGroup(d),
+    match: (e, d) => (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') && canEditSelectedGroup(d),
     run: (e, d) => {
       e.preventDefault();
       const s = e.shiftKey ? NUDGE_FINE_M : NUDGE_STEP_M;
       nudge(d, screenNudgeDelta(d, 'down', s));
+    },
+  },
+  {
+    id: 'idle.translate.up',
+    match: (e, d) => e.key.toLowerCase() === 'e' && canEditSelectedGroup(d),
+    run: (e, d) => {
+      e.preventDefault();
+      const s = e.shiftKey ? LIFT_FINE_M : LIFT_STEP_M;
+      nudge(d, [0, s, 0]);
+    },
+  },
+  {
+    id: 'idle.translate.down',
+    match: (e, d) => e.key.toLowerCase() === 'q' && canEditSelectedGroup(d),
+    run: (e, d) => {
+      e.preventDefault();
+      const s = e.shiftKey ? LIFT_FINE_M : LIFT_STEP_M;
+      nudge(d, [0, -s, 0]);
     },
   },
 ];
