@@ -443,4 +443,68 @@ describe('IDLE + 选中零件：[/] 旋转整组、方向键平移整组', () =>
     expect(deps.rotateSelectedPart).toHaveBeenCalled();
     expect(deps.rotateSelectedSingle).not.toHaveBeenCalled();
   });
+
+  // ─── 游戏式 WASD/QE 键位 ────────────────────────────────────────────────────
+  const LIFT = 24 * LDU; // 默认 1 brick 高
+  const LIFT_FINE = 8 * LDU; // Shift → 1 plate
+
+  it('case 35: WASD = 方向键别名（同 entry、同 delta）', () => {
+    let deps = idleSel();
+    expect(dispatchKey(kev({ key: 'a' }), deps)).toBe('idle.translate.left');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([-STEP, 0, 0]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'd' }), deps)).toBe('idle.translate.right');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([STEP, 0, 0]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'w' }), deps)).toBe('idle.translate.away');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, 0, -STEP]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 's' }), deps)).toBe('idle.translate.toward');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, 0, STEP]);
+  });
+
+  it('case 36: 大写 WASD（Shift 或 CapsLock）仍命中（match 走 toLowerCase）', () => {
+    const deps = idleSel();
+    // 大写 A + shift → fine 步长，仍走 left
+    expect(dispatchKey(kev({ key: 'A', shiftKey: true }), deps)).toBe('idle.translate.left');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([-FINE, 0, 0]);
+  });
+
+  it('case 37: E = 上 (+Y)、Q = 下 (-Y)，默认 1 brick 高', () => {
+    let deps = idleSel();
+    expect(dispatchKey(kev({ key: 'e' }), deps)).toBe('idle.translate.up');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, LIFT, 0]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'q' }), deps)).toBe('idle.translate.down');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, -LIFT, 0]);
+  });
+
+  it('case 38: Shift+E/Q → 细调到 1 plate（8 LDU）', () => {
+    let deps = idleSel();
+    expect(dispatchKey(kev({ key: 'E', shiftKey: true }), deps)).toBe('idle.translate.up');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, LIFT_FINE, 0]);
+
+    deps = idleSel();
+    expect(dispatchKey(kev({ key: 'Q', shiftKey: true }), deps)).toBe('idle.translate.down');
+    expect(deps.translateSelectedGroup).toHaveBeenCalledWith([0, -LIFT_FINE, 0]);
+  });
+
+  it('case 39: 单件选中 + QE → 走 translateSelectedSingle', () => {
+    const deps = idleSel({ isSingleSelection: () => true });
+    expect(dispatchKey(kev({ key: 'e' }), deps)).toBe('idle.translate.up');
+    expect(deps.translateSelectedSingle).toHaveBeenCalledWith([0, LIFT, 0]);
+    expect(deps.translateSelectedGroup).not.toHaveBeenCalled();
+  });
+
+  it('case 40: 无选中 → WASD/QE 全不命中（与裸键守卫一致，见 case 26）', () => {
+    const noSel = makeMockDeps({ interactionPhase: () => InteractionPhase.IDLE, hasSelection: () => false });
+    for (const key of ['w', 'a', 's', 'd', 'q', 'e']) {
+      expect(dispatchKey(kev({ key }), noSel), `key=${key}`).toBeNull();
+    }
+    expect(noSel.translateSelectedGroup).not.toHaveBeenCalled();
+  });
 });
