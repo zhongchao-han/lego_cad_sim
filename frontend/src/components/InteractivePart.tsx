@@ -68,6 +68,8 @@ export const InteractivePart = memo(({
   const isSelected = selection.primaryId === partId || selection.allConnectedIds.includes(partId);
   const isGroupMember = selection.allConnectedIds.includes(partId);
   const isBlocked = (selection.primaryId === partId) && interference.isBlocked;
+  // 漏连提醒：本件是否在「检测未连接」找出的件对里（琥珀描边）。返回布尔，仅在翻转时 re-render。
+  const isMissedLatch = useStore(s => s.missedLatchPairs.some(p => p.a === partId || p.b === partId));
 
   const [pulse, setPulse] = useState(0);
   const currentPhase = useStore(s => s.interactionPhase);
@@ -200,15 +202,18 @@ export const InteractivePart = memo(({
   // ── 高亮计算 ──────────────────────────────────────────────────────────────
   const highlight = useMemo(() => {
     // 穿模报错保持刺眼红光和高闪烁
-    if (isBlocked) return { color: '#ff3d00', intensity: pulse, outline: false };
-    
+    if (isBlocked) return { color: '#ff3d00', intensity: pulse, outline: false, outlineColor: '#ffffff' };
+
+    // 漏连提醒：琥珀描边。优先于选中，确保「检测未连接」的提醒始终醒目可见。
+    if (isMissedLatch) return { color: null, intensity: 0, outline: true, outlineColor: '#ffb300' };
+
     // 选中状态：使用 CAD 级局部包围盒 (BoxHelper 线框)
-    if (isSelected) return { color: null, intensity: 0, outline: true };
-    if (isGroupMember) return { color: null, intensity: 0, outline: true };
-    
+    if (isSelected) return { color: null, intensity: 0, outline: true, outlineColor: '#ffffff' };
+    if (isGroupMember) return { color: null, intensity: 0, outline: true, outlineColor: '#ffffff' };
+
     // 彻底贯彻“盲操”与极简美学：Hover 时不触发任何发光或高亮
-    return { color: null, intensity: 0, outline: false };
-  }, [isSelected, isGroupMember, isBlocked, pulse]);
+    return { color: null, intensity: 0, outline: false, outlineColor: '#ffffff' };
+  }, [isSelected, isGroupMember, isBlocked, pulse, isMissedLatch]);
 
   const interactionPhase = useStore(s => s.interactionPhase);
   const isTargetSeeking = useIsTargetSeekingPhase();
@@ -285,6 +290,7 @@ export const InteractivePart = memo(({
               highlightColor={highlight.color}
               highlightIntensity={highlight.intensity}
               highlightOutline={highlight.outline}
+              highlightOutlineColor={highlight.outlineColor}
               disableRaycast={disableEvents}
               opacity={finalOpacity}
               exactBoundingBox={ldrawPart.exactBoundingBox}

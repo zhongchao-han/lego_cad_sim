@@ -15,6 +15,8 @@ interface LDrawMeshRendererProps {
   highlightColor?: string | null;
   highlightIntensity?: number;
   highlightOutline?: boolean;
+  /** 描边线框颜色（默认白）。漏连提醒用琥珀色区别于选中白。 */
+  highlightOutlineColor?: string;
   disableRaycast?: boolean;
   opacity?: number;
   exactBoundingBox?: { size: [number, number, number]; center: [number, number, number] };
@@ -45,6 +47,7 @@ export function LDrawMeshRenderer({
   highlightColor = null,
   highlightIntensity = 0,
   highlightOutline = false,
+  highlightOutlineColor = '#ffffff',
   disableRaycast = false,
   opacity = 1.0,
   exactBoundingBox,
@@ -128,7 +131,7 @@ export function LDrawMeshRenderer({
     
     const boxGeom = new THREE.BoxGeometry(exactBoundingBox.size[0], exactBoundingBox.size[1], exactBoundingBox.size[2]);
     const edgesGeom = new THREE.EdgesGeometry(boxGeom);
-    const material = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true });
+    const material = new THREE.LineBasicMaterial({ color: new THREE.Color(highlightOutlineColor), depthTest: false, transparent: true });
     
     const lines = new THREE.LineSegments(edgesGeom, material);
     lines.position.set(exactBoundingBox.center[0], exactBoundingBox.center[1], exactBoundingBox.center[2]);
@@ -138,7 +141,7 @@ export function LDrawMeshRenderer({
     // 永远收不到 pointerover，"hover 红板没幽灵"的根因就在这里。
     lines.raycast = () => null;
     return lines;
-  }, [exactBoundingBox, highlightOutline]);
+  }, [exactBoundingBox, highlightOutline, highlightOutlineColor]);
 
   return (
     <>
