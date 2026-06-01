@@ -1,7 +1,7 @@
-import { useMemo, type ComponentType } from 'react';
+import { useState, useEffect, useMemo, useRef, type ComponentType } from 'react';
 import {
   RotateCcw, RotateCw, FlipVertical2, Copy, Trash2,
-  Undo2, Redo2, Search, Zap, Unlink, Link2, History,
+  Undo2, Redo2, Search, Zap, Unlink, Link2, History, ScanSearch,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { InteractionPhase } from '../types';
@@ -33,12 +33,28 @@ export function Toolbar() {
   const deleteSelected = useStore((s) => s.deleteSelected);
   const detachSelected = useStore((s) => s.detachSelected);
   const relatchScene = useStore((s) => s.relatchScene);
+  const scanMissedLatches = useStore((s) => s.scanMissedLatches);
+  const missedLatchCount = useStore((s) => s.missedLatchPairs.length);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const setSearchOpen = useStore((s) => s.setSearchOpen);
   const setShowReactionForces = useStore((s) => s.setShowReactionForces);
   const showDraftHistory = useStore((s) => s.showDraftHistory);
   const toggleDraftHistory = useStore((s) => s.toggleDraftHistory);
+
+  // 「检测未连接」结果 toast：无论有没有检出都给一条短暂提示（2.8s 后自动消失）。
+  const [scanToast, setScanToast] = useState<{ text: string; found: boolean } | null>(null);
+  const scanToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleScanMissed = async () => {
+    await scanMissedLatches();
+    const n = useStore.getState().missedLatchPairs.length;
+    setScanToast(n > 0
+      ? { text: `检测到 ${n} 处未连接，已在场景中高亮`, found: true }
+      : { text: '未发现未连接的件', found: false });
+    if (scanToastTimer.current) clearTimeout(scanToastTimer.current);
+    scanToastTimer.current = setTimeout(() => setScanToast(null), 2800);
+  };
+  useEffect(() => () => { if (scanToastTimer.current) clearTimeout(scanToastTimer.current); }, []);
 
   const hasSel = interactionPhase === InteractionPhase.IDLE && primaryId !== null;
 
@@ -94,8 +110,19 @@ export function Toolbar() {
 
       <Divider />
 
-      <ToolBtn icon={Link2} label="检测并连接（把已插入但未连接的端口连起来）" kbd=""
+      <ToolBtn icon={ScanSearch}
+        label="检测未连接（找出已插入但未连接的件，琥珀色高亮提醒）"
+        kbd=""
         disabled={Object.keys(parts).length < 2}
+        onClick={() => { void handleScanMissed(); }} testid="tb-scan-missed" />
+      <ToolBtn icon={Link2}
+        label={missedLatchCount > 0
+          ? `把检测到的 ${missedLatchCount} 处未连接全部连上`
+          : '检测并连接（把已插入但未连接的端口连起来）'}
+        kbd=""
+        disabled={Object.keys(parts).length < 2}
+        warn={missedLatchCount > 0}
+        badge={missedLatchCount}
         onClick={() => { void relatchScene(); }} testid="tb-relatch" />
       <ToolBtn icon={Search} label="搜索零件" kbd="Ctrl+K"
         onClick={() => setSearchOpen(true)} testid="tb-search" />
@@ -103,6 +130,20 @@ export function Toolbar() {
         onClick={() => setShowReactionForces(!showReactionForces)} testid="tb-forces" />
       <ToolBtn icon={History} label="草稿历史（自动快照 / 跨设备恢复）" kbd="" active={showDraftHistory}
         onClick={() => toggleDraftHistory()} testid="tb-draft-history" />
+
+      {/* 「检测未连接」结果 toast：有无检出都提示，2.8s 后自动消失。 */}
+      {scanToast && (
+        <div
+          data-testid="scan-missed-toast"
+          className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 z-[60] whitespace-nowrap
+                      px-3 py-1.5 rounded-lg text-xs font-medium shadow-2xl border
+                      ${scanToast.found
+                        ? 'bg-amber-50 text-amber-800 border-amber-300'
+                        : 'bg-slate-900/95 text-slate-100 border-slate-700'}`}
+        >
+          {scanToast.text}
+        </div>
+      )}
     </div>
   );
 }
@@ -119,11 +160,15 @@ interface ToolBtnProps {
   disabled?: boolean;
   active?: boolean;
   danger?: boolean;
+  /** 警示态：用琥珀色高亮按钮（用于「有漏连待处理」这类需要用户注意的提醒）。 */
+  warn?: boolean;
+  /** 右上角计数角标；> 0 时显示。 */
+  badge?: number;
   testid?: string;
 }
 
 // 纯图标按钮：快捷键只在 hover tooltip 里显示（不在图标下重复写）；图标放大更清晰（UX 反馈）。
-function ToolBtn({ icon: Icon, label, kbd, onClick, disabled, active, danger, testid }: ToolBtnProps) {
+function ToolBtn({ icon: Icon, label, kbd, onClick, disabled, active, danger, warn, badge, testid }: ToolBtnProps) {
   return (
     <button
       type="button"
@@ -131,16 +176,28 @@ function ToolBtn({ icon: Icon, label, kbd, onClick, disabled, active, danger, te
       disabled={disabled}
       title={kbd ? `${label} (${kbd})` : label}
       onClick={onClick}
-      className={`flex items-center justify-center w-10 h-10 rounded-lg transition-colors select-none
+      className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors select-none
         ${disabled
           ? 'text-slate-300 cursor-not-allowed'
-          : active
-            ? 'bg-blue-100 text-blue-700'
-            : danger
-              ? 'text-slate-600 hover:bg-rose-50 hover:text-rose-600'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+          : warn
+            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+            : active
+              ? 'bg-blue-100 text-blue-700'
+              : danger
+                ? 'text-slate-600 hover:bg-rose-50 hover:text-rose-600'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
     >
       <Icon size={22} />
+      {typeof badge === 'number' && badge > 0 && (
+        <span
+          data-testid={testid ? `${testid}-badge` : undefined}
+          className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500
+                     text-white text-[10px] leading-none font-bold flex items-center justify-center
+                     pointer-events-none shadow"
+        >
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </button>
   );
 }

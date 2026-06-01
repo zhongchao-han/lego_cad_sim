@@ -35,7 +35,7 @@ import { HistoryStack, createSnapCommand, TopologySnapshot, createTopologyComman
 import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculateClampedOffset, quatTimesAxisAngle } from './utils/snapMath';
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
 import { isConnectorCategory } from './utils/partCategory';
-import { findRelatchEdges, type RelatchPartInput, type RelatchPortInput } from './utils/relatchScan';
+import { findRelatchEdges, type RelatchEdge, type RelatchPartInput, type RelatchPortInput } from './utils/relatchScan';
 import { computeMovingGroup, buildComponentGraph, pickGroundAnchors } from './utils/assemblyTree';
 import {
   findMeshPartnerAndDelta,
@@ -177,6 +177,11 @@ interface StoreState {
    *  错位时 Auto-Latch 可能漏检；commit 后由 lastSnapPairCount 给真值。 */
   predictedSnapPairCount: number | null;
 
+  /** 漏连提醒：场景里「端口几何重合 + 极性互补 + 但件对未连接」的件对（已按件对去重）。
+   *  即"看着插进去了却没建连"的件。纯派生诊断信息——不持久化、不进撤销栈；由
+   *  scanMissedLatches 在用户主动点工具栏按钮时刷新，编辑场景后自动清空（不重扫）。 */
+  missedLatchPairs: Array<{ a: string; b: string }>;
+
   // v1.2 State
   selection: {
     primaryId: string | null;
@@ -264,6 +269,9 @@ interface StoreState {
   /** 检测并连接：扫全场，把「端口几何重合 + 极性互补（孔↔插）」但尚未连接的端口对补建
    *  连接（修"看着插进去了却没连上"）。异步（取端口几何），可撤销。 */
   relatchScene: () => Promise<void>;
+  /** 漏连提醒扫描：与 relatchScene 同判据，但只检测不连接——把结果写入 missedLatchPairs
+   *  供 UI 提醒（琥珀色高亮件本体 + Link2 按钮角标）。异步（取端口几何），不可撤销、不改拓扑。 */
+  scanMissedLatches: () => Promise<void>;
   copySelected: () => void;
   pasteClipboard: () => void;
   duplicateSelected: () => void;
@@ -432,6 +440,30 @@ async function ensurePortGeom(ldrawIds: string[]): Promise<Record<string, Relatc
 }
 
 /**
+ * 场景级 relatch 边计算（纯几何，无副作用）：扫活动区所有件，找「端口几何重合 +
+ * 极性互补 + 件对尚未连接」的端口对。供「检测并连接」(relatchScene) 与「漏连提醒」
+ * (scanMissedLatches) 共用，确保两者判据完全一致、不漂移。
+ *
+ * 注：findRelatchEdges 已按「件对」跳过已连接的对，所以转盘等整体件（两半经 hub
+ * 同轴相连）天然不会被当成漏连——无需额外特判绑定单元。
+ */
+async function computeSceneRelatchEdges(
+  parts: Record<string, PartState>,
+  connections: ConnectionGraph,
+): Promise<RelatchEdge[]> {
+  const sceneIds = Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA);
+  if (sceneIds.length < 2) return [];
+  const ldrawIds = [...new Set(sceneIds.map(id => parts[id].ldrawId))];
+  const portsByLdrawId = await ensurePortGeom(ldrawIds);
+  const partInputs = sceneIds.map(id => ({
+    id, ldrawId: parts[id].ldrawId, position: parts[id].position as Vec3, quaternion: parts[id].quaternion as Quat,
+  }));
+  const existingPairs = new Set<string>();
+  Object.keys(connections).forEach(a => connections[a].forEach(b => existingPairs.add([a, b].sort().join('|'))));
+  return findRelatchEdges(partInputs, portsByLdrawId, existingPairs, (pos, rot) => portKey(pos, rot as number[][]));
+}
+
+/**
  * 树模型 + 胶水模型动件切分（translate / flip 共用）：
  * - 连接件（销/轴/连接器）= 胶水，依附构件、跟着 moving 构件走。
  * - 在「构件」里挑最低者当地基(root)；构件图上算选中构件的子树；胶水按依附关系归队。
@@ -547,6 +579,7 @@ const TRANSIENT_STATE_FIELD_KEYS = [
   'portSelectionLevel',
   'lastSnapPairCount',
   'predictedSnapPairCount',
+  'missedLatchPairs',
   'selection',
   'clipboard',
   'freePlacingPayload',
@@ -649,6 +682,7 @@ export const useStore = create<StoreState>()(
   portSelectionLevel: SelectionLevel.INDIVIDUAL,
   lastSnapPairCount: 0,
   predictedSnapPairCount: null,
+  missedLatchPairs: [],
 
   selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
   clipboard: [],
@@ -1599,20 +1633,11 @@ export const useStore = create<StoreState>()(
 
   relatchScene: async () => {
     const { parts, connections } = get();
-    const sceneIds = Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA);
-    if (sceneIds.length < 2) { get().addLog('场景零件不足，无需检测连接。', 'INFO'); return; }
+    if (Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA).length < 2) {
+      get().addLog('场景零件不足，无需检测连接。', 'INFO'); return;
+    }
 
-    // 取每种 LDraw 类型的端口几何（复用 /api/ldraw_part；按类型缓存，多实例共享）。
-    const ldrawIds = [...new Set(sceneIds.map(id => parts[id].ldrawId))];
-    const portsByLdrawId = await ensurePortGeom(ldrawIds);
-
-    const partInputs = sceneIds.map(id => ({
-      id, ldrawId: parts[id].ldrawId, position: parts[id].position as Vec3, quaternion: parts[id].quaternion as Quat,
-    }));
-    const existingPairs = new Set<string>();
-    Object.keys(connections).forEach(a => connections[a].forEach(b => existingPairs.add([a, b].sort().join('|'))));
-
-    const edges = findRelatchEdges(partInputs, portsByLdrawId, existingPairs, (pos, rot) => portKey(pos, rot as number[][]));
+    const edges = await computeSceneRelatchEdges(parts, connections);
     if (edges.length === 0) { get().addLog('检测并连接：未发现可连接的重合端口。', 'ACTION'); return; }
 
     // 去重出件对（连接边）；端口对逐条写 occupiedPorts。
@@ -1651,8 +1676,28 @@ export const useStore = create<StoreState>()(
     const cmd = createTopologyCommand('RELATCH', snap, doAdd, doRemove);
     doAdd();
     _history.push(cmd);
-    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
+    // 刚把所有漏连都连上了 → 立即清空提醒（订阅在场景变化时也会清，这里给即时反馈）。
+    set({ canUndo: _history.canUndo, canRedo: _history.canRedo, missedLatchPairs: [] });
     get().addLog(`检测并连接：新建 ${addedConns.length} 处连接（${edges.length} 个端口对）。`, 'ACTION');
+  },
+
+  scanMissedLatches: async () => {
+    const { parts, connections } = get();
+    if (Object.keys(parts).filter(id => parts[id].zone === ZoneType.ACTIVE_ARENA).length < 2) {
+      get().addLog('场景零件不足，无需检测。', 'INFO'); set({ missedLatchPairs: [] }); return;
+    }
+    const edges = await computeSceneRelatchEdges(parts, connections);
+    // 去重到件对（一对件之间可能多个端口同时重合，提醒只按「件对」计数）。
+    const seen = new Set<string>();
+    const pairs: Array<{ a: string; b: string }> = [];
+    edges.forEach(e => { const k = [e.a, e.b].sort().join('|'); if (!seen.has(k)) { seen.add(k); pairs.push({ a: e.a, b: e.b }); } });
+    set({ missedLatchPairs: pairs });
+    get().addLog(
+      pairs.length > 0
+        ? `检测到 ${pairs.length} 处疑似漏连（已插入但未连接），已在场景中高亮。`
+        : '检测未连接：未发现疑似漏连的件。',
+      'ACTION',
+    );
   },
 
   copySelected: () => {
@@ -2810,6 +2855,23 @@ export const useStore = create<StoreState>()(
 if (typeof window !== 'undefined') {
   // @ts-ignore
   window.__STORE__ = useStore;
+}
+
+// 漏连提醒的「高亮」是一次「检测」(scanMissedLatches，仅由工具栏按钮触发) 的快照。
+// 一旦用户编辑了场景（移动 / snap / 删除 / 脱开 / 撤销重做都会换 parts/connections 引用），
+// 旧快照就过期了 → 这里只**清空** missedLatchPairs 让琥珀高亮消失，**不重扫**（重扫必须用户
+// 主动点按钮）。纯同步 set、无 fetch、无定时器。test 环境（vitest）下不挂订阅。
+const _isTestEnv = (import.meta as unknown as { env?: { MODE?: string } }).env?.MODE === 'test';
+if (typeof window !== 'undefined' && !_isTestEnv) {
+  let _prevParts = useStore.getState().parts;
+  let _prevConns = useStore.getState().connections;
+  useStore.subscribe((s) => {
+    if (s.parts !== _prevParts || s.connections !== _prevConns) {
+      _prevParts = s.parts;
+      _prevConns = s.connections;
+      if (s.missedLatchPairs.length > 0) useStore.setState({ missedLatchPairs: [] });
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
