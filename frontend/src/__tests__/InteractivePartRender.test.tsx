@@ -28,6 +28,7 @@ describe('InteractivePart Component Shallow Render', () => {
       const state = {
         selection: { primaryId: null, allConnectedIds: [], level: 0 },
         interferenceReport: { isBlocked: false },
+        missedLatchPairs: [],
         interactionPhase: 'IDLE',
         slidingTarget: null,
         selectPart: vi.fn(),
