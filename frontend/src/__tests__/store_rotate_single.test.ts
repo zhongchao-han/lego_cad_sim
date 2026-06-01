@@ -150,11 +150,11 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
-  it('平移「整体一起动」：选 P → 与之相连的 Q 也一起移动，连接保持', () => {
+  it('平移「整体一起动」：选 P → 与之相连的 Q 也一起移动，连接保持', async () => {
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     setup(square); // P 小件（选中，allConnectedIds=['P']）、Q 与 P 相连
 
-    useStore.getState().translateSelectedGroup([-0.008, 0, 0]);
+    await useStore.getState().translateSelectedGroup([-0.008, 0, 0]);
 
     const st = useStore.getState();
     // 整个连通装配一起平移：P 和相连的 Q 都移动 -8mm
@@ -171,7 +171,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(r.parts.Q.position[0]).toBeCloseTo(0, 6);
   });
 
-  it('平移「整体一起动」：选 plate → 相连的 pin 和 base 全部一起动，连接全保留', () => {
+  it('平移「整体一起动」：选 plate → 相连的 pin 和 base 全部一起动，连接全保留', async () => {
     resetStore();
     const square: V3[] = [[A, 0, A], [A, 0, -A], [-A, 0, A], [-A, 0, -A]];
     useStore.setState({
@@ -186,7 +186,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     connect('plate', 'base', square);
     connect('plate', 'pin', [[0, A, 0]]);
 
-    useStore.getState().translateSelectedGroup([0, 0, 0.008]);
+    await useStore.getState().translateSelectedGroup([0, 0, 0.008]);
 
     const st = useStore.getState();
     // plate / pin / base 同属一个连通装配 → 全部一起平移
@@ -198,7 +198,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     expect(st.connections.plate.has('base')).toBe(true);
   });
 
-  it('平移「整体一起动」：未相连的独立件不受影响', () => {
+  it('平移「整体一起动」：未相连的独立件不受影响', async () => {
     resetStore();
     useStore.setState({
       parts: {
@@ -216,7 +216,7 @@ describe('rotateSelectedSingle — 集成（重连/脱开 + undo）', () => {
     connect('plate', 'base', [[A, 0, A]]);
     const lonePos0 = [...useStore.getState().parts.lone.position];
 
-    useStore.getState().translateSelectedGroup([0.008, 0, 0]);
+    await useStore.getState().translateSelectedGroup([0.008, 0, 0]);
 
     const st = useStore.getState();
     expect(st.parts.plate.position[0]).toBeCloseTo(0.008, 6); // plate 动

@@ -398,9 +398,9 @@ describe('store.rotateSelectedGroup / translateSelectedGroup — 整组变换 + 
     } as any);
   }
 
-  it('case 15: translateSelectedGroup 整组平移（选中地基件）+ 可 undo', () => {
+  it('case 15: translateSelectedGroup 整组平移（选中地基件）+ 可 undo', async () => {
     setupConnectedPair();
-    useStore.getState().translateSelectedGroup([0.008, 0, 0]);
+    await useStore.getState().translateSelectedGroup([0.008, 0, 0]);
     let s = useStore.getState();
     // plate 是地基(===primary) → moving=整组 → primary + pin 都平移 +8mm
     expect(s.parts.plate.position[0]).toBeCloseTo(0.008, 6);
@@ -430,27 +430,77 @@ describe('store.rotateSelectedGroup / translateSelectedGroup — 整组变换 + 
     expect(s.parts.pin.position[2]).toBeCloseTo(0, 6);
   });
 
-  it('case 17: 无 selection.primaryId → rotate/translate no-op', () => {
+  it('case 17: 无 selection.primaryId → rotate/translate no-op', async () => {
     useStore.setState({
       parts: { plate: { ldrawId: 'plate.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA } },
       selection: { primaryId: null, level: SelectionLevel.GROUP, allConnectedIds: [], excludedIds: [] },
     } as any);
     useStore.getState().rotateSelectedGroup(Math.PI / 2);
-    useStore.getState().translateSelectedGroup([0.01, 0, 0]);
+    await useStore.getState().translateSelectedGroup([0.01, 0, 0]);
     const s = useStore.getState();
     expect(s.parts.plate.position).toEqual([0, 0, 0]);
     expect(s.canUndo).toBe(false);
   });
 
-  it('case 18: 单个孤立零件（无连接）也能转/移', () => {
+  it('case 18: 单个孤立零件（无连接）也能转/移', async () => {
     useStore.setState({
       parts: { solo: { ldrawId: 'p.dat', position: [0.05, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA } },
       connections: {},
       selection: { primaryId: 'solo', level: SelectionLevel.GROUP, allConnectedIds: ['solo'], excludedIds: [] },
       interactionPhase: InteractionPhase.IDLE,
     } as any);
-    useStore.getState().translateSelectedGroup([0, 0, 0.008]);
+    await useStore.getState().translateSelectedGroup([0, 0, 0.008]);
     expect(useStore.getState().parts.solo.position[2]).toBeCloseTo(0.008, 6);
+  });
+
+  // 回归保护：translateSelectedGroup 接入 _transformSelectedSubassembly 通道
+  // （走跟 single 平移同一套 detachedEdges/relatch 计算）后，必须保住"整组动、
+  // 内部连接不脱开"语义；且只动 primary 所在的连通组，独立组不受影响。
+  // 触发该 fix 的 bug：原实现纯刚体平移、不走 _transformSelectedSubassembly，
+  // 因此挪到对面组孔位也不会自动吸附建连；现在 relatch 通道接通，单测里
+  // ensurePortGeom fetch 失败→端口空集→relatch 空跑，行为仍合法（不破连接）。
+  it('case 18b: translateSelectedGroup 接入 helper 通道 — 内部连接保留、独立组不动', async () => {
+    useStore.setState({
+      parts: {
+        // Group A（选中）：plateA + pinA 已连
+        plateA: { ldrawId: 'plate.dat', position: [0, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        pinA:   { ldrawId: 'pin.dat',   position: [0.02, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        // Group B（不选）：plateB + pinB 已连，整体远离 A
+        plateB: { ldrawId: 'plate.dat', position: [0.5, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+        pinB:   { ldrawId: 'pin.dat',   position: [0.52, 0, 0], quaternion: [0, 0, 0, 1], colorCode: 7, zone: ZoneType.ACTIVE_ARENA },
+      },
+      partCatalog: {
+        'plate.dat': { bboxSize: [0.3, 0.01, 0.2] },
+        'pin.dat':   { bboxSize: [0.002, 0.02, 0.002] },
+      },
+      connections: {
+        plateA: new Set(['pinA']), pinA: new Set(['plateA']),
+        plateB: new Set(['pinB']), pinB: new Set(['plateB']),
+      },
+      selection: { primaryId: 'plateA', level: SelectionLevel.GROUP, allConnectedIds: ['plateA', 'pinA'], excludedIds: [] },
+      interactionPhase: InteractionPhase.IDLE,
+    } as any);
+
+    await useStore.getState().translateSelectedGroup([0, 0.008, 0]); // Q/E 路径：竖直上移
+
+    const s = useStore.getState();
+    // Group A 整组都动（plate=primary=地基 → moving=整组）
+    expect(s.parts.plateA.position[1]).toBeCloseTo(0.008, 6);
+    expect(s.parts.pinA.position[1]).toBeCloseTo(0.008, 6);
+    // Group A 内部连接保留（baseIds=[] → 无界面可脱）
+    expect(s.connections.plateA.has('pinA')).toBe(true);
+    expect(s.connections.pinA.has('plateA')).toBe(true);
+    // Group B 完全不动 + 连接保留（不属于 primary 所在 comp）
+    expect(s.parts.plateB.position).toEqual([0.5, 0, 0]);
+    expect(s.parts.pinB.position).toEqual([0.52, 0, 0]);
+    expect(s.connections.plateB.has('pinB')).toBe(true);
+    // Undo 链通
+    expect(s.canUndo).toBe(true);
+    useStore.getState().undo();
+    const r = useStore.getState();
+    expect(r.parts.plateA.position[1]).toBeCloseTo(0, 6);
+    expect(r.parts.pinA.position[1]).toBeCloseTo(0, 6);
+    expect(r.connections.plateA.has('pinA')).toBe(true);
   });
 });
 

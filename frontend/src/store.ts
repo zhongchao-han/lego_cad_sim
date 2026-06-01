@@ -298,8 +298,10 @@ interface StoreState {
    *  翻面后若端口仍能对齐（自动微移）则保持连接，否则脱开。可撤销。 */
   flipSelected: () => void;
   /** 已放置零件自由编辑：把整个连通装配（含传递相连的件）整体刚体平移 delta
-   *  （世界系，米）。双击/多选「搬整坨」走它。可撤销。 */
-  translateSelectedGroup: (delta: Vec3) => void;
+   *  （世界系，米）。双击/多选「搬整坨」走它。落定后扫「动件 × 全场静止件」
+   *  补建新端口连接（同 single 路径的 relatch），让把一组挪到另一组孔上方时
+   *  自动吸附建立连接 —— Q/E 上下挪到对面端口位也能落上。可撤销。 */
+  translateSelectedGroup: (delta: Vec3) => Promise<void>;
   /** 单件平移（树模型）：把装配看成以地基为根的树，只动「选中件的子树」（挂在它
    *  下游、离根更远的件），祖先（含地基）不动；落定后自动断开错位连接、在新位置
    *  吸附补建连接。可撤销。 */
@@ -2572,40 +2574,44 @@ export const useStore = create<StoreState>()(
     );
   },
 
-  translateSelectedGroup: (delta: Vec3) => {
-    // 「连着的整体一起动」（用户确认的总规则）：平移移动**整个连通装配**——取所有选中件的
-    // 连通分量并集（含传递相连的销/板/件），整体刚体平移、**保留所有连接**（不脱开）。
-    // 这样移动板→板上的销一起动、点销连右板→左边整个装配跟过去；要把件从装配里分出来
-    // 用工具栏「脱开」。
-    const { selection, parts, connections, batchUpdatePartStates } = get();
-    const ids = selection.allConnectedIds;
-    if (ids.length === 0) return;
+  translateSelectedGroup: async (delta: Vec3) => {
+    // 「连着的整体一起动」（用户确认的总规则）：平移**整个连通装配**——含传递相连的销/板/件，
+    // 整体刚体平移、**保留所有内部连接**（不脱开）。
+    //
+    // 这条路径走跟 single 平移同一套 _transformSelectedSubassembly + relatchPortGeom 通道：
+    //   - computeSplit: ({comp}) => comp 强制 moving = 整组（baseIds=[] → 无内部界面可脱），
+    //     保住"整组刚体动、连接不脱"语义；
+    //   - relatchPortGeom: ensurePortGeom(全场) → 落定后扫「动件 × 全场静止件」补建跨组
+    //     端口连接。Q/E 把一组挪到另一组孔位上方时能自动吸附建连接，不再"看着对上但 store
+    //     里没连"。
+    //   - autoMove: false 平移就是用户意图位移，不做微移吸回修正，位置完全按按键来。
+    //
+    // 接口变 async：等 ensurePortGeom（已按 ldrawId 缓存，连按不卡）。keyboardDispatch
+    // 走 fire-and-forget。
+    const { selection, parts } = get();
+    const primaryId = selection.primaryId;
+    if (!primaryId || !parts[primaryId]) return;
 
-    const moveSet = new Set<string>();
-    ids.forEach(id => { getConnectedGroup(connections, id, "").forEach(p => moveSet.add(p)); });
+    const involvedLdraw = [...new Set(
+      Object.values(parts)
+        .filter(p => p.zone === ZoneType.ACTIVE_ARENA)
+        .map(p => p.ldrawId)
+        .filter(Boolean),
+    )] as string[];
+    const portGeom = await ensurePortGeom(involvedLdraw);
 
-    const prevUpdates: Record<string, Partial<PartState>> = {};
-    const nextUpdates: Record<string, Partial<PartState>> = {};
-    moveSet.forEach(id => {
-      const p = parts[id];
-      if (!p) return;
-      prevUpdates[id] = { position: [...p.position] as Vec3 };
-      nextUpdates[id] = { position: [p.position[0] + delta[0], p.position[1] + delta[1], p.position[2] + delta[2]] as Vec3 };
-    });
-    if (Object.keys(nextUpdates).length === 0) return;
-
-    const applyFn = () => get().batchUpdatePartStates(nextUpdates);
-    const revertFn = () => get().batchUpdatePartStates(prevUpdates);
-    const emptySnap: TopologySnapshot = {
-      addedParts: {}, removedParts: {}, addedConnections: [], removedConnections: [],
-    };
-    const cmd = createTopologyCommand('TRANSFORM', emptySnap, applyFn, revertFn);
-
-    batchUpdatePartStates(nextUpdates);
-    _history.push(cmd);
-    set({ canUndo: _history.canUndo, canRedo: _history.canRedo });
-    const mm = delta.map(d => (d * 1000).toFixed(1)).join(', ');
-    get().addLog(`平移 [${mm}] mm（连通装配 ${Object.keys(nextUpdates).length} 件）`, 'ACTION');
+    get()._transformSelectedSubassembly(
+      (oldPose) => ({
+        position: [oldPose.position[0] + delta[0], oldPose.position[1] + delta[1], oldPose.position[2] + delta[2]] as Vec3,
+        quaternion: oldPose.quaternion,
+      }),
+      {
+        autoMove: false,
+        label: `平移 [${delta.map(d => (d * 1000).toFixed(1)).join(', ')}] mm（连通装配）`,
+        relatchPortGeom: portGeom,
+        computeSplit: ({ comp }) => comp,
+      },
+    );
   },
 
   translateSelectedSingle: async (delta: Vec3) => {
