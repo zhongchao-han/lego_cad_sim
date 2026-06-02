@@ -143,3 +143,62 @@ describe('portProminent — 高亮判定（Option+hover 显示非密集件全部
     expect(portProminent({ ...base, isDensePart: true, hovered: true, portEngageMode: true })).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// portProminent — spotlight 模式（解决密集 port 区"周围全亮分不清要点哪个"）
+// 父层（InteractivePart）每帧算"屏幕距离 cursor 最近的兼容 port"塞 spotlightPortKey
+// 给 SiteGizmo → PortArrow；PortArrow 算 spotlightActive + isSpotlightWinner 喂 portProminent。
+// ─────────────────────────────────────────────────────────────────────────
+describe('portProminent — spotlight 模式（减少密集 port 区视觉杂讯）', () => {
+  const base = {
+    hovered: false, portEngageMode: false, isSelected: false, debugShowPorts: false,
+    isDensePart: false, shouldShowVisuals: false, isCompatiblePort: true,
+  };
+
+  it('spotlightActive=false → 行为同老逻辑（兼容 port 全亮）', () => {
+    // 不传 spotlight 参数等价 spotlightActive=false
+    expect(portProminent({ ...base, shouldShowVisuals: true, portEngageMode: true })).toBe(true);
+  });
+
+  it('spotlightActive=true + isSpotlightWinner=true → 仅 winner 亮', () => {
+    expect(portProminent({
+      ...base, shouldShowVisuals: true, portEngageMode: true,
+      spotlightActive: true, isSpotlightWinner: true,
+    })).toBe(true);
+  });
+
+  it('spotlightActive=true + isSpotlightWinner=false → 兼容但 dim（不再 prominent）', () => {
+    expect(portProminent({
+      ...base, shouldShowVisuals: true, portEngageMode: true,
+      spotlightActive: true, isSpotlightWinner: false,
+    })).toBe(false);
+  });
+
+  it('spotlight 模式下，hovered（精确鼠标在我身上）+ Option → 仍恒高亮（不受 spotlight 降级）', () => {
+    expect(portProminent({
+      ...base, hovered: true, portEngageMode: true,
+      spotlightActive: true, isSpotlightWinner: false,
+    })).toBe(true);
+  });
+
+  it('spotlight 模式下，isSelected（source 锁定）→ 仍恒高亮', () => {
+    expect(portProminent({
+      ...base, isSelected: true,
+      spotlightActive: true, isSpotlightWinner: false,
+    })).toBe(true);
+  });
+
+  it('spotlight 模式下，debugShowPorts → 仍恒高亮（Debug 是逃生口）', () => {
+    expect(portProminent({
+      ...base, debugShowPorts: true,
+      spotlightActive: true, isSpotlightWinner: false,
+    })).toBe(true);
+  });
+
+  it('spotlight 模式下，不兼容 port → 降级（不亮）', () => {
+    expect(portProminent({
+      ...base, shouldShowVisuals: true, portEngageMode: true, isCompatiblePort: false,
+      spotlightActive: true, isSpotlightWinner: true,
+    })).toBe(false);
+  });
+});

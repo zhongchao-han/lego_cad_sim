@@ -133,10 +133,24 @@ export function portProminent(args: {
   isDensePart: boolean;
   shouldShowVisuals: boolean;
   isCompatiblePort: boolean;
+  /** Screen-space spotlight：父层算出来"光标屏幕最近的兼容 port"标记。
+   *  spotlightActive=true 时启用 spotlight 模式 —— 只有 isSpotlightWinner=true
+   *  的 port 才升级为 prominent，其他兼容 port 降级为 dim 小点。
+   *  spotlightActive=false 时回退老行为（所有兼容 port 都 prominent）。
+   *  目的：解决密集 port 区域里"鼠标周围十几个箭头同时亮、用户分不清要点哪个"。 */
+  spotlightActive?: boolean;
+  isSpotlightWinner?: boolean;
 }): boolean {
-  const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort } = args;
-  const allPortsProminent = !isDensePart && shouldShowVisuals && portEngageMode && isCompatiblePort;
-  return (hovered && portEngageMode) || isSelected || debugShowPorts || allPortsProminent;
+  const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
+    spotlightActive = false, isSpotlightWinner = false } = args;
+  // hovered（鼠标直接命中本 port）+ isSelected（source 锁定）+ debug 全显：恒亮，spotlight 不降级
+  const alwaysProminent = (hovered && portEngageMode) || isSelected || debugShowPorts;
+  if (alwaysProminent) return true;
+  // 兼容 port「成片亮起」路径：spotlight 模式下只让 winner 升级，其他降级回 dim
+  const allPortsCompatible = !isDensePart && shouldShowVisuals && portEngageMode && isCompatiblePort;
+  if (!allPortsCompatible) return false;
+  if (spotlightActive) return isSpotlightWinner;
+  return true;
 }
 
 export function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
@@ -167,6 +181,10 @@ interface PortArrowProps {
   sitePos: Vec3;
   isSelected: boolean;
   isCompatiblePort: boolean;
+  /** Spotlight：父层算的 "屏幕距离 cursor 最近的兼容 port" 的 portKey。
+   *  非空时仅 winner（key 匹配）升级为 prominent；其他兼容 port 降级为 dim 小点。
+   *  减少密集 port 区域的视觉干扰。 */
+  spotlightPortKey?: string | null;
   groupRef: React.RefObject<THREE.Group>;
   partId: string;
   ldrawId: string;
@@ -256,7 +274,7 @@ interface PortHitboxUserData {
 }
 
 function PortArrow({
-  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
+  port, sitePos, isSelected, isCompatiblePort, spotlightPortKey, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
   const { camera, gl } = useThree();
@@ -275,8 +293,14 @@ function PortArrow({
   // 始终渲染（拦射线）。可见强度交给 portDotVisuals 纯函数（单测覆盖）按
   // prominent / 密集件分档。
   const shouldShowVisuals = showVisuals;
+  // Spotlight 判定：父层提供 spotlightPortKey 时，跟本 port 的 key 比较。
+  // 用 portKey() 保证 frontend/backend 序列化一致（同 store.ts portKey）。
+  const myPortKey = useMemo(() => portKey(port.position as Vec3, port.rotation as number[][]), [port.position, port.rotation]);
+  const spotlightActive = spotlightPortKey != null;
+  const isSpotlightWinner = spotlightActive && spotlightPortKey === myPortKey;
   const prominent = portProminent({
     hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
+    spotlightActive, isSpotlightWinner,
   });
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
@@ -591,13 +615,18 @@ export interface SiteGizmoProps {
   occupiedKeys?: Set<string>;
   /** 该零件端口总数是否超过密集阈值（抑制大板铺满的淡化点）。 */
   isDensePart?: boolean;
+  /** Spotlight：父层（InteractivePart）算的"光标屏幕距离最近的兼容 port"的 portKey。
+   *  传给 PortArrow 让它判定自己是不是 winner —— 仅 winner 升级为 prominent，
+   *  减少密集 port 区域的视觉干扰。null/undefined 时回退老行为（所有兼容 port 同时亮）。*/
+  spotlightPortKey?: string | null;
   onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
   onPortHover?: (info: SelectedPortInfo | null) => void;
 }
 
 export function SiteGizmo({
   site, groupRef, partId, ldrawId, phase, sourcePortType = null,
-  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, isDensePart = false, onPortClick, onPortHover
+  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, isDensePart = false,
+  spotlightPortKey = null, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
 
@@ -640,6 +669,7 @@ export function SiteGizmo({
             sitePos={sitePos}
             isSelected={portIsSelected}
             isCompatiblePort={compatible}
+            spotlightPortKey={spotlightPortKey}
             groupRef={groupRef}
             partId={partId}
             ldrawId={ldrawId}

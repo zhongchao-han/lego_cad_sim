@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useStore, useIsTargetSeekingPhase } from '../store';
+import { useStore, useIsTargetSeekingPhase, portKey } from '../store';
 import { SelectionLevel, InteractionPhase, SelectedPortInfo } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
@@ -245,6 +245,56 @@ export const InteractivePart = memo(({
     return total > DENSE_PORT_THRESHOLD;
   }, [ldrawPart.sites]);
 
+  // Spotlight：把本零件所有 port 的 (portKey, part-local position) 预算缓存，
+  // 下面 useFrame 每帧拿来跟 cursor NDC 比一次，挑出"屏幕距离最近的兼容 port"
+  // 写到 spotlightPortKey state → 传给 SiteGizmo → PortArrow 升级为 prominent。
+  // 其余兼容 port 保持 dim 小点。解决密集 port 区"鼠标周围十几个箭头同时亮"。
+  const portsForSpotlight = useMemo(() => {
+    const items: { key: string; localPos: [number, number, number] }[] = [];
+    for (const site of ldrawPart.sites ?? []) {
+      for (const p of site.ports ?? []) {
+        items.push({
+          key: portKey(p.position as [number, number, number], p.rotation as number[][]),
+          localPos: p.position as [number, number, number],
+        });
+      }
+    }
+    return items;
+  }, [ldrawPart.sites]);
+  const [spotlightPortKey, setSpotlightPortKey] = useState<string | null>(null);
+
+  // 每帧（不卡，60Hz 单 part 内 <50 个 port 的投影计算可忽略）算屏幕距离 cursor
+  // 最近的兼容 port → 写到 spotlightPortKey。下面 SiteGizmo 透传给 PortArrow，
+  // 由 portProminent 在 spotlight 模式下只让 winner 升级 prominent。
+  //
+  // 关键判定：只在"端口可能展开显示"（hovered + portEngageMode 或 selected）时
+  // 才计算 + 写 state；其他时间 state 锁定 null（视觉退回老行为 / 不影响渲染）。
+  const _spotlightV = useMemo(() => new THREE.Vector3(), []);
+  useFrame((state) => {
+    // 触发条件跟 finalShowPorts + 兼容 port 列表强相关；简化：hovered 即跑（覆盖
+    // IDLE hover 探索 + SOURCE_LOCKED 选目标两个场景）。不 hover 直接清空 state。
+    const shouldCompute = (hovered || isPortHovered) && portsForSpotlight.length > 1;
+    if (!shouldCompute) {
+      if (spotlightPortKey !== null) setSpotlightPortKey(null);
+      return;
+    }
+    const g = groupRef.current;
+    if (!g) return;
+    const cursorX = state.pointer.x;
+    const cursorY = state.pointer.y;
+    const partMatrix = g.matrixWorld;
+    let bestKey: string | null = null;
+    let bestDsq = Infinity;
+    for (const { key, localPos } of portsForSpotlight) {
+      _spotlightV.set(localPos[0], localPos[1], localPos[2]).applyMatrix4(partMatrix).project(state.camera);
+      const dx = _spotlightV.x - cursorX;
+      const dy = _spotlightV.y - cursorY;
+      const dsq = dx * dx + dy * dy;
+      if (dsq < bestDsq) { bestDsq = dsq; bestKey = key; }
+    }
+    if (bestKey !== spotlightPortKey) setSpotlightPortKey(bestKey);
+  });
+
   if (ldrawPart.loading) return null;
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
@@ -337,6 +387,7 @@ export const InteractivePart = memo(({
           showVisuals={finalShowPorts}
           occupiedKeys={occupiedKeys}
           isDensePart={isDensePart}
+          spotlightPortKey={spotlightPortKey}
           onPortClick={handlePortClickLocal}
           onPortHover={handlePortHoverLocal}
         />
