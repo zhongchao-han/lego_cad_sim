@@ -3,7 +3,8 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Environment, BakeShadows, GizmoHelper, GizmoViewport, ContactShadows } from '@react-three/drei';
 import { Perf } from 'r3f-perf';
-import { useStore, getConnectedGroup } from './store';
+import { useStore, getConnectedGroup, ensurePortGeom } from './store';
+import { computeSnapDelta } from './utils/portSnap';
 import { InteractivePart } from './components/InteractivePart';
 import { CameraController } from './CameraController';
 import { MarqueeSelectionOverlay } from './components/MarqueeSelectionOverlay';
@@ -208,6 +209,10 @@ const FreePlacerGhost = () => {
     const projectionMode = useStore(s => s.freePlacingProjectionMode);
     const initialPointer = useStore(s => s.freePlacingPointer);
     const commitFreePlacing = useStore(s => s.commitFreePlacing);
+    // Ghost-on-drag snap：拖入零件时实时算"吸附后位置"，ghost 直接显示吸附后状态
+    // → 用户落地前知道会 snap 到哪。复用 PR #180 的 computeSnapDelta（之前接入点已移除、
+    // 这里是更合适的接入点：用户主动拖入零件时才吸，不会干扰键盘平移）
+    const sceneParts = useStore(s => s.parts);
     const groupRef = useRef(null);
     const { raycaster, camera, scene, gl } = useThree();
 
@@ -234,47 +239,103 @@ const FreePlacerGhost = () => {
     const _groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
     const _intersectScratch = useMemo(() => new THREE.Vector3(), []);
 
+    // Ghost-on-drag snap 缓存：useFrame 同步要 port 几何，提前异步拉好放 ref。
+    // 涉及的 ldrawId = payload + 场内所有 ACTIVE_ARENA 件。
+    const portsCacheRef = useRef({}); // { [ldrawId]: SnapPortInput[] }
+    useEffect(() => {
+        if (!isPlacing) return;
+        const ldraws = new Set();
+        payload.forEach(it => { if (it.state?.ldrawId) ldraws.add(it.state.ldrawId); });
+        Object.values(sceneParts).forEach(p => {
+            if (p.zone === ZoneType.ACTIVE_ARENA && p.ldrawId) ldraws.add(p.ldrawId);
+        });
+        if (ldraws.size === 0) return;
+        let cancelled = false;
+        ensurePortGeom([...ldraws]).then(map => {
+            if (!cancelled) portsCacheRef.current = map;
+        }).catch(() => { /* 拉端口失败不影响 ghost 跟手；snap 静默退回 */ });
+        return () => { cancelled = true; };
+    }, [isPlacing, payload, sceneParts]);
+
+    // snap 节流：useFrame 60Hz、computeSnapDelta 是 O(N×M²) 容易卡。每 4 帧算一次
+    // 视觉就够（15Hz 吸附跟手没问题），把高频留给 raycast 跟手。
+    const snapTickRef = useRef(0);
+    const lastSnapDeltaRef = useRef([0, 0, 0]);
+
     useFrame(() => {
         if (!isPlacing || !groupRef.current) return;
 
         // ghost 朝向 = 零件原始姿态（quaternion 由渲染 prop 给，identity 平躺），
         // 不再随相机重旋 —— 落地永远轴对齐，避免歪斜（见上方朝向说明）。
 
-        if (isGroundPlane) {
-            // 仅与 y=0 平面求交，忽略环境软箱、阴影面与现有零件
-            raycaster.setFromCamera(pointerNdcRef.current, camera);
-            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
-                groupRef.current.position.copy(_intersectScratch);
-            } else {
-                raycaster.ray.at(0.2, groupRef.current.position);
-            }
-            return;
-        }
-
-        // SCENE_RAYCAST：用自维护的 NDC（而非 R3F mouse），保证键盘触发的粘贴也跟手。
+        // ── Step 1: 算 raw 位置（两条投影路径都先打零件、再退回地板）─────────────
+        //   GROUND_PLANE: 优先打零件 mesh（让 ghost 落到鼠标视觉位置上）→ 退回 y=0 平面
+        //   SCENE_RAYCAST: 同样优先打零件 → 退回 y=0
+        // 老版 GROUND_PLANE 强制投 y=0，相机有俯角时 ghost 比鼠标视觉低一格（典型透视偏差），
+        // 用户反馈"鼠标 hover 上一个孔，ghost 在下一个孔"。改成"先打零件"即解。
+        // 不直接写 groupRef，留给 step 3 叠 snap delta（避免"上帧 delta 当下帧
+        // raw 输入"导致漂移）。
         raycaster.setFromCamera(pointerNdcRef.current, camera);
+        let rawX = 0, rawY = 0, rawZ = 0;
 
-        // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
+        // 先尝试打场景里的零件 mesh（忽略 ghost 本身 + 装饰平面）。
+        // 关键过滤：只接受祖先链有 userData.isInteractivePart=true 的命中 —— 把
+        // ContactShadows / Environment / 网格平面这种装饰拦下来（它们也是 mesh
+        // 会被 raycast 打中，但用户期望 ghost 落到零件而不是阴影上）。
         const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
             let p = h.object;
             while(p) {
                 if (p === groupRef.current) return false;
+                if (p.userData?.isInteractivePart) return true;
                 p = p.parent;
             }
-            return true;
+            return false;
         });
-
         if (hits.length > 0) {
-            groupRef.current.position.copy(hits[0].point);
+            rawX = hits[0].point.x; rawY = hits[0].point.y; rawZ = hits[0].point.z;
+        } else if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
+            // 没命中零件 → 投地板（GROUND_PLANE 的原 fallback）
+            rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
         } else {
-            // 兜底：投射到 y=0 (地面)
-            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
-                groupRef.current.position.copy(_intersectScratch);
-            } else {
-                // 如果光线平行于地面或朝上，给一个合理的近处距离（0.2米）而不是 10 米
-                raycaster.ray.at(0.2, groupRef.current.position);
+            // 射线平行 / 朝上 → 近处兜底（0.2m）
+            raycaster.ray.at(0.2, _intersectScratch);
+            rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
+        }
+
+        // ── Step 2: Ghost-on-drag snap（每 4 帧从 raw 位置算一次 delta）──────────
+        //    computeSnapDelta 是 O(N×M) candidates × O(N×M) score，60Hz 跑容易卡。
+        //    4 帧（~67ms）一次视觉吸附无感、raw 位置每帧更新保持 cursor 跟手。
+        //    复用上次 delta 维持视觉稳定。
+        snapTickRef.current = (snapTickRef.current + 1) % 4;
+        if (snapTickRef.current === 0) {
+            const portGeom = portsCacheRef.current;
+            if (portGeom && Object.keys(portGeom).length > 0) {
+                const movingParts = payload
+                    .filter(it => it.state?.ldrawId)
+                    .map(it => ({
+                        id: it.id,
+                        ldrawId: it.state.ldrawId,
+                        position: [
+                            it.state.position[0] + rawX,
+                            it.state.position[1] + rawY,
+                            it.state.position[2] + rawZ,
+                        ],
+                        quaternion: it.state.quaternion,
+                    }));
+                const staticParts = Object.entries(sceneParts)
+                    .filter(([, p]) => p.zone === ZoneType.ACTIVE_ARENA)
+                    .map(([pid, p]) => ({
+                        id: pid, ldrawId: p.ldrawId,
+                        position: p.position, quaternion: p.quaternion,
+                    }));
+                const delta = computeSnapDelta(movingParts, staticParts, portGeom);
+                lastSnapDeltaRef.current = delta ?? [0, 0, 0];
             }
         }
+
+        // ── Step 3: groupRef = raw + lastSnapDelta（ghost 显示吸附后位置）──────
+        const d = lastSnapDeltaRef.current;
+        groupRef.current.position.set(rawX + d[0], rawY + d[1], rawZ + d[2]);
     });
 
     // 在 window 级别监听 pointermove，自维护 NDC 坐标（两条投影路径共用）。

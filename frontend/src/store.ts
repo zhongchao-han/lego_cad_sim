@@ -428,7 +428,7 @@ export function getConnectedGroup(connections: ConnectionGraph, startId: string,
  */
 const _portGeomCache = new Map<string, RelatchPortInput[]>();
 
-async function ensurePortGeom(ldrawIds: string[]): Promise<Record<string, RelatchPortInput[]>> {
+export async function ensurePortGeom(ldrawIds: string[]): Promise<Record<string, RelatchPortInput[]>> {
   const missing = ldrawIds.filter(ld => ld && !_portGeomCache.has(ld));
   await Promise.all(missing.map(async (ld) => {
     try {
