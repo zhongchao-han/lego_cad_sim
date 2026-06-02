@@ -79,10 +79,14 @@ describe('Interaction v1.2 交互测试矩阵', () => {
     expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
   });
 
-  // --- 3b. 选中零件本体应中止进行中的端口交互 (UX 反馈：过约束时整组旋转的前提) ---
+  // --- 3b. SOURCE_LOCKED 时点本体只切焦点、不 abort 端口交互（UX 反馈修复） ---
+  // 旧契约（已废）：点本体 → abort 端口交互回 IDLE，方便接 [/] 整组旋转。
+  // 新契约：点本体保留 SOURCE_LOCKED + selectedPort，只切 selection.primaryId。
+  //   原因：用户找 target 中不小心点到本体不应被打回起点。
+  //   想要旋转本体的工作流需要先按 Esc 显式 abort，多一步换语义清晰。
+  // AXIAL_SLIDING 仍主动 abort（沿轴滑动是未完结动作，明显要中断）。
 
-  it('SOURCE_LOCKED 时 selectPart(本体) 应中止端口交互回 IDLE 并清 selectedPort', () => {
-    // 模拟卡在 SOURCE_LOCKED：锁了一个源端口
+  it('SOURCE_LOCKED 时 selectPart(本体) 保留 source-lock 只切焦点（UX 反馈：不再粗暴打回 IDLE）', () => {
     useStore.setState({
       interactionPhase: InteractionPhase.SOURCE_LOCKED,
       selectedPort: {
@@ -92,15 +96,47 @@ describe('Interaction v1.2 交互测试矩阵', () => {
       },
     });
 
-    // 主动点零件本体选中（过约束错误提示让用户做的事）
     useStore.getState().selectPart('partX', SelectionLevel.INDIVIDUAL);
 
-    // 端口交互被中止 → IDLE，selectedPort 清空 → [/] 此后才会走整组刚体旋转路由
-    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
-    expect(useStore.getState().selectedPort).toBeNull();
-    // 选中态正确建立
+    // SOURCE_LOCKED 保留 + selectedPort 保留 + selection focus 切到 partX
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.SOURCE_LOCKED);
+    expect(useStore.getState().selectedPort).not.toBeNull();
+    expect(useStore.getState().selectedPort?.partId).toBe('partX');
     expect(useStore.getState().selection.primaryId).toBe('partX');
     expect(useStore.getState().selection.level).toBe(SelectionLevel.INDIVIDUAL);
+  });
+
+  it('SOURCE_LOCKED 时 Esc → abortCurrentInteraction 仍能干净打回 IDLE', () => {
+    // 保留 abort 的"显式中断"语义 —— 用户想旋本体的工作流仍 work，只是多按一次 Esc。
+    useStore.setState({
+      interactionPhase: InteractionPhase.SOURCE_LOCKED,
+      selectedPort: {
+        partId: 'partX', ldrawId: '71709.dat', portType: 'connhole.dat',
+        position: [0, 0, 0], rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        globalPos: [0, 0, 0], globalQuat: [0, 0, 0, 1],
+      },
+    });
+    useStore.getState().abortCurrentInteraction();
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
+    expect(useStore.getState().selectedPort).toBeNull();
+  });
+
+  it('AXIAL_SLIDING 时 selectPart(本体) 仍主动 abort（未完结动作要中断）', () => {
+    useStore.getState().addParts(['partZ']);
+    useStore.setState({
+      interactionPhase: InteractionPhase.AXIAL_SLIDING,
+      selectedPort: {
+        partId: 'partZ', ldrawId: '71709.dat', portType: 'connhole.dat',
+        position: [0, 0, 0], rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        globalPos: [0, 0, 0], globalQuat: [0, 0, 0, 1],
+      },
+    });
+
+    useStore.getState().selectPart('partZ', SelectionLevel.INDIVIDUAL);
+
+    expect(useStore.getState().interactionPhase).toBe(InteractionPhase.IDLE);
+    expect(useStore.getState().selectedPort).toBeNull();
+    expect(useStore.getState().selection.primaryId).toBe('partZ');
   });
 
   it('IDLE 时 selectPart 不应误触发 abort（仅设选中态）', () => {
