@@ -426,6 +426,13 @@ const FreePlacerGhost = () => {
                     quaternion={item.state.quaternion}
                 >
                     {/* 朝向固定为零件原始姿态（identity 平躺）；ghost 不再随相机重旋。 */}
+                    {/* disableEvents 必传：否则 ghost 自身的 mesh 仍可被 raycast 命中、
+                        group 仍带 userData.isInteractivePart=true、SiteGizmo 不可见球壳也参与
+                        拾取 —— 上面 useFrame 每帧 raycast(scene.children) 会**打到 ghost 自己**
+                        （filter 沿父链先撞到 ghost 的 isInteractivePart 组，早于 groupRef.current
+                        的排除判定），于是 ghost 被放到自己顶面 → 逐帧朝相机爬升 → 零件无限放大。
+                        InteractivePart 本就为 PlacementGhost 设计了 disableEvents 跳过这一切
+                        （见该文件 SiteGizmo 上方注释），这里漏传即此 bug 根因。 */}
                     <InteractivePart
                         partId={`ghost_${item.id}`}
                         ldrawId={item.state.ldrawId}
@@ -434,6 +441,7 @@ const FreePlacerGhost = () => {
                         transparent={!isGroundPlane}
                         showPorts={false}
                         isStatic={true}
+                        disableEvents={true}
                     />
                 </group>
             ))}
