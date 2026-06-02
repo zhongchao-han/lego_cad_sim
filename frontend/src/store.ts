@@ -36,6 +36,9 @@ import { calculateSnapPose, calculatePortRotationPose, applyGroupDelta, calculat
 import { evaluateRotateReconnect, worldPivot, rotatePartAboutPivot, pickBasePart, type RigidPose } from './utils/rotateReconnect';
 import { isConnectorCategory } from './utils/partCategory';
 import { findRelatchEdges, type RelatchEdge, type RelatchPartInput, type RelatchPortInput } from './utils/relatchScan';
+// 注：portSnap.ts 工具留着备用（曾接入 translate 落定 / commitFreePlacing 自动吸附，
+// 因 UX 心智不清晰已移除接入点）。要复活时把 computeSnapDelta 重新接到对应位置即可。
+// import { computeSnapDelta } from './utils/portSnap';
 import { computeMovingGroup, buildComponentGraph, pickGroundAnchors } from './utils/assemblyTree';
 import {
   findMeshPartnerAndDelta,
@@ -353,7 +356,7 @@ interface StoreState {
       projectionMode?: FreePlacingProjectionMode;
     }
   ) => void;
-  commitFreePlacing: (finalStates?: Record<string, PartState>) => void;
+  commitFreePlacing: (finalStates?: Record<string, PartState>) => Promise<void>;
   /** 「整体转盘」组合放置：一次放下转盘顶 + 底座（同轴、预连成 revolute），用户当
    *  一个零件搜/放，落地即可相对旋转。复用 commitFreePlacing 的多件+组内连接管线。
    *  topLdrawId/baseLdrawId 由 turntableAssembly 对表给出（两半须已加 hub 端口）。 */
@@ -1107,12 +1110,19 @@ export const useStore = create<StoreState>()(
       if (p) prevPositions[pid] = { position: [...p.position] as Vec3, quaternion: [...p.quaternion] as Quat };
     });
 
+    // 传 source 当前 world quat → 让 calculateSnapPose 做 roll 修正（swing-twist 分解），
+    // 在保证端口法向对扣的前提下选最接近原姿态的旋转 → 整组不绕端口轴无端翻跟头。
+    // sourcePart 不存在（新建零件首次落地）时不传，回退到老行为（T_flip=Rx180）。
+    const sourcePartCurrentWorldQuat = sourcePart && parts[source.partId]
+      ? (sourcePart.quaternion as Quat)
+      : undefined;
     const { position, quaternion } = calculateSnapPose(
       source.position as Vec3,
       getQuatFromMat3(source.rotation as Mat3),
       target.globalPos as Vec3,
       (target.globalQuat || [0, 0, 0, 1]) as Quat, // 增加安全回退
-      effectiveOffset
+      effectiveOffset,
+      sourcePartCurrentWorldQuat,
     );
 
     // 刚体组吸附：把 source 的位姿位移作为 delta，整体施加给整个 srcGroup。
@@ -1248,7 +1258,7 @@ export const useStore = create<StoreState>()(
     const idemKey = crypto.randomUUID();
     axios.post(`${API_URL}/api/snap_parts`, snapPayload, {
       headers: { 'Idempotency-Key': idemKey },
-    }).then((res) => {
+    }).then(async (res) => {
       const data = res.data as {
         auto_latched_count?: number;
         auto_latched_edges?: Array<{
@@ -1258,12 +1268,40 @@ export const useStore = create<StoreState>()(
           dst_port_key: string;
         }>;
       };
-      const edges = data.auto_latched_edges ?? [];
-      const autoLatched = data.auto_latched_count ?? 0;
+      const backendEdges = data.auto_latched_edges ?? [];
+      const backendAutoLatched = data.auto_latched_count ?? 0;
+
+      // ── 前端补全扫描（fallback / 增强）─────────────────────────────────────
+      // 后端 AutoLatchScanner 只看 parent+child 两个件之间的 port 对；当 source
+      // 的连通组里还有其他销/件**因为整组刚体平移**也跟其他静止件孔重合了
+      // （1mm 内），后端检不出来。例：把转盘组里某根销点到平板孔上 snap 之后，
+      // 转盘**整组**位移 X mm，余下 5 根销正好落进左右平板各 5 个孔 1mm 内
+      // —— 后端 auto_latched=0；我们这里**用 1mm 阈值前端再扫一遍全场**，把
+      // 漏掉的对扣边补上。已在 backend edges 里的边自动去重。
+      const { parts: latestParts, connections: latestConn } = get();
+      let frontendEdges: Array<{ src_part_id: string; dst_part_id: string; src_port_key: string; dst_port_key: string }> = [];
+      try {
+        const relatchEdges = await computeSceneRelatchEdges(latestParts, latestConn);
+        const seenBackend = new Set(backendEdges.map(e => [e.src_part_id, e.dst_part_id].sort().join('|')));
+        frontendEdges = relatchEdges
+          .filter(e => !seenBackend.has([e.a, e.b].sort().join('|')))
+          .map(e => ({ src_part_id: e.a, dst_part_id: e.b, src_port_key: e.aPortKey, dst_port_key: e.bPortKey }));
+      } catch (err) {
+        get().addLog(`[FrontendLatch] 跳过补全扫描（端口加载失败）：${err instanceof Error ? err.message : String(err)}`, 'INFO');
+      }
+
+      const edges = [...backendEdges, ...frontendEdges];
+      const autoLatched = backendAutoLatched + frontendEdges.length;
       const totalPairs = 1 + autoLatched;  // 主连接 + Auto-Latch 附加
 
-      // [SNAP-DBG] 后端 auto-latch 回流了哪些边。
-      get().addLog(`[SNAP-DBG] backend snap_parts resp: auto_latched=${autoLatched} edges=${JSON.stringify((edges||[]).map(e => [e.src_part_id, e.dst_part_id]))}`, 'ACTION');
+      // [SNAP-DBG] 后端 auto-latch 回流了哪些边 + 前端补了哪些。
+      get().addLog(
+        `[SNAP-DBG] backend snap_parts resp: auto_latched=${backendAutoLatched} edges=${JSON.stringify(backendEdges.map(e => [e.src_part_id, e.dst_part_id]))}` +
+        (frontendEdges.length > 0
+          ? ` | [FrontendLatch] +${frontendEdges.length}: ${JSON.stringify(frontendEdges.map(e => [e.src_part_id, e.dst_part_id]))}`
+          : ''),
+        'ACTION'
+      );
 
       // B.3-3 UX 提示：snap 总 pair 数写入 store，StatusBar 据此显
       // "Last snap: N pairs"。常态单点 snap 仍写 1（用户看见 = 1 表示无
@@ -1274,7 +1312,7 @@ export const useStore = create<StoreState>()(
         // 当前 snap 是 plug-snap（多 pair）— 用 [PlugSnap] 前缀让 LogPanel
         // 醒目，跟单点 [AutoLatch] 区分
         get().addLog(
-          `[PlugSnap] Snap(${source.partId} ↔ ${target.partId}): ${totalPairs} port pairs (1 main + ${autoLatched} auto-latched).`,
+          `[PlugSnap] Snap(${source.partId} ↔ ${target.partId}): ${totalPairs} port pairs (1 main + ${backendAutoLatched} backend + ${frontendEdges.length} frontend).`,
           'ACTION'
         );
       }
@@ -1859,7 +1897,7 @@ export const useStore = create<StoreState>()(
     get().addLog(`Started placing turntable assembly (${topLdrawId} + ${baseLdrawId}).`, 'ACTION');
   },
 
-  commitFreePlacing: (finalStates?: Record<string, PartState>) => {
+  commitFreePlacing: async (finalStates?: Record<string, PartState>) => {
     const { freePlacingPayload, freePlacingMeta } = get();
     if (!freePlacingPayload || freePlacingPayload.length === 0) return;
 
@@ -1881,6 +1919,11 @@ export const useStore = create<StoreState>()(
       addedParts[id] = state;
       newIds.push(id);
     });
+
+    // 注：曾试验落定时挂 magnetic port snap（portSnap.ts / computeSnapDelta），让用户
+    // 拖入零件时自动吸到附近 port 对齐。已**移除**。原因同 _transformSelectedSubassembly：
+    // 自动吸附心智不清晰、易把零件拉到非用户意图位置。
+    // 用户期望显式对齐时走 Alt+click（calculateSnapPose roll 保留 + 前端补全 latch）。
 
     // 粘贴随带的组内连接 + 占用（id 已 remap）。一并建连，让副本保持连接而非散件。
     const pastedConns = freePlacingMeta?.connections ?? [];
@@ -2385,6 +2428,14 @@ export const useStore = create<StoreState>()(
     const addedConnPairs: Array<[string, string]> = [];
     const addedOcc: Record<string, Record<string, string>> = {};
     if (opts.relatchPortGeom) {
+      // 注：曾试验在这里挂 magnetic port snap（portSnap.ts / computeSnapDelta）让
+      // WASD/Q/E 平移落定时把"差一点对上"的 port 整组吸过去。已**移除**。
+      // 原因：
+      //   - snap 会在用户按 +8mm 时反向算出 -8mm 把人拉回原位 → 用户动不了
+      //   - 即便加方向过滤，同向 fine-tune 仍可能让 9.6mm 步走出 16mm，难预测
+      //   - 用户心智：键盘平移 = 纯位移、Alt+click = 显式 snap 更清晰
+      // 显式对齐意图由 Alt+click snap 走（calculateSnapPose roll 保留 + 后续
+      // 前端补全 latch 已能 1 击全连）。
       const relatchParts: RelatchPartInput[] = [];
       moving.forEach(id => {
         const cur = parts[id]; if (!cur) return;

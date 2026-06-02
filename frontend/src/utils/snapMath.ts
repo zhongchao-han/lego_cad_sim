@@ -33,6 +33,13 @@ const _csp_vOut = new THREE.Vector3();
 const _csp_qOut = new THREE.Quaternion();
 const _csp_sOut = new THREE.Vector3();
 
+// Roll preservation 专用 scratch（swing-twist 分解 + 修正后的 part quat 重组）
+const _csp_qNaive = new THREE.Quaternion();
+const _csp_qCurrent = new THREE.Quaternion();
+const _csp_qDelta = new THREE.Quaternion();
+const _csp_qTwist = new THREE.Quaternion();
+const _csp_vPortZ = new THREE.Vector3();
+
 /**
  * 核心对齐算法 (Point-to-Point Snap Engine)
  * 目标：将 Source 端口 重合于 Target 端口，且 Z 轴对扣，主轴（Y/X）对齐平滑。
@@ -41,14 +48,22 @@ const _csp_sOut = new THREE.Vector3();
  * @param sourcePortQuat   来源端口在当前零件局部坐标下的旋转
  * @param targetPortPos    目标端口（梁上那个）在组装场景下的全局位置
  * @param targetPortQuat   目标端口在组装场景下的全局旋转
- * @returns { position: Vector3 数组, quaternion: Quaternion 数组 } 零件落位的全局位姿
+ * @param slideOffset      沿轴滑动偏移（单位米）
+ * @param sourcePartCurrentWorldQuat
+ *   可选；source 零件**当前**世界 quat。提供后，snap 会做 swing-twist 分解：
+ *   端口法向（z 轴）对扣是硬约束，但绕端口轴的 roll **自由旋转**，从这一族合
+ *   法旋转里挑跟"当前姿态"最接近的那个 → source 群组**只平移、不无谓翻跟头**。
+ *   不提供时回退到老行为（始终乘 T_flip=Rx(180°)，roll 固定为 0）。
+ *
+ * @returns { position, quaternion } 零件落位的全局位姿
  */
 export function calculateSnapPose(
     sourcePortPos: [number, number, number],
     sourcePortQuat: [number, number, number, number],
     targetPortPos: [number, number, number],
     targetPortQuat: [number, number, number, number],
-    slideOffset: number = 0
+    slideOffset: number = 0,
+    sourcePartCurrentWorldQuat?: [number, number, number, number],
 ) {
     // 1. 构造 Target 端口的全局矩阵
     _csp_mTarget.compose(
@@ -80,6 +95,79 @@ export function calculateSnapPose(
     }
 
     _csp_mPart.decompose(_csp_vOut, _csp_qOut, _csp_sOut);
+
+    // 5. （可选）Roll 修正：让 source 群组只平移、不绕端口轴无端翻跟头。
+    //
+    // 背景：上面公式硬乘 T_flip = Rx(180°)，等价于"绕端口轴自转角 = 0"这个
+    //   武断选择。但端口对扣的物理约束只锁端口 z 轴方向（法向），**绕该轴的
+    //   roll 是自由变量**。原算法浪费这个自由度，导致一旦 source 当前姿态的
+    //   roll ≠ 0，snap 会把整个 source 群组绕端口位置自转 → 转盘飞、用户懵。
+    //
+    // 修法：swing-twist 分解
+    //   1. q_naive = 上面算出的 _csp_qOut（"roll=0 选择"下的 source part quat）
+    //   2. q_current = sourcePartCurrentWorldQuat（用户视觉里的"现姿态"）
+    //   3. q_delta = q_current × inv(q_naive)（从 naive 到 current 的整旋转）
+    //   4. 把 q_delta 投影到"绕端口轴"的 twist 分量 + 剩下垂直的 swing 分量
+    //   5. 只保留 twist：q_final = twist × q_naive
+    //      — 这保证 q_final × sourcePortQuat 的 z 轴 = q_naive × sourcePortQuat 的 z 轴
+    //        （端口法向不动），同时绕端口轴的角度尽量贴近 q_current。
+    //
+    // 不传 sourcePartCurrentWorldQuat 时跳过该步，与原 API 完全兼容。
+    if (sourcePartCurrentWorldQuat) {
+        _csp_qNaive.copy(_csp_qOut);
+        _csp_qCurrent.set(
+            sourcePartCurrentWorldQuat[0],
+            sourcePartCurrentWorldQuat[1],
+            sourcePartCurrentWorldQuat[2],
+            sourcePartCurrentWorldQuat[3],
+        );
+
+        // 端口轴（世界系）：naive snap 后 source 零件本地端口 +z 在世界的方向
+        // = q_naive × q_portLocal_z = q_naive × q_sourcePortQuat × (0,0,1)
+        _csp_qIn.set(sourcePortQuat[0], sourcePortQuat[1], sourcePortQuat[2], sourcePortQuat[3]);
+        _csp_vPortZ.set(0, 0, 1).applyQuaternion(_csp_qIn).applyQuaternion(_csp_qNaive).normalize();
+
+        // q_delta = q_current × inv(q_naive)，把 q_naive "旋"成 q_current 的整旋转
+        _csp_qDelta.copy(_csp_qNaive).invert().premultiply(_csp_qCurrent);
+
+        // swing-twist 分解：twist = 绕 _csp_vPortZ 的分量（quat 的 vector 部投影到轴）
+        const dot = _csp_qDelta.x * _csp_vPortZ.x
+                  + _csp_qDelta.y * _csp_vPortZ.y
+                  + _csp_qDelta.z * _csp_vPortZ.z;
+        _csp_qTwist.set(
+            _csp_vPortZ.x * dot,
+            _csp_vPortZ.y * dot,
+            _csp_vPortZ.z * dot,
+            _csp_qDelta.w,
+        );
+        // 退化：q_delta 沿端口轴几乎无分量（dot≈0 且 w≈0）→ twist 范数趋零，
+        // 不归一化会得到 NaN。此时 twist = identity（不旋转），不破坏 naive 解。
+        const tLen = Math.sqrt(_csp_qTwist.x * _csp_qTwist.x + _csp_qTwist.y * _csp_qTwist.y
+                             + _csp_qTwist.z * _csp_qTwist.z + _csp_qTwist.w * _csp_qTwist.w);
+        if (tLen > 1e-6) {
+            _csp_qTwist.x /= tLen; _csp_qTwist.y /= tLen; _csp_qTwist.z /= tLen; _csp_qTwist.w /= tLen;
+        } else {
+            _csp_qTwist.set(0, 0, 0, 1);
+        }
+
+        // q_final = twist × q_naive；写回 _csp_qOut
+        _csp_qOut.copy(_csp_qNaive).premultiply(_csp_qTwist);
+
+        // 平移也要随之更新：保持"source port world 位置"还在 targetPortPos。
+        // q_final 让 source part 绕端口轴旋转了 twist 角度，但旋转中心**应当**
+        // 是端口位置（不是零件原点）。所以从 q_final 反推零件位置：
+        //   targetPortPos = q_final × sourcePortPos + partPos
+        //   → partPos = targetPortPos - q_final × sourcePortPos
+        _csp_vIn.set(sourcePortPos[0], sourcePortPos[1], sourcePortPos[2])
+            .applyQuaternion(_csp_qOut);
+        _csp_vOut.set(targetPortPos[0], targetPortPos[1], targetPortPos[2]).sub(_csp_vIn);
+
+        // slideOffset 在端口轴上额外平移（端口轴 = _csp_vPortZ 经 twist 旋转后的方向；
+        // 但 twist 绕该轴 → 轴不变）。直接沿 _csp_vPortZ 加 slideOffset。
+        if (slideOffset !== 0) {
+            _csp_vOut.addScaledVector(_csp_vPortZ, slideOffset);
+        }
+    }
 
     return {
         position: [_csp_vOut.x, _csp_vOut.y, _csp_vOut.z] as [number, number, number],
