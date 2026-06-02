@@ -1234,15 +1234,70 @@ export const useStore = create<StoreState>()(
     // 降级策略：后端调用失败不影响前端已完成的本地连接（与 server.py 中 AutoLatch
     // 异常处理策略保持对称）。
     // parent 为目标零件（静止基准），child 为被吸附的源零件（刚发生位移）。
+
+    // v4.1 (PR #182)：AutoLatch 扩 scope，前端把 child 连通组（snap 后位姿）+
+    //   场内所有静止件（位姿不变）一并送给后端，后端用 scan_group_against_scene
+    //   一次性扫完。删掉老的 [FrontendLatch] 补全 fallback。
+    //
+    // child_group_members: src 连通组所有件，含 child 自己。位姿用 groupNewPoses
+    //   （applyGroupDelta 已算好的 snap 后位置）。child 自己用 source.partId + position。
+    // scene_static_parts: ACTIVE_ARENA 里 **不在** srcGroup 的所有件，位姿不变。
+    const srcGroupSet = new Set(srcGroup);
+    const scenePartsNow = get().parts;
+    const flatRot = (rot: unknown): number[] => {
+      // 9-flat 或 [[a,b,c],[d,e,f],[g,h,i]] 都接受，统一展平
+      if (Array.isArray(rot) && rot.length === 9 && typeof rot[0] === 'number') return rot as number[];
+      if (Array.isArray(rot) && Array.isArray(rot[0])) return (rot as number[][]).flat();
+      return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+    };
+    const partWorldRot = (p: PartState): number[] => {
+      // PartState 存 quaternion；这里转 3x3 row-major
+      const [qx, qy, qz, qw] = p.quaternion;
+      const xx=qx*qx, yy=qy*qy, zz=qz*qz, xy=qx*qy, xz=qx*qz, yz=qy*qz, wx=qw*qx, wy=qw*qy, wz=qw*qz;
+      return [
+        1-2*(yy+zz), 2*(xy-wz),   2*(xz+wy),
+        2*(xy+wz),   1-2*(xx+zz), 2*(yz-wx),
+        2*(xz-wy),   2*(yz+wx),   1-2*(xx+yy),
+      ];
+    };
+    const childGroupMembers = srcGroup.map(pid => {
+      // child 自己用 snap 后的 position（不是 store 里旧的）
+      const pose = groupNewPoses[pid];
+      const stored = scenePartsNow[pid];
+      const wp = pose?.position ?? stored?.position ?? [0, 0, 0];
+      // groupNewPoses 给的是 quaternion，转 3x3。stored 也是 quaternion。
+      const q = pose?.quaternion ?? stored?.quaternion ?? [0, 0, 0, 1];
+      const xx=q[0]*q[0], yy=q[1]*q[1], zz=q[2]*q[2], xy=q[0]*q[1], xz=q[0]*q[2], yz=q[1]*q[2], wx=q[3]*q[0], wy=q[3]*q[1], wz=q[3]*q[2];
+      const wr = [
+        1-2*(yy+zz), 2*(xy-wz),   2*(xz+wy),
+        2*(xy+wz),   1-2*(xx+zz), 2*(yz-wx),
+        2*(xz-wy),   2*(yz+wx),   1-2*(xx+yy),
+      ];
+      return {
+        part_id: pid,
+        ldraw_id: stored?.ldrawId ?? '',
+        world_pos: wp as Vec3,
+        world_rot: wr,
+      };
+    }).filter(m => m.ldraw_id);
+    const sceneStaticParts = Object.entries(scenePartsNow)
+      .filter(([pid, p]) => p.zone === ZoneType.ACTIVE_ARENA && !srcGroupSet.has(pid))
+      .map(([pid, p]) => ({
+        part_id: pid,
+        ldraw_id: p.ldrawId,
+        world_pos: p.position as Vec3,
+        world_rot: partWorldRot(p),
+      }));
+
     const snapPayload = {
       parent_id: target.partId,
       child_id:  source.partId,
       port_type_p: target.portType,
       port_type_c: source.portType,
       parent_origin: target.globalPos,
-      parent_rot:    (target.rotation as number[]).flat ? (target.rotation as number[][]).flat() : target.rotation,
+      parent_rot:    flatRot(target.rotation),
       child_origin:  position,        // Snap 后的最终 SI 世界坐标
-      child_rot:     (source.rotation as number[]).flat ? (source.rotation as number[][]).flat() : source.rotation,
+      child_rot:     flatRot(source.rotation),
       // v3.1 字段：世界坐标，用于 AutoLatchScanner 的 Site 距离筛选
       parent_world_pos: target.globalPos,
       child_world_pos:  position,
@@ -1250,6 +1305,9 @@ export const useStore = create<StoreState>()(
       // 决定是否在导出 URDF 时给该齿轮 joint 加 <mimic>。
       parent_ldraw_id: targetPart?.ldrawId ?? target.ldrawId,
       child_ldraw_id:  sourcePart.ldrawId,
+      // v4.1：扩 scope 用的群组 + 静止件位姿快照
+      child_group_members: childGroupMembers,
+      scene_static_parts: sceneStaticParts,
     };
 
     // 每次 snap 调用生成一个 UUID 作为 Idempotency-Key：浏览器/代理层若发生
@@ -1258,7 +1316,7 @@ export const useStore = create<StoreState>()(
     const idemKey = crypto.randomUUID();
     axios.post(`${API_URL}/api/snap_parts`, snapPayload, {
       headers: { 'Idempotency-Key': idemKey },
-    }).then(async (res) => {
+    }).then((res) => {
       const data = res.data as {
         auto_latched_count?: number;
         auto_latched_edges?: Array<{
@@ -1268,38 +1326,14 @@ export const useStore = create<StoreState>()(
           dst_port_key: string;
         }>;
       };
-      const backendEdges = data.auto_latched_edges ?? [];
-      const backendAutoLatched = data.auto_latched_count ?? 0;
-
-      // ── 前端补全扫描（fallback / 增强）─────────────────────────────────────
-      // 后端 AutoLatchScanner 只看 parent+child 两个件之间的 port 对；当 source
-      // 的连通组里还有其他销/件**因为整组刚体平移**也跟其他静止件孔重合了
-      // （1mm 内），后端检不出来。例：把转盘组里某根销点到平板孔上 snap 之后，
-      // 转盘**整组**位移 X mm，余下 5 根销正好落进左右平板各 5 个孔 1mm 内
-      // —— 后端 auto_latched=0；我们这里**用 1mm 阈值前端再扫一遍全场**，把
-      // 漏掉的对扣边补上。已在 backend edges 里的边自动去重。
-      const { parts: latestParts, connections: latestConn } = get();
-      let frontendEdges: Array<{ src_part_id: string; dst_part_id: string; src_port_key: string; dst_port_key: string }> = [];
-      try {
-        const relatchEdges = await computeSceneRelatchEdges(latestParts, latestConn);
-        const seenBackend = new Set(backendEdges.map(e => [e.src_part_id, e.dst_part_id].sort().join('|')));
-        frontendEdges = relatchEdges
-          .filter(e => !seenBackend.has([e.a, e.b].sort().join('|')))
-          .map(e => ({ src_part_id: e.a, dst_part_id: e.b, src_port_key: e.aPortKey, dst_port_key: e.bPortKey }));
-      } catch (err) {
-        get().addLog(`[FrontendLatch] 跳过补全扫描（端口加载失败）：${err instanceof Error ? err.message : String(err)}`, 'INFO');
-      }
-
-      const edges = [...backendEdges, ...frontendEdges];
-      const autoLatched = backendAutoLatched + frontendEdges.length;
+      const edges = data.auto_latched_edges ?? [];
+      const autoLatched = data.auto_latched_count ?? 0;
       const totalPairs = 1 + autoLatched;  // 主连接 + Auto-Latch 附加
 
-      // [SNAP-DBG] 后端 auto-latch 回流了哪些边 + 前端补了哪些。
+      // v4.1 (PR #182)：后端 AutoLatch 已扩到 "child 群组 × 全场静止件"，
+      // 前端 [FrontendLatch] 补全已删除 —— 所有对扣边都来自后端。
       get().addLog(
-        `[SNAP-DBG] backend snap_parts resp: auto_latched=${backendAutoLatched} edges=${JSON.stringify(backendEdges.map(e => [e.src_part_id, e.dst_part_id]))}` +
-        (frontendEdges.length > 0
-          ? ` | [FrontendLatch] +${frontendEdges.length}: ${JSON.stringify(frontendEdges.map(e => [e.src_part_id, e.dst_part_id]))}`
-          : ''),
+        `[SNAP-DBG] backend snap_parts resp: auto_latched=${autoLatched} edges=${JSON.stringify(edges.map(e => [e.src_part_id, e.dst_part_id]))}`,
         'ACTION'
       );
 
@@ -1312,7 +1346,7 @@ export const useStore = create<StoreState>()(
         // 当前 snap 是 plug-snap（多 pair）— 用 [PlugSnap] 前缀让 LogPanel
         // 醒目，跟单点 [AutoLatch] 区分
         get().addLog(
-          `[PlugSnap] Snap(${source.partId} ↔ ${target.partId}): ${totalPairs} port pairs (1 main + ${backendAutoLatched} backend + ${frontendEdges.length} frontend).`,
+          `[PlugSnap] Snap(${source.partId} ↔ ${target.partId}): ${totalPairs} port pairs (1 main + ${autoLatched} auto-latched).`,
           'ACTION'
         );
       }

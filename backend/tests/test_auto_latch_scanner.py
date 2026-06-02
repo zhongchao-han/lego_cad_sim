@@ -636,5 +636,86 @@ class TestServerEndpointResponseShape(unittest.TestCase):
         self.assertEqual(body["auto_latched_count"], 0)
 
 
+class TestScanGroupAgainstScene(unittest.TestCase):
+    """
+    scan_group_against_scene 测试（PR #182 扩 scope）。
+    覆盖：
+      - 群组 × 静止件笛卡尔积扫描出多对 latch 边
+      - 主 snap (parent, child) 边正确排除（不重复登记）
+      - 群组成员自己被跳过（不自吸）
+      - 空输入安全（返空）
+    """
+
+    def setUp(self) -> None:
+        self.scanner = AutoLatchScanner(threshold_m=AUTO_LATCH_THRESHOLD_M)
+
+    def _site(self, sid: str, pname: str, ptype: str, pos: list) -> dict:
+        return _make_site(sid, pname, ptype, pos)
+
+    def _make_loader(self, sites_map: dict):
+        """sites_map: {part_id: [sites]}"""
+        def loader(pid, _ld):
+            return sites_map.get(pid, [])
+        return loader
+
+    def test_group_against_scene_finds_extra_pairs(self):
+        # 转盘组 2 根销 (g1, g2)，场内 2 个平板 (s1, s2)。
+        # g1 ↔ s1 + g2 ↔ s2 都在 0.5mm 距离（< 1mm 阈值），各有 1 对 peg×hole 兼容。
+        sites_map = {
+            "g1": [self._site("g1_s", "g1_peg", "peg.dat", [0, 0, 0])],
+            "g2": [self._site("g2_s", "g2_peg", "peg.dat", [0, 0, 0])],
+            "s1": [self._site("s1_s", "s1_hole", "peghole.dat", [0, 0, 0])],
+            "s2": [self._site("s2_s", "s2_hole", "peghole.dat", [0, 0, 0])],
+        }
+        group = [
+            {"part_id": "g1", "ldraw_id": "X", "world_transform": _translate_transform(0, 0, 0)},
+            {"part_id": "g2", "ldraw_id": "X", "world_transform": _translate_transform(0.01, 0, 0)},
+        ]
+        static_parts = [
+            {"part_id": "s1", "ldraw_id": "Y", "world_transform": _translate_transform(0.0001, 0, 0)},
+            {"part_id": "s2", "ldraw_id": "Y", "world_transform": _translate_transform(0.01, 0, 0)},
+        ]
+        edges = self.scanner.scan_group_against_scene(
+            group_members=group, static_parts=static_parts,
+            sites_loader=self._make_loader(sites_map),
+        )
+        # g1 ↔ s1（0.1mm）+ g2 ↔ s2（0mm）= 2 对，g1↔s2 距离 10mm 超阈值
+        self.assertEqual(len(edges), 2)
+
+    def test_exclude_main_pair_skips_only_registered_port_pair(self):
+        # 主 snap 是 parent="P" + child="C"。它们的端口对已注册，群组扫描应跳过那一对。
+        sites_map = {
+            "C": [self._site("C_s", "c_C", "peg.dat", [0, 0, 0])],  # 注意 name="c_C" 跟下面 exclude 对齐
+            "P": [self._site("P_s", "p_P", "peghole.dat", [0, 0, 0])],
+        }
+        group = [{"part_id": "C", "ldraw_id": "X", "world_transform": _identity_transform()}]
+        static_parts = [{"part_id": "P", "ldraw_id": "Y", "world_transform": _identity_transform()}]
+        edges = self.scanner.scan_group_against_scene(
+            group_members=group, static_parts=static_parts,
+            sites_loader=self._make_loader(sites_map),
+            exclude_main_pair=("P", "C", "p_P", "c_C"),  # 主 snap 那对 port name
+        )
+        # 唯一的兼容 port 对就是主 snap 那对 → 排除后剩 0
+        self.assertEqual(len(edges), 0)
+
+    def test_group_member_does_not_self_match(self):
+        # 群组成员跟自己不会被扫（safety check）
+        sites_map = {
+            "g1": [self._site("g1_s", "g1_peg", "peg.dat", [0, 0, 0])],
+        }
+        group = [{"part_id": "g1", "ldraw_id": "X", "world_transform": _identity_transform()}]
+        static_parts = [{"part_id": "g1", "ldraw_id": "X", "world_transform": _identity_transform()}]
+        edges = self.scanner.scan_group_against_scene(
+            group_members=group, static_parts=static_parts,
+            sites_loader=self._make_loader(sites_map),
+        )
+        self.assertEqual(len(edges), 0)
+
+    def test_empty_inputs_safe(self):
+        loader = self._make_loader({})
+        self.assertEqual(self.scanner.scan_group_against_scene([], [], loader), [])
+        self.assertEqual(self.scanner.scan_group_against_scene([{"part_id": "g1", "ldraw_id": "X", "world_transform": _identity_transform()}], [], loader), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

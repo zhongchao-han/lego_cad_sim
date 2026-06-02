@@ -144,6 +144,14 @@ app.mount("/api/thumbnails", StaticFiles(directory=THUMBNAIL_CACHE_ROOT), name="
 
 # --- API 数据模型定义 ---
 
+class ScenePartPose(BaseModel):
+    """场景内单件的位姿快照（snap_parts 扩 scope 用）。"""
+    part_id: str
+    ldraw_id: str
+    world_pos: list  # [x, y, z] 米
+    world_rot: list  # 9 个浮点（3x3 row-major）
+
+
 class SnapRequest(BaseModel):
     parent_id: str
     child_id: str
@@ -161,6 +169,15 @@ class SnapRequest(BaseModel):
     # 决定是否在 URDF 里给齿轮 joint 生成 <mimic> 跟随。老前端不传保持兼容。
     parent_ldraw_id: Optional[str] = None
     child_ldraw_id: Optional[str] = None
+    # v4.1 (PR #182): AutoLatch 扩 scope —— 后端从「parent ↔ child 两件」
+    # 扩到「child 连通组 × 全场静止件」。前端在 snap 落定时算好这两组的世界位姿
+    # 一并传入，后端不必维护场景全态。老前端不传 → 自动退回老范围（仅 parent ↔ child）。
+    #
+    # child_group_members: child 的连通组成员（含 child 本身），snap 后的世界位姿
+    # scene_static_parts: 场景活动区内 **不属于** child_group 的所有件（含 parent），
+    #                     snap 前后位姿不变
+    child_group_members: Optional[list] = None  # List[ScenePartPose] — Pydantic 会自动校验
+    scene_static_parts: Optional[list] = None
 
 class ForceRequest(BaseModel):
     link_name: str
@@ -683,6 +700,54 @@ async def snap_parts(req: SnapRequest):
                         f"c_{req.child_id}",
                     ),
                 )
+                # ── v4.1 扩 scope：child 连通组 × 全场静止件扫描 ─────────────
+                # 老路径只覆盖 parent ↔ child；如果 child 是销、销又夹在转盘里，
+                # 整组跟随 child snap 平移后组里其他销也已经落进其他静止件的孔
+                # 1mm 内 —— 老路径漏掉这批边。前端 [FrontendLatch] 是 fallback；
+                # 后端原生覆盖才是根治。
+                if req.child_group_members or req.scene_static_parts:
+                    def _build_pose(item: dict) -> dict:
+                        return {
+                            "part_id": item.get("part_id"),
+                            "ldraw_id": item.get("ldraw_id"),
+                            "world_transform": _make_world_t(
+                                item.get("world_pos") or [0, 0, 0],
+                                item.get("world_rot") or [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                            ),
+                        }
+
+                    def _load_sites(pid: str, ldraw: str):
+                        # 优先按实例 id 查（注册过的件），fallback 用 ldraw_id 查通用配置
+                        cfg = port_lib_manager.get_part_data(pid) or port_lib_manager.get_part_data(ldraw)
+                        return cfg.get("sites", []) if cfg else []
+
+                    group_poses = [_build_pose(p) for p in (req.child_group_members or [])]
+                    static_poses = [_build_pose(p) for p in (req.scene_static_parts or [])]
+                    # 主 snap 边 (parent, child) 已通过上面 scan() 处理，群组扫描里跳过
+                    extra_edges = scanner.scan_group_against_scene(
+                        group_members=group_poses,
+                        static_parts=static_poses,
+                        sites_loader=_load_sites,
+                        exclude_main_pair=(
+                            req.parent_id, req.child_id,
+                            f"p_{req.parent_id}", f"c_{req.child_id}",
+                        ),
+                    )
+                    # 也跟主 scan() 已收的 new_edges 去重（同一对 port 不重复登记）
+                    seen_keys = set()
+                    for e in new_edges:
+                        a = (e.parent_id, getattr(e.port_parent, "name", "") or "")
+                        b = (e.child_id, getattr(e.port_child, "name", "") or "")
+                        seen_keys.add(tuple(sorted([a, b])))
+                    for e in extra_edges:
+                        a = (e.parent_id, getattr(e.port_parent, "name", "") or "")
+                        b = (e.child_id, getattr(e.port_child, "name", "") or "")
+                        k = tuple(sorted([a, b]))
+                        if k in seen_keys:
+                            continue
+                        seen_keys.add(k)
+                        new_edges.append(e)
+
                 auto_latched_count = topo_manager.batch_connect(new_edges)
                 logger.info(
                     f"[AutoLatch] Snap({req.parent_id} ↔ {req.child_id}): "
@@ -694,6 +759,7 @@ async def snap_parts(req: SnapRequest):
                     _dbg_edges = [('<unserializable>', '')]
                 logger.info(
                     f"[SNAP-DBG] AutoLatch scan: parent_sites={len(parent_sites)} child_sites={len(child_sites)} "
+                    f"group={len(req.child_group_members or [])} static={len(req.scene_static_parts or [])} "
                     f"-> {auto_latched_count} edges {_dbg_edges}"
                 )
                 # 把扫描出的边连同序列化的 portKey 一并回流给前端，使其能在

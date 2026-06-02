@@ -155,15 +155,14 @@ describe('store.snapParts — 后端 API 联调', () => {
 
     // 等待异步回调写入 log + 设置 lastSnapPairCount。
     // 走法 A 期 B.3-3：日志前缀从 [AutoLatch] 改成 [PlugSnap]（用户友好术语）。
-    // 后续 (frontend latch 改动)：format 改为 "1 main + N backend + M frontend"
-    // 让 backend AutoLatch vs frontend 补全 latch 分开计数。
-    // mock 这里 backend 返 2 → "1 main + 2 backend + 0 frontend"。
+    // PR #182：后端 AutoLatch 扩 scope 后前端 [FrontendLatch] 补全删除，
+    // 日志格式回归 "1 main + N auto-latched"。
     await vi.waitFor(() => {
       const state = useStore.getState();
       const plugSnapLog = state.logs.find(l => l.message.includes('PlugSnap'));
       expect(plugSnapLog).toBeDefined();
       expect(plugSnapLog?.message).toContain('3 port pairs');
-      expect(plugSnapLog?.message).toContain('1 main + 2 backend');
+      expect(plugSnapLog?.message).toContain('1 main + 2 auto-latched');
       expect(state.lastSnapPairCount).toBe(3);
     });
   });
