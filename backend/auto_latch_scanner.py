@@ -201,14 +201,20 @@ class AutoLatchScanner:
             g_id = g.get("part_id")
             g_ldraw = g.get("ldraw_id")
             g_T = g.get("world_transform")
+            # 类型守卫：必须有 part_id 且 sites/transform 完整才扫。
+            # 同时窄化 mypy 类型 —— scan() 下游签名要 str，不能 Any | None。
+            if not isinstance(g_id, str) or not isinstance(g_ldraw, str):
+                continue
             g_sites = sites_loader(g_id, g_ldraw)
             if not g_sites or g_T is None:
                 continue
             for s in static_parts:
                 s_id = s.get("part_id")
-                if s_id == g_id:
+                if not isinstance(s_id, str) or s_id == g_id:
                     continue
                 s_ldraw = s.get("ldraw_id")
+                if not isinstance(s_ldraw, str):
+                    continue
                 s_T = s.get("world_transform")
                 s_sites = sites_loader(s_id, s_ldraw)
                 if not s_sites or s_T is None:
