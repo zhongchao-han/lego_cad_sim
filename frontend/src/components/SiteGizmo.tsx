@@ -17,7 +17,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import type { LDrawSite, LDrawPort, LDrawPlug } from '../useLDrawPart';
 import type { Vec3, Mat3, SelectedPortInfo } from '../types';
 import { InteractionPhase, SelectionLevel } from '../types';
@@ -239,10 +239,31 @@ export function portClickIntent(mods: { altKey?: boolean; shiftKey?: boolean }):
   return { engage, plugLevel };
 }
 
+/**
+ * Port hitbox userData 形状 — 让顶层 onClick 能识别"这条 intersection 属于哪个 port"，
+ * 并代为发起该 port 的 onPortClick（即使 R3F 默认把"camera 最近"那条认作 winner，
+ * 我们也能挑屏幕空间离 cursor 最近的那个真正 fire）。
+ */
+interface PortHitboxUserData {
+  __portHitbox: true;
+  isCompatiblePort: boolean;
+  /** 调用即代表 "由我这个 port 来回应这次 click"。 */
+  fire: (intent: { plugLevel: boolean }) => void;
+  /** PortArrow 的 group ref —— 它的 worldPosition 就是 port 中心。
+   *  类型 `RefObject<Group | null>` 与 `useRef<Group>(null)` 默认推导对齐；
+   *  消费侧用 `current` 时已经判 null。 */
+  portGroupRef: React.RefObject<THREE.Group | null>;
+}
+
 function PortArrow({
   port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
+  const { camera, gl } = useThree();
+  // PortArrow 自己的 group ref —— worldPosition 等于 port 中心。
+  // 顶层 onClick 算屏幕空间距离用它，不用 hit.object.getWorldPosition()
+  // （cylinder hitbox 几何中心是沿轴偏移的，那个不是 port 中心）。
+  const portGroupRef = useRef<THREE.Group>(null);
 
   const debugShowPorts = useStore(s => s.debugShowPorts);
   // Feature B 修饰键模型：端口只有在"连接模式"（按住 Alt）下 hover 才点亮 + 指针
@@ -353,8 +374,25 @@ function PortArrow({
     onPortHover?.(null);
   }, [onPortHover]);
 
+  // userData 挂在 sphere/cylinder hitbox 上，描述"这条 intersection 属于哪个 port"。
+  // 用 ref + 每帧 useEffect 同步而非每帧重建对象，保持 THREE.js mesh.userData 引用稳定。
+  const fireClick = useCallback((intent: { plugLevel: boolean }) => {
+    onPortClick?.(buildPortInfo(), { shiftKey: intent.plugLevel });
+  }, [onPortClick, buildPortInfo]);
+  const hitboxUserDataRef = useRef<PortHitboxUserData>({
+    __portHitbox: true,
+    isCompatiblePort,
+    fire: fireClick,
+    portGroupRef,
+  });
+  useEffect(() => {
+    hitboxUserDataRef.current.isCompatiblePort = isCompatiblePort;
+    hitboxUserDataRef.current.fire = fireClick;
+  }, [isCompatiblePort, fireClick]);
+
   return (
-    <group 
+    <group
+      ref={portGroupRef}
       position={renderPos}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
@@ -365,20 +403,57 @@ function PortArrow({
         if ((e as unknown as { altKey?: boolean }).altKey) e.stopPropagation();
       }}
       onClick={(e) => {
-        // [防误触终极防护] 如果从按下到抬起，鼠标位移超过 5 个像素，判定为用户在“拖拽视角”而非“点击端口”。
+        // [防误触终极防护] 如果从按下到抬起，鼠标位移超过 5 个像素，判定为用户在"拖拽视角"而非"点击端口"。
         // 直接忽略并拦截该事件，不向上也不向内传播。
         if (e.delta > 5) {
             e.stopPropagation();
             return;
         }
-        if (!isCompatiblePort) return;
         const mods = e as unknown as { altKey?: boolean; shiftKey?: boolean };
         const intent = portClickIntent({ altKey: mods.altKey, shiftKey: mods.shiftKey });
         // 裸点：不进端口，放行（本体已在 pointerdown 选中）。Alt 才发起连接。
         if (!intent.engage) return;
+
+        // ── 屏幕空间最近 port 选优（A 方案） ────────────────────────────────
+        // R3F 默认按 camera 距离取"先击中"那条 intersection 作为 winner。
+        // 在密集 peghole 上（1 stud = 8mm 间距、热区半径 4mm 接壤），相机近的
+        // 不一定是用户视觉对准的 → 改成"hitbox 命中里 port 中心投到屏幕 px 后
+        // 离 cursor px 最近"的赢。stopPropagation 永远 fire，事件不外漏。
+        const portHits = (e.intersections as Array<{ object: THREE.Object3D }>)
+          .filter(i => (i.object.userData as Partial<PortHitboxUserData>)?.__portHitbox);
+        if (portHits.length === 0) return; // 罕见：onClick 触发了但 intersections 里没 port
+
+        const native = e.nativeEvent as PointerEvent;
+        const rect = gl.domElement.getBoundingClientRect();
+        const cursorX = native.clientX - rect.left;
+        const cursorY = native.clientY - rect.top;
+        const halfW = rect.width / 2;
+        const halfH = rect.height / 2;
+
+        // 同一 port 的 sphere + cylinder 可能都在 intersections 里（同一 userData ref）
+        // → Set 去重，每个 port 只算一次距离。
+        const seen = new Set<PortHitboxUserData>();
+        const _v = new THREE.Vector3();
+        let winner: PortHitboxUserData | null = null;
+        let winnerDsq = Infinity;
+        for (const hit of portHits) {
+          const ud = hit.object.userData as PortHitboxUserData;
+          if (seen.has(ud)) continue;
+          seen.add(ud);
+          const g = ud.portGroupRef.current;
+          if (!g) continue;
+          g.getWorldPosition(_v);
+          _v.project(camera); // → NDC (-1..1)
+          const px = (_v.x + 1) * halfW;
+          const py = (-_v.y + 1) * halfH; // 翻 Y 转屏幕坐标
+          const dsq = (px - cursorX) ** 2 + (py - cursorY) ** 2;
+          if (dsq < winnerDsq) { winnerDsq = dsq; winner = ud; }
+        }
+
         e.stopPropagation();
+        if (!winner || !winner.isCompatiblePort) return;
         // Alt+Shift → 上层走 plug-anchor 路径（plugLevel）；Alt → INDIVIDUAL 端口。
-        onPortClick?.(buildPortInfo(), { shiftKey: intent.plugLevel });
+        winner.fire(intent);
       }}
       onDoubleClick={(e) => {
         if (!showVisuals) return;
@@ -412,7 +487,7 @@ function PortArrow({
       {/* 根部拦截球体（核心兜底）：始终存在。
           它是纯几何 Hover 拦截的核心，同时也是触发局部悬停的精确热区。
           当未被悬停时，透明且不写深度，但参与射线检测，防止鼠标落入孔洞。 */}
-      <mesh quaternion={quaternion} renderOrder={prominent ? 1000 : 0}>
+      <mesh quaternion={quaternion} renderOrder={prominent ? 1000 : 0} userData={hitboxUserDataRef.current}>
         <sphereGeometry args={[GIZMO_SPHERE_R_ENLARGED, 16, 16]} />
         <meshBasicMaterial
           color={color}
@@ -432,6 +507,7 @@ function PortArrow({
           position={new THREE.Vector3().copy(direction).multiplyScalar(ARROW_LENGTH / 2)}
           quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)}
           renderOrder={999}
+          userData={hitboxUserDataRef.current}
         >
           <cylinderGeometry args={[10 * LDU, 10 * LDU, ARROW_LENGTH, 12]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />

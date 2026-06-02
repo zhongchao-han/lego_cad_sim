@@ -12,6 +12,7 @@
  *   peghole  (FEMALE)→ Rx(-90°): [[1,0,0],[0,0,1],[0,-1,0]]，Z 列 = [0, 1,0]
  */
 import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
 import {
   calculateClampedOffset,
   calculateSnapPose,
@@ -278,6 +279,83 @@ describe('applyGroupDelta: 刚体 delta 整组应用', () => {
     const out = applyGroupDelta(['src', 'missing'], { src: oldSrc }, 'src', oldSrc, newSrc);
     expect(out.missing).toBeUndefined();
     expect(out.src).toBe(newSrc);
+  });
+});
+
+describe('calculateSnapPose: roll preservation（sourcePartCurrentWorldQuat 可选第 6 参）', () => {
+  // 背景：snap 公式硬乘 T_flip = Rx(180°)，等价于"绕端口轴的 roll = 0"这个武断
+  // 选择。端口对扣的物理约束**只锁端口 z 轴方向**，绕该轴的 roll 是自由变量。
+  // 传入 sourcePartCurrentWorldQuat 让 snap 做 swing-twist 分解、保留 source
+  // 原姿态的 roll → source 群组只平移、不无端翻跟头。
+  //
+  // 这块单测覆盖的场景：
+  //   1. 不传第 6 参 → 保持老行为
+  //   2. 传 = naive 结果 → 输出 = naive（degenerate but 防回退）
+  //   3. 当前姿态已使端口轴反向对齐（这是手动 Alt+click 的常见输入）→ 输出 quat
+  //      跟 current 之间的角度差 < 跟 naive 之间的角度差（roll 修正生效）
+  //   4. 端口位置约束仍然严格满足：source port 落点 = target port world position
+
+  // 算两 quat 间的旋转角度（弧度）
+  const angleBetween = (a: number[], b: number[]) => {
+    const dot = a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3];
+    return 2 * Math.acos(Math.min(1, Math.abs(dot)));
+  };
+
+  it('不传第 6 参 → 与老 API 行为完全一致', () => {
+    const a = calculateSnapPose([0.01, 0.02, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1]);
+    const b = calculateSnapPose([0.01, 0.02, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1], 0);
+    expectVecClose(a.position, b.position);
+    expectVecClose(a.quaternion, b.quaternion);
+  });
+
+  it('current = naive → 输出 = naive（degenerate 防回退）', () => {
+    const naive = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1]);
+    const preserved = calculateSnapPose([0, 0, 0], [0, 0, 0, 1], [1, 2, 3], [0, 0, 0, 1], 0, naive.quaternion);
+    expectVecClose(preserved.position, naive.position);
+    expectVecClose(preserved.quaternion, naive.quaternion);
+  });
+
+  it('current ≠ naive（绕端口轴 roll 不同） → 输出 quat 离 current 更近、离 naive 更远', () => {
+    // 设 source port local = origin + identity；target port world = origin + identity。
+    // naive 给的 part quat = Rx(180)（这是它"绕端口轴 roll=0"的武断选择）。
+    // 现在 current 是 Ry(180) —— 它的 z 轴 (0,0,1)→(0,0,-1) 跟 Rx(180) 一样（端口约束都
+    // 满足），但绕端口 z 轴的 roll 不同。传入后，输出应该跟 current 接近、跟 naive 远。
+    const sourcePortPos: [number, number, number] = [0, 0, 0];
+    const sourcePortQuat: [number, number, number, number] = [0, 0, 0, 1];
+    const targetPortPos: [number, number, number] = [0, 0, 0];
+    const targetPortQuat: [number, number, number, number] = [0, 0, 0, 1];
+    const currentRy180: [number, number, number, number] = [0, 1, 0, 0];
+
+    const naive = calculateSnapPose(sourcePortPos, sourcePortQuat, targetPortPos, targetPortQuat);
+    const preserved = calculateSnapPose(sourcePortPos, sourcePortQuat, targetPortPos, targetPortQuat, 0, currentRy180);
+
+    const distToCurrent = angleBetween(preserved.quaternion, currentRy180);
+    const distToNaive   = angleBetween(preserved.quaternion, naive.quaternion);
+    expect(distToCurrent).toBeLessThan(distToNaive);
+    // current = Ry(180)、naive = Rx(180)，它们绕端口 z 轴差 180° → preserved 应严格 = current
+    expect(distToCurrent).toBeLessThan(1e-4);
+  });
+
+  it('端口位置约束严格保留：source port 落点 = target port world position', () => {
+    // 不管 roll 怎么修，source port 仍然必须**恰好**落在 target port 位置（snap 的核心约束）。
+    const sourcePortPos: [number, number, number] = [0.005, -0.002, 0.001];
+    const targetPortPos: [number, number, number] = [0.5, 1.0, -0.3];
+    const sourcePortQuat: [number, number, number, number] = [0, 0, 0, 1];
+    const targetPortQuat: [number, number, number, number] = [0, 0, 0, 1];
+    const currentRolled: [number, number, number, number] = [0, 1, 0, 0]; // Ry(180)
+
+    const out = calculateSnapPose(sourcePortPos, sourcePortQuat, targetPortPos, targetPortQuat, 0, currentRolled);
+
+    // source port 世界位置 = out.quaternion 旋转 sourcePortPos + out.position
+    // 用 THREE 算一下
+    const v = new THREE.Vector3(sourcePortPos[0], sourcePortPos[1], sourcePortPos[2]);
+    const q = new THREE.Quaternion(out.quaternion[0], out.quaternion[1], out.quaternion[2], out.quaternion[3]);
+    v.applyQuaternion(q);
+    v.x += out.position[0]; v.y += out.position[1]; v.z += out.position[2];
+
+    expect(v.x).toBeCloseTo(targetPortPos[0], 6);
+    expect(v.y).toBeCloseTo(targetPortPos[1], 6);
+    expect(v.z).toBeCloseTo(targetPortPos[2], 6);
   });
 });
 
