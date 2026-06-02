@@ -2103,15 +2103,16 @@ export const useStore = create<StoreState>()(
   selectPart: (id, level = SelectionLevel.GROUP, append = false) => {
       get().addLog(`Selecting part: ${id} (Level: ${level}, append: ${append})`, 'ACTION');
 
-      // 主动选中零件「本体」是一个 IDLE 态编辑意图。若此刻仍卡在 SOURCE_LOCKED /
-      // AXIAL_SLIDING（端口交互进行中），先中止端口交互回 IDLE，否则 [/] 仍会被
-      // 端口旋转路由吃掉（canRotateSelectedPort），整组刚体旋转永远轮不到。
-      // 这正是过约束错误提示「点零件本体选中后按 [/]」赖以生效的前提。
-      // 注意：吸附目标是点目标「端口」(port dot 独立 click handler)，不走 selectPart，
-      // 故此处中止不会破坏 SOURCE_LOCKED → 选目标端口 → snap 的主流程。
+      // 阶段切换规则（用户反馈修复："点零件本体把 source-lock 打回 IDLE 太粗暴"）：
+      //   - AXIAL_SLIDING：仍主动 abort —— 沿轴滑动是一次"未完结的连接动作"，
+      //     点别处明显是要中断（保留老行为）
+      //   - **SOURCE_LOCKED：保留**。用户经常需要"先点 target 件本体把焦点切到它、
+      //     再 hover 它的 port"。本体点击只换 selection，不 abort source-lock。
+      //     副作用：[/] 旋转在 SOURCE_LOCKED 下仍走 port 旋转路由（不能旋本体）
+      //     —— 想旋本体先按 Esc 显式 abort，再 [/]。多一步但语义清晰。
       if (id) {
         const phase = get().interactionPhase;
-        if (phase === InteractionPhase.SOURCE_LOCKED || phase === InteractionPhase.AXIAL_SLIDING) {
+        if (phase === InteractionPhase.AXIAL_SLIDING) {
           get().abortCurrentInteraction();
         }
       }

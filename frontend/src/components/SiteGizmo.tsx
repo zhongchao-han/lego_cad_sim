@@ -133,10 +133,38 @@ export function portProminent(args: {
   isDensePart: boolean;
   shouldShowVisuals: boolean;
   isCompatiblePort: boolean;
+  /** Screen-space spotlight：父层算出来"光标屏幕最近的兼容 port"标记。
+   *  spotlightActive=true 时启用 spotlight 模式 —— 只有 isSpotlightWinner=true
+   *  的 port 才升级为 prominent，其他兼容 port 降级为 dim 小点。
+   *  spotlightActive=false 时回退老行为（所有兼容 port 都 prominent）。
+   *  目的：解决密集 port 区域里"鼠标周围十几个箭头同时亮、用户分不清要点哪个"。 */
+  spotlightActive?: boolean;
+  isSpotlightWinner?: boolean;
+  /** 是否在「找 target」阶段（SOURCE_LOCKED）。此阶段用户**显式**在找目标，
+   *  系统应该自动展示兼容 target port —— 不再要求用户持续按 Alt、不再因为
+   *  零件密集就隐藏（spotlight 已经把"铺满"问题消化掉了，每次只亮 1 个）。 */
+  isTargetSeekingPhase?: boolean;
 }): boolean {
-  const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort } = args;
-  const allPortsProminent = !isDensePart && shouldShowVisuals && portEngageMode && isCompatiblePort;
-  return (hovered && portEngageMode) || isSelected || debugShowPorts || allPortsProminent;
+  const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
+    spotlightActive = false, isSpotlightWinner = false, isTargetSeekingPhase = false } = args;
+  // hovered + portEngageMode（Alt 持续按）= 恒亮；isSelected / debug 全显 = 恒亮。
+  // hover 准确率改由 handlePointerOver 内的"屏幕空间最近选优"保证 —— R3F 默认按
+  // camera 距离派 hover 事件，密集 port 区会派给"近 camera 但用户视觉不在那"的孔。
+  const alwaysProminent = (hovered && portEngageMode) || isSelected || debugShowPorts;
+  if (alwaysProminent) return true;
+
+  // SOURCE_LOCKED 阶段（找 target 中）：spotlight 模式下 winner 自动亮，
+  // 用户不必再按 Alt（已经在显式找 target，再按 Alt 是冗余仪式）。
+  // 密集件也走这条路径 —— spotlight 限定 1 个，不会铺满。
+  if (isTargetSeekingPhase && spotlightActive && isCompatiblePort && shouldShowVisuals) {
+    return isSpotlightWinner;
+  }
+
+  // 兼容 port「成片亮起」路径：spotlight 模式下只让 winner 升级，其他降级回 dim
+  const allPortsCompatible = !isDensePart && shouldShowVisuals && portEngageMode && isCompatiblePort;
+  if (!allPortsCompatible) return false;
+  if (spotlightActive) return isSpotlightWinner;
+  return true;
 }
 
 export function isCompatible(sourcePortType: string | null, targetPort: LDrawPort): boolean {
@@ -167,6 +195,13 @@ interface PortArrowProps {
   sitePos: Vec3;
   isSelected: boolean;
   isCompatiblePort: boolean;
+  /** Spotlight：父层算的 "屏幕距离 cursor 最近的兼容 port" 的 portKey。
+   *  非空时仅 winner（key 匹配）升级为 prominent；其他兼容 port 降级为 dim 小点。
+   *  减少密集 port 区域的视觉干扰。 */
+  spotlightPortKey?: string | null;
+  /** 是否处于 SOURCE_LOCKED 阶段（用户在找 target）。透传给 portProminent，
+   *  让 spotlight 模式在此阶段不要求用户持续按 Alt。 */
+  isTargetSeekingPhase?: boolean;
   groupRef: React.RefObject<THREE.Group>;
   partId: string;
   ldrawId: string;
@@ -256,7 +291,7 @@ interface PortHitboxUserData {
 }
 
 function PortArrow({
-  port, sitePos, isSelected, isCompatiblePort, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
+  port, sitePos, isSelected, isCompatiblePort, spotlightPortKey, isTargetSeekingPhase, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
   const { camera, gl } = useThree();
@@ -275,8 +310,14 @@ function PortArrow({
   // 始终渲染（拦射线）。可见强度交给 portDotVisuals 纯函数（单测覆盖）按
   // prominent / 密集件分档。
   const shouldShowVisuals = showVisuals;
+  // Spotlight 判定：父层提供 spotlightPortKey 时，跟本 port 的 key 比较。
+  // 用 portKey() 保证 frontend/backend 序列化一致（同 store.ts portKey）。
+  const myPortKey = useMemo(() => portKey(port.position as Vec3, port.rotation as number[][]), [port.position, port.rotation]);
+  const spotlightActive = spotlightPortKey != null;
+  const isSpotlightWinner = spotlightActive && spotlightPortKey === myPortKey;
   const prominent = portProminent({
     hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
+    spotlightActive, isSpotlightWinner, isTargetSeekingPhase,
   });
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
@@ -358,21 +399,63 @@ function PortArrow({
   const handlePointerOver = useCallback((e: any) => {
     // 绝对不能调用 e.stopPropagation()！
     if (!isCompatiblePort) return;
+    // ── 屏幕空间最近 hover 选优 ───────────────────────────────────────────────
+    // 跟 onClick 同一套：R3F 默认按 camera 距离派 pointerOver，密集 port 区
+    // （相邻热区相切）经常派给"camera 近但用户视觉不对准"的孔 → ghost / 高亮
+    // 出错件，用户体感是"hover 到孔但孔不显示，反而显示乱七八糟的端口"。
+    // 这里收集所有 port 热区命中、按"port 中心投到屏幕 px 跟 cursor px 距离"
+    // 排序，只有自己是 winner 才认作 hover；不是 winner 时直接 return，让其他
+    // PortArrow 的 pointerOver 各自决定（多个 PortArrow 中只有 winner 那个会 setHovered）。
+    const portHits = (e.intersections as Array<{ object: THREE.Object3D }> | undefined)
+      ?.filter(i => (i.object.userData as Partial<PortHitboxUserData>)?.__portHitbox);
+    if (portHits && portHits.length > 1) {
+      const native = e.nativeEvent as PointerEvent;
+      const rect = gl.domElement.getBoundingClientRect();
+      const cursorX = native.clientX - rect.left;
+      const cursorY = native.clientY - rect.top;
+      const halfW = rect.width / 2;
+      const halfH = rect.height / 2;
+      const seen = new Set<PortHitboxUserData>();
+      const _v = new THREE.Vector3();
+      let winner: PortHitboxUserData | null = null;
+      let winnerDsq = Infinity;
+      for (const hit of portHits) {
+        const ud = hit.object.userData as PortHitboxUserData;
+        if (seen.has(ud)) continue;
+        seen.add(ud);
+        const g = ud.portGroupRef.current;
+        if (!g) continue;
+        g.getWorldPosition(_v);
+        _v.project(camera);
+        const px = (_v.x + 1) * halfW;
+        const py = (-_v.y + 1) * halfH;
+        const dsq = (px - cursorX) ** 2 + (py - cursorY) ** 2;
+        if (dsq < winnerDsq) { winnerDsq = dsq; winner = ud; }
+      }
+      // 不是 winner → 让出 hover，等其他 PortArrow 的 pointerOver 各自判
+      if (winner !== hitboxUserDataRef.current) return;
+    }
     // 移除 if (showVisuals) 检查：
     // 当鼠标第一时间划入时，可能父组件还未来得及响应并下发 showVisuals=true。
     // 如果这里被阻挡，会导致局部 hover 状态丢失，出现"高亮一下就消失"或根本不高亮的 Bug。
     setHovered(true);
     onPortHover?.(buildPortInfo());
-  }, [isCompatiblePort, onPortHover, buildPortInfo]);
+  }, [isCompatiblePort, onPortHover, buildPortInfo, camera, gl]);
 
   const handlePointerOut = useCallback((e: any) => {
     // 不在这里防抖：每个 PortArrow 各自延时会让"用户从端口 A 移到端口 B"出问题——
     // A 的 out 定时器到期后会盖掉 B 已经写入的 hoveredPort，造成 ghost 在 A→B 切换时
     // 闪没。统一在 store.setHoveredPort 里做单源防抖，全局只有一个待决 null。
+    //
+    // ⚠ 关键守卫：屏幕选优让"loser" PortArrow 的 pointerOver 直接 return（自己没
+    // setHovered(true)），但 R3F 的 pointerOut 仍会派给它。如果不加守卫直接 fire
+    // onPortHover(null)，loser 的 pointerOut 会把 winner 已写入的 hoveredPort 清掉
+    // → ghost 闪烁、target port 高亮消失。所以只在自己真的 hovered=true 时才 fire null。
+    if (!hovered) return;
     setHovered(false);
     document.body.style.cursor = 'auto';
     onPortHover?.(null);
-  }, [onPortHover]);
+  }, [hovered, onPortHover]);
 
   // userData 挂在 sphere/cylinder hitbox 上，描述"这条 intersection 属于哪个 port"。
   // 用 ref + 每帧 useEffect 同步而非每帧重建对象，保持 THREE.js mesh.userData 引用稳定。
@@ -591,15 +674,24 @@ export interface SiteGizmoProps {
   occupiedKeys?: Set<string>;
   /** 该零件端口总数是否超过密集阈值（抑制大板铺满的淡化点）。 */
   isDensePart?: boolean;
+  /** Spotlight：父层（InteractivePart）算的"光标屏幕距离最近的兼容 port"的 portKey。
+   *  传给 PortArrow 让它判定自己是不是 winner —— 仅 winner 升级为 prominent，
+   *  减少密集 port 区域的视觉干扰。null/undefined 时回退老行为（所有兼容 port 同时亮）。*/
+  spotlightPortKey?: string | null;
   onPortClick?: (info: SelectedPortInfo, opts?: { shiftKey: boolean }) => void;
   onPortHover?: (info: SelectedPortInfo | null) => void;
 }
 
 export function SiteGizmo({
   site, groupRef, partId, ldrawId, phase, sourcePortType = null,
-  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, isDensePart = false, onPortClick, onPortHover
+  selectedPort, portSelectionLevel, showVisuals, occupiedKeys, isDensePart = false,
+  spotlightPortKey = null, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
+  // SOURCE_LOCKED 阶段：用户已点 source，正在找 target。
+  // 给 portProminent 传 isTargetSeekingPhase=true，让 spotlight 无须 Alt 即生效，
+  // 密集件也允许 spotlight winner 亮。
+  const isTargetSeekingPhase = phase === InteractionPhase.SOURCE_LOCKED;
 
   return (
     <group position={sitePos}>
@@ -640,6 +732,8 @@ export function SiteGizmo({
             sitePos={sitePos}
             isSelected={portIsSelected}
             isCompatiblePort={compatible}
+            spotlightPortKey={spotlightPortKey}
+            isTargetSeekingPhase={isTargetSeekingPhase}
             groupRef={groupRef}
             partId={partId}
             ldrawId={ldrawId}

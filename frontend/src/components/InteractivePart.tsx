@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useStore, useIsTargetSeekingPhase } from '../store';
+import { useStore, useIsTargetSeekingPhase, portKey } from '../store';
 import { SelectionLevel, InteractionPhase, SelectedPortInfo } from '../types';
 import { useLDrawPart } from '../useLDrawPart';
 import { LDrawMeshRenderer } from './LDrawMeshRenderer';
@@ -245,6 +245,18 @@ export const InteractivePart = memo(({
     return total > DENSE_PORT_THRESHOLD;
   }, [ldrawPart.sites]);
 
+  // Spotlight：直接订阅 store.hoveredPort。它本身就是「R3F 实测 cursor 在哪个 port
+  // 热区 + handlePointerOver 屏幕最近选优 winner」的产物 —— 跟 click 实际命中的 port
+  // 100% 一致。spotlight 用它就保证"视觉高亮的箭头 ≡ click 实际打到的港"。
+  //
+  // 老实现（useFrame 投影所有 port，挑屏幕最近）有 bug：会高亮"屏幕近但 cursor 射线
+  // 没击中"的港，跟 click winner 不一致，用户体感是"看到的箭头方向跟实际接入的孔垂直"。
+  const hoveredPort = useStore(s => s.hoveredPort);
+  const spotlightPortKey = useMemo(() => {
+    if (!hoveredPort || hoveredPort.partId !== partId) return null;
+    return portKey(hoveredPort.position, hoveredPort.rotation);
+  }, [hoveredPort, partId]);
+
   if (ldrawPart.loading) return null;
 
   // ── 渲染 ──────────────────────────────────────────────────────────────────
@@ -257,16 +269,8 @@ export const InteractivePart = memo(({
     
   // 端口指示器（箭头）显示逻辑：
   // - Debug 模式：showPorts && isRenderingActive（一律显）
-  // - 非 Debug：
-  //   - selected / static：常态显（已有契约）
-  //   - isTargetSeeking && hovered：SOURCE_LOCKED 下 hover 此部件作为目标，必须显靶点
-  //   - **新增 hovered**（bug fix）：用户 hover 部件本体（IDLE 阶段也算），
-  //     立刻显本部件 port arrows + 让 B.1 plug-sibling halo 可见。原"只在
-  //     SOURCE_LOCKED 才显"逻辑导致 plug 发现性反馈链超长 — 必须先 click
-  //     一个 port 才能看到 halo，违背"先 hover 探索后 click 决策"直觉。
-  //     代价：场景里 hover 任一 part 都显该 part 的 18 个 arrows，可能有
-  //     视觉杂讯；但比 plug 看不见的成本低。Debug Show All Ports 一直
-  //     都能强制全显，是已有逃生口。
+  // - 非 Debug：selected / static / hovered 任一为真即显（原契约，已废"选中件焦点过滤"）
+  // 用户反馈：hover 到 port 必须 100% 显示该 port —— 别引入额外门控让 hover 失效。
   const finalShowPorts = debugShowPorts
     ? (showPorts && isRenderingActive)
     : (showPorts && (isSelected || isStatic || hovered));
@@ -337,6 +341,7 @@ export const InteractivePart = memo(({
           showVisuals={finalShowPorts}
           occupiedKeys={occupiedKeys}
           isDensePart={isDensePart}
+          spotlightPortKey={spotlightPortKey}
           onPortClick={handlePortClickLocal}
           onPortHover={handlePortHoverLocal}
         />
