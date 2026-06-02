@@ -268,38 +268,38 @@ const FreePlacerGhost = () => {
         // ghost 朝向 = 零件原始姿态（quaternion 由渲染 prop 给，identity 平躺），
         // 不再随相机重旋 —— 落地永远轴对齐，避免歪斜（见上方朝向说明）。
 
-        // ── Step 1: 算 raw 位置（两条投影路径分别求）─────────────────────────────
-        //   GROUND_PLANE: 只与 y=0 求交（"Drop to Ground" 走这条）
-        //   SCENE_RAYCAST: 射线 hit 场内任何 mesh（粘贴 / 抽屉某些路径走这条）
+        // ── Step 1: 算 raw 位置（两条投影路径都先打零件、再退回地板）─────────────
+        //   GROUND_PLANE: 优先打零件 mesh（让 ghost 落到鼠标视觉位置上）→ 退回 y=0 平面
+        //   SCENE_RAYCAST: 同样优先打零件 → 退回 y=0
+        // 老版 GROUND_PLANE 强制投 y=0，相机有俯角时 ghost 比鼠标视觉低一格（典型透视偏差），
+        // 用户反馈"鼠标 hover 上一个孔，ghost 在下一个孔"。改成"先打零件"即解。
         // 不直接写 groupRef，留给 step 3 叠 snap delta（避免"上帧 delta 当下帧
         // raw 输入"导致漂移）。
         raycaster.setFromCamera(pointerNdcRef.current, camera);
         let rawX = 0, rawY = 0, rawZ = 0;
-        if (isGroundPlane) {
-            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
-                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
-            } else {
-                raycaster.ray.at(0.2, _intersectScratch);
-                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
+
+        // 先尝试打场景里的零件 mesh（忽略 ghost 本身 + 装饰平面）。
+        // 关键过滤：只接受祖先链有 userData.isInteractivePart=true 的命中 —— 把
+        // ContactShadows / Environment / 网格平面这种装饰拦下来（它们也是 mesh
+        // 会被 raycast 打中，但用户期望 ghost 落到零件而不是阴影上）。
+        const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
+            let p = h.object;
+            while(p) {
+                if (p === groupRef.current) return false;
+                if (p.userData?.isInteractivePart) return true;
+                p = p.parent;
             }
+            return false;
+        });
+        if (hits.length > 0) {
+            rawX = hits[0].point.x; rawY = hits[0].point.y; rawZ = hits[0].point.z;
+        } else if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
+            // 没命中零件 → 投地板（GROUND_PLANE 的原 fallback）
+            rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
         } else {
-            // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
-            const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
-                let p = h.object;
-                while(p) {
-                    if (p === groupRef.current) return false;
-                    p = p.parent;
-                }
-                return true;
-            });
-            if (hits.length > 0) {
-                rawX = hits[0].point.x; rawY = hits[0].point.y; rawZ = hits[0].point.z;
-            } else if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
-                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
-            } else {
-                raycaster.ray.at(0.2, _intersectScratch);
-                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
-            }
+            // 射线平行 / 朝上 → 近处兜底（0.2m）
+            raycaster.ray.at(0.2, _intersectScratch);
+            rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
         }
 
         // ── Step 2: Ghost-on-drag snap（每 4 帧从 raw 位置算一次 delta）──────────

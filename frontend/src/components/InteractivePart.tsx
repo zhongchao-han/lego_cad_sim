@@ -278,6 +278,11 @@ export const InteractivePart = memo(({
   return (
     <group
       ref={groupRef}
+      // userData.isInteractivePart 让 FreePlacerGhost 的 raycast 能区分"零件 mesh"
+      // 跟"装饰平面 (ContactShadows / Environment / 网格)" —— ghost-on-drag 投影
+      // 时优先打零件、装饰平面不挡道。disableEvents (ghost 自己) 不打这个 tag
+      // 避免 ghost 之间互相吸附。
+      userData={disableEvents ? undefined : { isInteractivePart: true }}
       onPointerOver={(e) => { syncAltFromEvent(e); handlePointerOver?.(e); }}
       onPointerMove={(isStatic || disableEvents) ? undefined : syncAltFromEvent}
       onPointerOut={handlePointerOut}
