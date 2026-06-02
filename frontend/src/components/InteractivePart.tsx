@@ -245,56 +245,17 @@ export const InteractivePart = memo(({
     return total > DENSE_PORT_THRESHOLD;
   }, [ldrawPart.sites]);
 
-  // Spotlight：把本零件所有 port 的 (portKey, part-local position) 预算缓存，
-  // 下面 useFrame 每帧拿来跟 cursor NDC 比一次，挑出"屏幕距离最近的兼容 port"
-  // 写到 spotlightPortKey state → 传给 SiteGizmo → PortArrow 升级为 prominent。
-  // 其余兼容 port 保持 dim 小点。解决密集 port 区"鼠标周围十几个箭头同时亮"。
-  const portsForSpotlight = useMemo(() => {
-    const items: { key: string; localPos: [number, number, number] }[] = [];
-    for (const site of ldrawPart.sites ?? []) {
-      for (const p of site.ports ?? []) {
-        items.push({
-          key: portKey(p.position as [number, number, number], p.rotation as number[][]),
-          localPos: p.position as [number, number, number],
-        });
-      }
-    }
-    return items;
-  }, [ldrawPart.sites]);
-  const [spotlightPortKey, setSpotlightPortKey] = useState<string | null>(null);
-
-  // 每帧（不卡，60Hz 单 part 内 <50 个 port 的投影计算可忽略）算屏幕距离 cursor
-  // 最近的兼容 port → 写到 spotlightPortKey。下面 SiteGizmo 透传给 PortArrow，
-  // 由 portProminent 在 spotlight 模式下只让 winner 升级 prominent。
+  // Spotlight：直接订阅 store.hoveredPort。它本身就是「R3F 实测 cursor 在哪个 port
+  // 热区 + handlePointerOver 屏幕最近选优 winner」的产物 —— 跟 click 实际命中的 port
+  // 100% 一致。spotlight 用它就保证"视觉高亮的箭头 ≡ click 实际打到的港"。
   //
-  // 关键判定：只在"端口可能展开显示"（hovered + portEngageMode 或 selected）时
-  // 才计算 + 写 state；其他时间 state 锁定 null（视觉退回老行为 / 不影响渲染）。
-  const _spotlightV = useMemo(() => new THREE.Vector3(), []);
-  useFrame((state) => {
-    // 触发条件：本件目前在 "显 port" 状态（hover 中 或 已选中 或 port hover）
-    // → 跑 spotlight，让"光标最近的 port"成为 winner、其他 dim。
-    // 不在显 port 状态就直接清 spotlight（视觉退回老行为）。
-    const shouldCompute = (hovered || isPortHovered || isSelected) && portsForSpotlight.length > 1;
-    if (!shouldCompute) {
-      if (spotlightPortKey !== null) setSpotlightPortKey(null);
-      return;
-    }
-    const g = groupRef.current;
-    if (!g) return;
-    const cursorX = state.pointer.x;
-    const cursorY = state.pointer.y;
-    const partMatrix = g.matrixWorld;
-    let bestKey: string | null = null;
-    let bestDsq = Infinity;
-    for (const { key, localPos } of portsForSpotlight) {
-      _spotlightV.set(localPos[0], localPos[1], localPos[2]).applyMatrix4(partMatrix).project(state.camera);
-      const dx = _spotlightV.x - cursorX;
-      const dy = _spotlightV.y - cursorY;
-      const dsq = dx * dx + dy * dy;
-      if (dsq < bestDsq) { bestDsq = dsq; bestKey = key; }
-    }
-    if (bestKey !== spotlightPortKey) setSpotlightPortKey(bestKey);
-  });
+  // 老实现（useFrame 投影所有 port，挑屏幕最近）有 bug：会高亮"屏幕近但 cursor 射线
+  // 没击中"的港，跟 click winner 不一致，用户体感是"看到的箭头方向跟实际接入的孔垂直"。
+  const hoveredPort = useStore(s => s.hoveredPort);
+  const spotlightPortKey = useMemo(() => {
+    if (!hoveredPort || hoveredPort.partId !== partId) return null;
+    return portKey(hoveredPort.position, hoveredPort.rotation);
+  }, [hoveredPort, partId]);
 
   if (ldrawPart.loading) return null;
 
