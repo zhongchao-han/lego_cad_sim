@@ -140,12 +140,24 @@ export function portProminent(args: {
    *  目的：解决密集 port 区域里"鼠标周围十几个箭头同时亮、用户分不清要点哪个"。 */
   spotlightActive?: boolean;
   isSpotlightWinner?: boolean;
+  /** 是否在「找 target」阶段（SOURCE_LOCKED）。此阶段用户**显式**在找目标，
+   *  系统应该自动展示兼容 target port —— 不再要求用户持续按 Alt、不再因为
+   *  零件密集就隐藏（spotlight 已经把"铺满"问题消化掉了，每次只亮 1 个）。 */
+  isTargetSeekingPhase?: boolean;
 }): boolean {
   const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
-    spotlightActive = false, isSpotlightWinner = false } = args;
+    spotlightActive = false, isSpotlightWinner = false, isTargetSeekingPhase = false } = args;
   // hovered（鼠标直接命中本 port）+ isSelected（source 锁定）+ debug 全显：恒亮，spotlight 不降级
   const alwaysProminent = (hovered && portEngageMode) || isSelected || debugShowPorts;
   if (alwaysProminent) return true;
+
+  // SOURCE_LOCKED 阶段（找 target 中）：spotlight 模式下 winner 自动亮，
+  // 用户不必再按 Alt（已经在显式找 target，再按 Alt 是冗余仪式）。
+  // 密集件也走这条路径 —— spotlight 限定 1 个，不会铺满。
+  if (isTargetSeekingPhase && spotlightActive && isCompatiblePort && shouldShowVisuals) {
+    return isSpotlightWinner;
+  }
+
   // 兼容 port「成片亮起」路径：spotlight 模式下只让 winner 升级，其他降级回 dim
   const allPortsCompatible = !isDensePart && shouldShowVisuals && portEngageMode && isCompatiblePort;
   if (!allPortsCompatible) return false;
@@ -185,6 +197,9 @@ interface PortArrowProps {
    *  非空时仅 winner（key 匹配）升级为 prominent；其他兼容 port 降级为 dim 小点。
    *  减少密集 port 区域的视觉干扰。 */
   spotlightPortKey?: string | null;
+  /** 是否处于 SOURCE_LOCKED 阶段（用户在找 target）。透传给 portProminent，
+   *  让 spotlight 模式在此阶段不要求用户持续按 Alt。 */
+  isTargetSeekingPhase?: boolean;
   groupRef: React.RefObject<THREE.Group>;
   partId: string;
   ldrawId: string;
@@ -274,7 +289,7 @@ interface PortHitboxUserData {
 }
 
 function PortArrow({
-  port, sitePos, isSelected, isCompatiblePort, spotlightPortKey, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
+  port, sitePos, isSelected, isCompatiblePort, spotlightPortKey, isTargetSeekingPhase, groupRef, partId, ldrawId, showVisuals, isDensePart = false, onPortClick, onPortHover
 }: PortArrowProps) {
   const [hovered, setHovered] = useState(false);
   const { camera, gl } = useThree();
@@ -300,7 +315,7 @@ function PortArrow({
   const isSpotlightWinner = spotlightActive && spotlightPortKey === myPortKey;
   const prominent = portProminent({
     hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
-    spotlightActive, isSpotlightWinner,
+    spotlightActive, isSpotlightWinner, isTargetSeekingPhase,
   });
 
   const genderColor = isFemale(port) ? '#2196f3' : '#e040fb';
@@ -629,6 +644,10 @@ export function SiteGizmo({
   spotlightPortKey = null, onPortClick, onPortHover
 }: SiteGizmoProps) {
   const sitePos = site.position as Vec3;
+  // SOURCE_LOCKED 阶段：用户已点 source，正在找 target。
+  // 给 portProminent 传 isTargetSeekingPhase=true，让 spotlight 无须 Alt 即生效，
+  // 密集件也允许 spotlight winner 亮。
+  const isTargetSeekingPhase = phase === InteractionPhase.SOURCE_LOCKED;
 
   return (
     <group position={sitePos}>
@@ -670,6 +689,7 @@ export function SiteGizmo({
             isSelected={portIsSelected}
             isCompatiblePort={compatible}
             spotlightPortKey={spotlightPortKey}
+            isTargetSeekingPhase={isTargetSeekingPhase}
             groupRef={groupRef}
             partId={partId}
             ldrawId={ldrawId}

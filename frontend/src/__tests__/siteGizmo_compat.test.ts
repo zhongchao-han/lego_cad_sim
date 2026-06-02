@@ -201,4 +201,30 @@ describe('portProminent — spotlight 模式（减少密集 port 区视觉杂讯
       spotlightActive: true, isSpotlightWinner: true,
     })).toBe(false);
   });
+
+  it('isTargetSeekingPhase=true（SOURCE_LOCKED）+ spotlight winner → 即使没按 Alt 也亮', () => {
+    // 用户已点 source，正在找 target；不再要求持续按 Alt（已显式在找 target 模式）。
+    expect(portProminent({
+      ...base, shouldShowVisuals: true, portEngageMode: false /* no Alt */,
+      spotlightActive: true, isSpotlightWinner: true,
+      isTargetSeekingPhase: true,
+    })).toBe(true);
+  });
+
+  it('isTargetSeekingPhase=true + 密集件 + spotlight winner → 亮（spotlight 限 1 个不会铺满）', () => {
+    // 解决"在底板 390 孔密集件上 hover 时，cursor 边没有视觉指示"
+    expect(portProminent({
+      ...base, isDensePart: true, shouldShowVisuals: true, portEngageMode: false,
+      spotlightActive: true, isSpotlightWinner: true,
+      isTargetSeekingPhase: true,
+    })).toBe(true);
+  });
+
+  it('isTargetSeekingPhase=true + spotlight loser → 不亮（即使在 target 阶段也只让 winner 亮）', () => {
+    expect(portProminent({
+      ...base, shouldShowVisuals: true, portEngageMode: false,
+      spotlightActive: true, isSpotlightWinner: false,
+      isTargetSeekingPhase: true,
+    })).toBe(false);
+  });
 });
