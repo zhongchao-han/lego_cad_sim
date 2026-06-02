@@ -66,6 +66,11 @@ export const InteractivePart = memo(({
   // 原门控导致 Shift+点击/框选多选（level=INDIVIDUAL，多个件进 allConnectedIds）时
   // 只有 primaryId 高亮、其余件不显示选中（bug：状态栏「已选 N 件」但只亮 1 个）。
   const isSelected = selection.primaryId === partId || selection.allConnectedIds.includes(partId);
+  // 场上是否有"任一选中件"。决定 hover 是否触发 port 显示：
+  //   有选中 → hover 别的件不再冒 port（保护用户对选中件的焦点）
+  //   无选中 → hover 是探索性，照旧显
+  const isAnythingSelected = useStore(s => s.selection.primaryId !== null);
+  const isTargetSeekingPhase = useIsTargetSeekingPhase();
   const isGroupMember = selection.allConnectedIds.includes(partId);
   const isBlocked = (selection.primaryId === partId) && interference.isBlocked;
   // 漏连提醒：本件是否在「检测未连接」找出的件对里（琥珀描边）。返回布尔，仅在翻转时 re-render。
@@ -271,9 +276,10 @@ export const InteractivePart = memo(({
   // 才计算 + 写 state；其他时间 state 锁定 null（视觉退回老行为 / 不影响渲染）。
   const _spotlightV = useMemo(() => new THREE.Vector3(), []);
   useFrame((state) => {
-    // 触发条件跟 finalShowPorts + 兼容 port 列表强相关；简化：hovered 即跑（覆盖
-    // IDLE hover 探索 + SOURCE_LOCKED 选目标两个场景）。不 hover 直接清空 state。
-    const shouldCompute = (hovered || isPortHovered) && portsForSpotlight.length > 1;
+    // 触发条件：本件目前在 "显 port" 状态（hover 中 或 已选中 或 port hover）
+    // → 跑 spotlight，让"光标最近的 port"成为 winner、其他 dim。
+    // 不在显 port 状态就直接清 spotlight（视觉退回老行为）。
+    const shouldCompute = (hovered || isPortHovered || isSelected) && portsForSpotlight.length > 1;
     if (!shouldCompute) {
       if (spotlightPortKey !== null) setSpotlightPortKey(null);
       return;
@@ -305,21 +311,19 @@ export const InteractivePart = memo(({
     ? (opacity < 1 ? opacity : 0.5) 
     : opacity;
     
-  // 端口指示器（箭头）显示逻辑：
+  // 端口指示器（箭头）显示逻辑（用户反馈"选中件后 hover 别的件还冒 port，杂讯"）：
   // - Debug 模式：showPorts && isRenderingActive（一律显）
   // - 非 Debug：
   //   - selected / static：常态显（已有契约）
-  //   - isTargetSeeking && hovered：SOURCE_LOCKED 下 hover 此部件作为目标，必须显靶点
-  //   - **新增 hovered**（bug fix）：用户 hover 部件本体（IDLE 阶段也算），
-  //     立刻显本部件 port arrows + 让 B.1 plug-sibling halo 可见。原"只在
-  //     SOURCE_LOCKED 才显"逻辑导致 plug 发现性反馈链超长 — 必须先 click
-  //     一个 port 才能看到 halo，违背"先 hover 探索后 click 决策"直觉。
-  //     代价：场景里 hover 任一 part 都显该 part 的 18 个 arrows，可能有
-  //     视觉杂讯；但比 plug 看不见的成本低。Debug Show All Ports 一直
-  //     都能强制全显，是已有逃生口。
+  //   - hover 非选中件：
+  //     · SOURCE_LOCKED 阶段（用户在找 target）→ 显（靠 spotlight 限定 1 个）
+  //     · IDLE 阶段 + **场上无任何选中** → 显（探索性 hover，没有选中件需要保护）
+  //     · IDLE 阶段 + **已有选中件** → **不显**（用户已聚焦在选中件，hover 别人不要分心）
+  // 这套规则把"先 hover 探索"留给 IDLE+无选中，把"焦点专注"留给 IDLE+有选中。
+  const showOnHover = isTargetSeekingPhase || !isAnythingSelected;
   const finalShowPorts = debugShowPorts
     ? (showPorts && isRenderingActive)
-    : (showPorts && (isSelected || isStatic || hovered));
+    : (showPorts && (isSelected || isStatic || (hovered && showOnHover)));
 
   return (
     <group
