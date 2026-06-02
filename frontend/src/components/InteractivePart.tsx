@@ -66,11 +66,6 @@ export const InteractivePart = memo(({
   // 原门控导致 Shift+点击/框选多选（level=INDIVIDUAL，多个件进 allConnectedIds）时
   // 只有 primaryId 高亮、其余件不显示选中（bug：状态栏「已选 N 件」但只亮 1 个）。
   const isSelected = selection.primaryId === partId || selection.allConnectedIds.includes(partId);
-  // 场上是否有"任一选中件"。决定 hover 是否触发 port 显示：
-  //   有选中 → hover 别的件不再冒 port（保护用户对选中件的焦点）
-  //   无选中 → hover 是探索性，照旧显
-  const isAnythingSelected = useStore(s => s.selection.primaryId !== null);
-  const isTargetSeekingPhase = useIsTargetSeekingPhase();
   const isGroupMember = selection.allConnectedIds.includes(partId);
   const isBlocked = (selection.primaryId === partId) && interference.isBlocked;
   // 漏连提醒：本件是否在「检测未连接」找出的件对里（琥珀描边）。返回布尔，仅在翻转时 re-render。
@@ -311,19 +306,13 @@ export const InteractivePart = memo(({
     ? (opacity < 1 ? opacity : 0.5) 
     : opacity;
     
-  // 端口指示器（箭头）显示逻辑（用户反馈"选中件后 hover 别的件还冒 port，杂讯"）：
+  // 端口指示器（箭头）显示逻辑：
   // - Debug 模式：showPorts && isRenderingActive（一律显）
-  // - 非 Debug：
-  //   - selected / static：常态显（已有契约）
-  //   - hover 非选中件：
-  //     · SOURCE_LOCKED 阶段（用户在找 target）→ 显（靠 spotlight 限定 1 个）
-  //     · IDLE 阶段 + **场上无任何选中** → 显（探索性 hover，没有选中件需要保护）
-  //     · IDLE 阶段 + **已有选中件** → **不显**（用户已聚焦在选中件，hover 别人不要分心）
-  // 这套规则把"先 hover 探索"留给 IDLE+无选中，把"焦点专注"留给 IDLE+有选中。
-  const showOnHover = isTargetSeekingPhase || !isAnythingSelected;
+  // - 非 Debug：selected / static / hovered 任一为真即显（原契约，已废"选中件焦点过滤"）
+  // 用户反馈：hover 到 port 必须 100% 显示该 port —— 别引入额外门控让 hover 失效。
   const finalShowPorts = debugShowPorts
     ? (showPorts && isRenderingActive)
-    : (showPorts && (isSelected || isStatic || (hovered && showOnHover)));
+    : (showPorts && (isSelected || isStatic || hovered));
 
   return (
     <group

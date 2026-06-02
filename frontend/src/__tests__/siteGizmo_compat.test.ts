@@ -110,12 +110,9 @@ describe('portProminent — 高亮判定（Option+hover 显示非密集件全部
     isDensePart: false, shouldShowVisuals: false, isCompatiblePort: true,
   };
 
-  it('精确 hover 到端口 + Option → 高亮', () => {
+  it('精确 hover 到端口 → 高亮（无论是否按 Option，UX 反馈：hover 必须 100% 显）', () => {
     expect(portProminent({ ...base, hovered: true, portEngageMode: true })).toBe(true);
-  });
-
-  it('hover 到端口但没按 Option → 不高亮（裸 hover 不显示，裸点选本体）', () => {
-    expect(portProminent({ ...base, hovered: true, portEngageMode: false })).toBe(false);
+    expect(portProminent({ ...base, hovered: true, portEngageMode: false })).toBe(true);
   });
 
   it('已选源端口 / Debug 全显 → 恒高亮', () => {

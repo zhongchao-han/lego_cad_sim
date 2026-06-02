@@ -147,8 +147,10 @@ export function portProminent(args: {
 }): boolean {
   const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
     spotlightActive = false, isSpotlightWinner = false, isTargetSeekingPhase = false } = args;
-  // hovered（鼠标直接命中本 port）+ isSelected（source 锁定）+ debug 全显：恒亮，spotlight 不降级
-  const alwaysProminent = (hovered && portEngageMode) || isSelected || debugShowPorts;
+  // hovered（鼠标直接命中本 port hitbox）= **绝对优先**：不要求 Alt、不被 spotlight 降级。
+  // 用户反馈："鼠标 hover 到孔时必须 100% 显示该孔"——R3F 已经检测到 cursor 在 port
+  // 球壳上，这是用户最强的"我要这个 port"信号，任何门控都不应该让它静默。
+  const alwaysProminent = hovered || isSelected || debugShowPorts;
   if (alwaysProminent) return true;
 
   // SOURCE_LOCKED 阶段（找 target 中）：spotlight 模式下 winner 自动亮，
