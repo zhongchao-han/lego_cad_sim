@@ -268,44 +268,44 @@ const FreePlacerGhost = () => {
         // ghost 朝向 = 零件原始姿态（quaternion 由渲染 prop 给，identity 平躺），
         // 不再随相机重旋 —— 落地永远轴对齐，避免歪斜（见上方朝向说明）。
 
-        if (isGroundPlane) {
-            // 仅与 y=0 平面求交，忽略环境软箱、阴影面与现有零件
-            raycaster.setFromCamera(pointerNdcRef.current, camera);
-            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
-                groupRef.current.position.copy(_intersectScratch);
-            } else {
-                raycaster.ray.at(0.2, groupRef.current.position);
-            }
-            return;
-        }
-
-        // SCENE_RAYCAST：用自维护的 NDC（而非 R3F mouse），保证键盘触发的粘贴也跟手。
+        // ── Step 1: 算 raw 位置（两条投影路径分别求）─────────────────────────────
+        //   GROUND_PLANE: 只与 y=0 求交（"Drop to Ground" 走这条）
+        //   SCENE_RAYCAST: 射线 hit 场内任何 mesh（粘贴 / 抽屉某些路径走这条）
+        // 不直接写 groupRef，留给 step 3 叠 snap delta（避免"上帧 delta 当下帧
+        // raw 输入"导致漂移）。
         raycaster.setFromCamera(pointerNdcRef.current, camera);
-
-        // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
-        const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
-            let p = h.object;
-            while(p) {
-                if (p === groupRef.current) return false;
-                p = p.parent;
+        let rawX = 0, rawY = 0, rawZ = 0;
+        if (isGroundPlane) {
+            if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
+                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
+            } else {
+                raycaster.ray.at(0.2, _intersectScratch);
+                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
             }
-            return true;
-        });
-
-        // 1. 先算 raw（raycast 命中点 / 地面 / 兜底）。**不直接写 groupRef** —— 后面要叠
-        //    snap delta，避免"上一帧的 delta 被当成下一帧的 raw 输入"导致漂移。
-        let rawX, rawY, rawZ;
-        if (hits.length > 0) {
-            rawX = hits[0].point.x; rawY = hits[0].point.y; rawZ = hits[0].point.z;
-        } else if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
-            rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
         } else {
-            raycaster.ray.at(0.2, _intersectScratch);
-            rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
+            // 射线撞击检测，忽略自身 (Ghost) 以免被遮挡
+            const hits = raycaster.intersectObjects(scene.children, true).filter(h => {
+                let p = h.object;
+                while(p) {
+                    if (p === groupRef.current) return false;
+                    p = p.parent;
+                }
+                return true;
+            });
+            if (hits.length > 0) {
+                rawX = hits[0].point.x; rawY = hits[0].point.y; rawZ = hits[0].point.z;
+            } else if (raycaster.ray.intersectPlane(_groundPlane, _intersectScratch)) {
+                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
+            } else {
+                raycaster.ray.at(0.2, _intersectScratch);
+                rawX = _intersectScratch.x; rawY = _intersectScratch.y; rawZ = _intersectScratch.z;
+            }
         }
 
-        // 2. Ghost-on-drag snap：每 4 帧从 **raw 位置** 算一次 delta（O(N×M) 不轻）。
-        //    复用上次 delta 维持视觉稳定，cursor 跟手用 raw 即可。
+        // ── Step 2: Ghost-on-drag snap（每 4 帧从 raw 位置算一次 delta）──────────
+        //    computeSnapDelta 是 O(N×M) candidates × O(N×M) score，60Hz 跑容易卡。
+        //    4 帧（~67ms）一次视觉吸附无感、raw 位置每帧更新保持 cursor 跟手。
+        //    复用上次 delta 维持视觉稳定。
         snapTickRef.current = (snapTickRef.current + 1) % 4;
         if (snapTickRef.current === 0) {
             const portGeom = portsCacheRef.current;
@@ -333,7 +333,7 @@ const FreePlacerGhost = () => {
             }
         }
 
-        // 3. groupRef = raw + lastSnapDelta（ghost 显示吸附后位置）
+        // ── Step 3: groupRef = raw + lastSnapDelta（ghost 显示吸附后位置）──────
         const d = lastSnapDeltaRef.current;
         groupRef.current.position.set(rawX + d[0], rawY + d[1], rawZ + d[2]);
     });
