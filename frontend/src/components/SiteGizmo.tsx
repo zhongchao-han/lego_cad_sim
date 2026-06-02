@@ -147,10 +147,10 @@ export function portProminent(args: {
 }): boolean {
   const { hovered, portEngageMode, isSelected, debugShowPorts, isDensePart, shouldShowVisuals, isCompatiblePort,
     spotlightActive = false, isSpotlightWinner = false, isTargetSeekingPhase = false } = args;
-  // hovered（鼠标直接命中本 port hitbox）= **绝对优先**：不要求 Alt、不被 spotlight 降级。
-  // 用户反馈："鼠标 hover 到孔时必须 100% 显示该孔"——R3F 已经检测到 cursor 在 port
-  // 球壳上，这是用户最强的"我要这个 port"信号，任何门控都不应该让它静默。
-  const alwaysProminent = hovered || isSelected || debugShowPorts;
+  // hovered + portEngageMode（Alt 持续按）= 恒亮；isSelected / debug 全显 = 恒亮。
+  // hover 准确率改由 handlePointerOver 内的"屏幕空间最近选优"保证 —— R3F 默认按
+  // camera 距离派 hover 事件，密集 port 区会派给"近 camera 但用户视觉不在那"的孔。
+  const alwaysProminent = (hovered && portEngageMode) || isSelected || debugShowPorts;
   if (alwaysProminent) return true;
 
   // SOURCE_LOCKED 阶段（找 target 中）：spotlight 模式下 winner 自动亮，
@@ -399,12 +399,48 @@ function PortArrow({
   const handlePointerOver = useCallback((e: any) => {
     // 绝对不能调用 e.stopPropagation()！
     if (!isCompatiblePort) return;
+    // ── 屏幕空间最近 hover 选优 ───────────────────────────────────────────────
+    // 跟 onClick 同一套：R3F 默认按 camera 距离派 pointerOver，密集 port 区
+    // （相邻热区相切）经常派给"camera 近但用户视觉不对准"的孔 → ghost / 高亮
+    // 出错件，用户体感是"hover 到孔但孔不显示，反而显示乱七八糟的端口"。
+    // 这里收集所有 port 热区命中、按"port 中心投到屏幕 px 跟 cursor px 距离"
+    // 排序，只有自己是 winner 才认作 hover；不是 winner 时直接 return，让其他
+    // PortArrow 的 pointerOver 各自决定（多个 PortArrow 中只有 winner 那个会 setHovered）。
+    const portHits = (e.intersections as Array<{ object: THREE.Object3D }> | undefined)
+      ?.filter(i => (i.object.userData as Partial<PortHitboxUserData>)?.__portHitbox);
+    if (portHits && portHits.length > 1) {
+      const native = e.nativeEvent as PointerEvent;
+      const rect = gl.domElement.getBoundingClientRect();
+      const cursorX = native.clientX - rect.left;
+      const cursorY = native.clientY - rect.top;
+      const halfW = rect.width / 2;
+      const halfH = rect.height / 2;
+      const seen = new Set<PortHitboxUserData>();
+      const _v = new THREE.Vector3();
+      let winner: PortHitboxUserData | null = null;
+      let winnerDsq = Infinity;
+      for (const hit of portHits) {
+        const ud = hit.object.userData as PortHitboxUserData;
+        if (seen.has(ud)) continue;
+        seen.add(ud);
+        const g = ud.portGroupRef.current;
+        if (!g) continue;
+        g.getWorldPosition(_v);
+        _v.project(camera);
+        const px = (_v.x + 1) * halfW;
+        const py = (-_v.y + 1) * halfH;
+        const dsq = (px - cursorX) ** 2 + (py - cursorY) ** 2;
+        if (dsq < winnerDsq) { winnerDsq = dsq; winner = ud; }
+      }
+      // 不是 winner → 让出 hover，等其他 PortArrow 的 pointerOver 各自判
+      if (winner !== hitboxUserDataRef.current) return;
+    }
     // 移除 if (showVisuals) 检查：
     // 当鼠标第一时间划入时，可能父组件还未来得及响应并下发 showVisuals=true。
     // 如果这里被阻挡，会导致局部 hover 状态丢失，出现"高亮一下就消失"或根本不高亮的 Bug。
     setHovered(true);
     onPortHover?.(buildPortInfo());
-  }, [isCompatiblePort, onPortHover, buildPortInfo]);
+  }, [isCompatiblePort, onPortHover, buildPortInfo, camera, gl]);
 
   const handlePointerOut = useCallback((e: any) => {
     // 不在这里防抖：每个 PortArrow 各自延时会让"用户从端口 A 移到端口 B"出问题——
