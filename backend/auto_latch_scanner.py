@@ -163,6 +163,92 @@ class AutoLatchScanner:
         logger.debug(f"[DEBUG] scan() 完成: 发现 {len(new_edges)} 条新边。")
         return new_edges
 
+    # ── 群组扫描（v4.1, PR #182 扩 scope）─────────────────────────────────────
+
+    def scan_group_against_scene(
+        self,
+        group_members: List[Dict[str, Any]],
+        static_parts: List[Dict[str, Any]],
+        sites_loader,
+        exclude_main_pair: Optional[tuple] = None,
+    ) -> List[ConnectionEdge]:
+        """
+        扫「group_members 群组 × static_parts 静止件」的双笛卡尔积，
+        对每对 (g, s) 调用 scan() 找新的 port 对扣边。
+
+        典型用法：snap 把 source 群组刚体平移到 target 之后，组里其他件可能
+        正好也落进其他静止件的孔 1mm 内 —— 老版 scan 只看 parent ↔ child，
+        漏掉这些 → 前端补全 [FrontendLatch]。这里后端原生覆盖、前端可移除补全。
+
+        Args:
+            group_members: 群组内每件的快照 dict，含 'part_id' / 'world_transform'(4x4 ndarray)
+            static_parts:  场景静止件快照，结构同上
+            sites_loader:  callable(part_id, ldraw_id) -> List[Dict] (site 列表)
+                           外部传入避免本模块依赖 port_lib_manager（保持纯函数易测）
+            exclude_main_pair: 主 snap edge 的 (parent_id, child_id, port_p_name, port_c_name)，
+                               对这一对 (parent, child) 跳过它们之间已注册的那一条 port pair
+
+        Returns:
+            所有新发现的 ConnectionEdge 去重列表
+        """
+        if not group_members or not static_parts:
+            return []
+
+        new_edges: List[ConnectionEdge] = []
+        seen_pair_keys: set = set()  # 去重：同一 (part_a, port_a) ↔ (part_b, port_b) 多路命中
+
+        for g in group_members:
+            g_id = g.get("part_id")
+            g_ldraw = g.get("ldraw_id")
+            g_T = g.get("world_transform")
+            # 类型守卫：必须有 part_id 且 sites/transform 完整才扫。
+            # 同时窄化 mypy 类型 —— scan() 下游签名要 str，不能 Any | None。
+            if not isinstance(g_id, str) or not isinstance(g_ldraw, str):
+                continue
+            g_sites = sites_loader(g_id, g_ldraw)
+            if not g_sites or g_T is None:
+                continue
+            for s in static_parts:
+                s_id = s.get("part_id")
+                if not isinstance(s_id, str) or s_id == g_id:
+                    continue
+                s_ldraw = s.get("ldraw_id")
+                if not isinstance(s_ldraw, str):
+                    continue
+                s_T = s.get("world_transform")
+                s_sites = sites_loader(s_id, s_ldraw)
+                if not s_sites or s_T is None:
+                    continue
+
+                # 主 snap 已注册的那一对 port 不重复登记
+                exclude_pair = None
+                if exclude_main_pair:
+                    parent_id, child_id, port_p_name, port_c_name = exclude_main_pair
+                    if {g_id, s_id} == {parent_id, child_id}:
+                        exclude_pair = (port_p_name, port_c_name)
+
+                edges = self.scan(
+                    parent_id=g_id, child_id=s_id,
+                    parent_sites=g_sites, child_sites=s_sites,
+                    parent_world_transform=g_T, child_world_transform=s_T,
+                    exclude_port_pair=exclude_pair,
+                )
+                for e in edges:
+                    # 去重 key 用排序后的 (part, port) 二元组对，跨方向同对扣只收一次
+                    a = (e.parent_id, getattr(e.port_parent, "name", "") or "")
+                    b = (e.child_id, getattr(e.port_child, "name", "") or "")
+                    pair_key = tuple(sorted([a, b]))
+                    if pair_key in seen_pair_keys:
+                        continue
+                    seen_pair_keys.add(pair_key)
+                    new_edges.append(e)
+
+        logger.debug(
+            f"[DEBUG] scan_group_against_scene() 完成: "
+            f"group={len(group_members)} × static={len(static_parts)} -> {len(new_edges)} 条新边"
+        )
+        return new_edges
+
     # ── 私有方法 ─────────────────────────────────────────────────────────────
 
     def _project_sites(
