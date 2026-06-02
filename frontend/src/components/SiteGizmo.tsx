@@ -446,10 +446,16 @@ function PortArrow({
     // 不在这里防抖：每个 PortArrow 各自延时会让"用户从端口 A 移到端口 B"出问题——
     // A 的 out 定时器到期后会盖掉 B 已经写入的 hoveredPort，造成 ghost 在 A→B 切换时
     // 闪没。统一在 store.setHoveredPort 里做单源防抖，全局只有一个待决 null。
+    //
+    // ⚠ 关键守卫：屏幕选优让"loser" PortArrow 的 pointerOver 直接 return（自己没
+    // setHovered(true)），但 R3F 的 pointerOut 仍会派给它。如果不加守卫直接 fire
+    // onPortHover(null)，loser 的 pointerOut 会把 winner 已写入的 hoveredPort 清掉
+    // → ghost 闪烁、target port 高亮消失。所以只在自己真的 hovered=true 时才 fire null。
+    if (!hovered) return;
     setHovered(false);
     document.body.style.cursor = 'auto';
     onPortHover?.(null);
-  }, [onPortHover]);
+  }, [hovered, onPortHover]);
 
   // userData 挂在 sphere/cylinder hitbox 上，描述"这条 intersection 属于哪个 port"。
   // 用 ref + 每帧 useEffect 同步而非每帧重建对象，保持 THREE.js mesh.userData 引用稳定。
