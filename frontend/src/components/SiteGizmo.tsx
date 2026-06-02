@@ -249,8 +249,10 @@ interface PortHitboxUserData {
   isCompatiblePort: boolean;
   /** 调用即代表 "由我这个 port 来回应这次 click"。 */
   fire: (intent: { plugLevel: boolean }) => void;
-  /** PortArrow 的 group ref —— 它的 worldPosition 就是 port 中心。 */
-  portGroupRef: React.RefObject<THREE.Group>;
+  /** PortArrow 的 group ref —— 它的 worldPosition 就是 port 中心。
+   *  类型 `RefObject<Group | null>` 与 `useRef<Group>(null)` 默认推导对齐；
+   *  消费侧用 `current` 时已经判 null。 */
+  portGroupRef: React.RefObject<THREE.Group | null>;
 }
 
 function PortArrow({
